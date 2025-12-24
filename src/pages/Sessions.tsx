@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Plus, Check, X } from 'lucide-react';
+import { Calendar, Clock, Plus, Check, X, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { VoiceSessionModal } from '@/components/voice/VoiceSessionModal';
 
 const sessionTypeColors = {
   weekly: 'bg-primary-light text-primary',
@@ -17,6 +18,7 @@ const sessionTypeColors = {
 
 const Sessions: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const { upcomingSessions, completedSessions, createSession, updateSession, isLoading } = useSessions();
   const navigate = useNavigate();
 
@@ -75,15 +77,30 @@ const Sessions: React.FC = () => {
 
   return (
     <MobileLayout>
+      <VoiceSessionModal 
+        open={voiceModalOpen} 
+        onOpenChange={setVoiceModalOpen} 
+      />
+      
       <header className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">Le tue sessioni</h1>
             <p className="text-muted-foreground text-sm mt-1">Gestisci i tuoi appuntamenti</p>
           </div>
-          <Button variant="hero" size="icon" onClick={handleStartSession}>
-            <Plus className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => setVoiceModalOpen(true)}
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
+            <Button variant="hero" size="icon" onClick={handleStartSession}>
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
