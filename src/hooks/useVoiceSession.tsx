@@ -59,7 +59,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     return true;
   }, [log, updateStatus]);
 
-  // Find best Italian voice with robust fallback
+  // AGNOSTIC VOICE SELECTION - Simple and safe
   const getItalianVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
     log(`Voci disponibili: ${voices.length}`);
@@ -68,92 +68,103 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       log(`Lista voci: ${voices.slice(0, 5).map(v => `${v.name} (${v.lang})`).join(', ')}...`);
     }
     
-    // 1. Prima cerca "Google Italiano"
-    const googleVoice = voices.find(v => 
-      v.lang.startsWith('it') && v.name.toLowerCase().includes('google')
-    );
-    if (googleVoice) {
-      log(`✅ Voce selezionata: ${googleVoice.name} (Google)`);
-      return googleVoice;
+    // Simple agnostic selection: it-IT > it > first available
+    const voice = voices.find(v => v.lang.includes('it-IT')) || 
+                  voices.find(v => v.lang.includes('it')) || 
+                  voices[0] || null;
+    
+    if (voice) {
+      log(`✅ Voce AGNOSTICA selezionata: ${voice.name} (${voice.lang})`);
+    } else {
+      log('❌ Nessuna voce disponibile!', true);
     }
     
-    // 2. Poi cerca "Alice" (iOS)
-    const aliceVoice = voices.find(v => 
-      v.lang.startsWith('it') && v.name.toLowerCase().includes('alice')
-    );
-    if (aliceVoice) {
-      log(`✅ Voce selezionata: ${aliceVoice.name} (Alice)`);
-      return aliceVoice;
-    }
-    
-    // 3. Qualsiasi voce italiana
-    const anyItalianVoice = voices.find(v => v.lang.includes('it'));
-    if (anyItalianVoice) {
-      log(`✅ Voce selezionata: ${anyItalianVoice.name} (italiana generica)`);
-      return anyItalianVoice;
-    }
-    
-    // 4. Fallback: prima voce disponibile
-    if (voices.length > 0) {
-      log(`⚠️ Nessuna voce italiana, uso: ${voices[0].name}`);
-      return voices[0];
-    }
-    
-    log('❌ Nessuna voce disponibile!', true);
-    return null;
+    return voice;
   }, [log]);
 
-  // Speak AI response with memory leak fix
+  // Watchdog timer ref
+  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Speak AI response with AGGRESSIVE RESET and WATCHDOG
   const speakResponse = useCallback((text: string) => {
     return new Promise<void>((resolve, reject) => {
       log('🔊 Avvio sintesi vocale...');
       log(`📝 Testo da leggere: "${text.substring(0, 50)}..."`);
       
-      speechSynthesis.cancel();
+      // 1. AGGRESSIVE RESET - Kill any stuck process
+      log('🔇 RESET AGGRESSIVO speechSynthesis...');
+      window.speechSynthesis.cancel();
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'it-IT';
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      
-      const voice = getItalianVoice();
-      if (voice) {
-        utterance.voice = voice;
-        log(`🔊 Usando voce: ${voice.name}`);
-      } else {
-        log('⚠️ Nessuna voce impostata, uso default browser');
-      }
-      
-      // MEMORY LEAK FIX: Save to window to prevent garbage collection
-      (window as any).currentUtterance = utterance;
-      
-      utterance.onstart = () => {
-        log('🔊 Sintesi vocale INIZIATA - Audio in riproduzione');
-      };
-      
-      utterance.onend = () => {
-        log('🔊 Sintesi vocale TERMINATA');
-        (window as any).currentUtterance = null;
-        resolve();
-      };
-      
-      utterance.onerror = (e) => {
-        log(`❌ Errore sintesi vocale: ${e.error}`, true);
-        (window as any).currentUtterance = null;
-        reject(e);
-      };
-      
-      log('🔊 Chiamata speechSynthesis.speak()...');
-      speechSynthesis.speak(utterance);
-      
-      // Chrome bug workaround: resume after speak
+      // 2. Small delay before speaking
       setTimeout(() => {
-        if (speechSynthesis.paused) {
-          log('⚠️ Sintesi in pausa, forzo resume...');
-          speechSynthesis.resume();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'it-IT';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        const voice = getItalianVoice();
+        if (voice) {
+          utterance.voice = voice;
+          log(`🔊 Usando voce: ${voice.name}`);
+        } else {
+          log('⚠️ Nessuna voce impostata, uso default browser');
         }
-      }, 100);
+        
+        // MEMORY LEAK FIX: Save to window to prevent garbage collection
+        (window as any).currentUtterance = utterance;
+        
+        // Clear any previous watchdog
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+        
+        utterance.onstart = () => {
+          log('🔊 Sintesi vocale INIZIATA - Audio in riproduzione');
+          
+          // 3. WATCHDOG TIMER - Anti-freeze dopo 10 secondi
+          watchdogRef.current = setTimeout(() => {
+            log('⏰ WATCHDOG: 10s scaduti, forzo interruzione!', true);
+            window.speechSynthesis.cancel();
+            (window as any).currentUtterance = null;
+            resolve(); // Resolve anyway to continue the flow
+          }, 10000);
+        };
+        
+        utterance.onend = () => {
+          log('🔊 Sintesi vocale TERMINATA normalmente');
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
+          (window as any).currentUtterance = null;
+          resolve();
+        };
+        
+        utterance.onerror = (e) => {
+          log(`❌ Errore sintesi vocale: ${e.error}`, true);
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
+          (window as any).currentUtterance = null;
+          // Don't reject, resolve to continue flow
+          resolve();
+        };
+        
+        log('🔊 Chiamata speechSynthesis.speak()...');
+        speechSynthesis.speak(utterance);
+        
+        // Chrome bug workaround: resume after speak
+        setTimeout(() => {
+          if (speechSynthesis.paused) {
+            log('⚠️ Sintesi in pausa, forzo resume...');
+            speechSynthesis.resume();
+          }
+        }, 100);
+        
+      }, 50); // 50ms delay before speaking
     });
   }, [getItalianVoice, log]);
 
