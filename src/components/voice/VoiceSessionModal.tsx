@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,12 @@ import { Mic, MicOff, X, Phone } from 'lucide-react';
 import { useVoiceSession } from '@/hooks/useVoiceSession';
 import { useSessions } from '@/hooks/useSessions';
 import { cn } from '@/lib/utils';
+
+interface LogEntry {
+  message: string;
+  isError: boolean;
+  timestamp: Date;
+}
 
 interface VoiceSessionModalProps {
   open: boolean;
@@ -21,14 +27,30 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [duration, setDuration] = useState(0);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const logBoxRef = useRef<HTMLDivElement>(null);
   
   const { startSession, endSession } = useSessions();
+  
+  const addLog = (message: string, isError = false) => {
+    setLogs(prev => [...prev, { message, isError, timestamp: new Date() }]);
+  };
   
   const voiceSession = useVoiceSession({
     onTranscript: (text, isUser) => {
       console.log(`${isUser ? 'User' : 'AI'}: ${text}`);
+    },
+    onLog: (message, isError) => {
+      addLog(message, isError || false);
     }
   });
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logBoxRef.current) {
+      logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   // Duration timer
   useEffect(() => {
@@ -43,22 +65,35 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
     return () => clearInterval(interval);
   }, [startTime, voiceSession.status]);
 
+  // Clear logs when modal closes
+  useEffect(() => {
+    if (!open) {
+      setLogs([]);
+    }
+  }, [open]);
+
   const handleStart = async () => {
+    setLogs([]);
+    addLog('=== CLICK PULSANTE VERDE ===');
+    
     try {
+      addLog('Creazione sessione DB...');
       const result = await startSession.mutateAsync('voice');
       if (result?.id) {
         setSessionId(result.id);
+        addLog(`Sessione DB creata: ${result.id.substring(0, 8)}...`);
       }
       
       setStartTime(new Date());
       setDuration(0);
       await voiceSession.start();
     } catch (error) {
-      console.error('Failed to start session:', error);
+      addLog(`Errore start: ${error}`, true);
     }
   };
 
   const handleEnd = async () => {
+    addLog('=== CHIUSURA SESSIONE ===');
     voiceSession.stop();
     
     if (sessionId) {
@@ -67,8 +102,9 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           sessionId,
           transcript: voiceSession.transcript.join('\n'),
         });
+        addLog('Sessione salvata');
       } catch (error) {
-        console.error('Failed to save session:', error);
+        addLog(`Errore salvataggio: ${error}`, true);
       }
     }
     
@@ -130,21 +166,26 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
         onOpenChange(newOpen);
       }
     }}>
-      <DialogContent className="sm:max-w-md bg-gradient-to-b from-background to-muted/30 border-none">
-        <div className="flex flex-col items-center py-8 px-4 space-y-6">
+      <DialogContent className="sm:max-w-md bg-gradient-to-b from-background to-muted/30 border-none max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex flex-col items-center py-4 px-4 space-y-4 flex-1 min-h-0">
           {/* Header */}
           <div className="text-center space-y-1">
-            <h2 className="font-display text-2xl font-bold text-foreground">
+            <h2 className="font-display text-xl font-bold text-foreground">
               Sessione Vocale
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Parla naturalmente, come in una telefonata
-            </p>
           </div>
+
+          {/* Browser not supported - BIG RED MESSAGE */}
+          {!voiceSession.isSupported && (
+            <div className="w-full bg-destructive text-destructive-foreground p-4 rounded-xl text-center">
+              <p className="text-lg font-bold">⚠️ BROWSER NON SUPPORTATO</p>
+              <p className="text-sm mt-1">Usa Chrome o Safari su mobile</p>
+            </div>
+          )}
 
           {/* Duration */}
           {startTime && (
-            <div className="text-4xl font-mono font-bold text-foreground">
+            <div className="text-3xl font-mono font-bold text-foreground">
               {formatDuration(duration)}
             </div>
           )}
@@ -152,25 +193,25 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           {/* Status Circle */}
           <div className="relative">
             <div className={cn(
-              "w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500",
+              "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500",
               statusConfig.color,
               isSessionActive && "ring-8 animate-pulse",
               statusConfig.ringColor
             )}>
               {voiceSession.status === 'listening' && (
-                <Mic className="w-12 h-12 text-white" />
+                <Mic className="w-10 h-10 text-white" />
               )}
               {voiceSession.status === 'thinking' && (
-                <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
               )}
               {voiceSession.status === 'speaking' && (
                 <div className="flex gap-1">
                   {[...Array(4)].map((_, i) => (
                     <div 
                       key={i}
-                      className="w-2 bg-white rounded-full animate-bounce"
+                      className="w-1.5 bg-white rounded-full animate-bounce"
                       style={{ 
-                        height: `${20 + Math.random() * 20}px`,
+                        height: `${16 + Math.random() * 16}px`,
                         animationDelay: `${i * 0.1}s`
                       }}
                     />
@@ -178,7 +219,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
                 </div>
               )}
               {!isSessionActive && (
-                <Phone className="w-12 h-12 text-muted-foreground" />
+                <Phone className="w-10 h-10 text-muted-foreground" />
               )}
             </div>
           </div>
@@ -186,7 +227,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           {/* Status Label */}
           {isSessionActive && statusConfig.label && (
             <div className={cn(
-              "text-sm font-medium px-4 py-2 rounded-full",
+              "text-sm font-medium px-3 py-1.5 rounded-full",
               statusConfig.labelClass
             )}>
               {statusConfig.label}
@@ -195,54 +236,29 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
 
           {/* Live Transcript */}
           {voiceSession.liveTranscript && (
-            <div className="w-full bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
-              <p className="text-foreground italic">"{voiceSession.liveTranscript}"</p>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {voiceSession.errorMessage && (
-            <div className="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded-lg">
-              ⚠️ {voiceSession.errorMessage}
-            </div>
-          )}
-
-          {/* Transcript History */}
-          {voiceSession.transcript.length > 0 && (
-            <div className="w-full max-h-40 overflow-y-auto bg-muted/50 rounded-xl p-4 space-y-2">
-              {voiceSession.transcript.slice(-4).map((line, i) => (
-                <p 
-                  key={i} 
-                  className={cn(
-                    "text-sm",
-                    line.startsWith('Tu:') ? "text-primary font-medium" : "text-foreground"
-                  )}
-                >
-                  {line}
-                </p>
-              ))}
+            <div className="w-full bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
+              <p className="text-foreground italic text-sm">"{voiceSession.liveTranscript}"</p>
             </div>
           )}
 
           {/* Controls */}
-          <div className="flex items-center gap-4 pt-4">
+          <div className="flex items-center gap-4">
             {!isSessionActive ? (
               <Button
                 size="lg"
-                className="h-16 px-8 rounded-full bg-green-500 hover:bg-green-600 text-white"
+                className="h-14 px-6 rounded-full bg-green-500 hover:bg-green-600 text-white"
                 onClick={handleStart}
-                disabled={startSession.isPending}
+                disabled={startSession.isPending || !voiceSession.isSupported}
               >
                 <Phone className="w-5 h-5 mr-2" />
                 Inizia conversazione
               </Button>
             ) : (
               <>
-                {/* Mute button */}
                 <Button
                   size="lg"
                   variant={voiceSession.isMuted ? "destructive" : "outline"}
-                  className="h-14 w-14 rounded-full"
+                  className="h-12 w-12 rounded-full"
                   onClick={voiceSession.toggleMute}
                 >
                   {voiceSession.isMuted ? (
@@ -252,17 +268,41 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
                   )}
                 </Button>
 
-                {/* End call button */}
                 <Button
                   size="lg"
                   variant="destructive"
-                  className="h-16 w-16 rounded-full"
+                  className="h-14 w-14 rounded-full"
                   onClick={handleEnd}
                 >
                   <X className="w-6 h-6" />
                 </Button>
               </>
             )}
+          </div>
+
+          {/* DEBUG LOG BOX */}
+          <div className="w-full flex-1 min-h-0">
+            <p className="text-xs text-muted-foreground mb-1 font-mono">📋 Debug Log:</p>
+            <div 
+              ref={logBoxRef}
+              className="w-full h-32 bg-muted/80 rounded-lg p-2 overflow-y-auto font-mono text-xs space-y-0.5"
+            >
+              {logs.length === 0 ? (
+                <p className="text-muted-foreground">Premi il pulsante verde per iniziare...</p>
+              ) : (
+                logs.map((log, i) => (
+                  <p 
+                    key={i} 
+                    className={cn(
+                      "break-words",
+                      log.isError ? "text-destructive font-bold" : "text-foreground"
+                    )}
+                  >
+                    {log.message}
+                  </p>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

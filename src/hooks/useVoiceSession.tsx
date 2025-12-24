@@ -7,6 +7,7 @@ interface UseVoiceSessionOptions {
   onTranscript?: (text: string, isUser: boolean) => void;
   onStatusChange?: (status: VoiceSessionStatus) => void;
   onError?: (error: string) => void;
+  onLog?: (message: string, isError?: boolean) => void;
 }
 
 export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
@@ -15,41 +16,74 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   const [transcript, setTranscript] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [isSupported, setIsSupported] = useState(true);
   
   const recognitionRef = useRef<any>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastResultRef = useRef<string>('');
   const isStoppedRef = useRef(false);
   
+  const log = useCallback((message: string, isError = false) => {
+    const timestamp = new Date().toLocaleTimeString('it-IT');
+    console.log(`[${timestamp}] ${message}`);
+    options.onLog?.(`[${timestamp}] ${message}`, isError);
+  }, [options]);
+
   const updateStatus = useCallback((newStatus: VoiceSessionStatus) => {
-    console.log('Status:', newStatus);
+    log(`Status -> ${newStatus}`);
     setStatus(newStatus);
     options.onStatusChange?.(newStatus);
-  }, [options]);
+  }, [log, options]);
+
+  // Check browser support
+  const checkSupport = useCallback((): boolean => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      log('❌ ERRORE: Browser non supporta SpeechRecognition!', true);
+      setIsSupported(false);
+      setErrorMessage('Browser non supportato. Usa Chrome o Safari.');
+      updateStatus('error');
+      return false;
+    }
+    
+    if (!window.speechSynthesis) {
+      log('❌ ERRORE: Browser non supporta speechSynthesis!', true);
+      setIsSupported(false);
+      setErrorMessage('Browser non supportato. Usa Chrome o Safari.');
+      updateStatus('error');
+      return false;
+    }
+    
+    log('✅ Browser supportato');
+    return true;
+  }, [log, updateStatus]);
 
   // Find best Italian voice
   const getItalianVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
+    log(`Voci disponibili: ${voices.length}`);
     
-    // Priority: Google voices > Premium > Any Italian
     const googleVoice = voices.find(v => v.lang.startsWith('it') && v.name.toLowerCase().includes('google'));
-    if (googleVoice) return googleVoice;
-    
-    const premiumVoice = voices.find(v => v.lang.startsWith('it') && (
-      v.name.toLowerCase().includes('premium') || 
-      v.name.toLowerCase().includes('enhanced') ||
-      v.name.toLowerCase().includes('natural')
-    ));
-    if (premiumVoice) return premiumVoice;
+    if (googleVoice) {
+      log(`Voce selezionata: ${googleVoice.name}`);
+      return googleVoice;
+    }
     
     const italianVoice = voices.find(v => v.lang.startsWith('it'));
-    return italianVoice || null;
-  }, []);
+    if (italianVoice) {
+      log(`Voce selezionata: ${italianVoice.name}`);
+      return italianVoice;
+    }
+    
+    log('⚠️ Nessuna voce italiana trovata, uso default');
+    return null;
+  }, [log]);
 
   // Speak AI response
   const speakResponse = useCallback((text: string) => {
     return new Promise<void>((resolve, reject) => {
-      // Cancel any pending speech
+      log('🔊 Avvio sintesi vocale...');
       speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
@@ -60,25 +94,29 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       const voice = getItalianVoice();
       if (voice) {
         utterance.voice = voice;
-        console.log('Using voice:', voice.name);
       }
       
+      utterance.onstart = () => {
+        log('🔊 Sintesi vocale iniziata');
+      };
+      
       utterance.onend = () => {
-        console.log('TTS finished');
+        log('🔊 Sintesi vocale terminata');
         resolve();
       };
       
       utterance.onerror = (e) => {
-        console.error('TTS error:', e);
+        log(`❌ Errore sintesi vocale: ${e.error}`, true);
         reject(e);
       };
       
       speechSynthesis.speak(utterance);
     });
-  }, [getItalianVoice]);
+  }, [getItalianVoice, log]);
 
   // Send text to AI and get response
   const sendToAI = useCallback(async (userText: string) => {
+    log('🧠 Invio a Gemini...');
     updateStatus('thinking');
     
     try {
@@ -93,8 +131,12 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         })
       });
       
+      log(`Risposta HTTP: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error('Errore risposta AI');
+        const errorText = await response.text();
+        log(`❌ Errore API: ${response.status} - ${errorText}`, true);
+        throw new Error(`Errore API: ${response.status}`);
       }
       
       // Parse streaming response
@@ -102,6 +144,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       const reader = response.body?.getReader();
       
       if (reader) {
+        log('📥 Lettura stream risposta...');
         const decoder = new TextDecoder();
         
         while (true) {
@@ -123,39 +166,46 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         }
       }
       
+      log(`✅ Risposta Gemini: "${aiResponse.substring(0, 50)}..."`);
       return aiResponse.trim();
     } catch (error) {
-      console.error('AI error:', error);
+      log(`❌ Errore chiamata AI: ${error}`, true);
       throw error;
     }
-  }, [updateStatus]);
+  }, [log, updateStatus]);
 
   // Start listening
   const startListening = useCallback(() => {
-    if (isStoppedRef.current) return;
+    if (isStoppedRef.current) {
+      log('⏹️ Sessione fermata, non avvio ascolto');
+      return;
+    }
     
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      setErrorMessage('Riconoscimento vocale non supportato');
+      log('❌ SpeechRecognition non disponibile!', true);
+      setErrorMessage('Browser non supportato');
       updateStatus('error');
       return;
     }
     
     // Clean up previous instance
     if (recognitionRef.current) {
+      log('🧹 Pulizia istanza precedente...');
       try {
         recognitionRef.current.stop();
       } catch {}
     }
     
+    log('🎤 Creazione SpeechRecognition...');
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = 'it-IT';
     
     recognitionRef.current.onstart = () => {
-      console.log('🎤 Listening...');
+      log('🎤 Microfono ATTIVO - Parla ora!');
       updateStatus('listening');
       setLiveTranscript('');
       lastResultRef.current = '';
@@ -178,11 +228,11 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         }
       }
       
-      // Show live transcript
       const displayText = finalText || interimText;
       if (displayText) {
         setLiveTranscript(displayText);
         lastResultRef.current = displayText;
+        log(`📝 Rilevato: "${displayText}"`);
       }
       
       // 1.5 second silence detection
@@ -190,9 +240,8 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         const textToSend = lastResultRef.current.trim();
         if (!textToSend || isStoppedRef.current) return;
         
-        console.log('📝 User said:', textToSend);
+        log(`📤 Testo finale: "${textToSend}"`);
         
-        // Stop listening
         try {
           recognitionRef.current?.stop();
         } catch {}
@@ -202,26 +251,23 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         options.onTranscript?.(textToSend, true);
         
         try {
-          // Get AI response
           const aiResponse = await sendToAI(textToSend);
           
           if (aiResponse && !isStoppedRef.current) {
-            console.log('🤖 AI:', aiResponse);
             setTranscript(prev => [...prev, `AI: ${aiResponse}`]);
             options.onTranscript?.(aiResponse, false);
             
-            // Speak response
             updateStatus('speaking');
             await speakResponse(aiResponse);
           }
           
-          // Resume listening automatically
           if (!isStoppedRef.current) {
+            log('🔄 Riavvio ascolto...');
             startListening();
           }
           
         } catch (error) {
-          console.error('Conversation error:', error);
+          log(`❌ Errore conversazione: ${error}`, true);
           toast.error('Errore nella risposta');
           
           if (!isStoppedRef.current) {
@@ -232,18 +278,23 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     };
     
     recognitionRef.current.onerror = (event: any) => {
-      console.error('Recognition error:', event.error);
+      log(`❌ Errore riconoscimento: ${event.error}`, true);
       
       if (event.error === 'not-allowed') {
-        setErrorMessage('Permesso microfono negato');
+        setErrorMessage('Permesso microfono negato. Consenti l\'accesso.');
         updateStatus('error');
         return;
+      }
+      
+      if (event.error === 'no-speech') {
+        log('⚠️ Nessun discorso rilevato, continuo...');
       }
       
       // Auto-restart on other errors
       if (!isStoppedRef.current && event.error !== 'aborted') {
         setTimeout(() => {
           if (!isStoppedRef.current) {
+            log('🔄 Tentativo riavvio dopo errore...');
             startListening();
           }
         }, 500);
@@ -251,44 +302,73 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     };
     
     recognitionRef.current.onend = () => {
-      console.log('Recognition ended');
-      // Will be restarted after speaking or manually
+      log('🎤 Recognition terminato');
     };
     
     try {
+      log('🎤 Avvio recognition.start()...');
       recognitionRef.current.start();
     } catch (e) {
-      console.error('Failed to start recognition:', e);
+      log(`❌ Errore start(): ${e}`, true);
     }
-  }, [options, sendToAI, speakResponse, updateStatus]);
+  }, [log, options, sendToAI, speakResponse, updateStatus]);
 
   // Start session
   const start = useCallback(async () => {
+    log('=== AVVIO SESSIONE ===');
     isStoppedRef.current = false;
     setTranscript([]);
     setErrorMessage(null);
     setLiveTranscript('');
     
+    // Check browser support first
+    if (!checkSupport()) {
+      return;
+    }
+    
+    // Force reset audio
+    log('🔇 Reset speechSynthesis...');
+    speechSynthesis.cancel();
+    
     // Preload voices
-    speechSynthesis.getVoices();
+    log('📢 Caricamento voci...');
+    const voices = speechSynthesis.getVoices();
+    log(`Voci caricate: ${voices.length}`);
+    
+    // If no voices, wait for them
+    if (voices.length === 0) {
+      log('⏳ Attendo caricamento voci...');
+      await new Promise<void>((resolve) => {
+        speechSynthesis.onvoiceschanged = () => {
+          log(`Voci ora disponibili: ${speechSynthesis.getVoices().length}`);
+          resolve();
+        };
+        // Timeout after 2 seconds
+        setTimeout(resolve, 2000);
+      });
+    }
     
     // Request microphone permission
+    log('🎤 Richiesta permesso microfono...');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Release immediately
+      log('✅ Permesso microfono concesso');
+      stream.getTracks().forEach(track => track.stop());
     } catch (error) {
+      log(`❌ Permesso microfono NEGATO: ${error}`, true);
       setErrorMessage('Permesso microfono negato');
       updateStatus('error');
       return;
     }
     
+    log('🚀 Avvio ascolto...');
     toast.success('Conversazione avviata!');
     startListening();
-  }, [startListening, updateStatus]);
+  }, [checkSupport, log, startListening, updateStatus]);
 
   // Stop session
   const stop = useCallback(() => {
-    console.log('Stopping session...');
+    log('=== STOP SESSIONE ===');
     isStoppedRef.current = true;
     
     if (silenceTimeoutRef.current) {
@@ -307,22 +387,21 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     
     setLiveTranscript('');
     updateStatus('idle');
-  }, [updateStatus]);
+  }, [log, updateStatus]);
 
   // Toggle mute
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
       const newMuted = !prev;
+      log(newMuted ? '🔇 Mute attivato' : '🔊 Mute disattivato');
       
       if (newMuted) {
-        // Stop listening
         if (recognitionRef.current) {
           try {
             recognitionRef.current.stop();
           } catch {}
         }
       } else {
-        // Resume listening
         if (status !== 'speaking' && status !== 'thinking') {
           startListening();
         }
@@ -330,7 +409,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       
       return newMuted;
     });
-  }, [startListening, status]);
+  }, [log, startListening, status]);
 
   return {
     status,
@@ -338,6 +417,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     transcript,
     errorMessage,
     liveTranscript,
+    isSupported,
     start,
     stop,
     toggleMute
