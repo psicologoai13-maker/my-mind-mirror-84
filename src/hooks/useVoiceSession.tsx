@@ -59,58 +59,101 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     return true;
   }, [log, updateStatus]);
 
-  // Find best Italian voice
+  // Find best Italian voice with robust fallback
   const getItalianVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
     log(`Voci disponibili: ${voices.length}`);
     
-    const googleVoice = voices.find(v => v.lang.startsWith('it') && v.name.toLowerCase().includes('google'));
+    if (voices.length > 0) {
+      log(`Lista voci: ${voices.slice(0, 5).map(v => `${v.name} (${v.lang})`).join(', ')}...`);
+    }
+    
+    // 1. Prima cerca "Google Italiano"
+    const googleVoice = voices.find(v => 
+      v.lang.startsWith('it') && v.name.toLowerCase().includes('google')
+    );
     if (googleVoice) {
-      log(`Voce selezionata: ${googleVoice.name}`);
+      log(`✅ Voce selezionata: ${googleVoice.name} (Google)`);
       return googleVoice;
     }
     
-    const italianVoice = voices.find(v => v.lang.startsWith('it'));
-    if (italianVoice) {
-      log(`Voce selezionata: ${italianVoice.name}`);
-      return italianVoice;
+    // 2. Poi cerca "Alice" (iOS)
+    const aliceVoice = voices.find(v => 
+      v.lang.startsWith('it') && v.name.toLowerCase().includes('alice')
+    );
+    if (aliceVoice) {
+      log(`✅ Voce selezionata: ${aliceVoice.name} (Alice)`);
+      return aliceVoice;
     }
     
-    log('⚠️ Nessuna voce italiana trovata, uso default');
+    // 3. Qualsiasi voce italiana
+    const anyItalianVoice = voices.find(v => v.lang.includes('it'));
+    if (anyItalianVoice) {
+      log(`✅ Voce selezionata: ${anyItalianVoice.name} (italiana generica)`);
+      return anyItalianVoice;
+    }
+    
+    // 4. Fallback: prima voce disponibile
+    if (voices.length > 0) {
+      log(`⚠️ Nessuna voce italiana, uso: ${voices[0].name}`);
+      return voices[0];
+    }
+    
+    log('❌ Nessuna voce disponibile!', true);
     return null;
   }, [log]);
 
-  // Speak AI response
+  // Speak AI response with memory leak fix
   const speakResponse = useCallback((text: string) => {
     return new Promise<void>((resolve, reject) => {
       log('🔊 Avvio sintesi vocale...');
+      log(`📝 Testo da leggere: "${text.substring(0, 50)}..."`);
+      
       speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'it-IT';
-      utterance.rate = 1.05;
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       
       const voice = getItalianVoice();
       if (voice) {
         utterance.voice = voice;
+        log(`🔊 Usando voce: ${voice.name}`);
+      } else {
+        log('⚠️ Nessuna voce impostata, uso default browser');
       }
       
+      // MEMORY LEAK FIX: Save to window to prevent garbage collection
+      (window as any).currentUtterance = utterance;
+      
       utterance.onstart = () => {
-        log('🔊 Sintesi vocale iniziata');
+        log('🔊 Sintesi vocale INIZIATA - Audio in riproduzione');
       };
       
       utterance.onend = () => {
-        log('🔊 Sintesi vocale terminata');
+        log('🔊 Sintesi vocale TERMINATA');
+        (window as any).currentUtterance = null;
         resolve();
       };
       
       utterance.onerror = (e) => {
         log(`❌ Errore sintesi vocale: ${e.error}`, true);
+        (window as any).currentUtterance = null;
         reject(e);
       };
       
+      log('🔊 Chiamata speechSynthesis.speak()...');
       speechSynthesis.speak(utterance);
+      
+      // Chrome bug workaround: resume after speak
+      setTimeout(() => {
+        if (speechSynthesis.paused) {
+          log('⚠️ Sintesi in pausa, forzo resume...');
+          speechSynthesis.resume();
+        }
+      }, 100);
     });
   }, [getItalianVoice, log]);
 
@@ -326,27 +369,57 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       return;
     }
     
-    // Force reset audio
-    log('🔇 Reset speechSynthesis...');
-    speechSynthesis.cancel();
+    // AUDIO UNLOCK: Play silent sound to unlock audio context
+    log('🔓 Audio unlock - sblocco motore audio...');
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const unlockUtterance = new SpeechSynthesisUtterance('');
+    synth.speak(unlockUtterance);
+    synth.resume();
+    log('✅ Audio unlock completato');
     
     // Preload voices
     log('📢 Caricamento voci...');
-    const voices = speechSynthesis.getVoices();
-    log(`Voci caricate: ${voices.length}`);
+    let voices = speechSynthesis.getVoices();
+    log(`Voci caricate inizialmente: ${voices.length}`);
     
     // If no voices, wait for them
     if (voices.length === 0) {
       log('⏳ Attendo caricamento voci...');
       await new Promise<void>((resolve) => {
-        speechSynthesis.onvoiceschanged = () => {
-          log(`Voci ora disponibili: ${speechSynthesis.getVoices().length}`);
-          resolve();
+        const checkVoices = () => {
+          voices = speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            log(`✅ Voci ora disponibili: ${voices.length}`);
+            resolve();
+          }
         };
-        // Timeout after 2 seconds
-        setTimeout(resolve, 2000);
+        
+        speechSynthesis.onvoiceschanged = checkVoices;
+        // Also poll every 100ms
+        const interval = setInterval(() => {
+          voices = speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            clearInterval(interval);
+            log(`✅ Voci caricate (polling): ${voices.length}`);
+            resolve();
+          }
+        }, 100);
+        
+        // Timeout after 3 seconds
+        setTimeout(() => {
+          clearInterval(interval);
+          log(`⚠️ Timeout voci, disponibili: ${speechSynthesis.getVoices().length}`);
+          resolve();
+        }, 3000);
       });
     }
+    
+    // Log available voices for debugging
+    const finalVoices = speechSynthesis.getVoices();
+    const italianVoices = finalVoices.filter(v => v.lang.includes('it'));
+    log(`🗣️ Voci italiane trovate: ${italianVoices.length}`);
+    italianVoices.forEach(v => log(`   - ${v.name} (${v.lang})`));
     
     // Request microphone permission
     log('🎤 Richiesta permesso microfono...');
