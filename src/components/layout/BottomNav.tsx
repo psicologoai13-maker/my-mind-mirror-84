@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, BarChart3, Calendar, User, Mic, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,31 +17,6 @@ const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const [showSessionChoice, setShowSessionChoice] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const navRef = useRef<HTMLElement>(null);
-
-  // Fix for iOS Safari address bar resize issue
-  useEffect(() => {
-    const updateNavPosition = () => {
-      if (navRef.current && window.visualViewport) {
-        const viewport = window.visualViewport;
-        const offsetY = window.innerHeight - viewport.height - viewport.offsetTop;
-        navRef.current.style.transform = `translateY(${-offsetY}px)`;
-      }
-    };
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateNavPosition);
-      window.visualViewport.addEventListener('scroll', updateNavPosition);
-      updateNavPosition();
-    }
-
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateNavPosition);
-        window.visualViewport.removeEventListener('scroll', updateNavPosition);
-      }
-    };
-  }, []);
 
   const handleMainButtonClick = () => {
     setShowSessionChoice(prev => !prev);
@@ -59,14 +34,7 @@ const BottomNav: React.FC = () => {
 
   return (
     <>
-      <nav 
-        ref={navRef}
-        className="fixed bottom-0 left-0 right-0 w-full bg-card/95 backdrop-blur-lg border-t border-border shadow-card z-[9999]" 
-        style={{ 
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          willChange: 'transform'
-        }}
-      >
+      <nav className="bottom-nav-fixed">
         <div className="flex items-center justify-around py-2 px-2 max-w-md mx-auto">
           {navItems.map((item) => {
             const isActive = item.path ? location.pathname === item.path : false;
