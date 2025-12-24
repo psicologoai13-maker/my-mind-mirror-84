@@ -9,6 +9,7 @@ interface UseVoiceSessionOptions {
   onTranscript?: (text: string, isUser: boolean) => void;
   onStatusChange?: (status: VoiceSessionStatus) => void;
   onAudioLevel?: (level: number, isInput: boolean) => void;
+  onError?: (error: string) => void;
 }
 
 export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
@@ -16,6 +17,10 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   const [mode, setMode] = useState<ConnectionMode>('websocket');
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTriedFallbackRef = useRef(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -136,6 +141,8 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   // Start WebSocket connection
   const startWebSocket = useCallback(async () => {
     updateStatus('connecting');
+    setErrorMessage(null);
+    hasTriedFallbackRef.current = false;
     
     try {
       // Get microphone access
@@ -153,11 +160,22 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       
       // Connect to edge function WebSocket
       const wsUrl = `wss://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/gemini-voice`;
+      console.log('Connecting to WebSocket:', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
       
+      // Timeout: if no connection after 3 seconds, fallback
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (status === 'connecting' && !hasTriedFallbackRef.current) {
+          console.log('Connection timeout, switching to fallback');
+          wsRef.current?.close();
+          hasTriedFallbackRef.current = true;
+          startFallback();
+        }
+      }, 3000);
+      
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected');
-        updateStatus('connected');
+        console.log('WebSocket connected to edge function');
+        // Don't clear timeout yet, wait for Gemini connection confirmation
         
         // Start audio capture
         sourceRef.current = audioContextRef.current!.createMediaStreamSource(mediaStreamRef.current!);
@@ -192,10 +210,16 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('Received message:', data.type || 'content');
           
-          // Handle setup complete
+          // Handle setup complete - Gemini is ready!
           if (data.setupComplete) {
-            console.log('Gemini setup complete');
+            console.log('Gemini setup complete - ready for audio');
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
+            updateStatus('listening');
             return;
           }
           
@@ -232,10 +256,31 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
             }
           }
           
-          // Handle errors
+          // Handle errors from edge function
           if (data.type === 'error') {
             console.error('Gemini error:', data.message);
-            throw new Error(data.message);
+            const errMsg = data.message || 'Errore di connessione';
+            setErrorMessage(errMsg);
+            options.onError?.(errMsg);
+            
+            // Auto-fallback on error
+            if (!hasTriedFallbackRef.current) {
+              hasTriedFallbackRef.current = true;
+              wsRef.current?.close();
+              startFallback();
+            } else {
+              updateStatus('error');
+            }
+            return;
+          }
+          
+          // Handle gemini closed
+          if (data.type === 'gemini_closed') {
+            console.log('Gemini closed, code:', data.code);
+            if (!hasTriedFallbackRef.current && status !== 'idle') {
+              hasTriedFallbackRef.current = true;
+              startFallback();
+            }
           }
         } catch (error) {
           console.error('Error processing message:', error);
@@ -243,29 +288,50 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       };
       
       wsRef.current.onerror = (error) => {
-        console.error('WebSocket error, falling back to speech API:', error);
-        wsRef.current?.close();
-        startFallback();
+        console.error('WebSocket error:', error);
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+        }
+        if (!hasTriedFallbackRef.current) {
+          hasTriedFallbackRef.current = true;
+          wsRef.current?.close();
+          startFallback();
+        }
       };
       
       wsRef.current.onclose = (event) => {
-        console.log('WebSocket closed:', event.code);
-        if (status !== 'idle') {
+        console.log('WebSocket closed:', event.code, event.reason);
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+        }
+        // Only go idle if we haven't switched to fallback
+        if (status !== 'idle' && mode === 'websocket' && !hasTriedFallbackRef.current) {
           updateStatus('idle');
         }
       };
       
     } catch (error) {
       console.error('Failed to start WebSocket mode:', error);
-      startFallback();
+      const errMsg = error instanceof Error ? error.message : 'Errore accesso microfono';
+      setErrorMessage(errMsg);
+      options.onError?.(errMsg);
+      
+      if (!hasTriedFallbackRef.current) {
+        hasTriedFallbackRef.current = true;
+        startFallback();
+      } else {
+        updateStatus('error');
+      }
     }
-  }, [analyzeAudioLevel, encodeAudioForAPI, isMuted, options, playNextAudio, status, updateStatus]);
+  }, [analyzeAudioLevel, encodeAudioForAPI, isMuted, mode, options, playNextAudio, status, updateStatus]);
 
   // Fallback: Web Speech API + Gemini Text + TTS
   const startFallback = useCallback(async () => {
+    console.log('Starting fallback mode...');
     setMode('fallback');
+    setErrorMessage(null);
     updateStatus('connecting');
-    toast.info('Modalità voce alternativa attivata');
+    toast.info('Attivazione modalità voce alternativa...');
     
     try {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -392,6 +458,12 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
 
   // Stop session
   const stop = useCallback(() => {
+    // Clear timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    
     // Cleanup WebSocket
     if (wsRef.current) {
       wsRef.current.close();
@@ -425,6 +497,8 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     
     updateStatus('idle');
     setMode('websocket');
+    setErrorMessage(null);
+    hasTriedFallbackRef.current = false;
   }, [updateStatus]);
 
   // Toggle mute
@@ -451,6 +525,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     mode,
     isMuted,
     transcript,
+    errorMessage,
     start,
     stop,
     toggleMute
