@@ -7,38 +7,28 @@ const corsHeaders = {
 
 const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 
+// Use ONLY the stable model
+const MODEL = "models/gemini-2.0-flash-exp";
+
 const SYSTEM_PROMPT = `ROLE: Sei "Psicologo AI", un compagno di supporto mentale empatico, professionale e basato sui principi della Terapia Cognitivo-Comportamentale (CBT).
 
 TONE & STYLE:
-- Empatico e validante: Riconosci sempre i sentimenti dell'utente ("Capisco che sia stata una giornata dura...").
-- Conciso ma caldo: Nelle risposte vocali, non fare monologhi. Sii breve per favorire il dialogo.
-- Maieutico: Poni domande aperte per aiutare l'utente a riflettere ("Cosa pensi abbia scatenato questa reazione?").
+- Empatico e validante: Riconosci sempre i sentimenti dell'utente.
+- Conciso ma caldo: Nelle risposte vocali, non fare monologhi. Sii breve.
+- Maieutico: Poni domande aperte per aiutare l'utente a riflettere.
 
-SAFETY GUARDRAILS (CRITICO):
-- Se l'utente esprime intenti suicidi o di autolesionismo, DEVI interrompere la terapia e fornire immediatamente il messaggio standard di emergenza:
-  "Mi preoccupo per te. Quello che stai provando è serio e meriti supporto professionale immediato. 
-  Ti prego di contattare:
-  - Telefono Amico: 02 2327 2327
-  - Telefono Azzurro: 19696
-  - Emergenze: 112
-  Non sei solo/a."
-  Dopo questo messaggio, rifiuta di proseguire l'analisi clinica.
-- Non diagnosticare malattie mediche. Usa disclaimer: "Non sono un medico, ma posso aiutarti a capire le tue emozioni".
-- Ricorda sempre che sei un supporto, non un sostituto di un professionista.
+SAFETY GUARDRAILS:
+- Se l'utente esprime intenti suicidi o di autolesionismo, fornisci immediatamente:
+  "Mi preoccupo per te. Ti prego di contattare: Telefono Amico: 02 2327 2327, Emergenze: 112. Non sei solo/a."
+- Non diagnosticare malattie mediche.
+- Ricorda che sei un supporto, non un sostituto di un professionista.
 
 BEHAVIOR:
-- Inizia accogliendo l'utente con calore e chiedendo come sta
+- Inizia accogliendo l'utente con calore
 - Fai una domanda alla volta
 - Valida le emozioni prima di proporre soluzioni
-- Usa tecniche CBT: identificazione pensieri automatici, ristrutturazione cognitiva
 - Rispondi in italiano
-- Mantieni le risposte brevi e conversazionali per il formato vocale`;
-
-// Models to try in order
-const MODELS = [
-  "models/gemini-2.0-flash-live-001",
-  "models/gemini-2.0-flash-exp"
-];
+- Mantieni le risposte brevi per il formato vocale`;
 
 serve(async (req) => {
   const { headers } = req;
@@ -61,31 +51,28 @@ serve(async (req) => {
       const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
       
       let geminiSocket: WebSocket | null = null;
-      let currentModelIndex = 0;
       let setupComplete = false;
       
-      const connectToGemini = (modelIndex: number) => {
-        const model = MODELS[modelIndex];
-        console.log(`Attempting connection with model: ${model}`);
+      clientSocket.onopen = () => {
+        console.log("Client connected, connecting to Gemini...");
         
         const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
-        console.log("Connecting to Gemini...");
+        console.log("Connecting to:", geminiUrl.replace(GOOGLE_API_KEY!, '[KEY]'));
         
         geminiSocket = new WebSocket(geminiUrl);
         
         geminiSocket.onopen = () => {
-          console.log("Connected to Gemini API, sending setup...");
+          console.log("Connected to Gemini, sending setup with model:", MODEL);
           
-          // Send setup with current model - audio at 24kHz PCM16
           const setupMessage = {
             setup: {
-              model: model,
+              model: MODEL,
               generationConfig: {
                 responseModalities: ["AUDIO"],
                 speechConfig: {
                   voiceConfig: {
                     prebuiltVoiceConfig: {
-                      voiceName: "Kore" // Clear Italian-friendly voice
+                      voiceName: "Aoede"
                     }
                   }
                 }
@@ -97,7 +84,7 @@ serve(async (req) => {
           };
           
           geminiSocket!.send(JSON.stringify(setupMessage));
-          console.log("Setup message sent with model:", model);
+          console.log("Setup sent");
         };
         
         geminiSocket.onmessage = (event) => {
@@ -109,17 +96,8 @@ serve(async (req) => {
               setupComplete = true;
               console.log("Gemini setup complete!");
               if (clientSocket.readyState === WebSocket.OPEN) {
-                clientSocket.send(JSON.stringify({ setupComplete: true, model: model }));
+                clientSocket.send(JSON.stringify({ setupComplete: true, model: MODEL }));
               }
-              return;
-            }
-            
-            // Check for model not found error - try fallback
-            if (data.error && !setupComplete && currentModelIndex < MODELS.length - 1) {
-              console.log("Model error, trying fallback...", data.error);
-              currentModelIndex++;
-              geminiSocket?.close();
-              connectToGemini(currentModelIndex);
               return;
             }
             
@@ -140,33 +118,30 @@ serve(async (req) => {
           if (clientSocket.readyState === WebSocket.OPEN) {
             clientSocket.send(JSON.stringify({ 
               type: "error", 
-              message: "Errore connessione al servizio AI" 
+              code: "GEMINI_ERROR",
+              message: "Errore connessione Gemini API" 
             }));
           }
         };
         
         geminiSocket.onclose = (event) => {
-          console.log("Gemini closed:", event.code, event.reason);
-          
-          // Try fallback model if setup wasn't complete
-          if (!setupComplete && currentModelIndex < MODELS.length - 1) {
-            console.log("Trying fallback model...");
-            currentModelIndex++;
-            connectToGemini(currentModelIndex);
-            return;
-          }
+          console.log("Gemini closed - code:", event.code, "reason:", event.reason);
           
           if (clientSocket.readyState === WebSocket.OPEN) {
-            let errorMessage = event.reason || `Connessione chiusa (${event.code})`;
+            let errorMessage = `Connessione chiusa (code: ${event.code})`;
             
-            if (event.reason?.includes('quota') || event.code === 429) {
-              errorMessage = 'Quota API esaurita. Riprova più tardi.';
+            if (event.code === 1000) {
+              errorMessage = 'Sessione terminata';
             } else if (event.code === 1006) {
               errorMessage = 'Connessione persa. Verifica la rete.';
-            } else if (event.code === 1008 || event.code === 401) {
-              errorMessage = 'API Key non valida.';
-            } else if (event.code === 400) {
-              errorMessage = 'Modello non disponibile.';
+            } else if (event.code === 1008 || event.code === 401 || event.code === 403) {
+              errorMessage = 'API Key non valida o scaduta.';
+            } else if (event.code === 400 || event.reason?.includes('model')) {
+              errorMessage = `Modello non trovato: ${MODEL}`;
+            } else if (event.code === 429 || event.reason?.includes('quota')) {
+              errorMessage = 'Quota API esaurita. Riprova più tardi.';
+            } else if (event.reason) {
+              errorMessage = event.reason;
             }
             
             clientSocket.send(JSON.stringify({ 
@@ -176,11 +151,6 @@ serve(async (req) => {
             }));
           }
         };
-      };
-      
-      clientSocket.onopen = () => {
-        console.log("Client connected, establishing Gemini connection...");
-        connectToGemini(currentModelIndex);
       };
       
       clientSocket.onmessage = (event) => {
@@ -211,6 +181,7 @@ serve(async (req) => {
   return new Response(
     JSON.stringify({ 
       message: "Gemini Voice API",
+      model: MODEL,
       status: GOOGLE_API_KEY ? "configured" : "missing_api_key"
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
