@@ -92,6 +92,7 @@ export type Database = {
           email: string | null
           id: string
           life_areas_scores: Json | null
+          long_term_memory: string[] | null
           name: string | null
           user_id: string
           wellness_score: number | null
@@ -101,6 +102,7 @@ export type Database = {
           email?: string | null
           id?: string
           life_areas_scores?: Json | null
+          long_term_memory?: string[] | null
           name?: string | null
           user_id: string
           wellness_score?: number | null
@@ -110,6 +112,7 @@ export type Database = {
           email?: string | null
           id?: string
           life_areas_scores?: Json | null
+          long_term_memory?: string[] | null
           name?: string | null
           user_id?: string
           wellness_score?: number | null

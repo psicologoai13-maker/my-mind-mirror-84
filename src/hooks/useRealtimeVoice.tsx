@@ -4,6 +4,11 @@ import { useAuth } from './useAuth';
 import { useSessions } from './useSessions';
 import { toast } from 'sonner';
 
+interface TranscriptEntry {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 interface UseRealtimeVoiceReturn {
   isActive: boolean;
   isConnecting: boolean;
@@ -29,9 +34,13 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const transcriptRef = useRef<string>('');
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  
+  // Transcript management
+  const transcriptRef = useRef<TranscriptEntry[]>([]);
+  const currentAssistantTextRef = useRef<string>('');
+  const currentUserTextRef = useRef<string>('');
 
   const updateAudioLevel = useCallback(() => {
     if (analyserRef.current) {
@@ -43,6 +52,42 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
     animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
   }, []);
 
+  const processSession = useCallback(async () => {
+    if (!sessionIdRef.current || !user || transcriptRef.current.length === 0) {
+      console.log('[Realtime] No transcript to process');
+      return;
+    }
+
+    // Build the full transcript text
+    const fullTranscript = transcriptRef.current
+      .map(entry => `${entry.role === 'user' ? 'Utente' : 'Aria'}: ${entry.text}`)
+      .join('\n\n');
+
+    console.log('[Realtime] Processing session with transcript:', fullTranscript.substring(0, 200) + '...');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('process-session', {
+        body: {
+          session_id: sessionIdRef.current,
+          user_id: user.id,
+          transcript: fullTranscript
+        }
+      });
+
+      if (error) {
+        console.error('[Realtime] Error processing session:', error);
+        toast.error('Errore nel salvare la sessione');
+      } else {
+        console.log('[Realtime] Session processed successfully:', data);
+        if (data.analysis) {
+          toast.success(`Sessione salvata - Umore: ${data.analysis.mood_score}/10`);
+        }
+      }
+    } catch (err) {
+      console.error('[Realtime] Error invoking process-session:', err);
+    }
+  }, [user]);
+
   const start = useCallback(async () => {
     if (!user) {
       toast.error('Devi essere autenticato');
@@ -52,6 +97,11 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
     setIsConnecting(true);
     console.log('[Realtime] Starting voice session...');
 
+    // Reset transcript
+    transcriptRef.current = [];
+    currentAssistantTextRef.current = '';
+    currentUserTextRef.current = '';
+
     try {
       // Create session in database
       const session = await startSession.mutateAsync('voice');
@@ -59,9 +109,11 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
       sessionIdRef.current = session.id;
       console.log('[Realtime] Session created:', session.id);
 
-      // Get ephemeral token from edge function
-      console.log('[Realtime] Fetching ephemeral token...');
-      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('openai-realtime-session');
+      // Get ephemeral token from edge function, passing user_id for memory injection
+      console.log('[Realtime] Fetching ephemeral token with memory...');
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('openai-realtime-session', {
+        body: { user_id: user.id }
+      });
       
       if (tokenError || !tokenData?.client_secret?.value) {
         console.error('[Realtime] Token error:', tokenError, tokenData);
@@ -123,37 +175,63 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
       dcRef.current.onmessage = (e) => {
         try {
           const event = JSON.parse(e.data);
-          console.log('[Realtime] Event received:', event.type);
-
+          
           switch (event.type) {
             case 'response.audio.delta':
               setIsSpeaking(true);
               setIsListening(false);
               break;
+              
             case 'response.audio.done':
               setIsSpeaking(false);
               setIsListening(true);
               break;
+              
             case 'input_audio_buffer.speech_started':
               console.log('[Realtime] User started speaking');
               setIsListening(true);
+              currentUserTextRef.current = '';
               break;
+              
             case 'input_audio_buffer.speech_stopped':
               console.log('[Realtime] User stopped speaking');
               break;
-            case 'response.audio_transcript.delta':
-              if (event.delta) {
-                transcriptRef.current += event.delta;
-              }
-              break;
+              
+            // Capture user's transcribed speech
             case 'conversation.item.input_audio_transcription.completed':
               if (event.transcript) {
-                transcriptRef.current += `\nTu: ${event.transcript}\n`;
+                console.log('[Realtime] User transcript:', event.transcript);
+                transcriptRef.current.push({
+                  role: 'user',
+                  text: event.transcript
+                });
               }
               break;
+              
+            // Capture AI's text response (streaming)
+            case 'response.audio_transcript.delta':
+              if (event.delta) {
+                currentAssistantTextRef.current += event.delta;
+              }
+              break;
+              
+            // AI finished speaking - save the complete response
+            case 'response.audio_transcript.done':
+              if (event.transcript || currentAssistantTextRef.current) {
+                const assistantText = event.transcript || currentAssistantTextRef.current;
+                console.log('[Realtime] Assistant transcript:', assistantText);
+                transcriptRef.current.push({
+                  role: 'assistant',
+                  text: assistantText
+                });
+                currentAssistantTextRef.current = '';
+              }
+              break;
+              
             case 'response.done':
               console.log('[Realtime] Response completed');
               break;
+              
             case 'error':
               console.error('[Realtime] Error event:', event.error);
               toast.error(event.error?.message || 'Errore nella conversazione');
@@ -253,11 +331,18 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
       audioElRef.current = null;
     }
 
+    // Process and save the session with transcript analysis
+    await processSession();
+
     // End session in database
     if (sessionIdRef.current) {
+      const fullTranscript = transcriptRef.current
+        .map(entry => `${entry.role === 'user' ? 'Utente' : 'Aria'}: ${entry.text}`)
+        .join('\n\n');
+      
       await endSession.mutateAsync({ 
         sessionId: sessionIdRef.current, 
-        transcript: transcriptRef.current || undefined 
+        transcript: fullTranscript || undefined 
       });
       sessionIdRef.current = null;
     }
@@ -268,11 +353,13 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
     setIsSpeaking(false);
     setIsListening(false);
     setAudioLevel(0);
-    transcriptRef.current = '';
+    transcriptRef.current = [];
+    currentAssistantTextRef.current = '';
+    currentUserTextRef.current = '';
     analyserRef.current = null;
 
     console.log('[Realtime] Session stopped');
-  }, [endSession]);
+  }, [endSession, processSession]);
 
   return {
     isActive,

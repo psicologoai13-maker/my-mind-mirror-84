@@ -8,13 +8,14 @@ export interface UserProfile {
   name: string | null;
   email: string | null;
   created_at: string;
-  wellness_score: number;
+  wellness_score: number | null;
   life_areas_scores: {
     friendship: number;
     love: number;
     work: number;
     wellness: number;
-  };
+  } | null;
+  long_term_memory?: string[] | null;
 }
 
 export const useProfile = () => {
