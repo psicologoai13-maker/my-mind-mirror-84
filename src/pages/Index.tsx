@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import QuickCheckin from '@/components/home/QuickCheckin';
-import EmotionalPulseChart from '@/components/home/EmotionalPulseChart';
-import FocusTopics from '@/components/home/FocusTopics';
-import AIInsightCard from '@/components/home/AIInsightCard';
+import VitalParametersSection from '@/components/home/VitalParametersSection';
 import LifeAreasGrid from '@/components/home/LifeAreasGrid';
+import AIInsightCard from '@/components/home/AIInsightCard';
 import { Bell, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -41,8 +40,8 @@ const Index: React.FC = () => {
         </Button>
       </header>
 
-      {/* Bento Grid Layout */}
-      <div className="px-5 pt-4 pb-8 space-y-4">
+      {/* Mental Cockpit - Vertical Blocks */}
+      <div className="px-5 pt-4 pb-8 space-y-5">
         {/* Block 1: Hero - Quick Checkin */}
         <div className="animate-slide-up">
           <QuickCheckin 
@@ -51,27 +50,19 @@ const Index: React.FC = () => {
           />
         </div>
 
-        {/* Block 2 & 3: Side by side - Chart & Focus */}
-        <div className="grid grid-cols-5 gap-4">
-          {/* Left - Emotional Pulse (3 cols) */}
-          <div className="col-span-3 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            <EmotionalPulseChart />
-          </div>
-          
-          {/* Right - Focus Topics (2 cols) */}
-          <div className="col-span-2 animate-slide-up" style={{ animationDelay: '0.15s' }}>
-            <FocusTopics />
-          </div>
+        {/* Block 2: Vital Parameters - 2x2 Grid */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <VitalParametersSection />
         </div>
 
-        {/* Block 4: Full Width - AI Insight */}
+        {/* Block 3: Life Balance - Horizontal Bars */}
         <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <AIInsightCard />
+          <LifeAreasGrid />
         </div>
 
-        {/* Block 5: Life Areas Grid */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.25s' }}>
-          <LifeAreasGrid />
+        {/* Block 4: AI Insight Footer */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <AIInsightCard />
         </div>
       </div>
     </MobileLayout>
