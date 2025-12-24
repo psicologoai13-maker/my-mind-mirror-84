@@ -13,11 +13,11 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children, className, hideNa
     <>
       <main 
         className={cn(
-          "min-h-screen bg-background max-w-md mx-auto",
-          "pb-32", // Large padding to ensure content doesn't go under fixed navbar
+          "min-h-dvh bg-background max-w-md mx-auto",
+          // Large padding to ensure content doesn't go under fixed navbar
+          "pb-[calc(100px+env(safe-area-inset-bottom,0px))]",
           className
         )}
-        style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))' }}
       >
         {children}
       </main>
