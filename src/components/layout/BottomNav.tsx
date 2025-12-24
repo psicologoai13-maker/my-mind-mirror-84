@@ -34,7 +34,7 @@ const BottomNav: React.FC = () => {
 
   return (
     <>
-      <nav className="bottom-nav-fixed">
+      <nav className="bottom-nav-fixed" style={{ bottom: 0 }}>
         <div className="flex items-center justify-around py-2 px-2 max-w-md mx-auto">
           {navItems.map((item) => {
             const isActive = item.path ? location.pathname === item.path : false;
