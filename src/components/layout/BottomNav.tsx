@@ -34,8 +34,8 @@ const BottomNav: React.FC = () => {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-card/95 backdrop-blur-lg border-t border-border shadow-card z-50">
-        <div className="flex items-center justify-around py-2 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 w-full bg-card/95 backdrop-blur-lg border-t border-border shadow-card z-[9999]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex items-center justify-around py-2 px-2 max-w-md mx-auto">
           {navItems.map((item) => {
             const isActive = item.path ? location.pathname === item.path : false;
             const Icon = item.icon;
