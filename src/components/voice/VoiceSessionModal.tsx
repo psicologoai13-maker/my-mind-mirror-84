@@ -4,7 +4,7 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, X, Phone } from 'lucide-react';
+import { Mic, MicOff, X, Phone, Volume2 } from 'lucide-react';
 import { useVoiceSession } from '@/hooks/useVoiceSession';
 import { useSessions } from '@/hooks/useSessions';
 import { cn } from '@/lib/utils';
@@ -139,6 +139,13 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           label: 'Sto pensando...',
           labelClass: 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30'
         };
+      case 'ready_to_speak':
+        return { 
+          color: 'bg-purple-500', 
+          ringColor: 'ring-purple-500/30',
+          label: 'Risposta pronta!',
+          labelClass: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30'
+        };
       case 'speaking':
         return { 
           color: 'bg-blue-500', 
@@ -175,7 +182,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
             </h2>
           </div>
 
-          {/* Browser not supported - BIG RED MESSAGE */}
+          {/* Browser not supported */}
           {!voiceSession.isSupported && (
             <div className="w-full bg-destructive text-destructive-foreground p-4 rounded-xl text-center">
               <p className="text-lg font-bold">⚠️ BROWSER NON SUPPORTATO</p>
@@ -203,6 +210,9 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
               )}
               {voiceSession.status === 'thinking' && (
                 <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {voiceSession.status === 'ready_to_speak' && (
+                <Volume2 className="w-10 h-10 text-white" />
               )}
               {voiceSession.status === 'speaking' && (
                 <div className="flex gap-1">
@@ -238,6 +248,25 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           {voiceSession.liveTranscript && (
             <div className="w-full bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
               <p className="text-foreground italic text-sm">"{voiceSession.liveTranscript}"</p>
+            </div>
+          )}
+
+          {/* PENDING RESPONSE - Show AI text + Listen button */}
+          {voiceSession.pendingResponse && (
+            <div className="w-full space-y-3">
+              <div className="bg-muted/50 border border-border rounded-xl p-4">
+                <p className="text-sm text-muted-foreground mb-1">Risposta AI:</p>
+                <p className="text-foreground text-sm">{voiceSession.pendingResponse}</p>
+              </div>
+              
+              <Button
+                size="lg"
+                className="w-full h-14 rounded-xl bg-purple-500 hover:bg-purple-600 text-white text-lg font-bold animate-pulse"
+                onClick={voiceSession.playPendingResponse}
+              >
+                <Volume2 className="w-6 h-6 mr-2" />
+                🔊 Ascolta la risposta
+              </Button>
             </div>
           )}
 
