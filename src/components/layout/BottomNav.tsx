@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, BarChart3, Calendar, User, Mic, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { VoiceSessionModal } from '@/components/voice/VoiceSessionModal';
+import { RealtimeVoiceModal } from '@/components/voice/RealtimeVoiceModal';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -100,9 +100,9 @@ const BottomNav: React.FC = () => {
         </div>
       </nav>
 
-      <VoiceSessionModal 
-        open={showVoiceModal} 
-        onOpenChange={setShowVoiceModal} 
+      <RealtimeVoiceModal 
+        isOpen={showVoiceModal} 
+        onClose={() => setShowVoiceModal(false)} 
       />
     </>
   );
