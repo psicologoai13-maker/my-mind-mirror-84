@@ -4,6 +4,26 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
+/* Recharts tooltip and chart styles */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.recharts-polar-grid-angle line {
+  stroke: hsl(var(--border)) !important;
+}
+
+.recharts-polar-grid-concentric circle {
+  stroke: hsl(var(--border)) !important;
+}
+
 @layer base {
   :root {
     /* Calming Mental Health Palette */

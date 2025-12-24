@@ -46,9 +46,13 @@ export type Database = {
           ai_summary: string | null
           anxiety_score_detected: number | null
           duration: number | null
+          emotion_breakdown: Json | null
           emotion_tags: string[] | null
           end_time: string | null
           id: string
+          insights: string | null
+          key_events: string[] | null
+          life_balance_scores: Json | null
           mood_score_detected: number | null
           start_time: string
           status: string | null
@@ -60,9 +64,13 @@ export type Database = {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
           duration?: number | null
+          emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
           end_time?: string | null
           id?: string
+          insights?: string | null
+          key_events?: string[] | null
+          life_balance_scores?: Json | null
           mood_score_detected?: number | null
           start_time?: string
           status?: string | null
@@ -74,9 +82,13 @@ export type Database = {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
           duration?: number | null
+          emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
           end_time?: string | null
           id?: string
+          insights?: string | null
+          key_events?: string[] | null
+          life_balance_scores?: Json | null
           mood_score_detected?: number | null
           start_time?: string
           status?: string | null

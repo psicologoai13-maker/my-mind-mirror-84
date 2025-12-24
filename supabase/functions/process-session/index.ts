@@ -7,12 +7,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface LifeBalanceScores {
+  love: number | null;
+  work: number | null;
+  friendship: number | null;
+  energy: number | null;
+  growth: number | null;
+}
+
+interface EmotionBreakdown {
+  [emotion: string]: number;
+}
+
 interface SessionAnalysis {
   mood_score: number;
   anxiety_score: number;
   emotion_tags: string[];
   key_facts: string[];
   summary: string;
+  life_balance_scores: LifeBalanceScores;
+  emotion_breakdown: EmotionBreakdown;
+  key_events: string[];
+  insights: string;
 }
 
 serve(async (req) => {
@@ -41,8 +57,17 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Call GPT-4o-mini to analyze the session
-    console.log('[process-session] Calling OpenAI for analysis...');
+    // Get current user profile for existing life balance scores
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('life_areas_scores, long_term_memory')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    const currentLifeScores = profileData?.life_areas_scores || {};
+
+    // Call GPT-4o-mini to analyze the session with rich extraction
+    console.log('[process-session] Calling OpenAI for comprehensive analysis...');
     
     const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -55,20 +80,42 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Sei un analista esperto di conversazioni terapeutiche. Analizza la conversazione e restituisci SEMPRE un JSON valido con questa struttura esatta:
+            content: `Sei un analista esperto di conversazioni terapeutiche e coach di vita. Analizza la conversazione e restituisci SEMPRE un JSON valido con questa struttura esatta:
+
 {
   "mood_score": <numero da 1 a 10, dove 1 è molto triste e 10 è molto felice>,
   "anxiety_score": <numero da 1 a 10, dove 1 è calmo e 10 è molto ansioso>,
   "emotion_tags": [<array di tag emotivi rilevanti, es. "#Lavoro", "#Relazioni", "#Stress", "#Famiglia">],
   "key_facts": [<array di fatti importanti da ricordare per sessioni future, es. "Si è lasciato con la ragazza Maria", "Ha problemi al lavoro con il capo">],
-  "summary": "<riassunto breve della sessione in 1-2 frasi>"
+  "summary": "<riassunto breve della sessione in 1-2 frasi>",
+  "life_balance_scores": {
+    "love": <punteggio 1-10 per Amore/Relazioni romantiche, null se non menzionato>,
+    "work": <punteggio 1-10 per Lavoro/Carriera, null se non menzionato>,
+    "friendship": <punteggio 1-10 per Amicizia/Vita sociale, null se non menzionato>,
+    "energy": <punteggio 1-10 per Energia/Salute fisica, null se non menzionato>,
+    "growth": <punteggio 1-10 per Autostima/Crescita personale, null se non menzionato>
+  },
+  "emotion_breakdown": {
+    "<emozione>": <percentuale come numero intero, es. "Gioia": 20, "Rabbia": 30, "Tristezza": 50>
+  },
+  "key_events": [<lista di eventi fattuali concreti, es. "Ha litigato con il boss", "Nuovo appuntamento venerdì", "Promozione al lavoro">],
+  "insights": "<una frase breve di correlazione o osservazione clinica, es. 'La tua ansia sembra aumentare quando parli di Lavoro' o 'Noto un pattern di evitamento nelle relazioni'>"
 }
+
+REGOLE IMPORTANTI:
+- Per life_balance_scores: assegna un punteggio SOLO se l'utente ha parlato di quell'area. Altrimenti metti null.
+- emotion_breakdown: le percentuali devono sommare a 100.
+- key_events: estrai SOLO eventi fattuali concreti (chi, cosa, quando), non stati emotivi.
+- insights: fornisci un'osservazione utile che colleghi i pattern emotivi alle aree di vita.
+
+Valori attuali delle aree di vita dell'utente (usa come riferimento, ma aggiorna SOLO se ne parla nella conversazione):
+${JSON.stringify(currentLifeScores)}
 
 Rispondi SOLO con il JSON, senza markdown o altro testo.`
           },
           {
             role: 'user',
-            content: `Analizza questa conversazione terapeutica:\\n\\n${transcript}`
+            content: `Analizza questa conversazione terapeutica:\n\n${transcript}`
           }
         ],
         temperature: 0.3,
@@ -99,13 +146,17 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         anxiety_score: 5,
         emotion_tags: [],
         key_facts: [],
-        summary: 'Sessione analizzata con valori predefiniti.'
+        summary: 'Sessione analizzata con valori predefiniti.',
+        life_balance_scores: { love: null, work: null, friendship: null, energy: null, growth: null },
+        emotion_breakdown: {},
+        key_events: [],
+        insights: ''
       };
     }
 
     console.log('[process-session] Parsed analysis:', analysis);
 
-    // Update the session with analysis results
+    // Update the session with all analysis results
     console.log('[process-session] Updating session in database...');
     
     const { error: sessionError } = await supabase
@@ -116,6 +167,10 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         anxiety_score_detected: analysis.anxiety_score,
         emotion_tags: analysis.emotion_tags,
         ai_summary: analysis.summary,
+        life_balance_scores: analysis.life_balance_scores,
+        emotion_breakdown: analysis.emotion_breakdown,
+        key_events: analysis.key_events,
+        insights: analysis.insights,
         status: 'completed'
       })
       .eq('id', session_id);
@@ -125,37 +180,36 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
       throw new Error(`Failed to update session: ${sessionError.message}`);
     }
 
-    // Update user's long-term memory with new key facts
-    if (analysis.key_facts.length > 0) {
-      console.log('[process-session] Updating user long-term memory...');
-      
-      // First, get existing memory
-      const { data: profileData, error: profileFetchError } = await supabase
-        .from('user_profiles')
-        .select('long_term_memory')
-        .eq('user_id', user_id)
-        .maybeSingle();
-
-      if (profileFetchError) {
-        console.error('[process-session] Error fetching profile:', profileFetchError);
-      } else {
-        const existingMemory = profileData?.long_term_memory || [];
-        const updatedMemory = [...existingMemory, ...analysis.key_facts];
-        
-        // Keep only the last 50 facts to prevent memory bloat
-        const trimmedMemory = updatedMemory.slice(-50);
-        
-        const { error: profileUpdateError } = await supabase
-          .from('user_profiles')
-          .update({ long_term_memory: trimmedMemory })
-          .eq('user_id', user_id);
-
-        if (profileUpdateError) {
-          console.error('[process-session] Error updating profile:', profileUpdateError);
-        } else {
-          console.log('[process-session] Long-term memory updated with', analysis.key_facts.length, 'new facts');
-        }
+    // Update user's profile with new data
+    console.log('[process-session] Updating user profile...');
+    
+    // Merge life balance scores - only update areas that were mentioned
+    const mergedLifeScores = { ...currentLifeScores };
+    for (const [key, value] of Object.entries(analysis.life_balance_scores)) {
+      if (value !== null) {
+        mergedLifeScores[key] = value;
       }
+    }
+
+    // Update long-term memory with new key facts
+    const existingMemory = profileData?.long_term_memory || [];
+    const updatedMemory = [...existingMemory, ...analysis.key_facts];
+    
+    // Keep only the last 50 facts to prevent memory bloat
+    const trimmedMemory = updatedMemory.slice(-50);
+
+    const { error: profileUpdateError } = await supabase
+      .from('user_profiles')
+      .update({ 
+        long_term_memory: trimmedMemory,
+        life_areas_scores: mergedLifeScores
+      })
+      .eq('user_id', user_id);
+
+    if (profileUpdateError) {
+      console.error('[process-session] Error updating profile:', profileUpdateError);
+    } else {
+      console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts and life scores');
     }
 
     console.log('[process-session] Session processing complete!');
@@ -166,7 +220,11 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         mood_score: analysis.mood_score,
         anxiety_score: analysis.anxiety_score,
         emotion_tags: analysis.emotion_tags,
-        summary: analysis.summary
+        summary: analysis.summary,
+        life_balance_scores: analysis.life_balance_scores,
+        emotion_breakdown: analysis.emotion_breakdown,
+        key_events: analysis.key_events,
+        insights: analysis.insights
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
