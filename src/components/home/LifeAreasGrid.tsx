@@ -1,115 +1,130 @@
 import React from 'react';
-import { Heart, Users, Briefcase, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
+import { useSessions } from '@/hooks/useSessions';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { LifeBalanceScores } from '@/hooks/useSessions';
 
-const areaConfig = [
-  { 
-    key: 'friendship',
-    icon: Users, 
-    label: 'Amicizia', 
-    color: 'bg-area-friendship',
-    bgLight: 'bg-blue-50',
-  },
-  { 
-    key: 'love',
-    icon: Heart, 
-    label: 'Amore', 
-    color: 'bg-area-love',
-    bgLight: 'bg-pink-50',
-  },
-  { 
-    key: 'work',
-    icon: Briefcase, 
-    label: 'Lavoro', 
-    color: 'bg-area-work',
-    bgLight: 'bg-amber-50',
-  },
-  { 
-    key: 'wellness',
-    icon: Sparkles, 
-    label: 'Benessere', 
-    color: 'bg-area-wellness',
-    bgLight: 'bg-emerald-50',
-  },
+type LifeAreaKey = 'love' | 'work' | 'friendship' | 'wellness';
+
+interface LifeArea {
+  key: LifeAreaKey;
+  balanceKey: keyof LifeBalanceScores;
+  icon: string;
+  label: string;
+  colorClass: string;
+}
+
+const lifeAreas: LifeArea[] = [
+  { key: 'love', balanceKey: 'love', icon: '❤️', label: 'Amore', colorClass: 'bg-rose-500' },
+  { key: 'work', balanceKey: 'work', icon: '💼', label: 'Lavoro', colorClass: 'bg-amber-500' },
+  { key: 'friendship', balanceKey: 'friendship', icon: '🤝', label: 'Amicizia', colorClass: 'bg-sky-500' },
+  { key: 'wellness', balanceKey: 'energy', icon: '🧘', label: 'Benessere', colorClass: 'bg-emerald-500' },
 ];
 
 const LifeAreasGrid: React.FC = () => {
-  const { profile, isLoading } = useProfile();
+  const { profile } = useProfile();
+  const { journalSessions } = useSessions();
   
-  const areas = areaConfig.map(area => {
-    const scores = profile?.life_areas_scores as Record<string, number> | undefined;
-    const value = scores?.[area.key] || 0;
-    return {
-      ...area,
-      value,
-      trend: value > 50 ? `+${Math.floor(Math.random() * 10)}%` : '-',
-    };
-  });
+  // Get current scores from profile (scaled 0-10)
+  const currentScores = profile?.life_areas_scores || {
+    love: 5,
+    work: 5,
+    friendship: 5,
+    wellness: 5,
+  };
+  
+  // Calculate trends from recent sessions
+  const getTrend = (balanceKey: keyof LifeBalanceScores): 'up' | 'down' | 'stable' => {
+    if (!journalSessions || journalSessions.length < 2) return 'stable';
+    
+    const sessionsWithScores = journalSessions.filter(s => s.life_balance_scores);
+    if (sessionsWithScores.length < 2) return 'stable';
+    
+    const recent = sessionsWithScores.slice(0, Math.ceil(sessionsWithScores.length / 2));
+    const older = sessionsWithScores.slice(Math.ceil(sessionsWithScores.length / 2));
+    
+    const recentAvg = recent.reduce((acc, s) => {
+      return acc + (s.life_balance_scores?.[balanceKey] ?? 5);
+    }, 0) / recent.length;
+    
+    const olderAvg = older.reduce((acc, s) => {
+      return acc + (s.life_balance_scores?.[balanceKey] ?? 5);
+    }, 0) / older.length;
+    
+    if (recentAvg > olderAvg + 0.5) return 'up';
+    if (recentAvg < olderAvg - 0.5) return 'down';
+    return 'stable';
+  };
 
-  if (isLoading) {
-    return (
-      <div className="animate-slide-up stagger-2">
-        <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
-          Le tue aree di vita
-        </h3>
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-card rounded-2xl p-4 shadow-soft animate-pulse h-32" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const getScoreColor = (score: number) => {
+    if (score >= 7) return 'text-emerald-500';
+    if (score >= 4) return 'text-amber-500';
+    return 'text-destructive';
+  };
 
-  const hasData = areas.some(a => a.value > 0);
+  const getBarColor = (score: number, baseColor: string) => {
+    if (score >= 7) return baseColor;
+    if (score >= 4) return 'bg-amber-500';
+    return 'bg-destructive';
+  };
 
   return (
-    <div className="animate-slide-up stagger-2">
-      <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
-        Le tue aree di vita
-      </h3>
-      <div className="grid grid-cols-2 gap-3">
-        {areas.map((area, index) => {
-          const Icon = area.icon;
-          return (
-            <div
-              key={area.label}
-              className={cn(
-                "bg-card rounded-2xl p-4 shadow-soft hover:shadow-card transition-all duration-300",
-                "hover:scale-[1.02] cursor-pointer"
-              )}
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className={cn("p-2 rounded-xl", area.bgLight)}>
-                  <Icon className="w-5 h-5" style={{ color: `hsl(var(--area-${area.key === 'friendship' ? 'friendship' : area.key}))` }} />
+    <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-5 shadow-soft border border-border/50">
+      {/* Decorative blur */}
+      <div className="absolute -top-16 -left-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+      
+      <div className="relative z-10">
+        <h3 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2">
+          <span className="text-lg">⚖️</span>
+          Bilanciamento Vita
+        </h3>
+        
+        <div className="space-y-4">
+          {lifeAreas.map((area) => {
+            const profileScores = currentScores as { love?: number; work?: number; friendship?: number; wellness?: number };
+            const score = profileScores[area.key] ?? 5;
+            const trend = getTrend(area.balanceKey);
+            const percentage = (score / 10) * 100;
+            
+            return (
+              <div key={area.key} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{area.icon}</span>
+                    <span className="text-sm font-medium text-foreground">{area.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("text-sm font-bold", getScoreColor(score))}>
+                      {score}/10
+                    </span>
+                    {trend === 'up' && (
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                    )}
+                    {trend === 'down' && (
+                      <TrendingDown className="w-3.5 h-3.5 text-destructive" />
+                    )}
+                    {trend === 'stable' && (
+                      <Minus className="w-3.5 h-3.5 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
-                {hasData && area.value > 50 && (
-                  <span className="text-xs font-medium text-mood-good">{area.trend}</span>
-                )}
-              </div>
-              <h4 className="font-medium text-foreground mb-2">{area.label}</h4>
-              <div className="flex items-end gap-2">
-                <span className="text-2xl font-display font-bold text-foreground">
-                  {hasData ? `${area.value}%` : '--'}
-                </span>
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                
+                {/* Progress bar */}
+                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                   <div 
-                    className={cn("h-full rounded-full transition-all duration-500", area.color)}
-                    style={{ width: hasData ? `${area.value}%` : '0%' }}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      getBarColor(score, area.colorClass)
+                    )}
+                    style={{ width: `${percentage}%` }}
                   />
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-      {!hasData && (
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          I dati verranno aggiornati dopo le tue sessioni
-        </p>
-      )}
     </div>
   );
 };

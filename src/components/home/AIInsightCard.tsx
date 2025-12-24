@@ -28,7 +28,7 @@ const AIInsightCard: React.FC = () => {
   const displayText = latestInsight || latestSummary;
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 rounded-3xl p-5 shadow-soft border border-primary/10">
+    <div className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-accent/15 rounded-3xl p-5 shadow-soft border-2 border-primary/20 ring-1 ring-primary/10">
       {/* Decorative elements */}
       <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-2xl" />
       <div className="absolute -bottom-5 -left-5 w-20 h-20 bg-accent/10 rounded-full blur-xl" />

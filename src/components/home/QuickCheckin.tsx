@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
@@ -11,6 +11,21 @@ const moods = [
   { emoji: '😐', label: 'Neutro', value: 3 },
   { emoji: '🙂', label: 'Bene', value: 4 },
   { emoji: '😄', label: 'Ottimo', value: 5 },
+];
+
+const motivationalPhrases = [
+  "Ogni giorno è un nuovo inizio.",
+  "Piccoli passi portano a grandi cambiamenti.",
+  "Sei più forte di quanto pensi.",
+  "Prenditi cura di te stesso oggi.",
+  "Respira, sei nel posto giusto.",
+  "Il tuo benessere è importante.",
+  "Oggi è un buon giorno per stare bene.",
+  "Una conversazione può cambiare tutto.",
+  "Ascoltati, meriti attenzione.",
+  "La calma è una superpotenza.",
+  "Celebra i piccoli progressi.",
+  "Sei sulla strada giusta.",
 ];
 
 interface QuickCheckinProps {
@@ -35,6 +50,14 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     if (hour < 21) return `Buonasera${nameStr}, vuoi sfogarti un po'?`;
     return `Buonanotte${nameStr}, come è andata oggi?`;
   };
+
+  // Get a random motivational phrase (changes daily)
+  const motivationalPhrase = useMemo(() => {
+    const today = new Date();
+    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+    const index = dayOfYear % motivationalPhrases.length;
+    return motivationalPhrases[index];
+  }, []);
 
   // Sync with database
   useEffect(() => {
@@ -67,8 +90,8 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
         <h2 className="font-display text-xl font-semibold text-foreground mb-1">
           {getGreeting()}
         </h2>
-        <p className="text-sm text-muted-foreground mb-5">
-          {todayCheckin ? 'Puoi aggiornare il tuo umore' : 'Tocca per registrare il tuo umore'}
+        <p className="text-sm text-primary font-medium italic mb-5">
+          "{motivationalPhrase}"
         </p>
         
         <div className="flex justify-between gap-1">
