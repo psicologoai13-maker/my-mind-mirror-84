@@ -25,6 +25,20 @@
 }
 
 @layer base {
+  /* Native scroll - let body handle scrolling */
+  html, body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
   :root {
     /* Calming Mental Health Palette */
     --background: 40 33% 98%;
