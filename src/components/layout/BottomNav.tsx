@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, BarChart3, Calendar, User, Mic, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { RealtimeVoiceModal } from '@/components/voice/RealtimeVoiceModal';
+import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -100,7 +100,7 @@ const BottomNav: React.FC = () => {
         </div>
       </nav>
 
-      <RealtimeVoiceModal 
+      <ZenVoiceModal 
         isOpen={showVoiceModal} 
         onClose={() => setShowVoiceModal(false)} 
       />
