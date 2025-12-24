@@ -105,13 +105,26 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
       case 'connected':
         return 'Collegato';
       case 'listening':
-        return 'In ascolto';
+        return '🎤 In ascolto';
       case 'speaking':
-        return 'Parla l\'AI';
+        return '🔊 AI parla';
       case 'error':
         return 'Riprova';
       default:
-        return 'Inizia';
+        return 'Inizia conversazione';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (voiceSession.status) {
+      case 'connecting':
+        return 'Connessione in corso...';
+      case 'listening':
+        return 'Parla pure, ti ascolto';
+      case 'speaking':
+        return 'Sto rispondendo...';
+      default:
+        return '';
     }
   };
 
@@ -155,16 +168,27 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
             </div>
           </div>
 
-          {/* Duration */}
+          {/* Duration & Status */}
           {startTime && (
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <div className="text-4xl font-mono font-bold text-foreground">
                 {formatDuration(duration)}
               </div>
+              {/* Status text */}
+              {isSessionActive && (
+                <div className={cn(
+                  "text-sm font-medium px-3 py-1 rounded-full inline-block",
+                  voiceSession.status === 'listening' && "text-green-600 bg-green-100 dark:bg-green-900/30",
+                  voiceSession.status === 'speaking' && "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
+                  voiceSession.status === 'connecting' && "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30"
+                )}>
+                  {getStatusText()}
+                </div>
+              )}
               {/* Error display */}
               {displayError && (
-                <div className="mt-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-                  {displayError}
+                <div className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
+                  ⚠️ {displayError}
                 </div>
               )}
             </div>
@@ -173,7 +197,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
           {/* Error display when not started */}
           {!startTime && displayError && (
             <div className="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded-lg text-center">
-              {displayError}
+              ⚠️ {displayError}
             </div>
           )}
 

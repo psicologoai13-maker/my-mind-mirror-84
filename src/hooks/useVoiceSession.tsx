@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type VoiceSessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
@@ -133,14 +132,14 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     }
   }, [pcm16ToFloat32, playAudioChunk, updateStatus]);
 
-  // Start WebSocket connection
+  // Start WebSocket connection with fast fallback
   const startWebSocket = useCallback(async () => {
     updateStatus('connecting');
     setErrorMessage(null);
     hasTriedFallbackRef.current = false;
     
     try {
-      // Get microphone access at 16kHz
+      // Get microphone access first
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: INPUT_SAMPLE_RATE,
@@ -153,7 +152,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
 
       // Input context at 16kHz
       audioContextRef.current = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
-      // FORCE RESUME to unlock browser audio
       await audioContextRef.current.resume();
       
       // Playback context at 24kHz for Gemini output
@@ -166,29 +164,27 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       console.log('Connecting to WebSocket:', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
       
-      // Timeout for fallback - extended to 8 seconds
+      // Fast timeout - 3 seconds then fallback
       connectionTimeoutRef.current = setTimeout(() => {
         if (status === 'connecting' && !hasTriedFallbackRef.current) {
-          console.log('Connection timeout after 8s, switching to fallback');
-          setErrorMessage('Timeout connessione. Passaggio a modalità alternativa...');
-          wsRef.current?.close();
+          console.log('Connection timeout, switching to fallback');
           hasTriedFallbackRef.current = true;
+          wsRef.current?.close();
           startFallback();
         }
-      }, 8000);
+      }, 3000);
       
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected to edge function');
+        console.log('WebSocket connected');
       };
       
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received:', data.type || (data.setupComplete ? 'setupComplete' : 'content'));
           
           // Setup complete - start audio capture
           if (data.setupComplete) {
-            console.log('Gemini ready with model:', data.model);
+            console.log('Gemini ready:', data.model);
             
             if (connectionTimeoutRef.current) {
               clearTimeout(connectionTimeoutRef.current);
@@ -208,15 +204,14 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
               
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 const audioBase64 = float32ToPCM16Base64(new Float32Array(inputData));
-                const message = {
+                wsRef.current.send(JSON.stringify({
                   realtimeInput: {
                     mediaChunks: [{
                       mimeType: "audio/pcm;rate=16000",
                       data: audioBase64
                     }]
                   }
-                };
-                wsRef.current.send(JSON.stringify(message));
+                }));
               }
             };
             
@@ -224,7 +219,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
             processorRef.current.connect(audioContextRef.current!.destination);
             
             updateStatus('listening');
-            toast.success('Connesso! Inizia a parlare.');
+            toast.success('Connesso! Parla pure.');
             return;
           }
           
@@ -236,7 +231,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
               if (part.inlineData?.mimeType?.includes('audio')) {
                 processIncomingAudio(part.inlineData.data);
               }
-              
               if (part.text) {
                 setTranscript(prev => [...prev, `AI: ${part.text}`]);
                 options.onTranscript?.(part.text, false);
@@ -244,57 +238,57 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
             }
             
             if (data.serverContent.turnComplete) {
-              console.log('Turn complete');
               updateStatus('listening');
             }
           }
           
-          // Handle errors
+          // Handle errors - switch to fallback immediately
           if (data.type === 'error') {
             console.error('Gemini error:', data.message);
             setErrorMessage(data.message);
-            options.onError?.(data.message);
             
             if (!hasTriedFallbackRef.current) {
               hasTriedFallbackRef.current = true;
+              if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+              }
               wsRef.current?.close();
               startFallback();
-            } else {
-              updateStatus('error');
             }
           }
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('Message parse error:', error);
         }
       };
       
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-        }
+      wsRef.current.onerror = () => {
+        console.error('WebSocket error');
         if (!hasTriedFallbackRef.current) {
           hasTriedFallbackRef.current = true;
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+          }
           wsRef.current?.close();
           startFallback();
         }
       };
       
       wsRef.current.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
+        console.log('WebSocket closed:', event.code);
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
         }
-        if (status !== 'idle' && mode === 'websocket' && !hasTriedFallbackRef.current) {
-          updateStatus('idle');
+        // If closed unexpectedly and not in fallback, try fallback
+        if (status !== 'idle' && !hasTriedFallbackRef.current && event.code !== 1000) {
+          hasTriedFallbackRef.current = true;
+          startFallback();
         }
       };
       
     } catch (error) {
-      console.error('Failed to start WebSocket mode:', error);
+      console.error('Failed to start:', error);
       const errMsg = error instanceof Error ? error.message : 'Errore accesso microfono';
       setErrorMessage(errMsg);
-      options.onError?.(errMsg);
       
       if (!hasTriedFallbackRef.current) {
         hasTriedFallbackRef.current = true;
@@ -303,126 +297,176 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         updateStatus('error');
       }
     }
-  }, [analyzeAudioLevel, float32ToPCM16Base64, isMuted, mode, options, processIncomingAudio, status, updateStatus]);
+  }, [analyzeAudioLevel, float32ToPCM16Base64, isMuted, options, processIncomingAudio, status, updateStatus]);
 
-  // Fallback: Web Speech API + TTS
+  // Fallback: Web Speech API + Lovable AI + TTS (starts immediately)
   const startFallback = useCallback(async () => {
-    console.log('Starting fallback mode...');
+    console.log('Starting fallback mode (Web Speech + Lovable AI)');
     setMode('fallback');
     setErrorMessage(null);
-    updateStatus('connecting');
-    toast.info('Attivazione modalità voce alternativa...');
+    toast.info('Modalità voce alternativa attiva');
     
     try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        throw new Error('Speech recognition not supported');
+        throw new Error('Riconoscimento vocale non supportato dal browser');
       }
       
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
+      recognitionRef.current.interimResults = false; // Only final results
       recognitionRef.current.lang = 'it-IT';
       
-      let finalTranscript = '';
-      
-      recognitionRef.current.onresult = async (event: any) => {
-        let interim = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        
-        if (finalTranscript) {
-          setTranscript(prev => [...prev, `Tu: ${finalTranscript}`]);
-          options.onTranscript?.(finalTranscript, true);
-          
-          updateStatus('speaking');
-          
-          try {
-            const response = await supabase.functions.invoke('ai-chat', {
-              body: { 
-                messages: [{ role: 'user', content: finalTranscript }],
-                generateSummary: false
-              }
-            });
-            
-            if (response.error) throw response.error;
-            
-            const reader = response.data.getReader?.();
-            let aiResponse = '';
-            
-            if (reader) {
-              const decoder = new TextDecoder();
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-                
-                for (const line of lines) {
-                  if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                    try {
-                      const parsed = JSON.parse(line.slice(6));
-                      const content = parsed.choices?.[0]?.delta?.content;
-                      if (content) aiResponse += content;
-                    } catch {}
-                  }
-                }
-              }
-            }
-            
-            if (aiResponse) {
-              setTranscript(prev => [...prev, `AI: ${aiResponse}`]);
-              options.onTranscript?.(aiResponse, false);
-              
-              synthRef.current = new SpeechSynthesisUtterance(aiResponse);
-              synthRef.current.lang = 'it-IT';
-              synthRef.current.rate = 1;
-              
-              synthRef.current.onend = () => {
-                updateStatus('listening');
-                if (recognitionRef.current && !isMuted) {
-                  recognitionRef.current.start();
-                }
-              };
-              
-              recognitionRef.current?.stop();
-              speechSynthesis.speak(synthRef.current);
-            }
-          } catch (error) {
-            console.error('AI response error:', error);
-            updateStatus('listening');
-          }
-          
-          finalTranscript = '';
-        }
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started');
+        updateStatus('listening');
       };
       
-      recognitionRef.current.onstart = () => {
-        updateStatus('listening');
+      recognitionRef.current.onresult = async (event: any) => {
+        const last = event.results.length - 1;
+        const text = event.results[last][0].transcript.trim();
+        
+        if (!text) return;
+        
+        console.log('User said:', text);
+        setTranscript(prev => [...prev, `Tu: ${text}`]);
+        options.onTranscript?.(text, true);
+        
+        // Stop listening while AI responds
+        recognitionRef.current?.stop();
+        updateStatus('speaking');
+        
+        try {
+          // Call Lovable AI via edge function
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ 
+              messages: [{ role: 'user', content: text }]
+            })
+          });
+          
+          if (!response.ok) throw new Error('AI response failed');
+          
+          // Handle streaming response
+          let aiResponse = '';
+          const reader = response.body?.getReader();
+          
+          if (reader) {
+            const decoder = new TextDecoder();
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    if (content) aiResponse += content;
+                  } catch {}
+                }
+              }
+            }
+          }
+          
+          if (aiResponse) {
+            console.log('AI response:', aiResponse);
+            setTranscript(prev => [...prev, `AI: ${aiResponse}`]);
+            options.onTranscript?.(aiResponse, false);
+            
+            // Speak the response with TTS
+            const utterance = new SpeechSynthesisUtterance(aiResponse);
+            utterance.lang = 'it-IT';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            // Get Italian voice if available
+            const voices = speechSynthesis.getVoices();
+            const italianVoice = voices.find(v => v.lang.startsWith('it'));
+            if (italianVoice) utterance.voice = italianVoice;
+            
+            utterance.onend = () => {
+              console.log('TTS finished, resuming listening');
+              updateStatus('listening');
+              // Resume listening after speaking
+              if (recognitionRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch (e) {
+                  console.log('Recognition restart error:', e);
+                }
+              }
+            };
+            
+            utterance.onerror = (e) => {
+              console.error('TTS error:', e);
+              updateStatus('listening');
+              if (recognitionRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch {}
+              }
+            };
+            
+            speechSynthesis.speak(utterance);
+          } else {
+            updateStatus('listening');
+            recognitionRef.current?.start();
+          }
+          
+        } catch (error) {
+          console.error('AI call error:', error);
+          toast.error('Errore nella risposta AI');
+          updateStatus('listening');
+          recognitionRef.current?.start();
+        }
       };
       
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
-        if (event.error !== 'no-speech') {
+        if (event.error === 'not-allowed') {
+          setErrorMessage('Permesso microfono negato');
           updateStatus('error');
+        } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          // Try to restart on other errors
+          setTimeout(() => {
+            if (recognitionRef.current && status === 'listening') {
+              try {
+                recognitionRef.current.start();
+              } catch {}
+            }
+          }, 500);
         }
       };
       
+      recognitionRef.current.onend = () => {
+        // Auto-restart if still in listening mode
+        if (status === 'listening' && recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {}
+        }
+      };
+      
+      // Start immediately
       recognitionRef.current.start();
       
     } catch (error) {
-      console.error('Fallback mode failed:', error);
+      console.error('Fallback init error:', error);
+      const msg = error instanceof Error ? error.message : 'Errore avvio modalità voce';
+      setErrorMessage(msg);
       updateStatus('error');
-      toast.error('Impossibile avviare la modalità voce');
+      toast.error(msg);
     }
-  }, [isMuted, options, updateStatus]);
+  }, [options, status, updateStatus]);
 
   // Start session
   const start = useCallback(async () => {
