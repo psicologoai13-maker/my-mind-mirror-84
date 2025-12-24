@@ -1,6 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { Json } from '@/integrations/supabase/types';
+
+export interface LifeBalanceScores {
+  love: number | null;
+  work: number | null;
+  friendship: number | null;
+  energy: number | null;
+  growth: number | null;
+}
+
+export interface EmotionBreakdown {
+  [emotion: string]: number;
+}
 
 export interface Session {
   id: string;
@@ -15,7 +28,20 @@ export interface Session {
   anxiety_score_detected: number | null;
   emotion_tags: string[];
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  life_balance_scores: LifeBalanceScores | null;
+  emotion_breakdown: EmotionBreakdown | null;
+  key_events: string[];
+  insights: string | null;
 }
+
+// Helper to transform DB row to Session type
+const transformSession = (row: any): Session => ({
+  ...row,
+  life_balance_scores: row.life_balance_scores as LifeBalanceScores | null,
+  emotion_breakdown: row.emotion_breakdown as EmotionBreakdown | null,
+  key_events: row.key_events || [],
+  emotion_tags: row.emotion_tags || [],
+});
 
 export const useSessions = () => {
   const { user } = useAuth();
@@ -33,7 +59,7 @@ export const useSessions = () => {
         .order('start_time', { ascending: false });
       
       if (error) throw error;
-      return data as Session[];
+      return (data || []).map(transformSession);
     },
     enabled: !!user,
   });
@@ -43,7 +69,10 @@ export const useSessions = () => {
   const inProgressSession = sessions?.find(s => s.status === 'in_progress');
 
   const createSession = useMutation({
-    mutationFn: async (sessionData: Partial<Session>) => {
+    mutationFn: async (sessionData: Partial<Omit<Session, 'life_balance_scores' | 'emotion_breakdown'>> & { 
+      life_balance_scores?: Json;
+      emotion_breakdown?: Json;
+    }) => {
       if (!user) throw new Error('Not authenticated');
       
       const { data, error } = await supabase
@@ -58,7 +87,7 @@ export const useSessions = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return transformSession(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
@@ -66,19 +95,27 @@ export const useSessions = () => {
   });
 
   const updateSession = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Session> & { id: string }) => {
+    mutationFn: async ({ id, life_balance_scores, emotion_breakdown, ...updates }: Partial<Session> & { id: string }) => {
       if (!user) throw new Error('Not authenticated');
+      
+      const dbUpdates: any = { ...updates };
+      if (life_balance_scores !== undefined) {
+        dbUpdates.life_balance_scores = life_balance_scores as unknown as Json;
+      }
+      if (emotion_breakdown !== undefined) {
+        dbUpdates.emotion_breakdown = emotion_breakdown as unknown as Json;
+      }
       
       const { data, error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .eq('user_id', user.id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return transformSession(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
@@ -101,7 +138,7 @@ export const useSessions = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return transformSession(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
@@ -150,7 +187,7 @@ export const useSessions = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return transformSession(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
