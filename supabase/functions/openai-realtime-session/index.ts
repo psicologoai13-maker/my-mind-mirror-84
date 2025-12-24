@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,19 +20,50 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    console.log('Creating OpenAI Realtime session...');
+    // Parse request body for user_id
+    let userId: string | null = null;
+    try {
+      const body = await req.json();
+      userId = body.user_id;
+    } catch {
+      // No body or invalid JSON, continue without user_id
+    }
 
-    // Request an ephemeral token from OpenAI
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: "shimmer",
-        instructions: `Sei uno psicologo empatico italiano. Il tuo nome è "Aria".
+    console.log('[openai-realtime-session] Creating session for user:', userId);
+
+    // Fetch user's long-term memory if available
+    let longTermMemory: string[] = [];
+    
+    if (userId) {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('long_term_memory, name')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('[openai-realtime-session] Error fetching profile:', profileError);
+      } else if (profileData?.long_term_memory) {
+        longTermMemory = profileData.long_term_memory;
+        console.log('[openai-realtime-session] Loaded', longTermMemory.length, 'memory items');
+      }
+    }
+
+    // Build memory context string
+    let memoryContext = '';
+    if (longTermMemory.length > 0) {
+      memoryContext = `\n\nMEMORIA DELLE SESSIONI PRECEDENTI:
+Ricorda questi fatti importanti sull'utente:
+${longTermMemory.map((fact, i) => `- ${fact}`).join('\n')}
+
+Usa questa memoria per personalizzare la conversazione e mostrare che ricordi cosa ha condiviso in passato.`;
+    }
+
+    const systemInstructions = `Sei uno psicologo empatico italiano. Il tuo nome è "Aria".
 
 REGOLE FONDAMENTALI:
 - Il tuo tono di voce è caldo, lento e rassicurante
@@ -43,9 +75,23 @@ REGOLE FONDAMENTALI:
 - Mostra empatia genuina e comprensione
 - Non dare consigli non richiesti, prima ascolta
 - Usa pause naturali nel parlare
-- Ricorda i dettagli che l'utente condivide durante la conversazione
+- Ricorda i dettagli che l'utente condivide durante la conversazione${memoryContext}
 
-Inizia sempre con un saluto caldo e chiedi come sta la persona oggi.`
+Inizia sempre con un saluto caldo e chiedi come sta la persona oggi.`;
+
+    console.log('[openai-realtime-session] Creating OpenAI Realtime session...');
+
+    // Request an ephemeral token from OpenAI
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: "shimmer",
+        instructions: systemInstructions
       }),
     });
 
@@ -56,7 +102,7 @@ Inizia sempre con un saluto caldo e chiedi come sta la persona oggi.`
     }
 
     const data = await response.json();
-    console.log("Session created successfully:", JSON.stringify(data, null, 2));
+    console.log("[openai-realtime-session] Session created successfully");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

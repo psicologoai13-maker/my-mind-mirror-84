@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.openai-realtime-session]
 verify_jwt = false
+
+[functions.process-session]
+verify_jwt = false
