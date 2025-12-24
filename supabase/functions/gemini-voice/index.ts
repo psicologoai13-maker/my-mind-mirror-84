@@ -61,8 +61,9 @@ serve(async (req) => {
       clientSocket.onopen = () => {
         console.log("Client connected, establishing Gemini connection...");
         
-        // Connect to Gemini Multimodal Live API
-        const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
+        // Connect to Gemini Multimodal Live API - using v1alpha for BidiGenerateContent
+        const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
+        console.log("Connecting to Gemini at:", geminiUrl.replace(GOOGLE_API_KEY!, 'API_KEY_HIDDEN'));
         
         geminiSocket = new WebSocket(geminiUrl);
         
@@ -113,9 +114,20 @@ serve(async (req) => {
         geminiSocket.onclose = (event) => {
           console.log("Gemini connection closed:", event.code, event.reason);
           if (clientSocket.readyState === WebSocket.OPEN) {
+            // Parse error message from reason
+            let errorMessage = event.reason || `Connection closed (code: ${event.code})`;
+            if (event.reason?.includes('quota')) {
+              errorMessage = 'Quota API Google esaurita. Prova più tardi.';
+            } else if (event.code === 1006) {
+              errorMessage = 'Connessione interrotta. Verifica la tua connessione.';
+            } else if (event.code === 1008) {
+              errorMessage = 'Chiave API non valida o scaduta.';
+            }
+            
             clientSocket.send(JSON.stringify({ 
-              type: "gemini_closed", 
-              code: event.code 
+              type: "error", 
+              code: event.code,
+              message: errorMessage
             }));
           }
         };

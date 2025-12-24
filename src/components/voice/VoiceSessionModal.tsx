@@ -24,6 +24,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [duration, setDuration] = useState(0);
+  const [localError, setLocalError] = useState<string | null>(null);
   
   const { startSession, endSession } = useSessions();
   
@@ -37,6 +38,9 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
     },
     onTranscript: (text, isUser) => {
       console.log(`${isUser ? 'User' : 'AI'}: ${text}`);
+    },
+    onError: (error) => {
+      setLocalError(error);
     }
   });
 
@@ -54,6 +58,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
   }, [startTime, voiceSession.status]);
 
   const handleStart = async () => {
+    setLocalError(null);
     try {
       // Create session in database
       const result = await startSession.mutateAsync('voice');
@@ -68,11 +73,13 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
       await voiceSession.start();
     } catch (error) {
       console.error('Failed to start session:', error);
+      setLocalError(error instanceof Error ? error.message : 'Errore avvio sessione');
     }
   };
 
   const handleEnd = async () => {
     voiceSession.stop();
+    setLocalError(null);
     
     if (sessionId) {
       try {
@@ -90,6 +97,25 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
     setDuration(0);
     onOpenChange(false);
   };
+
+  const getButtonLabel = () => {
+    switch (voiceSession.status) {
+      case 'connecting':
+        return 'Connessione...';
+      case 'connected':
+        return 'Collegato';
+      case 'listening':
+        return 'In ascolto';
+      case 'speaking':
+        return 'Parla l\'AI';
+      case 'error':
+        return 'Riprova';
+      default:
+        return 'Inizia';
+    }
+  };
+
+  const displayError = localError || voiceSession.errorMessage;
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -131,8 +157,23 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
 
           {/* Duration */}
           {startTime && (
-            <div className="text-4xl font-mono font-bold text-foreground">
-              {formatDuration(duration)}
+            <div className="text-center">
+              <div className="text-4xl font-mono font-bold text-foreground">
+                {formatDuration(duration)}
+              </div>
+              {/* Error display */}
+              {displayError && (
+                <div className="mt-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
+                  {displayError}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Error display when not started */}
+          {!startTime && displayError && (
+            <div className="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded-lg text-center">
+              {displayError}
             </div>
           )}
 
@@ -166,11 +207,28 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
             {!isSessionActive ? (
               <Button
                 size="lg"
-                className="h-16 w-16 rounded-full bg-primary hover:bg-primary/90"
+                className={cn(
+                  "h-16 px-8 rounded-full transition-all duration-300",
+                  voiceSession.status === 'connecting' 
+                    ? "bg-yellow-500 hover:bg-yellow-600 animate-pulse" 
+                    : voiceSession.status === 'error'
+                    ? "bg-orange-500 hover:bg-orange-600"
+                    : "bg-primary hover:bg-primary/90"
+                )}
                 onClick={handleStart}
-                disabled={startSession.isPending}
+                disabled={startSession.isPending || voiceSession.status === 'connecting'}
               >
-                <Phone className="w-6 h-6" />
+                {voiceSession.status === 'connecting' ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Connessione...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Phone className="w-5 h-5" />
+                    {getButtonLabel()}
+                  </span>
+                )}
               </Button>
             ) : (
               <>
