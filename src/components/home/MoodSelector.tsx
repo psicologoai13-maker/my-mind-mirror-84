@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useCheckins } from '@/hooks/useCheckins';
+import { toast } from 'sonner';
 
 const moods = [
   { emoji: '😢', label: 'Triste', value: 1, color: 'bg-mood-bad' },
@@ -15,6 +17,29 @@ interface MoodSelectorProps {
 }
 
 const MoodSelector: React.FC<MoodSelectorProps> = ({ selectedMood, onMoodSelect }) => {
+  const { todayCheckin, saveCheckin, isLoading } = useCheckins();
+
+  // Sync with database
+  useEffect(() => {
+    if (todayCheckin) {
+      onMoodSelect(todayCheckin.mood_value);
+    }
+  }, [todayCheckin, onMoodSelect]);
+
+  const handleMoodSelect = async (mood: { emoji: string; value: number }) => {
+    onMoodSelect(mood.value);
+    
+    try {
+      await saveCheckin.mutateAsync({
+        mood_emoji: mood.emoji,
+        mood_value: mood.value,
+      });
+      toast.success('Umore registrato!');
+    } catch (error) {
+      toast.error('Errore nel salvare l\'umore');
+    }
+  };
+
   return (
     <div className="bg-card rounded-3xl p-6 shadow-card animate-slide-up">
       <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
@@ -24,10 +49,12 @@ const MoodSelector: React.FC<MoodSelectorProps> = ({ selectedMood, onMoodSelect 
         {moods.map((mood, index) => (
           <button
             key={mood.value}
-            onClick={() => onMoodSelect(mood.value)}
+            onClick={() => handleMoodSelect(mood)}
+            disabled={saveCheckin.isPending}
             className={cn(
               "flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300",
               "hover:scale-110 active:scale-95",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
               selectedMood === mood.value 
                 ? `${mood.color} shadow-card scale-110` 
                 : "bg-muted hover:bg-muted/80"
@@ -44,6 +71,11 @@ const MoodSelector: React.FC<MoodSelectorProps> = ({ selectedMood, onMoodSelect 
           </button>
         ))}
       </div>
+      {todayCheckin && (
+        <p className="text-xs text-muted-foreground text-center mt-4">
+          ✓ Già registrato oggi
+        </p>
+      )}
     </div>
   );
 };

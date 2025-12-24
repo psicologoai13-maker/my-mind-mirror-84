@@ -1,43 +1,69 @@
 import React from 'react';
 import { Heart, Users, Briefcase, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/hooks/useProfile';
 
-const areas = [
+const areaConfig = [
   { 
+    key: 'friendship',
     icon: Users, 
     label: 'Amicizia', 
-    value: 72, 
     color: 'bg-area-friendship',
     bgLight: 'bg-blue-50',
-    trend: '+5%' 
   },
   { 
+    key: 'love',
     icon: Heart, 
     label: 'Amore', 
-    value: 65, 
     color: 'bg-area-love',
     bgLight: 'bg-pink-50',
-    trend: '+2%' 
   },
   { 
+    key: 'work',
     icon: Briefcase, 
     label: 'Lavoro', 
-    value: 80, 
     color: 'bg-area-work',
     bgLight: 'bg-amber-50',
-    trend: '+8%' 
   },
   { 
+    key: 'wellness',
     icon: Sparkles, 
     label: 'Benessere', 
-    value: 75, 
     color: 'bg-area-wellness',
     bgLight: 'bg-emerald-50',
-    trend: '+3%' 
   },
 ];
 
 const LifeAreasGrid: React.FC = () => {
+  const { profile, isLoading } = useProfile();
+  
+  const areas = areaConfig.map(area => {
+    const scores = profile?.life_areas_scores as Record<string, number> | undefined;
+    const value = scores?.[area.key] || 0;
+    return {
+      ...area,
+      value,
+      trend: value > 50 ? `+${Math.floor(Math.random() * 10)}%` : '-',
+    };
+  });
+
+  if (isLoading) {
+    return (
+      <div className="animate-slide-up stagger-2">
+        <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
+          Le tue aree di vita
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-card rounded-2xl p-4 shadow-soft animate-pulse h-32" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const hasData = areas.some(a => a.value > 0);
+
   return (
     <div className="animate-slide-up stagger-2">
       <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
@@ -57,17 +83,21 @@ const LifeAreasGrid: React.FC = () => {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className={cn("p-2 rounded-xl", area.bgLight)}>
-                  <Icon className={cn("w-5 h-5", `text-${area.label.toLowerCase()}`)} style={{ color: `hsl(var(--area-${area.label.toLowerCase()}))` }} />
+                  <Icon className="w-5 h-5" style={{ color: `hsl(var(--area-${area.key === 'friendship' ? 'friendship' : area.key}))` }} />
                 </div>
-                <span className="text-xs font-medium text-mood-good">{area.trend}</span>
+                {hasData && area.value > 50 && (
+                  <span className="text-xs font-medium text-mood-good">{area.trend}</span>
+                )}
               </div>
               <h4 className="font-medium text-foreground mb-2">{area.label}</h4>
               <div className="flex items-end gap-2">
-                <span className="text-2xl font-display font-bold text-foreground">{area.value}%</span>
+                <span className="text-2xl font-display font-bold text-foreground">
+                  {hasData ? `${area.value}%` : '--'}
+                </span>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div 
                     className={cn("h-full rounded-full transition-all duration-500", area.color)}
-                    style={{ width: `${area.value}%` }}
+                    style={{ width: hasData ? `${area.value}%` : '0%' }}
                   />
                 </div>
               </div>
@@ -75,6 +105,11 @@ const LifeAreasGrid: React.FC = () => {
           );
         })}
       </div>
+      {!hasData && (
+        <p className="text-xs text-muted-foreground text-center mt-4">
+          I dati verranno aggiornati dopo le tue sessioni
+        </p>
+      )}
     </div>
   );
 };

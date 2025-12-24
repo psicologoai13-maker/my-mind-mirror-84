@@ -14,7 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_checkins: {
+        Row: {
+          created_at: string
+          id: string
+          mood_emoji: string
+          mood_value: number
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mood_emoji: string
+          mood_value: number
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mood_emoji?: string
+          mood_value?: number
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          ai_summary: string | null
+          anxiety_score_detected: number | null
+          duration: number | null
+          emotion_tags: string[] | null
+          end_time: string | null
+          id: string
+          mood_score_detected: number | null
+          start_time: string
+          status: string | null
+          transcript: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          anxiety_score_detected?: number | null
+          duration?: number | null
+          emotion_tags?: string[] | null
+          end_time?: string | null
+          id?: string
+          mood_score_detected?: number | null
+          start_time?: string
+          status?: string | null
+          transcript?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          anxiety_score_detected?: number | null
+          duration?: number | null
+          emotion_tags?: string[] | null
+          end_time?: string | null
+          id?: string
+          mood_score_detected?: number | null
+          start_time?: string
+          status?: string | null
+          transcript?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          life_areas_scores: Json | null
+          name: string | null
+          user_id: string
+          wellness_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          life_areas_scores?: Json | null
+          name?: string | null
+          user_id: string
+          wellness_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          life_areas_scores?: Json | null
+          name?: string | null
+          user_id?: string
+          wellness_score?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
