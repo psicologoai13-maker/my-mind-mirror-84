@@ -153,9 +153,12 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
 
       // Input context at 16kHz
       audioContextRef.current = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+      // FORCE RESUME to unlock browser audio
+      await audioContextRef.current.resume();
       
       // Playback context at 24kHz for Gemini output
       playbackContextRef.current = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+      await playbackContextRef.current.resume();
       nextPlayTimeRef.current = 0;
       
       // Connect to edge function
@@ -163,15 +166,16 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       console.log('Connecting to WebSocket:', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
       
-      // Timeout for fallback
+      // Timeout for fallback - extended to 8 seconds
       connectionTimeoutRef.current = setTimeout(() => {
         if (status === 'connecting' && !hasTriedFallbackRef.current) {
-          console.log('Connection timeout, switching to fallback');
+          console.log('Connection timeout after 8s, switching to fallback');
+          setErrorMessage('Timeout connessione. Passaggio a modalità alternativa...');
           wsRef.current?.close();
           hasTriedFallbackRef.current = true;
           startFallback();
         }
-      }, 5000);
+      }, 8000);
       
       wsRef.current.onopen = () => {
         console.log('WebSocket connected to edge function');
