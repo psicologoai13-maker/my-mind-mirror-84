@@ -34,16 +34,20 @@ BEHAVIOR:
 - Rispondi in italiano
 - Mantieni le risposte brevi e conversazionali per il formato vocale`;
 
+// Models to try in order
+const MODELS = [
+  "models/gemini-2.0-flash-live-001",
+  "models/gemini-2.0-flash-exp"
+];
+
 serve(async (req) => {
   const { headers } = req;
   const upgradeHeader = headers.get("upgrade") || "";
 
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Check if it's a WebSocket upgrade request
   if (upgradeHeader.toLowerCase() === "websocket") {
     if (!GOOGLE_API_KEY) {
       console.error("GOOGLE_API_KEY not configured");
@@ -57,29 +61,31 @@ serve(async (req) => {
       const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
       
       let geminiSocket: WebSocket | null = null;
+      let currentModelIndex = 0;
+      let setupComplete = false;
       
-      clientSocket.onopen = () => {
-        console.log("Client connected, establishing Gemini connection...");
+      const connectToGemini = (modelIndex: number) => {
+        const model = MODELS[modelIndex];
+        console.log(`Attempting connection with model: ${model}`);
         
-        // Connect to Gemini Multimodal Live API - using v1alpha for BidiGenerateContent
         const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
-        console.log("Connecting to Gemini at:", geminiUrl.replace(GOOGLE_API_KEY!, 'API_KEY_HIDDEN'));
+        console.log("Connecting to Gemini...");
         
         geminiSocket = new WebSocket(geminiUrl);
         
         geminiSocket.onopen = () => {
-          console.log("Connected to Gemini API");
+          console.log("Connected to Gemini API, sending setup...");
           
-          // Send setup message with system instruction
+          // Send setup with current model - audio at 24kHz PCM16
           const setupMessage = {
             setup: {
-              model: "models/gemini-2.0-flash-exp",
+              model: model,
               generationConfig: {
                 responseModalities: ["AUDIO"],
                 speechConfig: {
                   voiceConfig: {
                     prebuiltVoiceConfig: {
-                      voiceName: "Aoede" // Female Italian-friendly voice
+                      voiceName: "Kore" // Clear Italian-friendly voice
                     }
                   }
                 }
@@ -91,13 +97,41 @@ serve(async (req) => {
           };
           
           geminiSocket!.send(JSON.stringify(setupMessage));
-          console.log("Sent setup message to Gemini");
+          console.log("Setup message sent with model:", model);
         };
         
         geminiSocket.onmessage = (event) => {
-          // Forward Gemini responses to client
-          if (clientSocket.readyState === WebSocket.OPEN) {
-            clientSocket.send(event.data);
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Check for setup completion
+            if (data.setupComplete) {
+              setupComplete = true;
+              console.log("Gemini setup complete!");
+              if (clientSocket.readyState === WebSocket.OPEN) {
+                clientSocket.send(JSON.stringify({ setupComplete: true, model: model }));
+              }
+              return;
+            }
+            
+            // Check for model not found error - try fallback
+            if (data.error && !setupComplete && currentModelIndex < MODELS.length - 1) {
+              console.log("Model error, trying fallback...", data.error);
+              currentModelIndex++;
+              geminiSocket?.close();
+              connectToGemini(currentModelIndex);
+              return;
+            }
+            
+            // Forward all other messages to client
+            if (clientSocket.readyState === WebSocket.OPEN) {
+              clientSocket.send(event.data);
+            }
+          } catch {
+            // Non-JSON message, forward as-is
+            if (clientSocket.readyState === WebSocket.OPEN) {
+              clientSocket.send(event.data);
+            }
           }
         };
         
@@ -106,22 +140,33 @@ serve(async (req) => {
           if (clientSocket.readyState === WebSocket.OPEN) {
             clientSocket.send(JSON.stringify({ 
               type: "error", 
-              message: "Connection to AI service failed" 
+              message: "Errore connessione al servizio AI" 
             }));
           }
         };
         
         geminiSocket.onclose = (event) => {
-          console.log("Gemini connection closed:", event.code, event.reason);
+          console.log("Gemini closed:", event.code, event.reason);
+          
+          // Try fallback model if setup wasn't complete
+          if (!setupComplete && currentModelIndex < MODELS.length - 1) {
+            console.log("Trying fallback model...");
+            currentModelIndex++;
+            connectToGemini(currentModelIndex);
+            return;
+          }
+          
           if (clientSocket.readyState === WebSocket.OPEN) {
-            // Parse error message from reason
-            let errorMessage = event.reason || `Connection closed (code: ${event.code})`;
-            if (event.reason?.includes('quota')) {
-              errorMessage = 'Quota API Google esaurita. Prova più tardi.';
+            let errorMessage = event.reason || `Connessione chiusa (${event.code})`;
+            
+            if (event.reason?.includes('quota') || event.code === 429) {
+              errorMessage = 'Quota API esaurita. Riprova più tardi.';
             } else if (event.code === 1006) {
-              errorMessage = 'Connessione interrotta. Verifica la tua connessione.';
-            } else if (event.code === 1008) {
-              errorMessage = 'Chiave API non valida o scaduta.';
+              errorMessage = 'Connessione persa. Verifica la rete.';
+            } else if (event.code === 1008 || event.code === 401) {
+              errorMessage = 'API Key non valida.';
+            } else if (event.code === 400) {
+              errorMessage = 'Modello non disponibile.';
             }
             
             clientSocket.send(JSON.stringify({ 
@@ -133,8 +178,12 @@ serve(async (req) => {
         };
       };
       
+      clientSocket.onopen = () => {
+        console.log("Client connected, establishing Gemini connection...");
+        connectToGemini(currentModelIndex);
+      };
+      
       clientSocket.onmessage = (event) => {
-        // Forward client messages to Gemini
         if (geminiSocket && geminiSocket.readyState === WebSocket.OPEN) {
           geminiSocket.send(event.data);
         }
@@ -146,9 +195,7 @@ serve(async (req) => {
       
       clientSocket.onclose = () => {
         console.log("Client disconnected");
-        if (geminiSocket) {
-          geminiSocket.close();
-        }
+        geminiSocket?.close();
       };
       
       return response;
@@ -161,10 +208,9 @@ serve(async (req) => {
     }
   }
 
-  // Non-WebSocket request - return API info
   return new Response(
     JSON.stringify({ 
-      message: "Gemini Voice API - Use WebSocket connection",
+      message: "Gemini Voice API",
       status: GOOGLE_API_KEY ? "configured" : "missing_api_key"
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -12,6 +12,10 @@ interface UseVoiceSessionOptions {
   onError?: (error: string) => void;
 }
 
+// Audio constants for Gemini Live API
+const INPUT_SAMPLE_RATE = 16000;
+const OUTPUT_SAMPLE_RATE = 24000;
+
 export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   const [status, setStatus] = useState<VoiceSessionStatus>('idle');
   const [mode, setMode] = useState<ConnectionMode>('websocket');
@@ -24,22 +28,25 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const audioQueueRef = useRef<Uint8Array[]>([]);
+  const audioQueueRef = useRef<Float32Array[]>([]);
   const isPlayingRef = useRef(false);
+  const nextPlayTimeRef = useRef(0);
   
   // Fallback mode refs
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
   
   const updateStatus = useCallback((newStatus: VoiceSessionStatus) => {
+    console.log('Status update:', newStatus);
     setStatus(newStatus);
     options.onStatusChange?.(newStatus);
   }, [options]);
 
-  // Audio level analyzer
+  // Analyze audio level from Float32 data
   const analyzeAudioLevel = useCallback((dataArray: Float32Array): number => {
     let sum = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -48,84 +55,15 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     return Math.min(1, (sum / dataArray.length) * 10);
   }, []);
 
-  // PCM to WAV conversion for playback
-  const createWavFromPCM = useCallback((pcmData: Uint8Array): Uint8Array => {
-    const int16Data = new Int16Array(pcmData.length / 2);
-    for (let i = 0; i < pcmData.length; i += 2) {
-      int16Data[i / 2] = (pcmData[i + 1] << 8) | pcmData[i];
-    }
-    
-    const wavHeader = new ArrayBuffer(44);
-    const view = new DataView(wavHeader);
-    
-    const writeString = (offset: number, str: string) => {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    };
-
-    const sampleRate = 24000;
-    const numChannels = 1;
-    const bitsPerSample = 16;
-
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + int16Data.byteLength, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
-    view.setUint16(32, numChannels * (bitsPerSample / 8), true);
-    view.setUint16(34, bitsPerSample, true);
-    writeString(36, 'data');
-    view.setUint32(40, int16Data.byteLength, true);
-
-    const wavArray = new Uint8Array(wavHeader.byteLength + int16Data.byteLength);
-    wavArray.set(new Uint8Array(wavHeader), 0);
-    wavArray.set(new Uint8Array(int16Data.buffer), wavHeader.byteLength);
-    
-    return wavArray;
-  }, []);
-
-  // Audio queue playback
-  const playNextAudio = useCallback(async () => {
-    if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
-      isPlayingRef.current = false;
-      updateStatus('listening');
-      return;
-    }
-
-    isPlayingRef.current = true;
-    updateStatus('speaking');
-    const audioData = audioQueueRef.current.shift()!;
-
-    try {
-      const wavData = createWavFromPCM(audioData);
-      const arrayBuffer = wavData.buffer.slice(0) as ArrayBuffer;
-      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-      
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
-      
-      source.onended = () => playNextAudio();
-      source.start(0);
-    } catch (error) {
-      console.error('Error playing audio:', error);
-      playNextAudio();
-    }
-  }, [createWavFromPCM, updateStatus]);
-
-  // Encode audio for sending
-  const encodeAudioForAPI = useCallback((float32Array: Float32Array): string => {
+  // Convert Float32 to PCM16 Int16 Little Endian and encode as Base64
+  const float32ToPCM16Base64 = useCallback((float32Array: Float32Array): string => {
     const int16Array = new Int16Array(float32Array.length);
     for (let i = 0; i < float32Array.length; i++) {
       const s = Math.max(-1, Math.min(1, float32Array[i]));
       int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
     
+    // Convert to Little Endian bytes
     const uint8Array = new Uint8Array(int16Array.buffer);
     let binary = '';
     const chunkSize = 0x8000;
@@ -138,6 +76,63 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     return btoa(binary);
   }, []);
 
+  // Convert PCM16 Int16 Little Endian bytes to Float32
+  const pcm16ToFloat32 = useCallback((pcmData: Uint8Array): Float32Array => {
+    const int16Array = new Int16Array(pcmData.length / 2);
+    
+    // Read Little Endian Int16
+    for (let i = 0; i < pcmData.length; i += 2) {
+      int16Array[i / 2] = (pcmData[i + 1] << 8) | pcmData[i];
+    }
+    
+    // Convert to Float32 [-1, 1]
+    const float32Array = new Float32Array(int16Array.length);
+    for (let i = 0; i < int16Array.length; i++) {
+      float32Array[i] = int16Array[i] / 32768;
+    }
+    
+    return float32Array;
+  }, []);
+
+  // Play audio chunk immediately with zero latency
+  const playAudioChunk = useCallback((float32Data: Float32Array) => {
+    if (!playbackContextRef.current) return;
+    
+    const ctx = playbackContextRef.current;
+    const buffer = ctx.createBuffer(1, float32Data.length, OUTPUT_SAMPLE_RATE);
+    buffer.getChannelData(0).set(float32Data);
+    
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    
+    // Schedule for immediate or sequential playback
+    const now = ctx.currentTime;
+    const startTime = Math.max(now, nextPlayTimeRef.current);
+    source.start(startTime);
+    nextPlayTimeRef.current = startTime + buffer.duration;
+    
+    options.onAudioLevel?.(0.6, false);
+  }, [options]);
+
+  // Process incoming audio from Gemini
+  const processIncomingAudio = useCallback((base64Data: string) => {
+    try {
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const float32Data = pcm16ToFloat32(bytes);
+      playAudioChunk(float32Data);
+      
+      updateStatus('speaking');
+    } catch (error) {
+      console.error('Error processing audio:', error);
+    }
+  }, [pcm16ToFloat32, playAudioChunk, updateStatus]);
+
   // Start WebSocket connection
   const startWebSocket = useCallback(async () => {
     updateStatus('connecting');
@@ -145,10 +140,10 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     hasTriedFallbackRef.current = false;
     
     try {
-      // Get microphone access
+      // Get microphone access at 16kHz
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,
+          sampleRate: INPUT_SAMPLE_RATE,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -156,14 +151,19 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         }
       });
 
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      // Input context at 16kHz
+      audioContextRef.current = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
       
-      // Connect to edge function WebSocket
+      // Playback context at 24kHz for Gemini output
+      playbackContextRef.current = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+      nextPlayTimeRef.current = 0;
+      
+      // Connect to edge function
       const wsUrl = `wss://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/gemini-voice`;
       console.log('Connecting to WebSocket:', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
       
-      // Timeout: if no connection after 3 seconds, fallback
+      // Timeout for fallback
       connectionTimeoutRef.current = setTimeout(() => {
         if (status === 'connecting' && !hasTriedFallbackRef.current) {
           console.log('Connection timeout, switching to fallback');
@@ -171,77 +171,66 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
           hasTriedFallbackRef.current = true;
           startFallback();
         }
-      }, 3000);
+      }, 5000);
       
       wsRef.current.onopen = () => {
         console.log('WebSocket connected to edge function');
-        // Don't clear timeout yet, wait for Gemini connection confirmation
-        
-        // Start audio capture
-        sourceRef.current = audioContextRef.current!.createMediaStreamSource(mediaStreamRef.current!);
-        processorRef.current = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
-        
-        processorRef.current.onaudioprocess = (e) => {
-          if (isMuted || status === 'speaking') return;
-          
-          const inputData = e.inputBuffer.getChannelData(0);
-          const audioLevel = analyzeAudioLevel(inputData);
-          options.onAudioLevel?.(audioLevel, true);
-          
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            const audioBase64 = encodeAudioForAPI(new Float32Array(inputData));
-            const message = {
-              realtimeInput: {
-                mediaChunks: [{
-                  mimeType: "audio/pcm;rate=16000",
-                  data: audioBase64
-                }]
-              }
-            };
-            wsRef.current.send(JSON.stringify(message));
-          }
-        };
-        
-        sourceRef.current.connect(processorRef.current);
-        processorRef.current.connect(audioContextRef.current!.destination);
-        updateStatus('listening');
       };
       
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received message:', data.type || 'content');
+          console.log('Received:', data.type || (data.setupComplete ? 'setupComplete' : 'content'));
           
-          // Handle setup complete - Gemini is ready!
+          // Setup complete - start audio capture
           if (data.setupComplete) {
-            console.log('Gemini setup complete - ready for audio');
+            console.log('Gemini ready with model:', data.model);
+            
             if (connectionTimeoutRef.current) {
               clearTimeout(connectionTimeoutRef.current);
               connectionTimeoutRef.current = null;
             }
+            
+            // Start audio capture
+            sourceRef.current = audioContextRef.current!.createMediaStreamSource(mediaStreamRef.current!);
+            processorRef.current = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
+            
+            processorRef.current.onaudioprocess = (e) => {
+              if (isMuted) return;
+              
+              const inputData = e.inputBuffer.getChannelData(0);
+              const audioLevel = analyzeAudioLevel(inputData);
+              options.onAudioLevel?.(audioLevel, true);
+              
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                const audioBase64 = float32ToPCM16Base64(new Float32Array(inputData));
+                const message = {
+                  realtimeInput: {
+                    mediaChunks: [{
+                      mimeType: "audio/pcm;rate=16000",
+                      data: audioBase64
+                    }]
+                  }
+                };
+                wsRef.current.send(JSON.stringify(message));
+              }
+            };
+            
+            sourceRef.current.connect(processorRef.current);
+            processorRef.current.connect(audioContextRef.current!.destination);
+            
             updateStatus('listening');
+            toast.success('Connesso! Inizia a parlare.');
             return;
           }
           
-          // Handle server content (audio/text responses)
+          // Handle audio response
           if (data.serverContent) {
             const parts = data.serverContent.modelTurn?.parts || [];
             
             for (const part of parts) {
               if (part.inlineData?.mimeType?.includes('audio')) {
-                // Decode and queue audio for playback
-                const binaryString = atob(part.inlineData.data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                
-                audioQueueRef.current.push(bytes);
-                options.onAudioLevel?.(0.5, false);
-                
-                if (!isPlayingRef.current) {
-                  playNextAudio();
-                }
+                processIncomingAudio(part.inlineData.data);
               }
               
               if (part.text) {
@@ -250,36 +239,24 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
               }
             }
             
-            // Check for turn complete
             if (data.serverContent.turnComplete) {
               console.log('Turn complete');
+              updateStatus('listening');
             }
           }
           
-          // Handle errors from edge function
+          // Handle errors
           if (data.type === 'error') {
             console.error('Gemini error:', data.message);
-            const errMsg = data.message || 'Errore di connessione';
-            setErrorMessage(errMsg);
-            options.onError?.(errMsg);
+            setErrorMessage(data.message);
+            options.onError?.(data.message);
             
-            // Auto-fallback on error
             if (!hasTriedFallbackRef.current) {
               hasTriedFallbackRef.current = true;
               wsRef.current?.close();
               startFallback();
             } else {
               updateStatus('error');
-            }
-            return;
-          }
-          
-          // Handle gemini closed
-          if (data.type === 'gemini_closed') {
-            console.log('Gemini closed, code:', data.code);
-            if (!hasTriedFallbackRef.current && status !== 'idle') {
-              hasTriedFallbackRef.current = true;
-              startFallback();
             }
           }
         } catch (error) {
@@ -304,7 +281,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
         }
-        // Only go idle if we haven't switched to fallback
         if (status !== 'idle' && mode === 'websocket' && !hasTriedFallbackRef.current) {
           updateStatus('idle');
         }
@@ -323,9 +299,9 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         updateStatus('error');
       }
     }
-  }, [analyzeAudioLevel, encodeAudioForAPI, isMuted, mode, options, playNextAudio, status, updateStatus]);
+  }, [analyzeAudioLevel, float32ToPCM16Base64, isMuted, mode, options, processIncomingAudio, status, updateStatus]);
 
-  // Fallback: Web Speech API + Gemini Text + TTS
+  // Fallback: Web Speech API + TTS
   const startFallback = useCallback(async () => {
     console.log('Starting fallback mode...');
     setMode('fallback');
@@ -346,7 +322,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       
       let finalTranscript = '';
       
-      recognitionRef.current.onresult = async (event) => {
+      recognitionRef.current.onresult = async (event: any) => {
         let interim = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -361,7 +337,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
           setTranscript(prev => [...prev, `Tu: ${finalTranscript}`]);
           options.onTranscript?.(finalTranscript, true);
           
-          // Send to Gemini via existing AI chat
           updateStatus('speaking');
           
           try {
@@ -374,7 +349,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
             
             if (response.error) throw response.error;
             
-            // Read response with TTS
             const reader = response.data.getReader?.();
             let aiResponse = '';
             
@@ -403,7 +377,6 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
               setTranscript(prev => [...prev, `AI: ${aiResponse}`]);
               options.onTranscript?.(aiResponse, false);
               
-              // Speak response
               synthRef.current = new SpeechSynthesisUtterance(aiResponse);
               synthRef.current.lang = 'it-IT';
               synthRef.current.rate = 1;
@@ -431,7 +404,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         updateStatus('listening');
       };
       
-      recognitionRef.current.onerror = (event) => {
+      recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         if (event.error !== 'no-speech') {
           updateStatus('error');
@@ -447,30 +420,25 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     }
   }, [isMuted, options, updateStatus]);
 
-  // Start session (tries WebSocket first, then fallback)
+  // Start session
   const start = useCallback(async () => {
     setTranscript([]);
     audioQueueRef.current = [];
-    
-    // Try WebSocket mode first
     await startWebSocket();
   }, [startWebSocket]);
 
   // Stop session
   const stop = useCallback(() => {
-    // Clear timeout
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
     
-    // Cleanup WebSocket
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
     
-    // Cleanup audio
     if (sourceRef.current) {
       sourceRef.current.disconnect();
       sourceRef.current = null;
@@ -487,8 +455,11 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    if (playbackContextRef.current) {
+      playbackContextRef.current.close();
+      playbackContextRef.current = null;
+    }
     
-    // Cleanup fallback
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
@@ -497,23 +468,13 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     
     updateStatus('idle');
     setMode('websocket');
-    setErrorMessage(null);
     hasTriedFallbackRef.current = false;
   }, [updateStatus]);
 
-  // Toggle mute
   const toggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
-    if (mode === 'fallback' && recognitionRef.current) {
-      if (!isMuted) {
-        recognitionRef.current.stop();
-      } else {
-        recognitionRef.current.start();
-      }
-    }
-  }, [isMuted, mode]);
+  }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stop();
@@ -532,7 +493,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   };
 };
 
-// TypeScript declarations for Web Speech API
+// Type augmentation for Web Speech API
 declare global {
   interface Window {
     SpeechRecognition: any;
