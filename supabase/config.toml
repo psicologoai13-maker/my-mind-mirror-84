@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.gemini-voice]
 verify_jwt = false
+
+[functions.openai-realtime-session]
+verify_jwt = false
