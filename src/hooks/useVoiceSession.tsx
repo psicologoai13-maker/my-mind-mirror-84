@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 
-export type VoiceSessionStatus = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
+export type VoiceSessionStatus = 'idle' | 'listening' | 'thinking' | 'ready_to_speak' | 'speaking' | 'error';
 
 interface UseVoiceSessionOptions {
   onTranscript?: (text: string, isUser: boolean) => void;
@@ -17,11 +17,13 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [isSupported, setIsSupported] = useState(true);
+  const [pendingResponse, setPendingResponse] = useState<string | null>(null);
   
   const recognitionRef = useRef<any>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastResultRef = useRef<string>('');
   const isStoppedRef = useRef(false);
+  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
   
   const log = useCallback((message: string, isError = false) => {
     const timestamp = new Date().toLocaleTimeString('it-IT');
@@ -59,114 +61,112 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     return true;
   }, [log, updateStatus]);
 
-  // AGNOSTIC VOICE SELECTION - Simple and safe
+  // AGNOSTIC VOICE SELECTION
   const getItalianVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
     log(`Voci disponibili: ${voices.length}`);
     
-    if (voices.length > 0) {
-      log(`Lista voci: ${voices.slice(0, 5).map(v => `${v.name} (${v.lang})`).join(', ')}...`);
-    }
-    
-    // Simple agnostic selection: it-IT > it > first available
     const voice = voices.find(v => v.lang.includes('it-IT')) || 
                   voices.find(v => v.lang.includes('it')) || 
                   voices[0] || null;
     
     if (voice) {
-      log(`✅ Voce AGNOSTICA selezionata: ${voice.name} (${voice.lang})`);
-    } else {
-      log('❌ Nessuna voce disponibile!', true);
+      log(`✅ Voce selezionata: ${voice.name} (${voice.lang})`);
     }
     
     return voice;
   }, [log]);
 
-  // Watchdog timer ref
-  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Speak AI response with AGGRESSIVE RESET and WATCHDOG
-  const speakResponse = useCallback((text: string) => {
-    return new Promise<void>((resolve, reject) => {
-      log('🔊 Avvio sintesi vocale...');
-      log(`📝 Testo da leggere: "${text.substring(0, 50)}..."`);
+  // MANUAL PLAYBACK - User must tap to hear
+  const playPendingResponse = useCallback(() => {
+    if (!pendingResponse) {
+      log('⚠️ Nessuna risposta da riprodurre');
+      return;
+    }
+    
+    log('🔊 Utente ha premuto ASCOLTA');
+    log(`📝 Testo: "${pendingResponse.substring(0, 50)}..."`);
+    
+    // Reset aggressivo
+    window.speechSynthesis.cancel();
+    
+    updateStatus('speaking');
+    
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(pendingResponse);
+      utterance.lang = 'it-IT';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       
-      // 1. AGGRESSIVE RESET - Kill any stuck process
-      log('🔇 RESET AGGRESSIVO speechSynthesis...');
-      window.speechSynthesis.cancel();
+      const voice = getItalianVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
       
-      // 2. Small delay before speaking
-      setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'it-IT';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+      // Memory leak fix
+      (window as any).currentUtterance = utterance;
+      
+      // Clear previous watchdog
+      if (watchdogRef.current) {
+        clearTimeout(watchdogRef.current);
+      }
+      
+      utterance.onstart = () => {
+        log('🔊 Audio INIZIATO');
         
-        const voice = getItalianVoice();
-        if (voice) {
-          utterance.voice = voice;
-          log(`🔊 Usando voce: ${voice.name}`);
-        } else {
-          log('⚠️ Nessuna voce impostata, uso default browser');
-        }
-        
-        // MEMORY LEAK FIX: Save to window to prevent garbage collection
-        (window as any).currentUtterance = utterance;
-        
-        // Clear any previous watchdog
+        // Watchdog 15 secondi
+        watchdogRef.current = setTimeout(() => {
+          log('⏰ WATCHDOG: forzo interruzione', true);
+          window.speechSynthesis.cancel();
+          setPendingResponse(null);
+          if (!isStoppedRef.current) {
+            startListening();
+          }
+        }, 15000);
+      };
+      
+      utterance.onend = () => {
+        log('🔊 Audio TERMINATO');
         if (watchdogRef.current) {
           clearTimeout(watchdogRef.current);
-          watchdogRef.current = null;
         }
+        (window as any).currentUtterance = null;
+        setPendingResponse(null);
         
-        utterance.onstart = () => {
-          log('🔊 Sintesi vocale INIZIATA - Audio in riproduzione');
-          
-          // 3. WATCHDOG TIMER - Anti-freeze dopo 10 secondi
-          watchdogRef.current = setTimeout(() => {
-            log('⏰ WATCHDOG: 10s scaduti, forzo interruzione!', true);
-            window.speechSynthesis.cancel();
-            (window as any).currentUtterance = null;
-            resolve(); // Resolve anyway to continue the flow
-          }, 10000);
-        };
+        // Auto-reopen mic after speech ends
+        if (!isStoppedRef.current) {
+          log('🔄 Riapro microfono automaticamente...');
+          setTimeout(() => startListening(), 300);
+        }
+      };
+      
+      utterance.onerror = (e) => {
+        log(`❌ Errore audio: ${e.error}`, true);
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+        }
+        (window as any).currentUtterance = null;
+        setPendingResponse(null);
         
-        utterance.onend = () => {
-          log('🔊 Sintesi vocale TERMINATA normalmente');
-          if (watchdogRef.current) {
-            clearTimeout(watchdogRef.current);
-            watchdogRef.current = null;
-          }
-          (window as any).currentUtterance = null;
-          resolve();
-        };
-        
-        utterance.onerror = (e) => {
-          log(`❌ Errore sintesi vocale: ${e.error}`, true);
-          if (watchdogRef.current) {
-            clearTimeout(watchdogRef.current);
-            watchdogRef.current = null;
-          }
-          (window as any).currentUtterance = null;
-          // Don't reject, resolve to continue flow
-          resolve();
-        };
-        
-        log('🔊 Chiamata speechSynthesis.speak()...');
-        speechSynthesis.speak(utterance);
-        
-        // Chrome bug workaround: resume after speak
-        setTimeout(() => {
-          if (speechSynthesis.paused) {
-            log('⚠️ Sintesi in pausa, forzo resume...');
-            speechSynthesis.resume();
-          }
-        }, 100);
-        
-      }, 50); // 50ms delay before speaking
-    });
-  }, [getItalianVoice, log]);
+        if (!isStoppedRef.current) {
+          startListening();
+        }
+      };
+      
+      log('🔊 Chiamata speak()...');
+      speechSynthesis.speak(utterance);
+      
+      // Chrome resume workaround
+      setTimeout(() => {
+        if (speechSynthesis.paused) {
+          log('⚠️ Forzo resume...');
+          speechSynthesis.resume();
+        }
+      }, 100);
+      
+    }, 50);
+  }, [pendingResponse, getItalianVoice, log, updateStatus]);
 
   // Send text to AI and get response
   const sendToAI = useCallback(async (userText: string) => {
@@ -198,7 +198,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       const reader = response.body?.getReader();
       
       if (reader) {
-        log('📥 Lettura stream risposta...');
+        log('📥 Lettura stream...');
         const decoder = new TextDecoder();
         
         while (true) {
@@ -220,10 +220,10 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
         }
       }
       
-      log(`✅ Risposta Gemini: "${aiResponse.substring(0, 50)}..."`);
+      log(`✅ Risposta: "${aiResponse.substring(0, 50)}..."`);
       return aiResponse.trim();
     } catch (error) {
-      log(`❌ Errore chiamata AI: ${error}`, true);
+      log(`❌ Errore AI: ${error}`, true);
       throw error;
     }
   }, [log, updateStatus]);
@@ -231,7 +231,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   // Start listening
   const startListening = useCallback(() => {
     if (isStoppedRef.current) {
-      log('⏹️ Sessione fermata, non avvio ascolto');
+      log('⏹️ Sessione fermata');
       return;
     }
     
@@ -244,22 +244,20 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       return;
     }
     
-    // Clean up previous instance
     if (recognitionRef.current) {
-      log('🧹 Pulizia istanza precedente...');
       try {
         recognitionRef.current.stop();
       } catch {}
     }
     
-    log('🎤 Creazione SpeechRecognition...');
+    log('🎤 Avvio ascolto...');
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = 'it-IT';
     
     recognitionRef.current.onstart = () => {
-      log('🎤 Microfono ATTIVO - Parla ora!');
+      log('🎤 Microfono ATTIVO');
       updateStatus('listening');
       setLiveTranscript('');
       lastResultRef.current = '';
@@ -286,15 +284,15 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
       if (displayText) {
         setLiveTranscript(displayText);
         lastResultRef.current = displayText;
-        log(`📝 Rilevato: "${displayText}"`);
+        log(`📝 "${displayText}"`);
       }
       
-      // 1.5 second silence detection
+      // 1.5s silence -> send
       silenceTimeoutRef.current = setTimeout(async () => {
         const textToSend = lastResultRef.current.trim();
         if (!textToSend || isStoppedRef.current) return;
         
-        log(`📤 Testo finale: "${textToSend}"`);
+        log(`📤 Invio: "${textToSend}"`);
         
         try {
           recognitionRef.current?.stop();
@@ -311,17 +309,14 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
             setTranscript(prev => [...prev, `AI: ${aiResponse}`]);
             options.onTranscript?.(aiResponse, false);
             
-            updateStatus('speaking');
-            await speakResponse(aiResponse);
-          }
-          
-          if (!isStoppedRef.current) {
-            log('🔄 Riavvio ascolto...');
-            startListening();
+            // Store response and show "Listen" button
+            log('📱 Risposta pronta - mostra pulsante ASCOLTA');
+            setPendingResponse(aiResponse);
+            updateStatus('ready_to_speak');
           }
           
         } catch (error) {
-          log(`❌ Errore conversazione: ${error}`, true);
+          log(`❌ Errore: ${error}`, true);
           toast.error('Errore nella risposta');
           
           if (!isStoppedRef.current) {
@@ -332,23 +327,17 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     };
     
     recognitionRef.current.onerror = (event: any) => {
-      log(`❌ Errore riconoscimento: ${event.error}`, true);
+      log(`❌ Errore mic: ${event.error}`, true);
       
       if (event.error === 'not-allowed') {
-        setErrorMessage('Permesso microfono negato. Consenti l\'accesso.');
+        setErrorMessage('Permesso microfono negato');
         updateStatus('error');
         return;
       }
       
-      if (event.error === 'no-speech') {
-        log('⚠️ Nessun discorso rilevato, continuo...');
-      }
-      
-      // Auto-restart on other errors
       if (!isStoppedRef.current && event.error !== 'aborted') {
         setTimeout(() => {
           if (!isStoppedRef.current) {
-            log('🔄 Tentativo riavvio dopo errore...');
             startListening();
           }
         }, 500);
@@ -360,12 +349,11 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     };
     
     try {
-      log('🎤 Avvio recognition.start()...');
       recognitionRef.current.start();
     } catch (e) {
-      log(`❌ Errore start(): ${e}`, true);
+      log(`❌ Errore start: ${e}`, true);
     }
-  }, [log, options, sendToAI, speakResponse, updateStatus]);
+  }, [log, options, sendToAI, updateStatus]);
 
   // Start session
   const start = useCallback(async () => {
@@ -374,78 +362,45 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     setTranscript([]);
     setErrorMessage(null);
     setLiveTranscript('');
+    setPendingResponse(null);
     
-    // Check browser support first
-    if (!checkSupport()) {
-      return;
-    }
+    if (!checkSupport()) return;
     
-    // AUDIO UNLOCK: Play silent sound to unlock audio context
-    log('🔓 Audio unlock - sblocco motore audio...');
+    // Audio unlock
+    log('🔓 Audio unlock...');
     const synth = window.speechSynthesis;
     synth.cancel();
     const unlockUtterance = new SpeechSynthesisUtterance('');
     synth.speak(unlockUtterance);
     synth.resume();
-    log('✅ Audio unlock completato');
     
     // Preload voices
     log('📢 Caricamento voci...');
     let voices = speechSynthesis.getVoices();
-    log(`Voci caricate inizialmente: ${voices.length}`);
     
-    // If no voices, wait for them
     if (voices.length === 0) {
-      log('⏳ Attendo caricamento voci...');
       await new Promise<void>((resolve) => {
         const checkVoices = () => {
-          voices = speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            log(`✅ Voci ora disponibili: ${voices.length}`);
-            resolve();
-          }
+          if (speechSynthesis.getVoices().length > 0) resolve();
         };
-        
         speechSynthesis.onvoiceschanged = checkVoices;
-        // Also poll every 100ms
-        const interval = setInterval(() => {
-          voices = speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            clearInterval(interval);
-            log(`✅ Voci caricate (polling): ${voices.length}`);
-            resolve();
-          }
-        }, 100);
-        
-        // Timeout after 3 seconds
-        setTimeout(() => {
-          clearInterval(interval);
-          log(`⚠️ Timeout voci, disponibili: ${speechSynthesis.getVoices().length}`);
-          resolve();
-        }, 3000);
+        setTimeout(resolve, 2000);
       });
     }
     
-    // Log available voices for debugging
-    const finalVoices = speechSynthesis.getVoices();
-    const italianVoices = finalVoices.filter(v => v.lang.includes('it'));
-    log(`🗣️ Voci italiane trovate: ${italianVoices.length}`);
-    italianVoices.forEach(v => log(`   - ${v.name} (${v.lang})`));
-    
-    // Request microphone permission
+    // Request mic permission
     log('🎤 Richiesta permesso microfono...');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      log('✅ Permesso microfono concesso');
+      log('✅ Permesso OK');
       stream.getTracks().forEach(track => track.stop());
     } catch (error) {
-      log(`❌ Permesso microfono NEGATO: ${error}`, true);
+      log(`❌ Permesso NEGATO: ${error}`, true);
       setErrorMessage('Permesso microfono negato');
       updateStatus('error');
       return;
     }
     
-    log('🚀 Avvio ascolto...');
     toast.success('Conversazione avviata!');
     startListening();
   }, [checkSupport, log, startListening, updateStatus]);
@@ -457,7 +412,10 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
+    }
+    
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
     }
     
     if (recognitionRef.current) {
@@ -470,6 +428,7 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     speechSynthesis.cancel();
     
     setLiveTranscript('');
+    setPendingResponse(null);
     updateStatus('idle');
   }, [log, updateStatus]);
 
@@ -477,18 +436,14 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
   const toggleMute = useCallback(() => {
     setIsMuted(prev => {
       const newMuted = !prev;
-      log(newMuted ? '🔇 Mute attivato' : '🔊 Mute disattivato');
+      log(newMuted ? '🔇 Mute ON' : '🔊 Mute OFF');
       
-      if (newMuted) {
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch {}
-        }
-      } else {
-        if (status !== 'speaking' && status !== 'thinking') {
-          startListening();
-        }
+      if (newMuted && recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      } else if (!newMuted && status !== 'speaking' && status !== 'thinking' && status !== 'ready_to_speak') {
+        startListening();
       }
       
       return newMuted;
@@ -502,8 +457,10 @@ export const useVoiceSession = (options: UseVoiceSessionOptions = {}) => {
     errorMessage,
     liveTranscript,
     isSupported,
+    pendingResponse,
     start,
     stop,
-    toggleMute
+    toggleMute,
+    playPendingResponse
   };
 };
