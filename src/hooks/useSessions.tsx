@@ -66,6 +66,13 @@ export const useSessions = () => {
 
   const upcomingSessions = sessions?.filter(s => s.status === 'scheduled') || [];
   const completedSessions = sessions?.filter(s => s.status === 'completed') || [];
+  
+  // Filtered journal sessions: only "real" conversations (duration >= 15s AND has summary or transcript)
+  const journalSessions = sessions?.filter(s => 
+    s.status === 'completed' && 
+    (s.duration === null || s.duration >= 15) &&
+    (s.ai_summary || s.transcript)
+  ) || [];
   const inProgressSession = sessions?.find(s => s.status === 'in_progress');
 
   const createSession = useMutation({
@@ -202,15 +209,35 @@ export const useSessions = () => {
       : 0,
   };
 
+  // Delete session mutation
+  const deleteSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
+    },
+  });
+
   return {
     sessions,
     upcomingSessions,
     completedSessions,
+    journalSessions,
     inProgressSession,
     createSession,
     updateSession,
     startSession,
     endSession,
+    deleteSession,
     stats,
     isLoading,
   };
