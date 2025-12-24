@@ -11,11 +11,16 @@ interface MobileLayoutProps {
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children, className, hideNav }) => {
   return (
     <>
-      <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto">
-        <main className={cn("flex-1 pb-40", className)}>
-          {children}
-        </main>
-      </div>
+      <main 
+        className={cn(
+          "min-h-screen bg-background max-w-md mx-auto",
+          "pb-32", // Large padding to ensure content doesn't go under fixed navbar
+          className
+        )}
+        style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))' }}
+      >
+        {children}
+      </main>
       {!hideNav && <BottomNav />}
     </>
   );
