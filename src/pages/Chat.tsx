@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Mic, MoreVertical, X } from 'lucide-react';
+import { ArrowLeft, Send, Mic, Brain, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface Message {
@@ -20,14 +22,18 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 const Chat: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useProfile();
+  const { user } = useAuth();
   const { startSession, endSession, inProgressSession } = useSessions();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [memorySynced, setMemorySynced] = useState(false);
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userName = profile?.name?.split(' ')[0] || 'Utente';
+  const hasMemory = (profile?.long_term_memory?.length || 0) > 0;
 
   // Initialize chat with greeting
   useEffect(() => {
@@ -197,6 +203,7 @@ const Chat: React.FC = () => {
     }
 
     setIsTyping(true);
+    setIsSavingMemory(true);
     
     try {
       // Generate summary from AI
@@ -240,12 +247,39 @@ const Chat: React.FC = () => {
         emotion_tags: summary.tags,
       });
 
-      toast.success('Sessione salvata!');
-      navigate('/');
+      // Call process-session to update long-term memory (uses Gemini Flash for free analysis)
+      if (user?.id) {
+        try {
+          const { error } = await supabase.functions.invoke('process-session', {
+            body: {
+              session_id: sessionId,
+              user_id: user.id,
+              transcript: transcript,
+            }
+          });
+          
+          if (!error) {
+            setMemorySynced(true);
+            toast.success('Sessione salvata e memoria aggiornata! 🧠');
+          } else {
+            console.error('Process session error:', error);
+            toast.success('Sessione salvata!');
+          }
+        } catch (processError) {
+          console.error('Failed to process session:', processError);
+          toast.success('Sessione salvata!');
+        }
+      } else {
+        toast.success('Sessione salvata!');
+      }
+
+      setTimeout(() => navigate('/'), 500);
     } catch (error) {
       console.error('Error ending session:', error);
       toast.error('Errore nel salvare la sessione');
       navigate('/');
+    } finally {
+      setIsSavingMemory(false);
     }
   };
 
@@ -255,7 +289,7 @@ const Chat: React.FC = () => {
       <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={handleEndSession}>
+            <Button variant="ghost" size="icon-sm" onClick={handleEndSession} disabled={isSavingMemory}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
@@ -264,9 +298,16 @@ const Chat: React.FC = () => {
               </div>
               <div>
                 <h2 className="font-display font-semibold text-foreground">Psicologo AI</h2>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-mood-excellent animate-pulse-soft" />
                   <span className="text-xs text-muted-foreground">Online</span>
+                  {/* Memory Sync Badge */}
+                  {hasMemory && (
+                    <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                      <Brain className="w-3 h-3" />
+                      <span className="text-[10px] font-medium">Memoria</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -276,8 +317,13 @@ const Chat: React.FC = () => {
             size="icon-sm"
             onClick={handleEndSession}
             className="text-destructive"
+            disabled={isSavingMemory}
           >
-            <X className="w-5 h-5" />
+            {isSavingMemory ? (
+              <Sparkles className="w-5 h-5 animate-spin" />
+            ) : (
+              <X className="w-5 h-5" />
+            )}
           </Button>
         </div>
       </header>
