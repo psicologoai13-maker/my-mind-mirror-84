@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Mic, Brain, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Send, Brain, Sparkles, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
@@ -23,22 +23,20 @@ const Chat: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { user } = useAuth();
-  const { startSession, endSession, inProgressSession } = useSessions();
+  const { startSession, endSession } = useSessions();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [memorySynced, setMemorySynced] = useState(false);
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const userName = profile?.name?.split(' ')[0] || 'Utente';
+  const userName = profile?.name?.split(' ')[0] || 'Amico';
   const hasMemory = (profile?.long_term_memory?.length || 0) > 0;
 
   // Initialize chat with greeting
   useEffect(() => {
     const initChat = async () => {
-      // Start a new session
       try {
         const session = await startSession.mutateAsync('chat');
         setSessionId(session.id);
@@ -46,10 +44,9 @@ const Chat: React.FC = () => {
         console.error('Failed to start session:', error);
       }
 
-      // Add welcome message
       setMessages([{
         id: '1',
-        content: `Ciao ${userName}! 👋 Sono qui per ascoltarti. Come stai oggi? C'è qualcosa di cui vorresti parlare?`,
+        content: `Ciao ${userName}! 💚 Come stai oggi? Sono qui per ascoltarti.`,
         role: 'assistant',
         timestamp: new Date(),
       }]);
@@ -80,7 +77,6 @@ const Chat: React.FC = () => {
     setInput('');
     setIsTyping(true);
 
-    // Prepare messages for API
     const apiMessages = [...messages, userMessage].map(m => ({
       role: m.role,
       content: m.content,
@@ -115,12 +111,10 @@ const Chat: React.FC = () => {
         throw new Error('No response body');
       }
 
-      // Stream the response
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = '';
 
-      // Create assistant message placeholder
       const assistantMessageId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, {
         id: assistantMessageId,
@@ -159,14 +153,12 @@ const Chat: React.FC = () => {
               ));
             }
           } catch {
-            // Incomplete JSON, put back
             textBuffer = line + '\n' + textBuffer;
             break;
           }
         }
       }
 
-      // Final flush
       if (textBuffer.trim()) {
         for (let raw of textBuffer.split('\n')) {
           if (!raw || raw.startsWith(':') || raw.trim() === '') continue;
@@ -196,17 +188,15 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleEndSession = async () => {
+  const handleSaveToJournal = async () => {
     if (!sessionId || messages.length < 2) {
-      navigate('/');
+      toast.info('Conversa ancora un po\' prima di salvare.');
       return;
     }
 
-    setIsTyping(true);
     setIsSavingMemory(true);
     
     try {
-      // Generate summary from AI
       const apiMessages = messages.map(m => ({
         role: m.role,
         content: m.content,
@@ -235,8 +225,7 @@ const Chat: React.FC = () => {
         }
       }
 
-      // Save session with summary
-      const transcript = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+      const transcript = messages.map(m => `${m.role === 'user' ? 'Tu' : 'AI'}: ${m.content}`).join('\n\n');
       
       await endSession.mutateAsync({
         sessionId,
@@ -247,7 +236,6 @@ const Chat: React.FC = () => {
         emotion_tags: summary.tags,
       });
 
-      // Call process-session to update long-term memory (uses Gemini Flash for free analysis)
       if (user?.id) {
         try {
           const { error } = await supabase.functions.invoke('process-session', {
@@ -259,77 +247,74 @@ const Chat: React.FC = () => {
           });
           
           if (!error) {
-            setMemorySynced(true);
-            toast.success('Sessione salvata e memoria aggiornata! 🧠');
+            toast.success('Salvato nel diario! La memoria è stata aggiornata 🧠');
           } else {
-            console.error('Process session error:', error);
-            toast.success('Sessione salvata!');
+            toast.success('Salvato nel diario!');
           }
         } catch (processError) {
           console.error('Failed to process session:', processError);
-          toast.success('Sessione salvata!');
+          toast.success('Salvato nel diario!');
         }
       } else {
-        toast.success('Sessione salvata!');
+        toast.success('Salvato nel diario!');
       }
 
-      setTimeout(() => navigate('/'), 500);
+      // Start a new session for continued chatting
+      const newSession = await startSession.mutateAsync('chat');
+      setSessionId(newSession.id);
+
     } catch (error) {
-      console.error('Error ending session:', error);
-      toast.error('Errore nel salvare la sessione');
-      navigate('/');
+      console.error('Error saving session:', error);
+      toast.error('Errore nel salvare');
     } finally {
       setIsSavingMemory(false);
     }
   };
 
+  const handleBack = () => {
+    navigate('/');
+  };
+
   return (
     <MobileLayout hideNav className="pb-0">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3">
+      {/* Header - Modern Minimal */}
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={handleEndSession} disabled={isSavingMemory}>
+            <Button variant="ghost" size="icon-sm" onClick={handleBack}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-hero flex items-center justify-center shadow-soft">
-                <span className="text-xl">🧠</span>
-              </div>
-              <div>
-                <h2 className="font-display font-semibold text-foreground">Psicologo AI</h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-mood-excellent animate-pulse-soft" />
-                  <span className="text-xs text-muted-foreground">Online</span>
-                  {/* Memory Sync Badge */}
-                  {hasMemory && (
-                    <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                      <Brain className="w-3 h-3" />
-                      <span className="text-[10px] font-medium">Memoria</span>
-                    </div>
-                  )}
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-semibold text-foreground text-lg">Il tuo Spazio Sicuro</h1>
+              {hasMemory && (
+                <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  <Brain className="w-3 h-3" />
+                  <span className="text-[10px] font-medium">Memoria</span>
                 </div>
-              </div>
+              )}
             </div>
           </div>
+          
+          {/* Save to Journal Button */}
           <Button 
-            variant="ghost" 
-            size="icon-sm"
-            onClick={handleEndSession}
-            className="text-destructive"
-            disabled={isSavingMemory}
+            variant="outline"
+            size="sm"
+            onClick={handleSaveToJournal}
+            disabled={isSavingMemory || messages.length < 2}
+            className="gap-1.5 text-xs"
           >
             {isSavingMemory ? (
-              <Sparkles className="w-5 h-5 animate-spin" />
+              <Sparkles className="w-4 h-4 animate-spin" />
             ) : (
-              <X className="w-5 h-5" />
+              <BookOpen className="w-4 h-4" />
             )}
+            Salva
           </Button>
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      {/* Messages - Clean Bubbles */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -340,17 +325,17 @@ const Chat: React.FC = () => {
           >
             <div
               className={cn(
-                'max-w-[80%] rounded-2xl px-4 py-3 shadow-soft',
+                'max-w-[85%] px-4 py-3',
                 message.role === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-br-md'
-                  : 'bg-card text-foreground rounded-bl-md border border-border'
+                  ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm'
+                  : 'bg-muted text-foreground rounded-2xl rounded-tl-sm'
               )}
             >
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
               <p
                 className={cn(
-                  'text-xs mt-1',
-                  message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                  'text-[10px] mt-1.5 opacity-60',
+                  message.role === 'user' ? 'text-right' : 'text-left'
                 )}
               >
                 {message.timestamp.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
@@ -361,11 +346,11 @@ const Chat: React.FC = () => {
         
         {isTyping && (
           <div className="flex justify-start animate-fade-in">
-            <div className="bg-card rounded-2xl px-4 py-3 shadow-soft border border-border rounded-bl-md">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -373,36 +358,26 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="sticky bottom-0 bg-card/95 backdrop-blur-lg border-t border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder="Scrivi un messaggio..."
-              disabled={isTyping}
-              className="w-full bg-muted rounded-full px-4 py-3 pr-12 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-            />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              disabled
-            >
-              <Mic className="w-5 h-5 text-muted-foreground" />
-            </Button>
-          </div>
+      {/* Input Area - Floating Pill Style */}
+      <div className="p-4 pb-6">
+        <div className="flex items-center gap-2 bg-muted rounded-full p-1.5 shadow-soft">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            placeholder="Scrivi come ti senti..."
+            disabled={isTyping}
+            className="flex-1 bg-transparent px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+          />
           <Button
-            variant="chat"
+            variant="default"
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="shrink-0"
+            className="shrink-0 rounded-full h-10 w-10"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </Button>
         </div>
       </div>
