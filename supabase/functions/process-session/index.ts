@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -47,9 +46,10 @@ serve(async (req) => {
     console.log('[process-session] Processing session:', session_id);
     console.log('[process-session] Transcript length:', transcript.length);
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    // Use Lovable AI Gateway (Gemini Flash) - FREE
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -66,17 +66,17 @@ serve(async (req) => {
 
     const currentLifeScores = profileData?.life_areas_scores || {};
 
-    // Call GPT-4o-mini to analyze the session with rich extraction
-    console.log('[process-session] Calling OpenAI for comprehensive analysis...');
+    // Call Gemini Flash via Lovable AI Gateway for FREE analysis
+    console.log('[process-session] Calling Gemini Flash for comprehensive analysis...');
     
-    const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -118,14 +118,13 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
             content: `Analizza questa conversazione terapeutica:\n\n${transcript}`
           }
         ],
-        temperature: 0.3,
       }),
     });
 
     if (!analysisResponse.ok) {
       const errorText = await analysisResponse.text();
-      console.error('[process-session] OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${analysisResponse.status}`);
+      console.error('[process-session] Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${analysisResponse.status}`);
     }
 
     const analysisData = await analysisResponse.json();

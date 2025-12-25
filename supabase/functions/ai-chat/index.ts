@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `ROLE: Sei "Psicologo AI", un compagno di supporto mentale empatico, professionale e basato sui principi della Terapia Cognitivo-Comportamentale (CBT).
+const BASE_SYSTEM_PROMPT = `ROLE: Sei "Psicologo AI", un compagno di supporto mentale empatico, professionale e basato sui principi della Terapia Cognitivo-Comportamentale (CBT).
 
 TONE & STYLE:
 - Empatico e validante: Riconosci sempre i sentimenti dell'utente ("Capisco che sia stata una giornata dura...").
@@ -31,13 +32,62 @@ BEHAVIOR:
 - Valida le emozioni prima di proporre soluzioni
 - Usa tecniche CBT: identificazione pensieri automatici, ristrutturazione cognitiva, esposizione graduale`;
 
+// Helper to get user's long term memory from database
+async function getUserMemory(authHeader: string | null): Promise<string[]> {
+  if (!authHeader) return [];
+  
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) return [];
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('long_term_memory, name')
+      .eq('user_id', user.id)
+      .single();
+    
+    return profile?.long_term_memory || [];
+  } catch (error) {
+    console.error("Error fetching user memory:", error);
+    return [];
+  }
+}
+
+// Build system prompt with memory context
+function buildSystemPrompt(memory: string[]): string {
+  if (!memory || memory.length === 0) {
+    return BASE_SYSTEM_PROMPT;
+  }
+  
+  const memoryContext = memory.slice(-20).join("\n- "); // Last 20 facts
+  return `${BASE_SYSTEM_PROMPT}
+
+MEMORIA UTENTE (Informazioni importanti dalle conversazioni precedenti - usale per personalizzare le risposte):
+- ${memoryContext}
+
+Usa queste informazioni in modo naturale, senza citarle esplicitamente. Ad esempio, se sai che l'utente ha avuto problemi al lavoro, puoi chiedere "Come sta andando la situazione in ufficio?".`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, generateSummary } = await req.json();
+    const { messages, generateSummary, userId } = await req.json();
+    const authHeader = req.headers.get("Authorization");
+    
+    // Fetch user's long term memory for context
+    const userMemory = await getUserMemory(authHeader);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -108,6 +158,10 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       });
     }
 
+    // Build system prompt with user's memory context
+    const systemPrompt = buildSystemPrompt(userMemory);
+    console.log(`Chat with memory context: ${userMemory.length} facts loaded`);
+
     // Regular chat - streaming response
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -118,7 +172,7 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
         stream: true,
