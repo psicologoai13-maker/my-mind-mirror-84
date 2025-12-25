@@ -32,22 +32,30 @@ BEHAVIOR:
 - Valida le emozioni prima di proporre soluzioni
 - Usa tecniche CBT: identificazione pensieri automatici, ristrutturazione cognitiva, esposizione graduale`;
 
-// Helper to get user's long term memory from database
-async function getUserMemory(authHeader: string | null): Promise<string[]> {
-  if (!authHeader) return [];
+// User profile data structure
+interface UserProfile {
+  name: string | null;
+  long_term_memory: string[];
+}
+
+// Helper to get user's profile and memory from database
+async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
+  const defaultProfile: UserProfile = { name: null, long_term_memory: [] };
+  
+  if (!authHeader) return defaultProfile;
   
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
     
-    if (!supabaseUrl || !supabaseKey) return [];
+    if (!supabaseUrl || !supabaseKey) return defaultProfile;
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     });
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    if (!user) return defaultProfile;
     
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -55,26 +63,44 @@ async function getUserMemory(authHeader: string | null): Promise<string[]> {
       .eq('user_id', user.id)
       .single();
     
-    return profile?.long_term_memory || [];
+    return {
+      name: profile?.name || null,
+      long_term_memory: profile?.long_term_memory || []
+    };
   } catch (error) {
-    console.error("Error fetching user memory:", error);
-    return [];
+    console.error("Error fetching user profile:", error);
+    return defaultProfile;
   }
 }
 
-// Build system prompt with memory context
-function buildSystemPrompt(memory: string[]): string {
-  if (!memory || memory.length === 0) {
-    return BASE_SYSTEM_PROMPT;
+// Build system prompt with identity and memory context
+function buildSystemPrompt(profile: UserProfile): string {
+  const userName = profile.name?.split(' ')[0] || null;
+  const memory = profile.long_term_memory || [];
+  
+  let prompt = BASE_SYSTEM_PROMPT;
+  
+  // CRITICAL: Inject user identity
+  if (userName) {
+    prompt += `
+
+IDENTITÀ UTENTE (CRITICO - usa SEMPRE questo nome):
+L'utente con cui stai parlando si chiama "${userName}". 
+NON inventare nomi. NON chiamarlo con altri nomi. Usa "${userName}" quando ti rivolgi a lui/lei.`;
   }
   
-  const memoryContext = memory.slice(-20).join("\n- "); // Last 20 facts
-  return `${BASE_SYSTEM_PROMPT}
+  // Inject memory context
+  if (memory.length > 0) {
+    const memoryContext = memory.slice(-20).join("\n- "); // Last 20 facts
+    prompt += `
 
-MEMORIA UTENTE (Informazioni importanti dalle conversazioni precedenti - usale per personalizzare le risposte):
+MEMORIA STORICA DELL'UTENTE (Usa queste info per personalizzare le risposte):
 - ${memoryContext}
 
 Usa queste informazioni in modo naturale, senza citarle esplicitamente. Ad esempio, se sai che l'utente ha avuto problemi al lavoro, puoi chiedere "Come sta andando la situazione in ufficio?".`;
+  }
+  
+  return prompt;
 }
 
 serve(async (req) => {
@@ -86,9 +112,11 @@ serve(async (req) => {
     const { messages, generateSummary, userId } = await req.json();
     const authHeader = req.headers.get("Authorization");
     
-    // Fetch user's long term memory for context
-    const userMemory = await getUserMemory(authHeader);
+    // Fetch user's profile including name and memory
+    const userProfile = await getUserProfile(authHeader);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    
+    console.log(`[ai-chat] User: ${userProfile.name || 'Anonymous'}, Memory facts: ${userProfile.long_term_memory.length}`);
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -158,9 +186,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       });
     }
 
-    // Build system prompt with user's memory context
-    const systemPrompt = buildSystemPrompt(userMemory);
-    console.log(`Chat with memory context: ${userMemory.length} facts loaded`);
+    // Build system prompt with user's identity and memory context
+    const systemPrompt = buildSystemPrompt(userProfile);
 
     // Regular chat - streaming response
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
