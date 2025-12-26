@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -23,6 +24,7 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -67,7 +69,7 @@ serve(async (req) => {
 
     const { data: sessions } = await supabase
       .from('sessions')
-      .select('id, start_time, mood_score_detected, anxiety_score_detected, emotion_tags, ai_summary, life_balance_scores, key_events, status')
+      .select('id, start_time, mood_score_detected, anxiety_score_detected, emotion_tags, ai_summary, life_balance_scores, key_events, status, crisis_alert')
       .eq('user_id', userId)
       .eq('status', 'completed')
       .gte('start_time', thirtyDaysAgo.toISOString())
@@ -85,10 +87,10 @@ serve(async (req) => {
     const completedSessions = sessions || [];
     const moodScores = completedSessions
       .filter(s => s.mood_score_detected)
-      .map(s => s.mood_score_detected);
+      .map(s => s.mood_score_detected as number);
     const anxietyScores = completedSessions
       .filter(s => s.anxiety_score_detected)
-      .map(s => s.anxiety_score_detected);
+      .map(s => s.anxiety_score_detected as number);
 
     const avgMood = moodScores.length > 0 
       ? (moodScores.reduce((a, b) => a + b, 0) / moodScores.length).toFixed(1)
@@ -96,11 +98,33 @@ serve(async (req) => {
     const avgAnxiety = anxietyScores.length > 0 
       ? (anxietyScores.reduce((a, b) => a + b, 0) / anxietyScores.length).toFixed(1)
       : null;
+    const peakAnxiety = anxietyScores.length > 0 
+      ? Math.max(...anxietyScores) 
+      : null;
+
+    // Estimate sleep quality from mood/anxiety patterns
+    let estimatedSleepQuality: string | null = null;
+    if (avgMood && avgAnxiety) {
+      const moodVal = parseFloat(avgMood);
+      const anxietyVal = parseFloat(avgAnxiety);
+      if (moodVal >= 7 && anxietyVal <= 3) estimatedSleepQuality = 'Buona';
+      else if (moodVal >= 5 && anxietyVal <= 5) estimatedSleepQuality = 'Moderata';
+      else if (moodVal < 5 || anxietyVal > 6) estimatedSleepQuality = 'Scarsa';
+    }
+
+    // Determine risk status
+    let riskStatus: 'stable' | 'attention' | 'critical' = 'stable';
+    const hasCrisisAlert = completedSessions.some(s => s.crisis_alert);
+    if (hasCrisisAlert || (peakAnxiety && peakAnxiety >= 9)) {
+      riskStatus = 'critical';
+    } else if ((avgAnxiety && parseFloat(avgAnxiety) >= 6) || (avgMood && parseFloat(avgMood) <= 4)) {
+      riskStatus = 'attention';
+    }
 
     // Extract top themes/tags
     const allTags: string[] = [];
     completedSessions.forEach(s => {
-      if (s.emotion_tags) allTags.push(...s.emotion_tags);
+      if (s.emotion_tags) allTags.push(...(s.emotion_tags as string[]));
     });
     const tagCounts = allTags.reduce((acc, tag) => {
       acc[tag] = (acc[tag] || 0) + 1;
@@ -108,15 +132,21 @@ serve(async (req) => {
     }, {} as Record<string, number>);
     const topThemes = Object.entries(tagCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 8)
       .map(([tag, count]) => ({ tag, count }));
 
-    // Extract key events
-    const allEvents: string[] = [];
+    // Extract key events with dates
+    const recentEvents: { date: string; event: string }[] = [];
     completedSessions.forEach(s => {
-      if (s.key_events) allEvents.push(...s.key_events);
+      if (s.key_events && Array.isArray(s.key_events)) {
+        const sessionDate = new Date(s.start_time).toLocaleDateString('it-IT', { 
+          day: '2-digit', month: '2-digit' 
+        });
+        (s.key_events as string[]).forEach(event => {
+          recentEvents.push({ date: sessionDate, event });
+        });
+      }
     });
-    const recentEvents = allEvents.slice(0, 10);
 
     // Build mood trend data (for chart)
     const moodTrend = completedSessions
@@ -129,37 +159,112 @@ serve(async (req) => {
         anxiety: s.anxiety_score_detected,
       }));
 
-    // Generate AI summary of current state
-    const latestSummaries = completedSessions
-      .slice(0, 3)
-      .filter(s => s.ai_summary)
-      .map(s => s.ai_summary);
+    // Get last session date
+    const lastSessionDate = completedSessions.length > 0 
+      ? completedSessions[0].start_time 
+      : null;
+
+    // Generate AI Clinical Summary using Lovable AI Gateway
+    let clinicalSummary = '';
+    if (LOVABLE_API_KEY && completedSessions.length >= 1) {
+      try {
+        const summariesText = completedSessions
+          .slice(0, 5)
+          .filter(s => s.ai_summary)
+          .map(s => s.ai_summary)
+          .join('\n---\n');
+
+        const eventsText = recentEvents.slice(0, 10).map(e => `${e.date}: ${e.event}`).join('\n');
+        const themesText = topThemes.map(t => t.tag).join(', ');
+
+        const clinicalPrompt = `Sei uno psicologo clinico che deve redigere un report professionale per un collega medico.
+
+DATI DEL PAZIENTE (ultimi 30 giorni):
+- Media umore: ${avgMood || 'N/D'}/10
+- Media ansia: ${avgAnxiety || 'N/D'}/10  
+- Picco ansia: ${peakAnxiety || 'N/D'}/10
+- Sessioni totali: ${completedSessions.length}
+- Temi principali: ${themesText || 'Nessuno rilevato'}
+
+EVENTI DI VITA RILEVATI:
+${eventsText || 'Nessun evento specifico registrato.'}
+
+RIASSUNTI SESSIONI RECENTI:
+${summariesText || 'Nessun riassunto disponibile.'}
+
+ISTRUZIONI:
+Genera un report clinico STRUTTURATO (max 400 parole) con i seguenti paragrafi:
+
+**SINTOMATOLOGIA OSSERVATA**
+Descrivi brevemente i pattern emotivi e comportamentali emersi.
+
+**FATTORI STRESSANTI IDENTIFICATI**
+Elenca i principali fattori di stress o eventi significativi.
+
+**PROGRESSI E RISORSE**
+Evidenzia eventuali miglioramenti o punti di forza del paziente.
+
+**INDICAZIONI CLINICHE**
+Suggerimenti generici per il professionista (NON diagnosi).
+
+Usa un linguaggio tecnico ma accessibile. NON inventare dati. Se mancano informazioni, indicalo.`;
+
+        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: 'Sei uno psicologo clinico esperto. Scrivi in italiano, in modo professionale e obiettivo.' },
+              { role: 'user', content: clinicalPrompt }
+            ],
+            max_tokens: 800,
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          clinicalSummary = aiData.choices?.[0]?.message?.content || '';
+        } else {
+          console.error('[doctor-view-data] AI response error:', await aiResponse.text());
+        }
+      } catch (aiError) {
+        console.error('[doctor-view-data] Error generating clinical summary:', aiError);
+      }
+    }
 
     const responseData = {
       patient: {
-        firstName: profile?.name?.split(' ')[0] || 'Anonimo',
+        firstName: profile?.name?.split(' ')[0] || 'Paziente Anonimo',
         memberSince: profile?.created_at,
         wellnessScore: profile?.wellness_score || 0,
         lifeAreasScores: profile?.life_areas_scores || {},
+        lastSessionDate,
       },
       metrics: {
         totalSessions: completedSessions.length,
         totalCheckins: (checkins || []).length,
         avgMood,
         avgAnxiety,
+        peakAnxiety,
+        estimatedSleepQuality,
         periodDays: 30,
       },
       topThemes,
-      recentEvents,
+      recentEvents: recentEvents.slice(0, 10),
       moodTrend,
-      recentSummaries: latestSummaries,
+      clinicalSummary,
+      riskStatus,
       accessInfo: {
         expiresAt: accessRecord.expires_at,
         accessCount: accessRecord.access_count + 1,
       },
     };
 
-    console.log('[doctor-view-data] Data fetched for user:', userId);
+    console.log('[doctor-view-data] Data fetched for user:', userId, '| Risk:', riskStatus);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
