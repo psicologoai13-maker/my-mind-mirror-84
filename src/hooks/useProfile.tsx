@@ -9,20 +9,16 @@ export interface UserProfile {
   email: string | null;
   created_at: string;
   wellness_score: number | null;
-  life_areas_scores: {
-    friendship: number;
-    love: number;
-    work: number;
-    wellness: number;
-  } | null;
+  life_areas_scores: Record<string, number> | null;
   long_term_memory?: string[] | null;
+  connection_code?: string | null;
 }
 
 export const useProfile = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading, error } = useQuery({
+  const { data: profile, isLoading, error, refetch } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -34,7 +30,7 @@ export const useProfile = () => {
         .maybeSingle();
       
       if (error) throw error;
-      return data as UserProfile | null;
+      return data as unknown as UserProfile | null;
     },
     enabled: !!user,
   });
@@ -58,5 +54,5 @@ export const useProfile = () => {
     },
   });
 
-  return { profile, isLoading, error, updateProfile };
+  return { profile, isLoading, error, updateProfile, refetch };
 };

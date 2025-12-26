@@ -3,32 +3,39 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import { Sparkles, Mail, Lock, User } from 'lucide-react';
+import { Sparkles, Mail, Lock, User, Stethoscope } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 const emailSchema = z.string().email('Email non valida');
 const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratteri');
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isDoctor, setIsDoctor] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
+  const { role, setUserRole, refetch: refetchRole } = useUserRole();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      navigate('/');
+    if (user && role) {
+      if (role === 'doctor') {
+        navigate('/doctor-dashboard');
+      } else {
+        navigate('/');
+      }
     }
-  }, [user, navigate]);
+  }, [user, role, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
@@ -52,7 +59,7 @@ const Auth: React.FC = () => {
           }
         } else {
           toast.success('Benvenuto!');
-          navigate('/');
+          // Role will be fetched and redirect handled by useEffect
         }
       } else {
         const { error } = await signUp(email, password, name);
@@ -63,8 +70,13 @@ const Auth: React.FC = () => {
             toast.error(error.message);
           }
         } else {
-          toast.success('Account creato! Benvenuto in Serenity.');
-          navigate('/');
+          // Wait for auth to complete, then set role
+          setTimeout(async () => {
+            const roleToSet = isDoctor ? 'doctor' : 'patient';
+            await setUserRole(roleToSet);
+            await refetchRole();
+            toast.success(isDoctor ? 'Account Medico creato!' : 'Account creato! Benvenuto in Serenity.');
+          }, 500);
         }
       }
     } finally {
@@ -77,16 +89,24 @@ const Auth: React.FC = () => {
       {/* Logo */}
       <div className="mb-8 text-center animate-slide-up">
         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-hero flex items-center justify-center shadow-card">
-          <Sparkles className="w-10 h-10 text-primary-foreground" />
+          {isDoctor ? (
+            <Stethoscope className="w-10 h-10 text-primary-foreground" />
+          ) : (
+            <Sparkles className="w-10 h-10 text-primary-foreground" />
+          )}
         </div>
-        <h1 className="font-display text-3xl font-bold text-foreground">Serenity</h1>
-        <p className="text-muted-foreground mt-2">Il tuo spazio di benessere mentale</p>
+        <h1 className="font-display text-3xl font-bold text-foreground">
+          {isDoctor ? 'Portale Medico' : 'Serenity'}
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          {isDoctor ? 'Accesso professionisti sanitari' : 'Il tuo spazio di benessere mentale'}
+        </p>
       </div>
 
       {/* Auth Card */}
       <div className="w-full max-w-sm bg-card rounded-3xl p-6 shadow-card animate-slide-up stagger-2">
         <h2 className="font-display text-xl font-bold text-foreground text-center mb-6">
-          {isLogin ? 'Bentornato!' : 'Crea il tuo account'}
+          {isLogin ? 'Bentornato!' : (isDoctor ? 'Registrazione Medico' : 'Crea il tuo account')}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,7 +115,7 @@ const Auth: React.FC = () => {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Il tuo nome"
+                placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pl-10 h-12 rounded-xl"
@@ -136,7 +156,7 @@ const Auth: React.FC = () => {
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-3">
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -146,6 +166,18 @@ const Auth: React.FC = () => {
               {isLogin ? 'Registrati' : 'Accedi'}
             </span>
           </button>
+
+          {!isLogin && (
+            <div className="pt-2 border-t border-border">
+              <button
+                onClick={() => setIsDoctor(!isDoctor)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto"
+              >
+                <Stethoscope className="w-4 h-4" />
+                {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
