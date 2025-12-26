@@ -41,6 +41,30 @@ export type Database = {
         }
         Relationships: []
       }
+      doctor_patient_access: {
+        Row: {
+          access_granted_at: string
+          doctor_id: string
+          id: string
+          is_active: boolean
+          patient_id: string
+        }
+        Insert: {
+          access_granted_at?: string
+          doctor_id: string
+          id?: string
+          is_active?: boolean
+          patient_id: string
+        }
+        Update: {
+          access_granted_at?: string
+          doctor_id?: string
+          id?: string
+          is_active?: boolean
+          patient_id?: string
+        }
+        Relationships: []
+      }
       doctor_share_codes: {
         Row: {
           code: string
@@ -193,6 +217,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          connection_code: string | null
           created_at: string
           email: string | null
           id: string
@@ -203,6 +228,7 @@ export type Database = {
           wellness_score: number | null
         }
         Insert: {
+          connection_code?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -213,6 +239,7 @@ export type Database = {
           wellness_score?: number | null
         }
         Update: {
+          connection_code?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -224,15 +251,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_patient_by_code: {
+        Args: { _code: string }
+        Returns: {
+          name: string
+          user_id: string
+        }[]
+      }
+      generate_connection_code: { Args: never; Returns: string }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "patient" | "doctor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -359,6 +425,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["patient", "doctor"],
+    },
   },
 } as const
