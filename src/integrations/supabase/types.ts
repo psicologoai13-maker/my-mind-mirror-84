@@ -96,6 +96,7 @@ export type Database = {
         Row: {
           ai_summary: string | null
           anxiety_score_detected: number | null
+          clinical_indices: Json | null
           crisis_alert: boolean | null
           duration: number | null
           emotion_breakdown: Json | null
@@ -106,6 +107,8 @@ export type Database = {
           key_events: string[] | null
           life_balance_scores: Json | null
           mood_score_detected: number | null
+          sleep_quality: number | null
+          specific_emotions: Json | null
           start_time: string
           status: string | null
           transcript: string | null
@@ -115,6 +118,7 @@ export type Database = {
         Insert: {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
+          clinical_indices?: Json | null
           crisis_alert?: boolean | null
           duration?: number | null
           emotion_breakdown?: Json | null
@@ -125,6 +129,8 @@ export type Database = {
           key_events?: string[] | null
           life_balance_scores?: Json | null
           mood_score_detected?: number | null
+          sleep_quality?: number | null
+          specific_emotions?: Json | null
           start_time?: string
           status?: string | null
           transcript?: string | null
@@ -134,6 +140,7 @@ export type Database = {
         Update: {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
+          clinical_indices?: Json | null
           crisis_alert?: boolean | null
           duration?: number | null
           emotion_breakdown?: Json | null
@@ -144,6 +151,8 @@ export type Database = {
           key_events?: string[] | null
           life_balance_scores?: Json | null
           mood_score_detected?: number | null
+          sleep_quality?: number | null
+          specific_emotions?: Json | null
           start_time?: string
           status?: string | null
           transcript?: string | null
