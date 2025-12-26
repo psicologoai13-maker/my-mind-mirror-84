@@ -22,6 +22,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import ClinicalReportDialog from '@/components/profile/ClinicalReportDialog';
 
 const menuItems = [
   { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo' },
@@ -184,6 +185,11 @@ const Profile: React.FC = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Clinical Report */}
+        <div className="animate-slide-up stagger-5">
+          <ClinicalReportDialog />
         </div>
 
         {/* Logout */}
