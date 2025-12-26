@@ -18,6 +18,20 @@ interface EmotionBreakdown {
   [emotion: string]: number;
 }
 
+interface SpecificEmotions {
+  joy: number;
+  sadness: number;
+  anger: number;
+  fear: number;
+  apathy: number;
+}
+
+interface ClinicalIndices {
+  rumination: number | null;
+  emotional_openness: number | null;
+  perceived_stress: number | null;
+}
+
 interface SessionAnalysis {
   mood_score: number;
   anxiety_score: number;
@@ -29,6 +43,9 @@ interface SessionAnalysis {
   key_events: string[];
   insights: string;
   crisis_risk: 'low' | 'medium' | 'high';
+  specific_emotions: SpecificEmotions;
+  clinical_indices: ClinicalIndices;
+  sleep_quality: number | null;
 }
 
 serve(async (req) => {
@@ -81,13 +98,13 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Sei un analista esperto di conversazioni terapeutiche e coach di vita. Analizza la conversazione e restituisci SEMPRE un JSON valido con questa struttura esatta:
+            content: `Sei un analista clinico esperto di conversazioni terapeutiche. Analizza la conversazione e restituisci SEMPRE un JSON valido con questa struttura esatta:
 
 {
   "mood_score": <numero da 1 a 10, dove 1 è molto triste e 10 è molto felice>,
   "anxiety_score": <numero da 1 a 10, dove 1 è calmo e 10 è molto ansioso>,
   "emotion_tags": [<array di tag emotivi rilevanti, es. "#Lavoro", "#Relazioni", "#Stress", "#Famiglia">],
-  "key_facts": [<array di fatti importanti da ricordare per sessioni future, es. "Si è lasciato con la ragazza Maria", "Ha problemi al lavoro con il capo">],
+  "key_facts": [<array di fatti importanti da ricordare per sessioni future>],
   "summary": "<riassunto breve della sessione in 1-2 frasi>",
   "life_balance_scores": {
     "love": <punteggio 1-10 per Amore/Relazioni romantiche, null se non menzionato>,
@@ -97,24 +114,39 @@ serve(async (req) => {
     "growth": <punteggio 1-10 per Autostima/Crescita personale, null se non menzionato>
   },
   "emotion_breakdown": {
-    "<emozione>": <percentuale come numero intero, es. "Gioia": 20, "Rabbia": 30, "Tristezza": 50>
+    "<emozione>": <percentuale come numero intero>
   },
-  "key_events": [<lista di eventi fattuali concreti, es. "Ha litigato con il boss", "Nuovo appuntamento venerdì", "Promozione al lavoro">],
-  "insights": "<una frase breve di correlazione o osservazione clinica, es. 'La tua ansia sembra aumentare quando parli di Lavoro' o 'Noto un pattern di evitamento nelle relazioni'>",
-  "crisis_risk": "<valutazione del rischio: 'low', 'medium', o 'high'. IMPOSTA 'high' SOLO SE l'utente esprime: pensieri suicidi, autolesionismo, desiderio di farsi del male, o disperazione estrema. 'medium' per forte angoscia senza ideazione suicida. 'low' per conversazioni normali>"
+  "specific_emotions": {
+    "joy": <percentuale di Gioia (0-100)>,
+    "sadness": <percentuale di Tristezza (0-100)>,
+    "anger": <percentuale di Rabbia (0-100)>,
+    "fear": <percentuale di Paura (0-100)>,
+    "apathy": <percentuale di Apatia (0-100)>
+  },
+  "clinical_indices": {
+    "rumination": <livello di ruminazione 1-10, null se non valutabile>,
+    "emotional_openness": <apertura emotiva 1-10, null se non valutabile>,
+    "perceived_stress": <stress percepito 1-10, null se non valutabile>
+  },
+  "sleep_quality": <qualità del sonno 1-10 se menzionato, null altrimenti>,
+  "key_events": [<lista di eventi fattuali concreti>],
+  "insights": "<osservazione clinica breve>",
+  "crisis_risk": "<'low', 'medium', o 'high'>"
 }
 
-REGOLE IMPORTANTI:
-- Per life_balance_scores: assegna un punteggio SOLO se l'utente ha parlato di quell'area. Altrimenti metti null.
-- emotion_breakdown: le percentuali devono sommare a 100.
-- key_events: estrai SOLO eventi fattuali concreti (chi, cosa, quando), non stati emotivi.
-- insights: fornisci un'osservazione utile che colleghi i pattern emotivi alle aree di vita.
-- crisis_risk: CRITICO! Valuta con attenzione. 'high' richiede intervento immediato.
+REGOLE PER ESTRAZIONE DATI CLINICI:
+- specific_emotions: le 5 emozioni DEVONO sommare a 100. Basati sul tono generale della conversazione.
+- clinical_indices:
+  * rumination: quanto l'utente ripete gli stessi pensieri negativi (1=nessuno, 10=estremo)
+  * emotional_openness: quanto l'utente si apre ed esprime emozioni (1=chiuso, 10=molto aperto)
+  * perceived_stress: livello di stress generale percepito (1=rilassato, 10=molto stressato)
+- sleep_quality: se l'utente menziona sonno, insonnia, stanchezza, estrai un punteggio (1=pessimo, 10=ottimo). Null se non menzionato.
+- crisis_risk: 'high' SOLO per pensieri suicidi/autolesionismo. 'medium' per forte angoscia. 'low' normale.
 
-Valori attuali delle aree di vita dell'utente (usa come riferimento, ma aggiorna SOLO se ne parla nella conversazione):
+Valori attuali aree di vita (aggiorna SOLO se menzionate):
 ${JSON.stringify(currentLifeScores)}
 
-Rispondi SOLO con il JSON, senza markdown o altro testo.`
+Rispondi SOLO con il JSON, senza markdown.`
           },
           {
             role: 'user',
@@ -153,7 +185,10 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         emotion_breakdown: {},
         key_events: [],
         insights: '',
-        crisis_risk: 'low'
+        crisis_risk: 'low',
+        specific_emotions: { joy: 20, sadness: 20, anger: 20, fear: 20, apathy: 20 },
+        clinical_indices: { rumination: null, emotional_openness: null, perceived_stress: null },
+        sleep_quality: null
       };
     }
 
@@ -177,7 +212,10 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         key_events: analysis.key_events,
         insights: analysis.insights,
         crisis_alert: isCrisisAlert,
-        status: 'completed'
+        status: 'completed',
+        specific_emotions: analysis.specific_emotions,
+        clinical_indices: analysis.clinical_indices,
+        sleep_quality: analysis.sleep_quality
       })
       .eq('id', session_id);
 
