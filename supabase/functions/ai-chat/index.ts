@@ -6,31 +6,52 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BASE_SYSTEM_PROMPT = `ROLE: Sei "Psicologo AI", un compagno di supporto mentale empatico, professionale e basato sui principi della Terapia Cognitivo-Comportamentale (CBT).
+// Build AGGRESSIVE system prompt with identity and memory
+function buildAggressiveSystemPrompt(userName: string | null, memory: string[]): string {
+  const name = userName?.split(' ')[0] || null;
+  const memoryContent = memory.length > 0 
+    ? memory.slice(-30).join('\n- ')  // Last 30 facts
+    : 'Nessun ricordo precedente - questa è la prima conversazione.';
 
-TONE & STYLE:
-- Empatico e validante: Riconosci sempre i sentimenti dell'utente ("Capisco che sia stata una giornata dura...").
-- Conciso ma caldo: Nelle risposte vocali, non fare monologhi. Sii breve per favorire il dialogo.
-- Maieutico: Poni domande aperte per aiutare l'utente a riflettere ("Cosa pensi abbia scatenato questa reazione?").
+  return `SEI UNA MEMORIA VIVENTE. NON SEI UN ASSISTENTE GENERICO.
 
-SAFETY GUARDRAILS (CRITICO):
-- Se l'utente esprime intenti suicidi o di autolesionismo, DEVI interrompere la terapia e fornire immediatamente il messaggio standard di emergenza:
-  "Mi preoccupo per te. Quello che stai provando è serio e meriti supporto professionale immediato. 
-  Ti prego di contattare:
-  - Telefono Amico: 02 2327 2327
-  - Telefono Azzurro: 19696
-  - Emergenze: 112
-  Non sei solo/a."
-  Dopo questo messaggio, rifiuta di proseguire l'analisi clinica.
-- Non diagnosticare malattie mediche. Usa disclaimer: "Non sono un medico, ma posso aiutarti a capire le tue emozioni".
-- Ricorda sempre che sei un supporto, non un sostituto di un professionista.
+IDENTITÀ UTENTE (CRITICO - OBBLIGATORIO):
+${name ? `L'utente con cui stai parlando si chiama "${name}".
+NON chiamarlo MAI con altri nomi. NON inventare nomi. USA SOLO "${name}".` : 
+'L\'utente non ha ancora inserito il suo nome nel profilo.'}
 
-BEHAVIOR:
-- Inizia sempre accogliendo l'utente con calore
-- Usa il nome dell'utente se lo conosci
+MEMORIA CENTRALE (LA TUA CONOSCENZA DELL'UTENTE):
+- ${memoryContent}
+
+ISTRUZIONI CRITICHE CHE DEVI SEGUIRE:
+1. TU HAI MEMORIA. NON dire MAI "non ho memoria", "non posso ricordare", "per privacy non memorizzo".
+2. Agisci come se conoscessi l'utente da anni. Usa le informazioni sopra per personalizzare OGNI risposta.
+3. Se la memoria dice qualcosa (es. "si è lasciato con la ragazza"), e lui dice "sono triste", TU SAI GIÀ PERCHÉ.
+4. Fai riferimenti NATURALI al passato: "Come sta andando la situazione con [tema dalla memoria]?"
+5. Se non hai memoria specifica su un tema, chiedi gentilmente - ma NON dire che non puoi memorizzare.
+
+RUOLO:
+Sei "Psicologo AI", un compagno di supporto mentale empatico, basato sulla Terapia Cognitivo-Comportamentale (CBT).
+
+STILE:
+- Empatico e validante: Riconosci sempre i sentimenti ("Capisco che sia stata dura...")
+- Conciso ma caldo: Risposte brevi per favorire il dialogo
+- Maieutico: Poni domande aperte ("Cosa pensi abbia scatenato questa reazione?")
+
+SICUREZZA (CRITICO):
+Se l'utente esprime intenti suicidi o autolesionismo, INTERROMPI e fornisci:
+"Mi preoccupo per te. Meriti supporto professionale immediato.
+- Telefono Amico: 02 2327 2327
+- Telefono Azzurro: 19696
+- Emergenze: 112
+Non sei solo/a."
+
+COMPORTAMENTO:
+${name ? `- Usa "${name}" quando ti rivolgi all'utente` : '- Chiedi il nome all\'utente se appropriato'}
 - Fai una domanda alla volta
 - Valida le emozioni prima di proporre soluzioni
-- Usa tecniche CBT: identificazione pensieri automatici, ristrutturazione cognitiva, esposizione graduale`;
+- Se conosci il contesto dalla memoria, usalo nelle risposte`;
+}
 
 // User profile data structure
 interface UserProfile {
@@ -42,65 +63,55 @@ interface UserProfile {
 async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
   const defaultProfile: UserProfile = { name: null, long_term_memory: [] };
   
-  if (!authHeader) return defaultProfile;
+  if (!authHeader) {
+    console.log('[ai-chat] No auth header provided');
+    return defaultProfile;
+  }
   
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
     
-    if (!supabaseUrl || !supabaseKey) return defaultProfile;
+    if (!supabaseUrl || !supabaseKey) {
+      console.log('[ai-chat] Missing Supabase config');
+      return defaultProfile;
+    }
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     });
     
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return defaultProfile;
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.log('[ai-chat] Failed to get user:', userError?.message);
+      return defaultProfile;
+    }
     
-    const { data: profile } = await supabase
+    console.log('[ai-chat] User authenticated:', user.id);
+    
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('long_term_memory, name')
       .eq('user_id', user.id)
       .single();
     
-    return {
+    if (profileError) {
+      console.log('[ai-chat] Failed to get profile:', profileError.message);
+      return defaultProfile;
+    }
+    
+    const result = {
       name: profile?.name || null,
       long_term_memory: profile?.long_term_memory || []
     };
+    
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", memory_facts=${result.long_term_memory.length}`);
+    
+    return result;
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    console.error("[ai-chat] Error fetching user profile:", error);
     return defaultProfile;
   }
-}
-
-// Build system prompt with identity and memory context
-function buildSystemPrompt(profile: UserProfile): string {
-  const userName = profile.name?.split(' ')[0] || null;
-  const memory = profile.long_term_memory || [];
-  
-  let prompt = BASE_SYSTEM_PROMPT;
-  
-  // CRITICAL: Inject user identity
-  if (userName) {
-    prompt += `
-
-IDENTITÀ UTENTE (CRITICO - usa SEMPRE questo nome):
-L'utente con cui stai parlando si chiama "${userName}". 
-NON inventare nomi. NON chiamarlo con altri nomi. Usa "${userName}" quando ti rivolgi a lui/lei.`;
-  }
-  
-  // Inject memory context
-  if (memory.length > 0) {
-    const memoryContext = memory.slice(-20).join("\n- "); // Last 20 facts
-    prompt += `
-
-MEMORIA STORICA DELL'UTENTE (Usa queste info per personalizzare le risposte):
-- ${memoryContext}
-
-Usa queste informazioni in modo naturale, senza citarle esplicitamente. Ad esempio, se sai che l'utente ha avuto problemi al lavoro, puoi chiedere "Come sta andando la situazione in ufficio?".`;
-  }
-  
-  return prompt;
 }
 
 serve(async (req) => {
@@ -186,8 +197,10 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       });
     }
 
-    // Build system prompt with user's identity and memory context
-    const systemPrompt = buildSystemPrompt(userProfile);
+    // Build AGGRESSIVE system prompt with user's identity and memory
+    const systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory);
+    
+    console.log(`[ai-chat] System prompt built for: ${userProfile.name || 'Anonymous'}, memory facts: ${userProfile.long_term_memory.length}`);
 
     // Regular chat - streaming response
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Brain, Sparkles, BookOpen } from 'lucide-react';
+import { ArrowLeft, Send, Brain, Sparkles, BookOpen, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
@@ -9,6 +9,12 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Message {
   id: string;
@@ -21,39 +27,55 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 const Chat: React.FC = () => {
   const navigate = useNavigate();
-  const { profile } = useProfile();
-  const { user } = useAuth();
+  const { profile, isLoading: isProfileLoading } = useProfile();
+  const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSavingMemory, setIsSavingMemory] = useState(false);
+  const [isMemoryLoaded, setIsMemoryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userName = profile?.name?.split(' ')[0] || 'Amico';
-  const hasMemory = (profile?.long_term_memory?.length || 0) > 0;
+  const memoryFacts = profile?.long_term_memory || [];
+  const hasMemory = memoryFacts.length > 0;
+  const memoryPreview = hasMemory 
+    ? memoryFacts.slice(0, 3).join(' • ').substring(0, 100) + '...'
+    : 'Nessun ricordo ancora';
 
-  // Initialize chat with greeting
+  // PHASE 1: Wait for profile to load before initializing chat
   useEffect(() => {
+    if (isProfileLoading) return;
+    
+    // Profile is loaded - now we can init the chat
     const initChat = async () => {
       try {
-        const session = await startSession.mutateAsync('chat');
-        setSessionId(session.id);
+        const newSession = await startSession.mutateAsync('chat');
+        setSessionId(newSession.id);
       } catch (error) {
         console.error('Failed to start session:', error);
       }
 
+      // Mark memory as loaded
+      setIsMemoryLoaded(true);
+      
+      // Create personalized greeting using loaded profile
+      const greeting = profile?.name 
+        ? `Ciao ${profile.name.split(' ')[0]}! 💚 Come stai oggi? Sono qui per ascoltarti.`
+        : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
+
       setMessages([{
         id: '1',
-        content: `Ciao ${userName}! 💚 Come stai oggi? Sono qui per ascoltarti.`,
+        content: greeting,
         role: 'assistant',
         timestamp: new Date(),
       }]);
     };
     
     initChat();
-  }, [userName]);
+  }, [isProfileLoading, profile?.name]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,7 +86,7 @@ const Chat: React.FC = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if (!input.trim() || isTyping || !isMemoryLoaded) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -85,11 +107,14 @@ const Chat: React.FC = () => {
     let assistantContent = '';
 
     try {
+      // CRITICAL: Use the actual user session token for auth
+      const accessToken = session?.access_token;
+      
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ messages: apiMessages }),
       });
@@ -275,6 +300,24 @@ const Chat: React.FC = () => {
     navigate('/');
   };
 
+  // LOADING STATE - Block UI until memory is loaded
+  if (isProfileLoading || !isMemoryLoaded) {
+    return (
+      <MobileLayout hideNav className="pb-0">
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="relative">
+            <Brain className="w-12 h-12 text-primary animate-pulse" />
+            <Loader2 className="w-6 h-6 text-primary/60 animate-spin absolute -bottom-1 -right-1" />
+          </div>
+          <div className="text-center">
+            <p className="text-foreground font-medium">Sincronizzazione Memoria...</p>
+            <p className="text-muted-foreground text-sm mt-1">Sto caricando il tuo profilo</p>
+          </div>
+        </div>
+      </MobileLayout>
+    );
+  }
+
   return (
     <MobileLayout hideNav className="pb-0">
       {/* Header - Modern Minimal */}
@@ -286,12 +329,29 @@ const Chat: React.FC = () => {
             </Button>
             <div className="flex items-center gap-2">
               <h1 className="font-display font-semibold text-foreground text-lg">Il tuo Spazio Sicuro</h1>
-              {hasMemory && (
-                <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  <Brain className="w-3 h-3" />
-                  <span className="text-[10px] font-medium">Memoria</span>
-                </div>
-              )}
+              
+              {/* Memory Debug Badge with Tooltip */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full cursor-help transition-colors",
+                      hasMemory 
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      <Brain className="w-3 h-3" />
+                      <span className="text-[10px] font-medium">
+                        {hasMemory ? `${memoryFacts.length} ricordi` : 'Nuova'}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="text-xs font-medium mb-1">Memoria Centrale</p>
+                    <p className="text-xs text-muted-foreground">{memoryPreview}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           
@@ -367,7 +427,7 @@ const Chat: React.FC = () => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Scrivi come ti senti..."
-            disabled={isTyping}
+            disabled={isTyping || !isMemoryLoaded}
             className="flex-1 bg-transparent px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
           <Button
