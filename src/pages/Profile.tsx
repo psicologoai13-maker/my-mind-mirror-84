@@ -23,6 +23,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import ClinicalReportDialog from '@/components/profile/ClinicalReportDialog';
+import DoctorLinkingSection from '@/components/profile/DoctorLinkingSection';
+import LegalDisclaimer from '@/components/layout/LegalDisclaimer';
 
 const menuItems = [
   { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo' },
@@ -192,6 +194,16 @@ const Profile: React.FC = () => {
           <ClinicalReportDialog />
         </div>
 
+        {/* Doctor Linking */}
+        <div className="animate-slide-up stagger-5">
+          <DoctorLinkingSection />
+        </div>
+
+        {/* Legal Disclaimer */}
+        <div className="animate-slide-up stagger-5">
+          <LegalDisclaimer variant="full" />
+        </div>
+
         {/* Logout */}
         <Button 
           variant="outline" 
@@ -203,7 +215,8 @@ const Profile: React.FC = () => {
         </Button>
 
         {/* Version */}
-        <p className="text-center text-xs text-muted-foreground">
+        <LegalDisclaimer variant="compact" />
+        <p className="text-center text-xs text-muted-foreground mt-2">
           Serenity v1.0.0 • Made with 💚
         </p>
       </div>

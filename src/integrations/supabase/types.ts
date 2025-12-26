@@ -41,10 +41,38 @@ export type Database = {
         }
         Relationships: []
       }
+      doctor_share_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_active?: boolean
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           ai_summary: string | null
           anxiety_score_detected: number | null
+          crisis_alert: boolean | null
           duration: number | null
           emotion_breakdown: Json | null
           emotion_tags: string[] | null
@@ -63,6 +91,7 @@ export type Database = {
         Insert: {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
+          crisis_alert?: boolean | null
           duration?: number | null
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
@@ -81,6 +110,7 @@ export type Database = {
         Update: {
           ai_summary?: string | null
           anxiety_score_detected?: number | null
+          crisis_alert?: boolean | null
           duration?: number | null
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
