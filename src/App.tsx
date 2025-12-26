@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
-import Progress from "./pages/Progress";
+import Analisi from "./pages/Analisi";
 import Sessions from "./pages/Sessions";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
@@ -77,7 +77,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-            <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
+            <Route path="/analisi" element={<ProtectedRoute><Analisi /></ProtectedRoute>} />
+            <Route path="/progress" element={<Navigate to="/analisi" replace />} />
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useSessions } from '@/hooks/useSessions';
 import { useCheckins } from '@/hooks/useCheckins';
-import { format, subDays, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { TrendingUp, Moon, Brain } from 'lucide-react';
 
@@ -22,8 +22,10 @@ interface SparklineProps {
 }
 
 const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, icon, unit = '%' }) => {
-  const hasData = data.some(d => d.value !== null);
-  const latestValue = [...data].reverse().find(d => d.value !== null)?.value;
+  // Filter to only include data points with values (stretch effect)
+  const filteredData = data.filter(d => d.value !== null);
+  const hasData = filteredData.length > 0;
+  const latestValue = filteredData[filteredData.length - 1]?.value;
 
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/20">
@@ -46,7 +48,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, i
       ) : (
         <div className="h-16">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+            <AreaChart data={filteredData} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={color} stopOpacity={0.3} />
@@ -72,7 +74,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, i
                 stroke={color}
                 strokeWidth={2}
                 fill={`url(#${gradientId})`}
-                connectNulls
+                dot={{ fill: color, strokeWidth: 0, r: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -87,16 +89,27 @@ const VitalTrendsSparklines: React.FC = () => {
   const { weeklyCheckins } = useCheckins();
 
   const { moodData, anxietyData, sleepData } = useMemo(() => {
-    const today = new Date();
-    const thirtyDaysAgo = subDays(today, 30);
-    const days = eachDayOfInterval({ start: thirtyDaysAgo, end: today });
+    // Group sessions by day
+    const sessionsByDay = new Map<string, typeof completedSessions>();
+    
+    completedSessions.forEach(session => {
+      const dateKey = format(new Date(session.start_time), 'yyyy-MM-dd');
+      if (!sessionsByDay.has(dateKey)) {
+        sessionsByDay.set(dateKey, []);
+      }
+      sessionsByDay.get(dateKey)!.push(session);
+    });
+
+    // Sort days chronologically
+    const sortedDays = Array.from(sessionsByDay.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]));
 
     const moodData: SparklineData[] = [];
     const anxietyData: SparklineData[] = [];
     const sleepData: SparklineData[] = [];
 
-    days.forEach(day => {
-      const daySessions = completedSessions.filter(s => isSameDay(new Date(s.start_time), day));
+    sortedDays.forEach(([dateKey, daySessions]) => {
+      const day = new Date(dateKey);
       const dayCheckin = weeklyCheckins?.find(c => isSameDay(new Date(c.created_at), day));
 
       // Mood
@@ -108,11 +121,14 @@ const VitalTrendsSparklines: React.FC = () => {
         mood = avgMood * 10;
       }
 
-      // Anxiety (inverted for display - lower is better)
+      // Anxiety
       let anxiety: number | null = null;
       if (daySessions.length > 0) {
-        const avgAnxiety = daySessions.reduce((acc, s) => acc + (s.anxiety_score_detected || 0), 0) / daySessions.length;
-        anxiety = avgAnxiety * 10;
+        const sessionsWithAnxiety = daySessions.filter(s => s.anxiety_score_detected !== null);
+        if (sessionsWithAnxiety.length > 0) {
+          const avgAnxiety = sessionsWithAnxiety.reduce((acc, s) => acc + (s.anxiety_score_detected || 0), 0) / sessionsWithAnxiety.length;
+          anxiety = avgAnxiety * 10;
+        }
       }
 
       // Sleep quality
@@ -137,7 +153,7 @@ const VitalTrendsSparklines: React.FC = () => {
     <div className="space-y-3">
       <div className="flex items-center gap-2 px-1 mb-2">
         <h2 className="font-display font-semibold text-lg text-foreground">I Tuoi Trend Vitali</h2>
-        <span className="text-xs text-muted-foreground">Ultimi 30 giorni</span>
+        <span className="text-xs text-muted-foreground">Dati disponibili</span>
       </div>
       
       <Sparkline
