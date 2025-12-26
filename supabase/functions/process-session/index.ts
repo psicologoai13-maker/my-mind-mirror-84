@@ -28,6 +28,7 @@ interface SessionAnalysis {
   emotion_breakdown: EmotionBreakdown;
   key_events: string[];
   insights: string;
+  crisis_risk: 'low' | 'medium' | 'high';
 }
 
 serve(async (req) => {
@@ -99,7 +100,8 @@ serve(async (req) => {
     "<emozione>": <percentuale come numero intero, es. "Gioia": 20, "Rabbia": 30, "Tristezza": 50>
   },
   "key_events": [<lista di eventi fattuali concreti, es. "Ha litigato con il boss", "Nuovo appuntamento venerdì", "Promozione al lavoro">],
-  "insights": "<una frase breve di correlazione o osservazione clinica, es. 'La tua ansia sembra aumentare quando parli di Lavoro' o 'Noto un pattern di evitamento nelle relazioni'>"
+  "insights": "<una frase breve di correlazione o osservazione clinica, es. 'La tua ansia sembra aumentare quando parli di Lavoro' o 'Noto un pattern di evitamento nelle relazioni'>",
+  "crisis_risk": "<valutazione del rischio: 'low', 'medium', o 'high'. IMPOSTA 'high' SOLO SE l'utente esprime: pensieri suicidi, autolesionismo, desiderio di farsi del male, o disperazione estrema. 'medium' per forte angoscia senza ideazione suicida. 'low' per conversazioni normali>"
 }
 
 REGOLE IMPORTANTI:
@@ -107,6 +109,7 @@ REGOLE IMPORTANTI:
 - emotion_breakdown: le percentuali devono sommare a 100.
 - key_events: estrai SOLO eventi fattuali concreti (chi, cosa, quando), non stati emotivi.
 - insights: fornisci un'osservazione utile che colleghi i pattern emotivi alle aree di vita.
+- crisis_risk: CRITICO! Valuta con attenzione. 'high' richiede intervento immediato.
 
 Valori attuali delle aree di vita dell'utente (usa come riferimento, ma aggiorna SOLO se ne parla nella conversazione):
 ${JSON.stringify(currentLifeScores)}
@@ -149,7 +152,8 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         life_balance_scores: { love: null, work: null, friendship: null, energy: null, growth: null },
         emotion_breakdown: {},
         key_events: [],
-        insights: ''
+        insights: '',
+        crisis_risk: 'low'
       };
     }
 
@@ -157,6 +161,8 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
 
     // Update the session with all analysis results
     console.log('[process-session] Updating session in database...');
+    
+    const isCrisisAlert = analysis.crisis_risk === 'high';
     
     const { error: sessionError } = await supabase
       .from('sessions')
@@ -170,6 +176,7 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         emotion_breakdown: analysis.emotion_breakdown,
         key_events: analysis.key_events,
         insights: analysis.insights,
+        crisis_alert: isCrisisAlert,
         status: 'completed'
       })
       .eq('id', session_id);
@@ -214,7 +221,8 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
     console.log('[process-session] Session processing complete!');
 
     return new Response(JSON.stringify({ 
-      success: true, 
+      success: true,
+      crisis_alert: isCrisisAlert,
       analysis: {
         mood_score: analysis.mood_score,
         anxiety_score: analysis.anxiety_score,
@@ -223,7 +231,8 @@ Rispondi SOLO con il JSON, senza markdown o altro testo.`
         life_balance_scores: analysis.life_balance_scores,
         emotion_breakdown: analysis.emotion_breakdown,
         key_events: analysis.key_events,
-        insights: analysis.insights
+        insights: analysis.insights,
+        crisis_risk: analysis.crisis_risk
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
