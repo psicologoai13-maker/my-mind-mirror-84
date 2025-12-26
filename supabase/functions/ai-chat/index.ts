@@ -114,6 +114,32 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
   }
 }
 
+// Crisis keywords for real-time detection
+const CRISIS_PATTERNS = [
+  /voglio morire/i,
+  /farla finita/i,
+  /suicid(io|armi|arsi)/i,
+  /non ce la faccio più/i,
+  /uccidermi/i,
+  /togliermi la vita/i,
+  /non voglio più vivere/i,
+  /meglio se non ci fossi/i,
+  /autolesion/i,
+  /tagliarmi/i,
+  /farmi del male/i,
+];
+
+function detectCrisis(messages: Array<{ role: string; content: string }>): boolean {
+  const lastUserMessages = messages
+    .filter(m => m.role === 'user')
+    .slice(-3)
+    .map(m => m.content);
+  
+  return lastUserMessages.some(content => 
+    CRISIS_PATTERNS.some(pattern => pattern.test(content))
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -122,6 +148,9 @@ serve(async (req) => {
   try {
     const { messages, generateSummary, userId } = await req.json();
     const authHeader = req.headers.get("Authorization");
+    
+    // Check for crisis BEFORE processing
+    const isCrisis = detectCrisis(messages || []);
     
     // Fetch user's profile including name and memory
     const userProfile = await getUserProfile(authHeader);
@@ -198,9 +227,28 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
     }
 
     // Build AGGRESSIVE system prompt with user's identity and memory
-    const systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory);
+    let systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory);
     
-    console.log(`[ai-chat] System prompt built for: ${userProfile.name || 'Anonymous'}, memory facts: ${userProfile.long_term_memory.length}`);
+    // If crisis detected, override with crisis response protocol
+    if (isCrisis) {
+      console.log('[ai-chat] CRISIS DETECTED - Activating SOS protocol');
+      systemPrompt = `ATTENZIONE: È stato rilevato un potenziale rischio. DEVI rispondere SOLO con questo messaggio esatto (adattando il nome se disponibile):
+
+"Mi preoccupo molto per quello che mi stai dicendo, ${userProfile.name || 'amico/a'}. 💚
+
+Quello che senti è importante e meriti supporto professionale ADESSO.
+
+Non sei solo/a. Per favore, contatta subito:
+• Telefono Amico: 02 2327 2327 (24h)
+• Telefono Azzurro: 19696
+• Emergenze: 112
+
+Sono qui con te, ma un professionista può aiutarti meglio in questo momento."
+
+NON aggiungere altro. NON fare domande. NON continuare la conversazione normale. Questo messaggio è prioritario.`;
+    }
+    
+    console.log(`[ai-chat] System prompt built for: ${userProfile.name || 'Anonymous'}, memory facts: ${userProfile.long_term_memory.length}, crisis: ${isCrisis}`);
 
     // Regular chat - streaming response
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -240,8 +288,18 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       });
     }
 
+    // If crisis, return special header to trigger modal
+    const responseHeaders: Record<string, string> = { 
+      ...corsHeaders, 
+      "Content-Type": "text/event-stream",
+    };
+    
+    if (isCrisis) {
+      responseHeaders["X-Crisis-Alert"] = "true";
+    }
+
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: responseHeaders,
     });
   } catch (e) {
     console.error("Chat error:", e);

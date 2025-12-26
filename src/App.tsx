@@ -10,6 +10,7 @@ import Progress from "./pages/Progress";
 import Sessions from "./pages/Sessions";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import DoctorView from "./pages/DoctorView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/doctor-view/:token" element={<DoctorView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

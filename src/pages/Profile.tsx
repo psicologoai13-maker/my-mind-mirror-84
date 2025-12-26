@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import ClinicalReportDialog from '@/components/profile/ClinicalReportDialog';
 import DoctorLinkingSection from '@/components/profile/DoctorLinkingSection';
+import SharedAccessSection from '@/components/profile/SharedAccessSection';
 import LegalDisclaimer from '@/components/layout/LegalDisclaimer';
 
 const menuItems = [
@@ -194,9 +195,14 @@ const Profile: React.FC = () => {
           <ClinicalReportDialog />
         </div>
 
-        {/* Doctor Linking */}
+        {/* Doctor Linking - Short Code */}
         <div className="animate-slide-up stagger-5">
           <DoctorLinkingSection />
+        </div>
+
+        {/* Shared Access - Live Dashboard */}
+        <div className="animate-slide-up stagger-5">
+          <SharedAccessSection />
         </div>
 
         {/* Legal Disclaimer */}
