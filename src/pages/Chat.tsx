@@ -9,6 +9,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import CrisisModal from '@/components/safety/CrisisModal';
 import {
   Tooltip,
   TooltipContent,
@@ -36,6 +37,7 @@ const Chat: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [isMemoryLoaded, setIsMemoryLoaded] = useState(false);
+  const [showCrisisModal, setShowCrisisModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userName = profile?.name?.split(' ')[0] || 'Amico';
@@ -118,6 +120,13 @@ const Chat: React.FC = () => {
         },
         body: JSON.stringify({ messages: apiMessages }),
       });
+
+      // Check for crisis alert header
+      const crisisAlert = response.headers.get('X-Crisis-Alert');
+      if (crisisAlert === 'true') {
+        console.log('[Chat] Crisis alert detected - showing emergency modal');
+        setShowCrisisModal(true);
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -320,6 +329,12 @@ const Chat: React.FC = () => {
 
   return (
     <MobileLayout hideNav className="pb-0">
+      {/* Crisis Emergency Modal */}
+      <CrisisModal 
+        isOpen={showCrisisModal} 
+        onClose={() => setShowCrisisModal(false)} 
+      />
+      
       {/* Header - Modern Minimal */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3">
         <div className="flex items-center justify-between">
