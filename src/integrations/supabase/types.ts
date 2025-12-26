@@ -98,6 +98,36 @@ export type Database = {
         }
         Relationships: []
       }
+      thematic_diaries: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_preview: string | null
+          last_updated_at: string
+          messages: Json
+          theme: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_preview?: string | null
+          last_updated_at?: string
+          messages?: Json
+          theme: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_preview?: string | null
+          last_updated_at?: string
+          messages?: Json
+          theme?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           created_at: string

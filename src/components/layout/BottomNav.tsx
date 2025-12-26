@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, MessageCircle, BarChart3, Calendar, User, Mic, X } from 'lucide-react';
+import { Home, MessageCircle, BarChart3, BookOpen, User, Mic, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 
@@ -8,7 +8,7 @@ const navItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: BarChart3, label: 'Progressi', path: '/progress' },
   { icon: MessageCircle, label: 'Sessione', path: null, isMain: true },
-  { icon: Calendar, label: 'Sessioni', path: '/sessions' },
+  { icon: BookOpen, label: 'Diario', path: '/sessions' },
   { icon: User, label: 'Profilo', path: '/profile' },
 ];
 

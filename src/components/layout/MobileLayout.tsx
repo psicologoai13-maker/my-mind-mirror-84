@@ -15,7 +15,8 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children, className, hideNa
         className={cn(
           "flex-1 max-w-md mx-auto w-full",
           // Large padding to ensure content doesn't go under fixed navbar
-          "pb-[calc(100px+env(safe-area-inset-bottom,0px))]",
+          !hideNav && "pb-[calc(100px+env(safe-area-inset-bottom,0px))]",
+          hideNav && "h-[100dvh] overflow-hidden",
           className
         )}
       >
