@@ -11,7 +11,7 @@ const PatientConnectionCode: React.FC = () => {
   const { user } = useAuth();
   const [regenerating, setRegenerating] = useState(false);
 
-  const connectionCode = (profile as any)?.connection_code || '';
+  const connectionCode = profile?.connection_code || '';
 
   const handleCopy = async () => {
     if (!connectionCode) return;
