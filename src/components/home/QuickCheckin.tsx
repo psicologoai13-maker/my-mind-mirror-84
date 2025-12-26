@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Check } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Save } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 
 const moods = [
   { emoji: '😢', label: 'Triste', value: 1 },
@@ -36,6 +38,13 @@ interface QuickCheckinProps {
 const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect }) => {
   const { todayCheckin, saveCheckin } = useCheckins();
   const { profile } = useProfile();
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Slider states (1-10 scale)
+  const [moodValue, setMoodValue] = useState(5);
+  const [anxietyValue, setAnxietyValue] = useState(5);
+  const [energyValue, setEnergyValue] = useState(5);
+  const [sleepValue, setSleepValue] = useState(5);
 
   // Get personalized greeting
   const getGreeting = () => {
@@ -63,6 +72,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   useEffect(() => {
     if (todayCheckin) {
       onMoodSelect(todayCheckin.mood_value);
+      setMoodValue(todayCheckin.mood_value * 2); // Convert 1-5 to 1-10 scale
     }
   }, [todayCheckin, onMoodSelect]);
 
@@ -80,6 +90,44 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     }
   };
 
+  const handleSaveSliders = async () => {
+    // Convert mood from 1-10 to 1-5 scale for the emoji system
+    const moodIndex = Math.min(4, Math.floor((moodValue - 1) / 2));
+    const mood = moods[moodIndex];
+    
+    try {
+      // Create notes with all parameters
+      const notes = JSON.stringify({
+        anxiety: anxietyValue,
+        energy: energyValue,
+        sleep: sleepValue,
+        moodDetailed: moodValue,
+      });
+      
+      await saveCheckin.mutateAsync({
+        mood_emoji: mood.emoji,
+        mood_value: mood.value,
+        notes,
+      });
+      
+      onMoodSelect(mood.value);
+      setIsExpanded(false);
+      toast.success('Parametri salvati!', { duration: 2000 });
+    } catch (error) {
+      toast.error('Errore nel salvare');
+    }
+  };
+
+  const getSliderLabel = (type: 'mood' | 'anxiety' | 'energy' | 'sleep', value: number) => {
+    const labels = {
+      mood: ['Triste', 'Giù', 'Basso', 'Neutro', 'Ok', 'Discreto', 'Buono', 'Bene', 'Ottimo', 'Euforico'],
+      anxiety: ['Calma', 'Sereno', 'Rilassato', 'Ok', 'Leggera', 'Moderata', 'Tesa', 'Alta', 'Forte', 'Panico'],
+      energy: ['Esausto', 'Molto bassa', 'Bassa', 'Scarsa', 'Neutra', 'Ok', 'Buona', 'Alta', 'Molto alta', 'Carico'],
+      sleep: ['Pessimo', 'Molto male', 'Male', 'Scarso', 'Ok', 'Discreto', 'Buono', 'Molto buono', 'Ottimo', 'Perfetto'],
+    };
+    return labels[type][value - 1] || '';
+  };
+
   return (
     <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-6 shadow-soft border border-border/50">
       {/* Glassmorphism decorative blur */}
@@ -94,7 +142,8 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           "{motivationalPhrase}"
         </p>
         
-        <div className="flex justify-between gap-1">
+        {/* Quick emoji selector */}
+        <div className="flex justify-between gap-1 mb-4">
           {moods.map((mood, index) => {
             const isSelected = selectedMood === mood.value;
             return (
@@ -133,6 +182,135 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
             );
           })}
         </div>
+
+        {/* Expand/Collapse button for detailed sliders */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4" />
+              Chiudi regolazione dettagliata
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" />
+              Aggiorna i tuoi parametri
+            </>
+          )}
+        </button>
+
+        {/* Expanded sliders panel */}
+        {isExpanded && (
+          <div className="mt-4 pt-4 border-t border-border/50 space-y-5 animate-fade-in">
+            {/* Mood Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <span>😌</span> Umore
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getSliderLabel('mood', moodValue)} ({moodValue}/10)
+                </span>
+              </div>
+              <Slider
+                value={[moodValue]}
+                onValueChange={(v) => setMoodValue(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Triste</span>
+                <span>Felice</span>
+              </div>
+            </div>
+
+            {/* Anxiety Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <span>😰</span> Ansia
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getSliderLabel('anxiety', anxietyValue)} ({anxietyValue}/10)
+                </span>
+              </div>
+              <Slider
+                value={[anxietyValue]}
+                onValueChange={(v) => setAnxietyValue(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Calma</span>
+                <span>Panico</span>
+              </div>
+            </div>
+
+            {/* Energy Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <span>🔋</span> Energia
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getSliderLabel('energy', energyValue)} ({energyValue}/10)
+                </span>
+              </div>
+              <Slider
+                value={[energyValue]}
+                onValueChange={(v) => setEnergyValue(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Bassa</span>
+                <span>Alta</span>
+              </div>
+            </div>
+
+            {/* Sleep Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <span>💤</span> Sonno
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getSliderLabel('sleep', sleepValue)} ({sleepValue}/10)
+                </span>
+              </div>
+              <Slider
+                value={[sleepValue]}
+                onValueChange={(v) => setSleepValue(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Pessimo</span>
+                <span>Ottimo</span>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <Button 
+              onClick={handleSaveSliders}
+              disabled={saveCheckin.isPending}
+              className="w-full mt-4"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Salva parametri
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

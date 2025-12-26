@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import QuickCheckin from '@/components/home/QuickCheckin';
 import VitalParametersSection from '@/components/home/VitalParametersSection';
-import LifeAreasGrid from '@/components/home/LifeAreasGrid';
-import AIInsightCard from '@/components/home/AIInsightCard';
 import { Bell, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -42,7 +40,7 @@ const Index: React.FC = () => {
 
       {/* Mental Cockpit - Vertical Blocks */}
       <div className="px-5 pt-4 pb-8 space-y-5">
-        {/* Block 1: Hero - Quick Checkin */}
+        {/* Block 1: Hero - Quick Checkin with Sliders */}
         <div className="animate-slide-up">
           <QuickCheckin 
             selectedMood={selectedMood} 
@@ -53,16 +51,6 @@ const Index: React.FC = () => {
         {/* Block 2: Vital Parameters - 2x2 Grid */}
         <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <VitalParametersSection />
-        </div>
-
-        {/* Block 3: Life Balance - Horizontal Bars */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <LifeAreasGrid />
-        </div>
-
-        {/* Block 4: AI Insight Footer */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <AIInsightCard />
         </div>
       </div>
     </MobileLayout>
