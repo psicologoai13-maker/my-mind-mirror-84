@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.thematic-diary-chat]
 verify_jwt = false
+
+[functions.generate-clinical-report]
+verify_jwt = false
