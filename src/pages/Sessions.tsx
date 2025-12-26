@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Plus, Mic, BookOpen, Sparkles } from 'lucide-react';
+import { Clock, Plus, Mic, BookOpen, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessions, Session } from '@/hooks/useSessions';
+import { useThematicDiaries, DiaryTheme, DIARY_THEMES } from '@/hooks/useThematicDiaries';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -11,11 +12,14 @@ import { toast } from 'sonner';
 import { VoiceSessionModal } from '@/components/voice/VoiceSessionModal';
 import JournalEntryCard from '@/components/sessions/JournalEntryCard';
 import SessionDetailModal from '@/components/sessions/SessionDetailModal';
+import DiaryNotebookCard from '@/components/diary/DiaryNotebookCard';
+import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
 
 const Sessions: React.FC = () => {
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [activeTheme, setActiveTheme] = useState<DiaryTheme | null>(null);
   
   const { 
     upcomingSessions, 
@@ -23,6 +27,8 @@ const Sessions: React.FC = () => {
     deleteSession,
     isLoading 
   } = useSessions();
+  
+  const { diaries, getDiary, isLoading: isDiariesLoading } = useThematicDiaries();
   const navigate = useNavigate();
 
   const handleStartSession = () => {
@@ -61,6 +67,19 @@ const Sessions: React.FC = () => {
     ? upcomingSessions.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0]
     : null;
 
+  // If a thematic diary is active, show the chat interface
+  if (activeTheme) {
+    return (
+      <MobileLayout hideNav>
+        <ThematicChatInterface
+          theme={activeTheme}
+          diary={getDiary(activeTheme)}
+          onBack={() => setActiveTheme(null)}
+        />
+      </MobileLayout>
+    );
+  }
+
   return (
     <MobileLayout>
       <VoiceSessionModal 
@@ -84,7 +103,7 @@ const Sessions: React.FC = () => {
               <BookOpen className="w-6 h-6 text-primary" />
               <h1 className="font-display text-2xl font-bold text-foreground">Il tuo Diario</h1>
             </div>
-            <p className="text-muted-foreground text-sm mt-1">Rileggi la tua storia</p>
+            <p className="text-muted-foreground text-sm mt-1">Scrivi, rifletti, cresci</p>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -103,9 +122,32 @@ const Sessions: React.FC = () => {
       </header>
 
       <div className="px-5 space-y-6 pb-8">
+        {/* Thematic Notebooks Section */}
+        <section className="animate-slide-up">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-semibold text-lg text-foreground">
+              I Tuoi Quaderni
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Persistenti ∞
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {DIARY_THEMES.map((themeConfig) => (
+              <DiaryNotebookCard
+                key={themeConfig.theme}
+                theme={themeConfig.theme}
+                diary={getDiary(themeConfig.theme)}
+                onClick={() => setActiveTheme(themeConfig.theme)}
+              />
+            ))}
+          </div>
+        </section>
+
         {/* Next Session Card */}
         {nextSession && (
-          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-5 border border-primary/20 animate-slide-up">
+          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-5 border border-primary/20 animate-slide-up stagger-1">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-xs font-medium text-primary uppercase tracking-wide">Prossima Sessione</span>
@@ -138,10 +180,10 @@ const Sessions: React.FC = () => {
         )}
 
         {/* Journal Timeline */}
-        <div className="space-y-4">
+        <section className="space-y-4 animate-slide-up stagger-2">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-lg text-foreground">
-              Le tue conversazioni
+              Cronologia Sessioni
             </h2>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
               {journalSessions.length} {journalSessions.length === 1 ? 'voce' : 'voci'}
@@ -159,18 +201,18 @@ const Sessions: React.FC = () => {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
                 <BookOpen className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Il tuo diario è vuoto</h3>
+              <h3 className="font-semibold text-foreground mb-2">Nessuna sessione</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Inizia una conversazione per creare la tua prima voce di diario
+                Le tue sessioni vocali e chat appariranno qui
               </p>
               <Button variant="default" onClick={handleStartSession}>
                 <Plus className="w-4 h-4 mr-2" />
-                Nuova conversazione
+                Nuova sessione
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
-              {journalSessions.map((session, index) => (
+              {journalSessions.slice(0, 5).map((session, index) => (
                 <JournalEntryCard
                   key={session.id}
                   session={session}
@@ -178,18 +220,14 @@ const Sessions: React.FC = () => {
                   index={index}
                 />
               ))}
+              {journalSessions.length > 5 && (
+                <p className="text-center text-xs text-muted-foreground py-2">
+                  +{journalSessions.length - 5} altre sessioni
+                </p>
+              )}
             </div>
           )}
-        </div>
-
-        {/* Stats Footer */}
-        {journalSessions.length > 0 && (
-          <div className="bg-muted/50 rounded-2xl p-4 text-center animate-slide-up stagger-3">
-            <p className="text-xs text-muted-foreground">
-              {journalSessions.length} conversazion{journalSessions.length === 1 ? 'e' : 'i'} salvat{journalSessions.length === 1 ? 'a' : 'e'} nel tuo diario
-            </p>
-          </div>
-        )}
+        </section>
       </div>
     </MobileLayout>
   );
