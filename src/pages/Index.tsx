@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import QuickCheckin from '@/components/home/QuickCheckin';
 import VitalParametersSection from '@/components/home/VitalParametersSection';
+import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
+import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import { Bell, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -51,6 +53,12 @@ const Index: React.FC = () => {
         {/* Block 2: Vital Parameters - 2x2 Grid */}
         <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <VitalParametersSection />
+        </div>
+
+        {/* Block 3: Bento Grid - Life Balance & Emotional Mix */}
+        <div className="grid grid-cols-1 gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <LifeBalanceRadar />
+          <EmotionalMixBar />
         </div>
       </div>
     </MobileLayout>
