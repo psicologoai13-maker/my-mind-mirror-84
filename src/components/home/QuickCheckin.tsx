@@ -3,8 +3,7 @@ import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Check, ChevronDown, ChevronUp, Save } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
+import { Check, ChevronDown, ChevronUp, Save, Zap, Moon, Battery, BatteryLow, BatteryMedium, BatteryFull, BatteryCharging } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const moods = [
@@ -13,6 +12,30 @@ const moods = [
   { emoji: '😐', label: 'Neutro', value: 3 },
   { emoji: '🙂', label: 'Bene', value: 4 },
   { emoji: '😄', label: 'Ottimo', value: 5 },
+];
+
+const anxietyLevels = [
+  { icon: '🧘', label: 'Zen', value: 1, color: 'bg-green-500' },
+  { icon: '😌', label: 'Calmo', value: 2, color: 'bg-green-400' },
+  { icon: '😊', label: 'Ok', value: 3, color: 'bg-yellow-400' },
+  { icon: '😟', label: 'Teso', value: 4, color: 'bg-orange-400' },
+  { icon: '😰', label: 'Panico', value: 5, color: 'bg-red-500' },
+];
+
+const energyLevels = [
+  { icon: '🪫', label: 'Esausto', value: 1 },
+  { icon: '🔋', label: 'Bassa', value: 2 },
+  { icon: '⚡', label: 'Media', value: 3 },
+  { icon: '⚡⚡', label: 'Alta', value: 4 },
+  { icon: '🔥', label: 'Carico', value: 5 },
+];
+
+const sleepLevels = [
+  { icon: '😵', label: 'Pessimo', value: 1 },
+  { icon: '😴', label: 'Male', value: 2 },
+  { icon: '🌙', label: 'Ok', value: 3 },
+  { icon: '💤', label: 'Bene', value: 4 },
+  { icon: '⭐', label: 'Ottimo', value: 5 },
 ];
 
 const motivationalPhrases = [
@@ -40,11 +63,10 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const { profile } = useProfile();
   const [isExpanded, setIsExpanded] = useState(false);
   
-  // Slider states (1-10 scale)
-  const [moodValue, setMoodValue] = useState(5);
-  const [anxietyValue, setAnxietyValue] = useState(5);
-  const [energyValue, setEnergyValue] = useState(5);
-  const [sleepValue, setSleepValue] = useState(5);
+  // Button states (1-5 scale)
+  const [anxietyValue, setAnxietyValue] = useState<number | null>(null);
+  const [energyValue, setEnergyValue] = useState<number | null>(null);
+  const [sleepValue, setSleepValue] = useState<number | null>(null);
 
   // Get personalized greeting
   const getGreeting = () => {
@@ -72,7 +94,17 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   useEffect(() => {
     if (todayCheckin) {
       onMoodSelect(todayCheckin.mood_value);
-      setMoodValue(todayCheckin.mood_value * 2); // Convert 1-5 to 1-10 scale
+      // Parse notes if available
+      if (todayCheckin.notes) {
+        try {
+          const notes = JSON.parse(todayCheckin.notes);
+          if (notes.anxiety) setAnxietyValue(Math.ceil(notes.anxiety / 2));
+          if (notes.energy) setEnergyValue(Math.ceil(notes.energy / 2));
+          if (notes.sleep) setSleepValue(Math.ceil(notes.sleep / 2));
+        } catch (e) {
+          // Notes not in JSON format
+        }
+      }
     }
   }, [todayCheckin, onMoodSelect]);
 
@@ -90,18 +122,16 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     }
   };
 
-  const handleSaveSliders = async () => {
-    // Convert mood from 1-10 to 1-5 scale for the emoji system
-    const moodIndex = Math.min(4, Math.floor((moodValue - 1) / 2));
-    const mood = moods[moodIndex];
+  const handleSaveParameters = async () => {
+    const mood = moods.find(m => m.value === selectedMood) || moods[2];
     
     try {
-      // Create notes with all parameters
+      // Convert 1-5 scale to 1-10 for storage
       const notes = JSON.stringify({
-        anxiety: anxietyValue,
-        energy: energyValue,
-        sleep: sleepValue,
-        moodDetailed: moodValue,
+        anxiety: anxietyValue ? anxietyValue * 2 : 5,
+        energy: energyValue ? energyValue * 2 : 5,
+        sleep: sleepValue ? sleepValue * 2 : 5,
+        moodDetailed: selectedMood ? selectedMood * 2 : 5,
       });
       
       await saveCheckin.mutateAsync({
@@ -110,7 +140,6 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
         notes,
       });
       
-      onMoodSelect(mood.value);
       setIsExpanded(false);
       toast.success('Parametri salvati!', { duration: 2000 });
     } catch (error) {
@@ -118,15 +147,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     }
   };
 
-  const getSliderLabel = (type: 'mood' | 'anxiety' | 'energy' | 'sleep', value: number) => {
-    const labels = {
-      mood: ['Triste', 'Giù', 'Basso', 'Neutro', 'Ok', 'Discreto', 'Buono', 'Bene', 'Ottimo', 'Euforico'],
-      anxiety: ['Calma', 'Sereno', 'Rilassato', 'Ok', 'Leggera', 'Moderata', 'Tesa', 'Alta', 'Forte', 'Panico'],
-      energy: ['Esausto', 'Molto bassa', 'Bassa', 'Scarsa', 'Neutra', 'Ok', 'Buona', 'Alta', 'Molto alta', 'Carico'],
-      sleep: ['Pessimo', 'Molto male', 'Male', 'Scarso', 'Ok', 'Discreto', 'Buono', 'Molto buono', 'Ottimo', 'Perfetto'],
-    };
-    return labels[type][value - 1] || '';
-  };
+  const canSave = anxietyValue !== null || energyValue !== null || sleepValue !== null;
 
   return (
     <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-6 shadow-soft border border-border/50">
@@ -183,7 +204,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           })}
         </div>
 
-        {/* Expand/Collapse button for detailed sliders */}
+        {/* Expand/Collapse button for detailed parameters */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -191,119 +212,102 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           {isExpanded ? (
             <>
               <ChevronUp className="w-4 h-4" />
-              Chiudi regolazione dettagliata
+              Chiudi parametri
             </>
           ) : (
             <>
               <ChevronDown className="w-4 h-4" />
-              Aggiorna i tuoi parametri
+              Aggiorna altri parametri
             </>
           )}
         </button>
 
-        {/* Expanded sliders panel */}
+        {/* Expanded one-tap buttons panel */}
         {isExpanded && (
           <div className="mt-4 pt-4 border-t border-border/50 space-y-5 animate-fade-in">
-            {/* Mood Slider */}
+            
+            {/* Anxiety Buttons */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <span>😌</span> Umore
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getSliderLabel('mood', moodValue)} ({moodValue}/10)
-                </span>
-              </div>
-              <Slider
-                value={[moodValue]}
-                onValueChange={(v) => setMoodValue(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Triste</span>
-                <span>Felice</span>
+              <span className="text-sm font-medium text-foreground">😰 Ansia</span>
+              <div className="flex justify-between gap-2">
+                {anxietyLevels.map((level) => {
+                  const isSelected = anxietyValue === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      onClick={() => setAnxietyValue(level.value)}
+                      className={cn(
+                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                        "active:scale-95",
+                        isSelected 
+                          ? `${level.color} text-white shadow-lg scale-105` 
+                          : "bg-muted/50 hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="text-xl">{level.icon}</span>
+                      <span className="text-[9px] font-medium">{level.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Anxiety Slider */}
+            {/* Energy Buttons */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <span>😰</span> Ansia
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getSliderLabel('anxiety', anxietyValue)} ({anxietyValue}/10)
-                </span>
-              </div>
-              <Slider
-                value={[anxietyValue]}
-                onValueChange={(v) => setAnxietyValue(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Calma</span>
-                <span>Panico</span>
+              <span className="text-sm font-medium text-foreground">⚡ Energia</span>
+              <div className="flex justify-between gap-2">
+                {energyLevels.map((level) => {
+                  const isSelected = energyValue === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      onClick={() => setEnergyValue(level.value)}
+                      className={cn(
+                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                        "active:scale-95",
+                        isSelected 
+                          ? "bg-amber-500 text-white shadow-lg scale-105" 
+                          : "bg-muted/50 hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="text-xl">{level.icon}</span>
+                      <span className="text-[9px] font-medium">{level.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Energy Slider */}
+            {/* Sleep Buttons */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <span>🔋</span> Energia
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getSliderLabel('energy', energyValue)} ({energyValue}/10)
-                </span>
-              </div>
-              <Slider
-                value={[energyValue]}
-                onValueChange={(v) => setEnergyValue(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Bassa</span>
-                <span>Alta</span>
-              </div>
-            </div>
-
-            {/* Sleep Slider */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <span>💤</span> Sonno
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getSliderLabel('sleep', sleepValue)} ({sleepValue}/10)
-                </span>
-              </div>
-              <Slider
-                value={[sleepValue]}
-                onValueChange={(v) => setSleepValue(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Pessimo</span>
-                <span>Ottimo</span>
+              <span className="text-sm font-medium text-foreground">💤 Sonno</span>
+              <div className="flex justify-between gap-2">
+                {sleepLevels.map((level) => {
+                  const isSelected = sleepValue === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      onClick={() => setSleepValue(level.value)}
+                      className={cn(
+                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                        "active:scale-95",
+                        isSelected 
+                          ? "bg-indigo-500 text-white shadow-lg scale-105" 
+                          : "bg-muted/50 hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="text-xl">{level.icon}</span>
+                      <span className="text-[9px] font-medium">{level.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Save button */}
             <Button 
-              onClick={handleSaveSliders}
-              disabled={saveCheckin.isPending}
+              onClick={handleSaveParameters}
+              disabled={saveCheckin.isPending || !canSave}
               className="w-full mt-4"
             >
               <Save className="w-4 h-4 mr-2" />
