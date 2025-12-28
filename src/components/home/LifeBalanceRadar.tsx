@@ -1,7 +1,8 @@
 import React from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { useProfile } from '@/hooks/useProfile';
-import { Compass } from 'lucide-react';
+import { useSessions } from '@/hooks/useSessions';
+import { Compass, MessageCircle } from 'lucide-react';
 
 const LIFE_AREAS = [
   { key: 'love', label: 'Amore' },
@@ -13,7 +14,32 @@ const LIFE_AREAS = [
 
 const LifeBalanceRadar: React.FC = () => {
   const { profile } = useProfile();
-  const lifeAreasScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
+  const { completedSessions } = useSessions();
+  
+  // Get life areas scores from profile first
+  const profileScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
+  
+  // If profile scores are empty, try to get from the most recent session
+  const lastSessionWithScores = React.useMemo(() => {
+    if (!completedSessions) return null;
+    
+    // Find the most recent session with life_balance_scores
+    const sorted = [...completedSessions]
+      .filter(s => {
+        const scores = s.life_balance_scores as unknown as Record<string, number | null> | null;
+        return scores && Object.values(scores).some(v => v && v > 0);
+      })
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    
+    return sorted[0]?.life_balance_scores as unknown as Record<string, number | null> | undefined;
+  }, [completedSessions]);
+
+  // Use profile scores if available, otherwise fall back to last session scores
+  const lifeAreasScores = React.useMemo(() => {
+    const hasProfileData = profileScores && Object.values(profileScores).some(v => v && v > 0);
+    if (hasProfileData) return profileScores;
+    return lastSessionWithScores || {};
+  }, [profileScores, lastSessionWithScores]);
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,
@@ -33,9 +59,9 @@ const LifeBalanceRadar: React.FC = () => {
       </div>
 
       {!hasData ? (
-        <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
-          <Compass className="w-8 h-8 text-muted-foreground/30 mb-1" />
-          <p className="text-xs">Nessun dato</p>
+        <div className="h-32 flex flex-col items-center justify-center text-muted-foreground text-center px-4">
+          <MessageCircle className="w-8 h-8 text-muted-foreground/30 mb-2" />
+          <p className="text-xs leading-relaxed">Parla con l'AI per generare il tuo primo grafico</p>
         </div>
       ) : (
         <div className="h-36">

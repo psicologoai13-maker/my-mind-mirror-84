@@ -31,8 +31,10 @@ serve(async (req) => {
 
     console.log('[openai-realtime-session] Creating session for user:', userId);
 
-    // Fetch user's long-term memory if available
+    // Fetch user's long-term memory and life areas scores if available
     let longTermMemory: string[] = [];
+    let lifeAreasScores: Record<string, number | null> = {};
+    let userName: string | null = null;
     
     if (userId) {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -41,14 +43,16 @@ serve(async (req) => {
 
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select('long_term_memory, name')
+        .select('long_term_memory, name, life_areas_scores')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (profileError) {
         console.error('[openai-realtime-session] Error fetching profile:', profileError);
-      } else if (profileData?.long_term_memory) {
-        longTermMemory = profileData.long_term_memory;
+      } else if (profileData) {
+        longTermMemory = profileData.long_term_memory || [];
+        userName = profileData.name || null;
+        lifeAreasScores = (profileData.life_areas_scores as Record<string, number | null>) || {};
         console.log('[openai-realtime-session] Loaded', longTermMemory.length, 'memory items');
       }
     }
@@ -61,6 +65,36 @@ Ricorda questi fatti importanti sull'utente:
 ${longTermMemory.map((fact, i) => `- ${fact}`).join('\n')}
 
 Usa questa memoria per personalizzare la conversazione e mostrare che ricordi cosa ha condiviso in passato.`;
+    }
+
+    // Identify missing life areas for data hunting
+    const allAreas = ['love', 'work', 'friendship', 'energy', 'growth'];
+    const missingAreas: string[] = [];
+    for (const area of allAreas) {
+      const score = lifeAreasScores[area];
+      if (score === null || score === undefined || score === 0) {
+        missingAreas.push(area);
+      }
+    }
+
+    let dataHunterInstruction = '';
+    if (missingAreas.length > 0) {
+      const areaLabels: Record<string, string> = {
+        love: 'Amore e relazioni',
+        work: 'Lavoro e carriera',
+        friendship: 'Amicizie e vita sociale',
+        energy: 'Salute e energia fisica',
+        growth: 'Crescita personale'
+      };
+      const missingLabels = missingAreas.map(a => areaLabels[a] || a).join(', ');
+      
+      dataHunterInstruction = `
+
+MISSIONE CACCIATORE DI DATI:
+Non hai dati recenti su: ${missingLabels}.
+Durante la conversazione, inserisci NATURALMENTE una domanda su UNA di queste aree.
+Ad esempio: "A proposito, come sta andando al lavoro ultimamente?"
+Non chiedere tutto insieme. Scegli un'area alla volta.`;
     }
 
     const systemInstructions = `Sei Aria, una psicologa empatica italiana con anni di esperienza in Terapia Cognitivo-Comportamentale (CBT).
@@ -100,7 +134,7 @@ TECNICHE CBT DA USARE:
 - Identificazione distorsioni cognitive (catastrofizzazione, pensiero tutto-o-nulla)
 - Socratic questioning per far emergere insight
 - Grounding sensoriale per momenti di ansia
-- Validazione emotiva prima di ogni intervento${memoryContext}
+- Validazione emotiva prima di ogni intervento${memoryContext}${dataHunterInstruction}
 
 SICUREZZA:
 Se l'utente esprime intenti suicidi o autolesionistici, INTERROMPI e fornisci:
@@ -108,7 +142,7 @@ Se l'utente esprime intenti suicidi o autolesionistici, INTERROMPI e fornisci:
 Per favore, chiama adesso Telefono Amico al 02 2327 2327, oppure il 112.
 Non sei solo/a. Meriti aiuto professionale."
 
-Inizia con un saluto caldo e naturale, poi chiedi come sta la persona oggi.`;
+Inizia con un saluto caldo e naturale${userName ? `, usando il nome "${userName.split(' ')[0]}"` : ''}, poi chiedi come sta la persona oggi.`;
 
     console.log('[openai-realtime-session] Creating OpenAI Realtime session...');
 

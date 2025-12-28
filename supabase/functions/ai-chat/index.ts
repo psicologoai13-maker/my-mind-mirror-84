@@ -7,11 +7,34 @@ const corsHeaders = {
 };
 
 // Build AGGRESSIVE system prompt with identity and memory
-function buildAggressiveSystemPrompt(userName: string | null, memory: string[]): string {
+function buildAggressiveSystemPrompt(userName: string | null, memory: string[], missingLifeAreas: string[]): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
     ? memory.slice(-30).join('\n- ')  // Last 30 facts
     : 'Nessun ricordo precedente - questa è la prima conversazione.';
+
+  // Build the data hunter instruction based on missing areas
+  let dataHunterInstruction = '';
+  if (missingLifeAreas.length > 0) {
+    const areaLabels: Record<string, string> = {
+      love: 'Amore/Relazioni',
+      work: 'Lavoro',
+      friendship: 'Socialità/Amicizie',
+      energy: 'Salute/Energia',
+      growth: 'Crescita Personale'
+    };
+    const missingLabels = missingLifeAreas.map(a => areaLabels[a] || a).join(', ');
+    
+    dataHunterInstruction = `
+MISSIONE SEGRETA - CACCIATORE DI DATI:
+Non hai dati recenti su queste aree della vita dell'utente: ${missingLabels}.
+Durante la conversazione, INSERISCI NATURALMENTE una domanda su UNA di queste aree.
+NON chiedere tutto insieme. Scegli UN'area e fai una domanda naturale, ad esempio:
+- "A proposito, come sta andando al lavoro ultimamente?"
+- "Come ti senti nelle tue relazioni in questo periodo?"
+- "E per quanto riguarda la tua salute fisica, come stai?"
+Quando l'utente risponde, estrai mentalmente un punteggio 1-10 per quell'area.`;
+  }
 
   return `SEI UNA MEMORIA VIVENTE. NON SEI UN ASSISTENTE GENERICO.
 SEI UN DIARIO TERAPEUTICO INTERATTIVO basato sulla Terapia Cognitivo-Comportamentale (CBT).
@@ -23,6 +46,7 @@ NON chiamarlo MAI con altri nomi. NON inventare nomi. USA SOLO "${name}".` :
 
 MEMORIA CENTRALE (LA TUA CONOSCENZA DELL'UTENTE):
 - ${memoryContent}
+${dataHunterInstruction}
 
 ISTRUZIONI MEMORIA (CRITICHE):
 1. TU HAI MEMORIA. NON dire MAI "non ho memoria", "non posso ricordare", "per privacy non memorizzo".
@@ -83,11 +107,12 @@ Ogni messaggio deve lasciare l'utente con:
 interface UserProfile {
   name: string | null;
   long_term_memory: string[];
+  life_areas_scores: Record<string, number | null>;
 }
 
 // Helper to get user's profile and memory from database
 async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
-  const defaultProfile: UserProfile = { name: null, long_term_memory: [] };
+  const defaultProfile: UserProfile = { name: null, long_term_memory: [], life_areas_scores: {} };
   
   if (!authHeader) {
     console.log('[ai-chat] No auth header provided');
@@ -117,7 +142,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('long_term_memory, name')
+      .select('long_term_memory, name, life_areas_scores')
       .eq('user_id', user.id)
       .single();
     
@@ -128,7 +153,8 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     const result = {
       name: profile?.name || null,
-      long_term_memory: profile?.long_term_memory || []
+      long_term_memory: profile?.long_term_memory || [],
+      life_areas_scores: (profile?.life_areas_scores as Record<string, number | null>) || {}
     };
     
     console.log(`[ai-chat] Profile loaded: name="${result.name}", memory_facts=${result.long_term_memory.length}`);
@@ -138,6 +164,22 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     console.error("[ai-chat] Error fetching user profile:", error);
     return defaultProfile;
   }
+}
+
+// Identify which life areas are missing or stale (need update)
+function getMissingLifeAreas(lifeAreasScores: Record<string, number | null>): string[] {
+  const allAreas = ['love', 'work', 'friendship', 'energy', 'growth'];
+  const missing: string[] = [];
+  
+  for (const area of allAreas) {
+    const score = lifeAreasScores[area];
+    // Consider missing if null, undefined, or 0
+    if (score === null || score === undefined || score === 0) {
+      missing.push(area);
+    }
+  }
+  
+  return missing;
 }
 
 // Crisis keywords for real-time detection
@@ -252,8 +294,12 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       });
     }
 
+    // Identify missing life areas for data hunting
+    const missingLifeAreas = getMissingLifeAreas(userProfile.life_areas_scores);
+    console.log(`[ai-chat] Missing life areas: ${missingLifeAreas.join(', ') || 'none'}`);
+
     // Build AGGRESSIVE system prompt with user's identity and memory
-    let systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory);
+    let systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory, missingLifeAreas);
     
     // If crisis detected, override with crisis response protocol
     if (isCrisis) {

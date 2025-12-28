@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useSessions } from '@/hooks/useSessions';
 import { isToday } from 'date-fns';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, MessageCircle } from 'lucide-react';
 
 const EMOTION_CONFIG = {
   joy: { label: 'Gioia', emoji: '🟡', color: 'hsl(45, 90%, 55%)' },
@@ -17,10 +17,35 @@ const EmotionalMixBar: React.FC = () => {
   const { completedSessions } = useSessions();
 
   const emotionsData = useMemo(() => {
-    // Get today's sessions
+    if (!completedSessions || completedSessions.length === 0) {
+      return null;
+    }
+
+    // First try to get today's sessions
     const todaySessions = completedSessions.filter(s => 
       isToday(new Date(s.start_time))
     );
+
+    // If no today sessions, get the most recent session with emotion data
+    let sessionsToUse = todaySessions;
+    
+    if (sessionsToUse.length === 0 || !sessionsToUse.some(s => (s as any).specific_emotions)) {
+      // Find the most recent session with specific_emotions data
+      const sortedSessions = [...completedSessions]
+        .filter(s => {
+          const emotions = (s as any).specific_emotions;
+          return emotions && Object.values(emotions).some(v => v && (v as number) > 0);
+        })
+        .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+      
+      if (sortedSessions.length > 0) {
+        sessionsToUse = [sortedSessions[0]];
+      }
+    }
+
+    if (sessionsToUse.length === 0) {
+      return null;
+    }
 
     const emotions: Record<EmotionKey, number> = {
       joy: 0,
@@ -32,7 +57,7 @@ const EmotionalMixBar: React.FC = () => {
 
     let count = 0;
 
-    todaySessions.forEach(session => {
+    sessionsToUse.forEach(session => {
       const specificEmotions = (session as any).specific_emotions;
       if (specificEmotions) {
         emotions.joy += specificEmotions.joy || 0;
@@ -54,18 +79,20 @@ const EmotionalMixBar: React.FC = () => {
     return emotions;
   }, [completedSessions]);
 
-  const total = Object.values(emotionsData).reduce((a, b) => a + b, 0);
-  const hasData = total > 0;
+  const total = emotionsData ? Object.values(emotionsData).reduce((a, b) => a + b, 0) : 0;
+  const hasData = emotionsData && total > 0;
 
   // Calculate percentages for bar segments
-  const segments = Object.entries(emotionsData)
-    .map(([key, value]) => ({
-      key: key as EmotionKey,
-      value,
-      percentage: total > 0 ? (value / total) * 100 : 0,
-    }))
-    .filter(s => s.value > 0)
-    .sort((a, b) => b.value - a.value);
+  const segments = hasData 
+    ? Object.entries(emotionsData)
+        .map(([key, value]) => ({
+          key: key as EmotionKey,
+          value,
+          percentage: total > 0 ? (value / total) * 100 : 0,
+        }))
+        .filter(s => s.value > 0)
+        .sort((a, b) => b.value - a.value)
+    : [];
 
   // Top 2 dominant emotions
   const topTwo = segments.slice(0, 2);
@@ -80,9 +107,9 @@ const EmotionalMixBar: React.FC = () => {
       </div>
 
       {!hasData ? (
-        <div className="h-16 flex flex-col items-center justify-center text-muted-foreground">
-          <span className="text-xl mb-1">🌈</span>
-          <p className="text-xs">Nessun dato oggi</p>
+        <div className="h-16 flex flex-col items-center justify-center text-muted-foreground text-center px-4">
+          <MessageCircle className="w-6 h-6 text-muted-foreground/30 mb-1" />
+          <p className="text-xs leading-relaxed">Parla con l'AI per generare il tuo primo grafico</p>
         </div>
       ) : (
         <div className="space-y-3">
