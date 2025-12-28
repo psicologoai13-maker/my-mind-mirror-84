@@ -135,13 +135,15 @@ serve(async (req) => {
 }
 
 REGOLE PER ESTRAZIONE DATI CLINICI:
-- specific_emotions: le 5 emozioni DEVONO sommare a 100. Basati sul tono generale della conversazione.
+- specific_emotions: le 5 emozioni DEVONO sommare a 100. Basati sul tono generale della conversazione. NON lasciare MAI valori a 0 per tutte le emozioni - se la conversazione è neutra, usa valori distribuiti (es. joy:30, sadness:20, anger:10, fear:15, apathy:25).
 - clinical_indices:
   * rumination: quanto l'utente ripete gli stessi pensieri negativi (1=nessuno, 10=estremo)
   * emotional_openness: quanto l'utente si apre ed esprime emozioni (1=chiuso, 10=molto aperto)
   * perceived_stress: livello di stress generale percepito (1=rilassato, 10=molto stressato)
 - sleep_quality: se l'utente menziona sonno, insonnia, stanchezza, estrai un punteggio (1=pessimo, 10=ottimo). Null se non menzionato.
 - crisis_risk: 'high' SOLO per pensieri suicidi/autolesionismo. 'medium' per forte angoscia. 'low' normale.
+
+IMPORTANTE: Genera SEMPRE valori per specific_emotions - non lasciare mai tutti i valori a 0.
 
 Valori attuali aree di vita (aggiorna SOLO se menzionate):
 ${JSON.stringify(currentLifeScores)}
