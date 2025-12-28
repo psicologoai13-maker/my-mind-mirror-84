@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Check, ChevronDown, ChevronUp, Save, Zap, Moon, Battery, BatteryLow, BatteryMedium, BatteryFull, BatteryCharging } from 'lucide-react';
+import { Check, RefreshCw, Wind, Heart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 
 const moods = [
   { emoji: '😢', label: 'Triste', value: 1 },
@@ -53,20 +54,30 @@ const motivationalPhrases = [
   "Sei sulla strada giusta.",
 ];
 
+type CheckinStep = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'complete';
+
+const stepLabels: Record<Exclude<CheckinStep, 'complete'>, string> = {
+  mood: 'Come ti senti?',
+  anxiety: 'Livello di ansia?',
+  energy: 'Quanta energia hai?',
+  sleep: 'Come hai dormito?',
+};
+
 interface QuickCheckinProps {
   selectedMood: number | null;
   onMoodSelect: (mood: number) => void;
 }
 
 const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect }) => {
-  const { todayCheckin, saveCheckin } = useCheckins();
+  const { todayCheckin, weeklyCheckins, saveCheckin } = useCheckins();
   const { profile } = useProfile();
-  const [isExpanded, setIsExpanded] = useState(false);
   
-  // Button states (1-5 scale)
+  const [currentStep, setCurrentStep] = useState<CheckinStep>('mood');
+  const [moodValue, setMoodValue] = useState<number | null>(null);
   const [anxietyValue, setAnxietyValue] = useState<number | null>(null);
   const [energyValue, setEnergyValue] = useState<number | null>(null);
   const [sleepValue, setSleepValue] = useState<number | null>(null);
+  const [isCheckinComplete, setIsCheckinComplete] = useState(false);
 
   // Get personalized greeting
   const getGreeting = () => {
@@ -74,33 +85,45 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     const name = profile?.name?.split(' ')[0] || '';
     const nameStr = name ? ` ${name}` : '';
     
-    if (hour < 6) return `Notte fonda${nameStr}... tutto ok?`;
-    if (hour < 12) return `Buongiorno${nameStr}, come stai?`;
+    if (hour < 6) return `Notte fonda${nameStr}...`;
+    if (hour < 12) return `Buongiorno${nameStr}!`;
     if (hour < 14) return `Buon pranzo${nameStr}!`;
-    if (hour < 18) return `Buon pomeriggio${nameStr}, come va?`;
-    if (hour < 21) return `Buonasera${nameStr}, vuoi sfogarti un po'?`;
-    return `Buonanotte${nameStr}, come è andata oggi?`;
+    if (hour < 18) return `Buon pomeriggio${nameStr}!`;
+    if (hour < 21) return `Buonasera${nameStr}!`;
+    return `Buonanotte${nameStr}!`;
   };
 
-  // Get a random motivational phrase (changes daily)
+  // Daily motivational phrase
   const motivationalPhrase = useMemo(() => {
     const today = new Date();
     const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    const index = dayOfYear % motivationalPhrases.length;
-    return motivationalPhrases[index];
+    return motivationalPhrases[dayOfYear % motivationalPhrases.length];
   }, []);
 
-  // Sync with database
+  // Weekly sparkline data
+  const sparklineData = useMemo(() => {
+    if (!weeklyCheckins || weeklyCheckins.length === 0) return [];
+    return weeklyCheckins.map(c => ({ value: c.mood_value * 2 })); // Scale to 1-10
+  }, [weeklyCheckins]);
+
+  // Check if already completed today
   useEffect(() => {
     if (todayCheckin) {
+      setMoodValue(todayCheckin.mood_value);
       onMoodSelect(todayCheckin.mood_value);
-      // Parse notes if available
+      
       if (todayCheckin.notes) {
         try {
           const notes = JSON.parse(todayCheckin.notes);
           if (notes.anxiety) setAnxietyValue(Math.ceil(notes.anxiety / 2));
           if (notes.energy) setEnergyValue(Math.ceil(notes.energy / 2));
           if (notes.sleep) setSleepValue(Math.ceil(notes.sleep / 2));
+          
+          // If all parameters are filled, show summary
+          if (notes.anxiety && notes.energy && notes.sleep) {
+            setIsCheckinComplete(true);
+            setCurrentStep('complete');
+          }
         } catch (e) {
           // Notes not in JSON format
         }
@@ -108,46 +131,240 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     }
   }, [todayCheckin, onMoodSelect]);
 
-  const handleMoodSelect = async (mood: { emoji: string; value: number }) => {
-    onMoodSelect(mood.value);
+  // Save all parameters and complete
+  const saveAllParameters = useCallback(async (
+    mood: number,
+    anxiety: number,
+    energy: number,
+    sleep: number
+  ) => {
+    const moodData = moods.find(m => m.value === mood) || moods[2];
     
     try {
-      await saveCheckin.mutateAsync({
-        mood_emoji: mood.emoji,
-        mood_value: mood.value,
-      });
-      toast.success('Umore registrato!', { duration: 2000 });
-    } catch (error) {
-      toast.error('Errore nel salvare l\'umore');
-    }
-  };
-
-  const handleSaveParameters = async () => {
-    const mood = moods.find(m => m.value === selectedMood) || moods[2];
-    
-    try {
-      // Convert 1-5 scale to 1-10 for storage
       const notes = JSON.stringify({
-        anxiety: anxietyValue ? anxietyValue * 2 : 5,
-        energy: energyValue ? energyValue * 2 : 5,
-        sleep: sleepValue ? sleepValue * 2 : 5,
-        moodDetailed: selectedMood ? selectedMood * 2 : 5,
+        anxiety: anxiety * 2,
+        energy: energy * 2,
+        sleep: sleep * 2,
+        moodDetailed: mood * 2,
       });
       
       await saveCheckin.mutateAsync({
-        mood_emoji: mood.emoji,
-        mood_value: mood.value,
+        mood_emoji: moodData.emoji,
+        mood_value: moodData.value,
         notes,
       });
       
-      setIsExpanded(false);
-      toast.success('Parametri salvati!', { duration: 2000 });
+      setIsCheckinComplete(true);
+      toast.success('Check-in completato!', { duration: 2000 });
     } catch (error) {
       toast.error('Errore nel salvare');
     }
+  }, [saveCheckin]);
+
+  // Handle step selection with auto-advance
+  const handleMoodSelect = (mood: { emoji: string; value: number }) => {
+    setMoodValue(mood.value);
+    onMoodSelect(mood.value);
+    setTimeout(() => setCurrentStep('anxiety'), 300);
   };
 
-  const canSave = anxietyValue !== null || energyValue !== null || sleepValue !== null;
+  const handleAnxietySelect = (value: number) => {
+    setAnxietyValue(value);
+    setTimeout(() => setCurrentStep('energy'), 300);
+  };
+
+  const handleEnergySelect = (value: number) => {
+    setEnergyValue(value);
+    setTimeout(() => setCurrentStep('sleep'), 300);
+  };
+
+  const handleSleepSelect = async (value: number) => {
+    setSleepValue(value);
+    setCurrentStep('complete');
+    // Auto-save after last selection
+    await saveAllParameters(
+      moodValue || 3,
+      anxietyValue || 3,
+      value,
+      value
+    );
+  };
+
+  // Reset check-in to edit
+  const handleReset = () => {
+    setIsCheckinComplete(false);
+    setCurrentStep('mood');
+  };
+
+  // Get personalized suggestion based on values
+  const getSuggestion = useMemo(() => {
+    if (!isCheckinComplete) return null;
+    
+    const anxiety = anxietyValue || 3;
+    const energy = energyValue || 3;
+    const mood = moodValue || 3;
+    
+    // High anxiety
+    if (anxiety >= 4) {
+      return {
+        icon: <Wind className="w-5 h-5" />,
+        title: 'Esercizio di respirazione',
+        message: 'Prova 4-7-8: inspira 4 sec, trattieni 7, espira 8.',
+        color: 'text-blue-500',
+        bgColor: 'bg-blue-500/10',
+      };
+    }
+    
+    // Low energy
+    if (energy <= 2) {
+      return {
+        icon: <Sparkles className="w-5 h-5" />,
+        title: 'Ricarica le energie',
+        message: 'Una breve passeggiata o stretching può aiutare.',
+        color: 'text-amber-500',
+        bgColor: 'bg-amber-500/10',
+      };
+    }
+    
+    // Low mood
+    if (mood <= 2) {
+      return {
+        icon: <Heart className="w-5 h-5" />,
+        title: 'Prenditi cura di te',
+        message: 'Parla con qualcuno o fai qualcosa che ti piace.',
+        color: 'text-rose-500',
+        bgColor: 'bg-rose-500/10',
+      };
+    }
+    
+    // Good state
+    return {
+      icon: <Sparkles className="w-5 h-5" />,
+      title: 'Ottima giornata!',
+      message: 'Continua così, stai facendo un buon lavoro.',
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+    };
+  }, [isCheckinComplete, anxietyValue, energyValue, moodValue]);
+
+  // Render step buttons
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 'mood':
+        return (
+          <div className="flex justify-between gap-1">
+            {moods.map((mood, index) => {
+              const isSelected = moodValue === mood.value;
+              return (
+                <button
+                  key={mood.value}
+                  onClick={() => handleMoodSelect(mood)}
+                  disabled={saveCheckin.isPending}
+                  className={cn(
+                    "relative flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all duration-300",
+                    "hover:scale-110 active:scale-95",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    isSelected 
+                      ? "bg-primary/20 shadow-lg ring-2 ring-primary/30" 
+                      : "bg-muted/50 hover:bg-muted backdrop-blur-sm"
+                  )}
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <span className={cn("text-3xl transition-transform duration-300", isSelected && "scale-110")}>
+                    {mood.emoji}
+                  </span>
+                  <span className={cn("text-[10px] font-medium", isSelected ? "text-primary" : "text-muted-foreground")}>
+                    {mood.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      
+      case 'anxiety':
+        return (
+          <div className="flex justify-between gap-2 animate-fade-in">
+            {anxietyLevels.map((level) => {
+              const isSelected = anxietyValue === level.value;
+              return (
+                <button
+                  key={level.value}
+                  onClick={() => handleAnxietySelect(level.value)}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                    "active:scale-95",
+                    isSelected 
+                      ? `${level.color} text-white shadow-lg scale-105` 
+                      : "bg-muted/50 hover:bg-muted text-foreground"
+                  )}
+                >
+                  <span className="text-xl">{level.icon}</span>
+                  <span className="text-[9px] font-medium">{level.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      
+      case 'energy':
+        return (
+          <div className="flex justify-between gap-2 animate-fade-in">
+            {energyLevels.map((level) => {
+              const isSelected = energyValue === level.value;
+              return (
+                <button
+                  key={level.value}
+                  onClick={() => handleEnergySelect(level.value)}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                    "active:scale-95",
+                    isSelected 
+                      ? "bg-amber-500 text-white shadow-lg scale-105" 
+                      : "bg-muted/50 hover:bg-muted text-foreground"
+                  )}
+                >
+                  <span className="text-xl">{level.icon}</span>
+                  <span className="text-[9px] font-medium">{level.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      
+      case 'sleep':
+        return (
+          <div className="flex justify-between gap-2 animate-fade-in">
+            {sleepLevels.map((level) => {
+              const isSelected = sleepValue === level.value;
+              return (
+                <button
+                  key={level.value}
+                  onClick={() => handleSleepSelect(level.value)}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                    "active:scale-95",
+                    isSelected 
+                      ? "bg-indigo-500 text-white shadow-lg scale-105" 
+                      : "bg-muted/50 hover:bg-muted text-foreground"
+                  )}
+                >
+                  <span className="text-xl">{level.icon}</span>
+                  <span className="text-[9px] font-medium">{level.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  // Progress dots
+  const steps: CheckinStep[] = ['mood', 'anxiety', 'energy', 'sleep'];
+  const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete'>);
 
   return (
     <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-6 shadow-soft border border-border/50">
@@ -163,156 +380,118 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           "{motivationalPhrase}"
         </p>
         
-        {/* Quick emoji selector */}
-        <div className="flex justify-between gap-1 mb-4">
-          {moods.map((mood, index) => {
-            const isSelected = selectedMood === mood.value;
-            return (
-              <button
-                key={mood.value}
-                onClick={() => handleMoodSelect(mood)}
-                disabled={saveCheckin.isPending}
-                className={cn(
-                  "relative flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all duration-300",
-                  "hover:scale-110 active:scale-95",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  isSelected 
-                    ? "bg-primary/20 shadow-lg ring-2 ring-primary/30" 
-                    : "bg-muted/50 hover:bg-muted backdrop-blur-sm"
-                )}
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <span className={cn(
-                  "text-3xl transition-transform duration-300",
-                  isSelected && "scale-110"
-                )}>
-                  {mood.emoji}
-                </span>
-                <span className={cn(
-                  "text-[10px] font-medium transition-colors",
-                  isSelected ? "text-primary" : "text-muted-foreground"
-                )}>
-                  {mood.label}
-                </span>
-                {isSelected && todayCheckin && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 text-primary-foreground" />
+        {/* Check-in flow or Summary */}
+        {isCheckinComplete ? (
+          // Summary Card
+          <div className="animate-fade-in">
+            {/* Suggestion Card */}
+            {getSuggestion && (
+              <div className={cn("p-4 rounded-2xl mb-4", getSuggestion.bgColor)}>
+                <div className="flex items-start gap-3">
+                  <div className={cn("p-2 rounded-xl bg-background/50", getSuggestion.color)}>
+                    {getSuggestion.icon}
                   </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Expand/Collapse button for detailed parameters */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              Chiudi parametri
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              Aggiorna altri parametri
-            </>
-          )}
-        </button>
-
-        {/* Expanded one-tap buttons panel */}
-        {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-border/50 space-y-5 animate-fade-in">
+                  <div className="flex-1">
+                    <h3 className={cn("font-semibold text-sm", getSuggestion.color)}>
+                      {getSuggestion.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {getSuggestion.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
-            {/* Anxiety Buttons */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">😰 Ansia</span>
-              <div className="flex justify-between gap-2">
-                {anxietyLevels.map((level) => {
-                  const isSelected = anxietyValue === level.value;
-                  return (
-                    <button
-                      key={level.value}
-                      onClick={() => setAnxietyValue(level.value)}
-                      className={cn(
-                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
-                        "active:scale-95",
-                        isSelected 
-                          ? `${level.color} text-white shadow-lg scale-105` 
-                          : "bg-muted/50 hover:bg-muted text-foreground"
-                      )}
-                    >
-                      <span className="text-xl">{level.icon}</span>
-                      <span className="text-[9px] font-medium">{level.label}</span>
-                    </button>
-                  );
-                })}
+            {/* Today's values mini-display */}
+            <div className="flex justify-between gap-2 mb-4">
+              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+                <span className="text-lg">{moods.find(m => m.value === moodValue)?.emoji || '😐'}</span>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Umore</p>
+              </div>
+              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+                <span className="text-lg">{anxietyLevels.find(a => a.value === anxietyValue)?.icon || '😊'}</span>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Ansia</p>
+              </div>
+              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+                <span className="text-lg">{energyLevels.find(e => e.value === energyValue)?.icon || '⚡'}</span>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Energia</p>
+              </div>
+              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+                <span className="text-lg">{sleepLevels.find(s => s.value === sleepValue)?.icon || '🌙'}</span>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Sonno</p>
               </div>
             </div>
-
-            {/* Energy Buttons */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">⚡ Energia</span>
-              <div className="flex justify-between gap-2">
-                {energyLevels.map((level) => {
-                  const isSelected = energyValue === level.value;
-                  return (
-                    <button
-                      key={level.value}
-                      onClick={() => setEnergyValue(level.value)}
-                      className={cn(
-                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
-                        "active:scale-95",
-                        isSelected 
-                          ? "bg-amber-500 text-white shadow-lg scale-105" 
-                          : "bg-muted/50 hover:bg-muted text-foreground"
-                      )}
-                    >
-                      <span className="text-xl">{level.icon}</span>
-                      <span className="text-[9px] font-medium">{level.label}</span>
-                    </button>
-                  );
-                })}
+            
+            {/* Weekly Sparkline */}
+            {sparklineData.length > 0 && (
+              <div className="bg-muted/20 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">Umore - ultimi 7 giorni</span>
+                </div>
+                <div className="h-12">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparklineData}>
+                      <defs>
+                        <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <YAxis domain={[0, 10]} hide />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        fill="url(#sparklineGradient)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-
-            {/* Sleep Buttons */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">💤 Sonno</span>
-              <div className="flex justify-between gap-2">
-                {sleepLevels.map((level) => {
-                  const isSelected = sleepValue === level.value;
-                  return (
-                    <button
-                      key={level.value}
-                      onClick={() => setSleepValue(level.value)}
-                      className={cn(
-                        "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
-                        "active:scale-95",
-                        isSelected 
-                          ? "bg-indigo-500 text-white shadow-lg scale-105" 
-                          : "bg-muted/50 hover:bg-muted text-foreground"
-                      )}
-                    >
-                      <span className="text-xl">{level.icon}</span>
-                      <span className="text-[9px] font-medium">{level.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Save button */}
+            )}
+            
+            {/* Edit button */}
             <Button 
-              onClick={handleSaveParameters}
-              disabled={saveCheckin.isPending || !canSave}
-              className="w-full mt-4"
+              variant="ghost" 
+              size="sm" 
+              onClick={handleReset}
+              className="w-full mt-3 text-muted-foreground"
             >
-              <Save className="w-4 h-4 mr-2" />
-              Salva parametri
+              <RefreshCw className="w-3.5 h-3.5 mr-2" />
+              Modifica check-in
             </Button>
+          </div>
+        ) : (
+          // Progressive Check-in Flow
+          <div className="animate-fade-in">
+            {/* Step label */}
+            {currentStep !== 'complete' && (
+              <p className="text-sm text-muted-foreground mb-3">
+                {stepLabels[currentStep]}
+              </p>
+            )}
+            
+            {/* Step content */}
+            {renderStepContent()}
+            
+            {/* Progress dots */}
+            <div className="flex justify-center gap-2 mt-4">
+              {steps.map((step, index) => (
+                <div
+                  key={step}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-300",
+                    index < currentStepIndex
+                      ? "bg-primary"
+                      : index === currentStepIndex
+                      ? "bg-primary/60 w-4"
+                      : "bg-muted"
+                  )}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
