@@ -139,7 +139,7 @@ const Analisi: React.FC = () => {
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
             <span>📊</span> Parametri Vitali
           </h2>
-          <div className="bg-card rounded-2xl shadow-sm border border-border/20 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
             {vitalMetrics.map((metric, i) => (
               <MetricRow 
                 key={metric.key} 
@@ -156,7 +156,7 @@ const Analisi: React.FC = () => {
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
             <span>🎭</span> Emozioni
           </h2>
-          <div className="bg-card rounded-2xl shadow-sm border border-border/20 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
             {emotionMetrics.map((metric, i) => (
               <MetricRow 
                 key={metric.key} 
@@ -173,7 +173,7 @@ const Analisi: React.FC = () => {
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
             <span>⚖️</span> Aree della Vita
           </h2>
-          <div className="bg-card rounded-2xl shadow-sm border border-border/20 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
             {areaMetrics.map((metric, i) => (
               <MetricRow 
                 key={metric.key} 

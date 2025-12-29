@@ -261,12 +261,12 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                   onClick={() => handleMoodSelect(mood)}
                   disabled={saveCheckin.isPending}
                   className={cn(
-                    "relative flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all duration-300",
-                    "hover:scale-110 active:scale-95",
+                    "relative flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all duration-200",
+                    "hover:scale-105 active:scale-95",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
                     isSelected 
-                      ? "bg-primary/20 shadow-lg ring-2 ring-primary/30" 
-                      : "bg-muted/50 hover:bg-muted backdrop-blur-sm"
+                      ? "bg-primary/10 ring-2 ring-primary/20" 
+                      : "bg-muted hover:bg-muted/80"
                   )}
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
@@ -295,8 +295,8 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
                     "active:scale-95",
                     isSelected 
-                      ? `${level.color} text-white shadow-lg scale-105` 
-                      : "bg-muted/50 hover:bg-muted text-foreground"
+                      ? `${level.color} text-white scale-105` 
+                      : "bg-muted hover:bg-muted/80 text-foreground"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -320,8 +320,8 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
                     "active:scale-95",
                     isSelected 
-                      ? "bg-amber-500 text-white shadow-lg scale-105" 
-                      : "bg-muted/50 hover:bg-muted text-foreground"
+                      ? "bg-amber-500 text-white scale-105" 
+                      : "bg-muted hover:bg-muted/80 text-foreground"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -345,8 +345,8 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
                     "active:scale-95",
                     isSelected 
-                      ? "bg-indigo-500 text-white shadow-lg scale-105" 
-                      : "bg-muted/50 hover:bg-muted text-foreground"
+                      ? "bg-indigo-500 text-white scale-105" 
+                      : "bg-muted hover:bg-muted/80 text-foreground"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -367,17 +367,13 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete'>);
 
   return (
-    <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-6 shadow-soft border border-border/50">
-      {/* Glassmorphism decorative blur */}
-      <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
-      <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary/30 rounded-full blur-2xl" />
-      
+    <div className="relative overflow-hidden bg-card rounded-2xl p-6 shadow-card border border-border/50">
       <div className="relative z-10">
         <h2 className="font-display text-xl font-semibold text-foreground mb-1">
           {getGreeting()}
         </h2>
-        <p className="text-sm text-primary font-medium italic mb-5">
-          "{motivationalPhrase}"
+        <p className="text-sm text-muted-foreground mb-5">
+          {motivationalPhrase}
         </p>
         
         {/* Check-in flow or Summary */}

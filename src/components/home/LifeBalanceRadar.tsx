@@ -50,12 +50,12 @@ const LifeBalanceRadar: React.FC = () => {
   const hasData = radarData.some(d => d.value > 0);
 
   return (
-    <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-4 border border-border/30 shadow-sm">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Compass className="w-3.5 h-3.5 text-primary" />
+    <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-card">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center">
+          <Compass className="w-4 h-4 text-primary" />
         </div>
-        <h4 className="font-display font-semibold text-sm text-foreground">Aree della Vita</h4>
+        <h4 className="font-display font-semibold text-foreground">Aree della Vita</h4>
       </div>
 
       {!hasData ? (

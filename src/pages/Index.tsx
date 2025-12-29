@@ -19,14 +19,14 @@ const Index: React.FC = () => {
 
   return (
     <MobileLayout>
-      {/* Header - Minimal & Clean */}
-      <header className="px-5 pt-6 pb-2 flex items-center justify-between">
+      {/* Header - Clean & Minimal */}
+      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-md">
+          <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-display text-lg font-bold text-foreground">
+            <h1 className="font-display text-lg font-semibold text-foreground">
               {isLoading ? '...' : userName}
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -34,9 +34,9 @@ const Index: React.FC = () => {
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon-sm" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full animate-pulse" />
+        <Button variant="ghost" size="icon" className="relative rounded-xl">
+          <Bell className="w-5 h-5 text-muted-foreground" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
         </Button>
       </header>
 

@@ -144,20 +144,12 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
 
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-3xl p-4 bg-gradient-to-br border border-border/50",
-      config.bg,
-      "shadow-soft hover:shadow-card transition-shadow duration-300"
+      "relative overflow-hidden rounded-2xl p-4 bg-card border border-border/50",
+      "shadow-card hover:shadow-elegant transition-shadow duration-200"
     )}>
-      {/* Decorative blur */}
-      <div 
-        className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-30"
-        style={{ backgroundColor: fillColor }}
-      />
-      
       <div className="relative z-10 flex flex-col h-full">
-        {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <div className={cn("p-1.5 rounded-xl", config.iconBg)}>
+          <div className="p-1.5 rounded-xl bg-muted">
             <span className="text-lg">{config.icon}</span>
           </div>
           <span className="text-xs font-medium text-muted-foreground truncate">{config.label}</span>

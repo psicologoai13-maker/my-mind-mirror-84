@@ -34,8 +34,8 @@ const BottomNav: React.FC = () => {
 
   return (
     <>
-      <nav className="bottom-nav-fixed" style={{ bottom: 0 }}>
-        <div className="flex items-center justify-around py-2 px-2 max-w-md mx-auto">
+      <nav className="bottom-nav-fixed">
+        <div className="flex items-center justify-around py-2.5 px-3 max-w-md mx-auto">
           {navItems.map((item) => {
             const isActive = item.path ? location.pathname === item.path : false;
             const Icon = item.icon;
@@ -66,8 +66,8 @@ const BottomNav: React.FC = () => {
                   <button
                     onClick={handleMainButtonClick}
                     className={cn(
-                      "w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300",
-                      "bg-gradient-hero shadow-card hover:shadow-glow hover:scale-105",
+                      "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200",
+                      "bg-primary shadow-card hover:scale-105",
                       showSessionChoice && "rotate-45"
                     )}
                   >

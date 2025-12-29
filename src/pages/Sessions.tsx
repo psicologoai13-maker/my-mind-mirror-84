@@ -147,9 +147,11 @@ const Sessions: React.FC = () => {
 
         {/* Next Session Card */}
         {nextSession && (
-          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-5 border border-primary/20 animate-slide-up stagger-1">
+          <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-card animate-slide-up stagger-1">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-primary" />
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
               <span className="text-xs font-medium text-primary uppercase tracking-wide">Prossima Sessione</span>
             </div>
             <div className="flex items-center justify-between">
@@ -165,8 +167,8 @@ const Sessions: React.FC = () => {
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded-full",
                     nextSession.type === 'voice' 
-                      ? "bg-accent text-accent-foreground" 
-                      : "bg-primary/20 text-primary"
+                      ? "bg-muted text-muted-foreground" 
+                      : "bg-primary/10 text-primary"
                   )}>
                     {nextSession.type === 'voice' ? 'Vocale' : 'Chat'}
                   </span>
@@ -197,9 +199,9 @@ const Sessions: React.FC = () => {
               ))}
             </div>
           ) : journalSessions.length === 0 ? (
-            <div className="bg-card rounded-3xl p-8 shadow-soft text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                <BookOpen className="w-8 h-8 text-primary" />
+            <div className="bg-card rounded-2xl p-8 shadow-card border border-border/50 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+                <BookOpen className="w-7 h-7 text-muted-foreground" />
               </div>
               <h3 className="font-semibold text-foreground mb-2">Nessuna sessione</h3>
               <p className="text-sm text-muted-foreground mb-4">
