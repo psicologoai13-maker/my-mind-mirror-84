@@ -234,6 +234,8 @@ export type Database = {
           life_areas_scores: Json | null
           long_term_memory: string[] | null
           name: string | null
+          onboarding_answers: Json | null
+          onboarding_completed: boolean | null
           user_id: string
           wellness_score: number | null
         }
@@ -246,6 +248,8 @@ export type Database = {
           life_areas_scores?: Json | null
           long_term_memory?: string[] | null
           name?: string | null
+          onboarding_answers?: Json | null
+          onboarding_completed?: boolean | null
           user_id: string
           wellness_score?: number | null
         }
@@ -258,6 +262,8 @@ export type Database = {
           life_areas_scores?: Json | null
           long_term_memory?: string[] | null
           name?: string | null
+          onboarding_answers?: Json | null
+          onboarding_completed?: boolean | null
           user_id?: string
           wellness_score?: number | null
         }
