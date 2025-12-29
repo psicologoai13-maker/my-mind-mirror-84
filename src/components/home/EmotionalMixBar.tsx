@@ -95,17 +95,17 @@ const EmotionalMixBar: React.FC = () => {
     : [];
 
   return (
-    <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-card">
+    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center">
+        <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center">
           <Sparkles className="w-4 h-4 text-primary" />
         </div>
-        <h4 className="font-display font-semibold text-foreground">Mix Emotivo</h4>
+        <h4 className="font-semibold text-gray-900">Mix Emotivo</h4>
       </div>
 
       {!hasData ? (
-        <div className="h-20 flex flex-col items-center justify-center text-muted-foreground text-center px-4">
-          <MessageCircle className="w-6 h-6 text-muted-foreground/40 mb-1" />
+        <div className="h-20 flex flex-col items-center justify-center text-gray-500 text-center px-4">
+          <MessageCircle className="w-6 h-6 text-gray-300 mb-1" />
           <p className="text-xs">Parla con l'AI per generare il tuo primo grafico</p>
         </div>
       ) : (

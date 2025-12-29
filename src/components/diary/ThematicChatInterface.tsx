@@ -55,40 +55,20 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
     }
   };
 
-  // Theme-specific colors
-  const themeColors: Record<DiaryTheme, { bg: string; accent: string; headerBg: string }> = {
-    love: { 
-      bg: 'bg-gradient-to-b from-rose-50/50 to-background dark:from-rose-950/10',
-      accent: 'bg-rose-500',
-      headerBg: 'bg-rose-50/80 dark:bg-rose-950/30'
-    },
-    work: { 
-      bg: 'bg-gradient-to-b from-blue-50/50 to-background dark:from-blue-950/10',
-      accent: 'bg-blue-500',
-      headerBg: 'bg-blue-50/80 dark:bg-blue-950/30'
-    },
-    relationships: { 
-      bg: 'bg-gradient-to-b from-amber-50/50 to-background dark:from-amber-950/10',
-      accent: 'bg-amber-500',
-      headerBg: 'bg-amber-50/80 dark:bg-amber-950/30'
-    },
-    self: { 
-      bg: 'bg-gradient-to-b from-emerald-50/50 to-background dark:from-emerald-950/10',
-      accent: 'bg-emerald-500',
-      headerBg: 'bg-emerald-50/80 dark:bg-emerald-950/30'
-    },
+  // Theme-specific colors (clean, no gradients)
+  const themeColors: Record<DiaryTheme, { accent: string }> = {
+    love: { accent: 'bg-rose-500' },
+    work: { accent: 'bg-blue-500' },
+    relationships: { accent: 'bg-amber-500' },
+    self: { accent: 'bg-emerald-500' },
   };
 
   const colors = themeColors[theme];
 
   return (
-    <div className={cn("flex flex-col h-full", colors.bg)}>
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
-      <header className={cn(
-        "px-4 py-3 border-b border-border/50 flex items-center gap-3",
-        colors.headerBg,
-        "backdrop-blur-sm"
-      )}>
+      <header className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white">
         <Button 
           variant="ghost" 
           size="icon" 
@@ -101,10 +81,10 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-2xl">{themeConfig.emoji}</span>
           <div>
-            <h1 className="font-display font-semibold text-foreground">
+            <h1 className="font-semibold text-gray-900">
               Diario {themeConfig.label}
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-gray-500">
               {messages.length} messaggi
             </p>
           </div>
@@ -116,10 +96,10 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>
-            <h2 className="font-semibold text-foreground mb-2">
+            <h2 className="font-semibold text-gray-900 mb-2">
               Il tuo Diario {themeConfig.label}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-500">
               Scrivi i tuoi pensieri, emozioni e riflessioni su questo tema. 
               L'AI ricorderà tutto per le prossime conversazioni.
             </p>
@@ -131,8 +111,8 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
               className={cn(
                 "max-w-[85%] px-4 py-3 rounded-2xl animate-fade-in",
                 msg.role === 'user' 
-                  ? "ml-auto bg-primary text-primary-foreground rounded-tr-none" 
-                  : "mr-auto bg-muted text-foreground rounded-tl-none"
+                  ? "ml-auto bg-primary text-white rounded-tr-none" 
+                  : "mr-auto bg-white text-gray-900 border border-gray-100 rounded-tl-none"
               )}
             >
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -143,8 +123,8 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         )}
         
         {isSending && (
-          <div className="max-w-[85%] mr-auto px-4 py-3 rounded-2xl rounded-tl-none bg-muted">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          <div className="max-w-[85%] mr-auto px-4 py-3 rounded-2xl rounded-tl-none bg-white border border-gray-100">
+            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
           </div>
         )}
         
@@ -152,8 +132,8 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
       </div>
 
       {/* Input */}
-      <div className="p-4 pb-6">
-        <div className="flex items-end gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-soft">
+      <div className="p-4 pb-6 bg-white border-t border-gray-100">
+        <div className="flex items-end gap-2 bg-gray-50 border border-gray-100 rounded-full px-4 py-2">
           <textarea
             ref={inputRef}
             value={input}
@@ -161,7 +141,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
             onKeyDown={handleKeyPress}
             placeholder={`Scrivi nel tuo diario ${themeConfig.label.toLowerCase()}...`}
             rows={1}
-            className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-foreground placeholder:text-muted-foreground max-h-24"
+            className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gray-900 placeholder:text-gray-400 max-h-24"
             disabled={isSending}
           />
           <Button

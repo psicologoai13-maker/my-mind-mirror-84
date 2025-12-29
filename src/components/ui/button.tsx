@@ -9,17 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-card",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border-2 border-primary/20 bg-transparent text-foreground hover:bg-primary-light hover:border-primary/40",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-muted hover:text-foreground",
+        default: "bg-primary text-white hover:bg-primary/90 shadow-sm",
+        destructive: "bg-destructive text-white hover:bg-destructive/90",
+        outline: "border border-gray-200 bg-white text-gray-900 hover:bg-gray-50",
+        secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
+        ghost: "hover:bg-gray-100 text-gray-700",
         link: "text-primary underline-offset-4 hover:underline",
-        calm: "bg-gradient-calm text-foreground hover:shadow-card border border-border/50",
-        warm: "bg-gradient-warm text-foreground hover:shadow-card border border-border/50",
-        hero: "bg-gradient-hero text-primary-foreground font-semibold shadow-card hover:shadow-glow hover:scale-[1.02]",
-        mood: "rounded-full bg-primary-light text-primary hover:bg-primary hover:text-primary-foreground",
-        chat: "bg-primary text-primary-foreground rounded-full shadow-soft hover:shadow-card hover:scale-[1.05]",
+        hero: "bg-primary text-white font-semibold shadow-sm hover:bg-primary/90",
+        mood: "rounded-full bg-gray-100 text-gray-700 hover:bg-primary hover:text-white",
+        chat: "bg-primary text-white rounded-full shadow-sm hover:bg-primary/90",
       },
       size: {
         default: "h-11 px-5 py-2",

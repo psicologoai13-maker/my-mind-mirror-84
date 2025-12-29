@@ -26,35 +26,30 @@ export const DIARY_THEMES: {
   label: string; 
   emoji: string; 
   color: string;
-  bgGradient: string;
 }[] = [
   { 
     theme: 'love', 
     label: 'Amore', 
     emoji: '❤️', 
     color: 'text-rose-500',
-    bgGradient: 'from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20'
   },
   { 
     theme: 'work', 
     label: 'Lavoro', 
     emoji: '💼', 
     color: 'text-blue-500',
-    bgGradient: 'from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20'
   },
   { 
     theme: 'relationships', 
     label: 'Relazioni', 
     emoji: '🤝', 
     color: 'text-amber-500',
-    bgGradient: 'from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20'
   },
   { 
     theme: 'self', 
     label: 'Me Stesso', 
     emoji: '🌱', 
     color: 'text-emerald-500',
-    bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20'
   },
 ];
 
