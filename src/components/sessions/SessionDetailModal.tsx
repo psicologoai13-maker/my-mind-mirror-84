@@ -97,7 +97,7 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                 <Lightbulb className="w-4 h-4 text-amber-500" />
                 <span>Insight Chiave</span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-xl p-4 border border-amber-500/20">
+              <p className="text-sm text-gray-600 leading-relaxed bg-amber-50 rounded-xl p-4 border border-amber-100">
                 {session.insights}
               </p>
             </div>

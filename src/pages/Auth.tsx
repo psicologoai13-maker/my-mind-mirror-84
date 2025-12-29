@@ -88,7 +88,7 @@ const Auth: React.FC = () => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       {/* Logo */}
       <div className="mb-8 text-center animate-slide-up">
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-hero flex items-center justify-center shadow-card">
+        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center shadow-sm">
           {isDoctor ? (
             <Stethoscope className="w-10 h-10 text-primary-foreground" />
           ) : (
@@ -149,7 +149,7 @@ const Auth: React.FC = () => {
 
           <Button 
             type="submit" 
-            className="w-full h-12 rounded-xl bg-gradient-hero hover:opacity-90"
+            className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90"
             disabled={loading}
           >
             {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}

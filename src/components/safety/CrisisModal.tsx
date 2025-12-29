@@ -50,7 +50,7 @@ const CrisisModal: React.FC<CrisisModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <AlertDialog open={isOpen} onOpenChange={() => {}}>
-      <AlertDialogContent className="max-w-md mx-auto bg-gradient-to-b from-destructive/5 to-background border-destructive/20">
+      <AlertDialogContent className="max-w-md mx-auto bg-white border border-red-100">
         <AlertDialogHeader className="text-center">
           <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-destructive" />
