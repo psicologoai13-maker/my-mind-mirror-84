@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Sparkles, Mail, Lock, User, Stethoscope } from 'lucide-react';
+import { Sparkles, Mail, Lock, User, Stethoscope, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Email non valida');
@@ -18,19 +19,34 @@ const Auth: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
-  const { role, setUserRole, refetch: refetchRole } = useUserRole();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { signIn, signUp, user, loading: authLoading } = useAuth();
+  const { role, isLoading: roleLoading, setUserRole, refetch: refetchRole } = useUserRole();
+  const { profile, isLoading: profileLoading } = useProfile();
   const navigate = useNavigate();
 
+  // Redirect logic when user is authenticated
   useEffect(() => {
-    if (user && role) {
-      if (role === 'doctor') {
-        navigate('/doctor-dashboard');
-      } else {
-        navigate('/');
-      }
+    if (!user || authLoading) return;
+    
+    // Wait for role and profile to load
+    if (roleLoading || profileLoading) return;
+    
+    setIsRedirecting(true);
+    
+    // Doctor redirect
+    if (role === 'doctor') {
+      navigate('/doctor-dashboard', { replace: true });
+      return;
     }
-  }, [user, role, navigate]);
+    
+    // Patient redirect - check onboarding status
+    if (profile && (profile as any).onboarding_completed) {
+      navigate('/', { replace: true });
+    } else {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [user, authLoading, role, roleLoading, profile, profileLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +96,16 @@ const Auth: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Show loading screen while redirecting
+  if (isRedirecting || (user && (authLoading || roleLoading || profileLoading))) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Caricamento...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6">
