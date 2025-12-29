@@ -41,7 +41,7 @@ export const RealtimeVoiceModal = ({ isOpen, onClose }: RealtimeVoiceModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-gradient-to-b from-background to-muted border-none">
+      <DialogContent className="sm:max-w-md bg-white border border-gray-100">
         <div className="flex flex-col items-center justify-center py-8 space-y-8">
           {/* Status indicator */}
           <div className="text-center space-y-2">

@@ -173,7 +173,7 @@ export const VoiceSessionModal: React.FC<VoiceSessionModalProps> = ({
         onOpenChange(newOpen);
       }
     }}>
-      <DialogContent className="sm:max-w-md bg-gradient-to-b from-background to-muted/30 border-none max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-md bg-white border border-gray-100 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex flex-col items-center py-4 px-4 space-y-4 flex-1 min-h-0">
           {/* Header */}
           <div className="text-center space-y-1">

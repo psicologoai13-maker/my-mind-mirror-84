@@ -18,23 +18,15 @@ const colorConfig = {
       if (v <= 60) return 'hsl(45, 70%, 50%)';  // Yellow - medium
       return 'hsl(0, 65%, 55%)';                 // Red - high anxiety
     },
-    bg: 'from-destructive/10 to-destructive/5',
-    iconBg: 'bg-destructive/15',
   },
   energy: {
     getColor: () => 'hsl(45, 75%, 50%)', // Amber
-    bg: 'from-amber-500/10 to-yellow-400/5',
-    iconBg: 'bg-amber-500/15',
   },
   mood: {
-    getColor: () => 'hsl(var(--mood-excellent))', // Emerald
-    bg: 'from-emerald-500/10 to-green-400/5',
-    iconBg: 'bg-emerald-500/15',
+    getColor: () => 'hsl(150, 60%, 45%)', // Emerald
   },
   sleep: {
     getColor: () => 'hsl(260, 50%, 55%)', // Lavender
-    bg: 'from-violet-500/10 to-purple-400/5',
-    iconBg: 'bg-violet-500/15',
   },
 };
 
@@ -53,24 +45,14 @@ const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
   ];
 
   return (
-    <div className={cn(
-      "relative overflow-hidden rounded-3xl p-4 bg-gradient-to-br border border-border/50",
-      config.bg,
-      "shadow-soft hover:shadow-card transition-shadow duration-300"
-    )}>
-      {/* Decorative blur */}
-      <div 
-        className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-30"
-        style={{ backgroundColor: fillColor }}
-      />
-      
-      <div className="relative z-10 flex flex-col h-full">
+    <div className="relative overflow-hidden rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+      <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <div className={cn("p-1.5 rounded-xl", config.iconBg)}>
+          <div className="p-1.5 rounded-xl bg-gray-50">
             <span className="text-lg">{icon}</span>
           </div>
-          <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
+          <span className="text-xs font-medium text-gray-500 truncate">{label}</span>
         </div>
         
         {/* Chart */}
@@ -97,7 +79,7 @@ const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
-                className="font-display text-xl font-bold"
+                className="font-semibold text-xl text-gray-900"
                 style={{ color: fillColor }}
               >
                 {value}
@@ -108,7 +90,7 @@ const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
         
         {/* Subtitle */}
         {subtitle && (
-          <p className="text-[10px] text-muted-foreground text-center mt-1 truncate">
+          <p className="text-[10px] text-gray-500 text-center mt-1 truncate">
             {subtitle}
           </p>
         )}
