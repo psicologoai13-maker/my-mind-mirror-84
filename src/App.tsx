@@ -32,10 +32,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { role, isLoading: roleLoading } = useUserRole();
   const { profile, isLoading: profileLoading } = useProfile();
   
+  // Show loading while any auth-related data is loading
   if (loading || roleLoading || profileLoading) {
     return <LoadingSpinner />;
   }
   
+  // Redirect to auth if not logged in
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
@@ -45,8 +47,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/doctor-dashboard" replace />;
   }
 
-  // Redirect to onboarding if not completed
-  if (profile && !(profile as any).onboarding_completed) {
+  // Redirect to onboarding if profile doesn't exist or onboarding not completed
+  if (!profile || !(profile as any).onboarding_completed) {
     return <Navigate to="/onboarding" replace />;
   }
   
@@ -55,14 +57,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
   const { profile, isLoading: profileLoading } = useProfile();
   
-  if (loading || profileLoading) {
+  // Show loading while data is being fetched
+  if (loading || roleLoading || profileLoading) {
     return <LoadingSpinner />;
   }
   
+  // Redirect to auth if not logged in
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Doctors skip onboarding
+  if (role === 'doctor') {
+    return <Navigate to="/doctor-dashboard" replace />;
   }
 
   // If onboarding is already completed, go to home
