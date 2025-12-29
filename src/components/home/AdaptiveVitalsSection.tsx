@@ -115,13 +115,12 @@ const AdaptiveVitalsSection: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="font-display font-semibold text-foreground flex items-center gap-2 px-1">
-        <span className="text-lg">📊</span>
-        I tuoi focus attuali
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-gray-900 px-1">
+        Focus attuali
       </h3>
       
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         {activeMetrics.map((metricKey) => (
           <AdaptiveVitalCard
             key={metricKey}
