@@ -18,16 +18,12 @@ const METRIC_CONFIG: Record<MetricKey, {
   icon: string;
   label: string;
   getColor: (v: number) => string;
-  bg: string;
-  iconBg: string;
 }> = {
   // Vitals
   mood: {
     icon: '😌',
     label: 'Umore',
     getColor: () => 'hsl(150, 60%, 45%)',
-    bg: 'from-emerald-500/10 to-green-400/5',
-    iconBg: 'bg-emerald-500/15',
   },
   anxiety: {
     icon: '😰',
@@ -37,94 +33,68 @@ const METRIC_CONFIG: Record<MetricKey, {
       if (v <= 60) return 'hsl(45, 70%, 50%)';
       return 'hsl(0, 65%, 55%)';
     },
-    bg: 'from-destructive/10 to-destructive/5',
-    iconBg: 'bg-destructive/15',
   },
   energy: {
     icon: '🔋',
     label: 'Energia',
     getColor: () => 'hsl(45, 75%, 50%)',
-    bg: 'from-amber-500/10 to-yellow-400/5',
-    iconBg: 'bg-amber-500/15',
   },
   sleep: {
     icon: '💤',
     label: 'Riposo',
     getColor: () => 'hsl(260, 50%, 55%)',
-    bg: 'from-violet-500/10 to-purple-400/5',
-    iconBg: 'bg-violet-500/15',
   },
   // Emotions
   joy: {
     icon: '😊',
     label: 'Gioia',
     getColor: () => 'hsl(45, 90%, 55%)',
-    bg: 'from-yellow-400/10 to-amber-300/5',
-    iconBg: 'bg-yellow-400/15',
   },
   sadness: {
     icon: '😢',
     label: 'Tristezza',
     getColor: () => 'hsl(220, 70%, 55%)',
-    bg: 'from-blue-500/10 to-indigo-400/5',
-    iconBg: 'bg-blue-500/15',
   },
   anger: {
     icon: '😠',
     label: 'Rabbia',
     getColor: () => 'hsl(0, 70%, 55%)',
-    bg: 'from-red-500/10 to-rose-400/5',
-    iconBg: 'bg-red-500/15',
   },
   fear: {
     icon: '😨',
     label: 'Paura',
     getColor: () => 'hsl(280, 60%, 55%)',
-    bg: 'from-purple-500/10 to-fuchsia-400/5',
-    iconBg: 'bg-purple-500/15',
   },
   apathy: {
     icon: '😶',
     label: 'Apatia',
     getColor: () => 'hsl(220, 10%, 60%)',
-    bg: 'from-slate-400/10 to-gray-300/5',
-    iconBg: 'bg-slate-400/15',
   },
   // Life Areas
   love: {
     icon: '❤️',
     label: 'Amore',
     getColor: () => 'hsl(350, 70%, 55%)',
-    bg: 'from-rose-500/10 to-pink-400/5',
-    iconBg: 'bg-rose-500/15',
   },
   work: {
     icon: '💼',
     label: 'Lavoro',
     getColor: () => 'hsl(210, 60%, 50%)',
-    bg: 'from-blue-600/10 to-sky-400/5',
-    iconBg: 'bg-blue-600/15',
   },
   friendship: {
     icon: '👥',
     label: 'Socialità',
     getColor: () => 'hsl(30, 70%, 55%)',
-    bg: 'from-orange-500/10 to-amber-400/5',
-    iconBg: 'bg-orange-500/15',
   },
   growth: {
     icon: '🌱',
     label: 'Crescita',
     getColor: () => 'hsl(80, 60%, 45%)',
-    bg: 'from-lime-500/10 to-green-400/5',
-    iconBg: 'bg-lime-500/15',
   },
   health: {
     icon: '💪',
     label: 'Salute',
     getColor: () => 'hsl(170, 60%, 45%)',
-    bg: 'from-teal-500/10 to-cyan-400/5',
-    iconBg: 'bg-teal-500/15',
   },
 };
 
@@ -143,16 +113,13 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   ];
 
   return (
-    <div className={cn(
-      "relative overflow-hidden rounded-2xl p-4 bg-card border border-border/50",
-      "shadow-card hover:shadow-elegant transition-shadow duration-200"
-    )}>
-      <div className="relative z-10 flex flex-col h-full">
+    <div className="relative overflow-hidden rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+      <div className="flex flex-col h-full">
         <div className="flex items-center gap-2 mb-2">
-          <div className="p-1.5 rounded-xl bg-muted">
+          <div className="p-1.5 rounded-xl bg-gray-50">
             <span className="text-lg">{config.icon}</span>
           </div>
-          <span className="text-xs font-medium text-muted-foreground truncate">{config.label}</span>
+          <span className="text-xs font-medium text-gray-500 truncate">{config.label}</span>
         </div>
         
         {/* Chart */}
@@ -179,7 +146,7 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
-                className="font-display text-xl font-bold"
+                className="font-semibold text-xl text-gray-900"
                 style={{ color: fillColor }}
               >
                 {value}
@@ -190,7 +157,7 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
         
         {/* Subtitle */}
         {subtitle && (
-          <p className="text-[10px] text-muted-foreground text-center mt-1 truncate">
+          <p className="text-[10px] text-gray-500 text-center mt-1 truncate">
             {subtitle}
           </p>
         )}

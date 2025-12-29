@@ -17,14 +17,14 @@ const actions = [
     label: 'Prenota', 
     description: 'Programma sessione',
     path: '/sessions',
-    variant: 'calm' as const
+    variant: 'outline' as const
   },
   { 
     icon: BookOpen, 
     label: 'Diario', 
     description: 'Scrivi i tuoi pensieri',
     path: '/journal',
-    variant: 'warm' as const
+    variant: 'outline' as const
   },
   { 
     icon: Zap, 
@@ -40,7 +40,7 @@ const QuickActions: React.FC = () => {
 
   return (
     <div className="animate-slide-up stagger-3">
-      <h3 className="font-display font-semibold text-lg mb-4 text-foreground">
+      <h3 className="font-semibold text-lg mb-4 text-gray-900">
         Azioni rapide
       </h3>
       <div className="grid grid-cols-2 gap-3">
@@ -61,8 +61,8 @@ const QuickActions: React.FC = () => {
               <div className="text-left">
                 <p className="font-semibold">{action.label}</p>
                 <p className={cn(
-                  "text-xs opacity-80",
-                  action.variant === 'hero' ? "text-primary-foreground/80" : "text-muted-foreground"
+                  "text-xs",
+                  action.variant === 'hero' ? "text-white/80" : "text-gray-500"
                 )}>
                   {action.description}
                 </p>

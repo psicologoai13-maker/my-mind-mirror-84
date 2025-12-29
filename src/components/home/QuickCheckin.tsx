@@ -266,14 +266,14 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "disabled:opacity-50 disabled:cursor-not-allowed",
                     isSelected 
                       ? "bg-primary/10 ring-2 ring-primary/20" 
-                      : "bg-muted hover:bg-muted/80"
+                      : "bg-gray-50 hover:bg-gray-100"
                   )}
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <span className={cn("text-3xl transition-transform duration-300", isSelected && "scale-110")}>
                     {mood.emoji}
                   </span>
-                  <span className={cn("text-[10px] font-medium", isSelected ? "text-primary" : "text-muted-foreground")}>
+                  <span className={cn("text-[10px] font-medium", isSelected ? "text-primary" : "text-gray-500")}>
                     {mood.label}
                   </span>
                 </button>
@@ -296,7 +296,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "active:scale-95",
                     isSelected 
                       ? `${level.color} text-white scale-105` 
-                      : "bg-muted hover:bg-muted/80 text-foreground"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-900"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -321,7 +321,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "active:scale-95",
                     isSelected 
                       ? "bg-amber-500 text-white scale-105" 
-                      : "bg-muted hover:bg-muted/80 text-foreground"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-900"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -346,7 +346,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                     "active:scale-95",
                     isSelected 
                       ? "bg-indigo-500 text-white scale-105" 
-                      : "bg-muted hover:bg-muted/80 text-foreground"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-900"
                   )}
                 >
                   <span className="text-xl">{level.icon}</span>
@@ -367,12 +367,12 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete'>);
 
   return (
-    <div className="relative overflow-hidden bg-card rounded-2xl p-6 shadow-card border border-border/50">
-      <div className="relative z-10">
-        <h2 className="font-display text-xl font-semibold text-foreground mb-1">
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-1">
           {getGreeting()}
         </h2>
-        <p className="text-sm text-muted-foreground mb-5">
+        <p className="text-sm text-gray-500 mb-5">
           {motivationalPhrase}
         </p>
         
@@ -384,14 +384,14 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
             {getSuggestion && (
               <div className={cn("p-4 rounded-2xl mb-4", getSuggestion.bgColor)}>
                 <div className="flex items-start gap-3">
-                  <div className={cn("p-2 rounded-xl bg-background/50", getSuggestion.color)}>
+                  <div className={cn("p-2 rounded-xl bg-white/50", getSuggestion.color)}>
                     {getSuggestion.icon}
                   </div>
                   <div className="flex-1">
                     <h3 className={cn("font-semibold text-sm", getSuggestion.color)}>
                       {getSuggestion.title}
                     </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-gray-600 mt-0.5">
                       {getSuggestion.message}
                     </p>
                   </div>
@@ -401,29 +401,29 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
             
             {/* Today's values mini-display */}
             <div className="flex justify-between gap-2 mb-4">
-              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+              <div className="flex-1 bg-gray-50 rounded-xl p-2 text-center">
                 <span className="text-lg">{moods.find(m => m.value === moodValue)?.emoji || '😐'}</span>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Umore</p>
+                <p className="text-[9px] text-gray-500 mt-0.5">Umore</p>
               </div>
-              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+              <div className="flex-1 bg-gray-50 rounded-xl p-2 text-center">
                 <span className="text-lg">{anxietyLevels.find(a => a.value === anxietyValue)?.icon || '😊'}</span>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Ansia</p>
+                <p className="text-[9px] text-gray-500 mt-0.5">Ansia</p>
               </div>
-              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+              <div className="flex-1 bg-gray-50 rounded-xl p-2 text-center">
                 <span className="text-lg">{energyLevels.find(e => e.value === energyValue)?.icon || '⚡'}</span>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Energia</p>
+                <p className="text-[9px] text-gray-500 mt-0.5">Energia</p>
               </div>
-              <div className="flex-1 bg-muted/30 rounded-xl p-2 text-center">
+              <div className="flex-1 bg-gray-50 rounded-xl p-2 text-center">
                 <span className="text-lg">{sleepLevels.find(s => s.value === sleepValue)?.icon || '🌙'}</span>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Sonno</p>
+                <p className="text-[9px] text-gray-500 mt-0.5">Sonno</p>
               </div>
             </div>
             
             {/* Weekly Sparkline */}
             {sparklineData.length > 0 && (
-              <div className="bg-muted/20 rounded-xl p-3">
+              <div className="bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground">Umore - ultimi 7 giorni</span>
+                  <span className="text-xs text-gray-500">Umore - ultimi 7 giorni</span>
                 </div>
                 <div className="h-12">
                   <ResponsiveContainer width="100%" height="100%">
@@ -453,7 +453,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
               variant="ghost" 
               size="sm" 
               onClick={handleReset}
-              className="w-full mt-3 text-muted-foreground"
+              className="w-full mt-3 text-gray-500"
             >
               <RefreshCw className="w-3.5 h-3.5 mr-2" />
               Modifica check-in
@@ -464,7 +464,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           <div className="animate-fade-in">
             {/* Step label */}
             {currentStep !== 'complete' && (
-              <p className="text-sm text-muted-foreground mb-3">
+              <p className="text-sm text-gray-500 mb-3">
                 {stepLabels[currentStep]}
               </p>
             )}
@@ -483,7 +483,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
                       ? "bg-primary"
                       : index === currentStepIndex
                       ? "bg-primary/60 w-4"
-                      : "bg-muted"
+                      : "bg-gray-200"
                   )}
                 />
               ))}
