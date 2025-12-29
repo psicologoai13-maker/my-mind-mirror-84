@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import QuickCheckin from '@/components/home/QuickCheckin';
-import VitalParametersSection from '@/components/home/VitalParametersSection';
+import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import { Bell, Sparkles } from 'lucide-react';
@@ -50,9 +50,9 @@ const Index: React.FC = () => {
           />
         </div>
 
-        {/* Block 2: Vital Parameters - 2x2 Grid */}
+        {/* Block 2: Adaptive Vital Parameters - Dynamic 2x2 Grid */}
         <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <VitalParametersSection />
+          <AdaptiveVitalsSection />
         </div>
 
         {/* Block 3: Bento Grid - Life Balance & Emotional Mix */}

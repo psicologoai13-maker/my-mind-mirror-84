@@ -94,9 +94,6 @@ const EmotionalMixBar: React.FC = () => {
         .sort((a, b) => b.value - a.value)
     : [];
 
-  // Top 2 dominant emotions
-  const topTwo = segments.slice(0, 2);
-
   return (
     <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-4 border border-border/30 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
@@ -131,14 +128,14 @@ const EmotionalMixBar: React.FC = () => {
             ))}
           </div>
 
-          {/* Top 2 emotions */}
-          <div className="flex items-center justify-center gap-4">
-            {topTwo.map(emotion => (
+          {/* All emotions with value > 0 in a grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {segments.map(emotion => (
               <div key={emotion.key} className="flex items-center gap-1.5">
-                <span className="text-sm">{EMOTION_CONFIG[emotion.key].emoji}</span>
-                <span className="text-xs text-muted-foreground">{EMOTION_CONFIG[emotion.key].label}</span>
-                <span className="text-xs font-semibold text-foreground">
-                  {(emotion.value / 10).toFixed(1)}
+                <span className="text-xs">{EMOTION_CONFIG[emotion.key].emoji}</span>
+                <span className="text-[10px] text-muted-foreground truncate">{EMOTION_CONFIG[emotion.key].label}</span>
+                <span className="text-[10px] font-semibold text-foreground ml-auto">
+                  {Math.round(emotion.percentage)}%
                 </span>
               </div>
             ))}

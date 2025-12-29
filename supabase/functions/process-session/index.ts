@@ -46,7 +46,18 @@ interface SessionAnalysis {
   specific_emotions: SpecificEmotions;
   clinical_indices: ClinicalIndices;
   sleep_quality: number | null;
+  recommended_dashboard_metrics: string[];
 }
+
+// All available metrics for the adaptive dashboard
+const ALL_AVAILABLE_METRICS = [
+  // Vitals
+  'mood', 'anxiety', 'energy', 'sleep',
+  // Emotions
+  'joy', 'sadness', 'anger', 'fear', 'apathy',
+  // Life Areas
+  'love', 'work', 'friendship', 'growth', 'health'
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -131,7 +142,8 @@ serve(async (req) => {
   "sleep_quality": <qualità del sonno 1-10 se menzionato, null altrimenti>,
   "key_events": [<lista di eventi fattuali concreti>],
   "insights": "<osservazione clinica breve>",
-  "crisis_risk": "<'low', 'medium', o 'high'>"
+  "crisis_risk": "<'low', 'medium', o 'high'>",
+  "recommended_dashboard_metrics": [<array di 4 stringhe: i 4 KPI più urgenti per questo utente>]
 }
 
 REGOLE PER ESTRAZIONE DATI CLINICI:
@@ -142,6 +154,16 @@ REGOLE PER ESTRAZIONE DATI CLINICI:
   * perceived_stress: livello di stress generale percepito (1=rilassato, 10=molto stressato)
 - sleep_quality: se l'utente menziona sonno, insonnia, stanchezza, estrai un punteggio (1=pessimo, 10=ottimo). Null se non menzionato.
 - crisis_risk: 'high' SOLO per pensieri suicidi/autolesionismo. 'medium' per forte angoscia. 'low' normale.
+
+REGOLE PER DASHBOARD ADATTIVA (recommended_dashboard_metrics):
+- Scegli i 4 KPI più URGENTI e RILEVANTI per questo utente in base alla conversazione.
+- Metriche disponibili: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, friendship, growth, health
+- Se parla di rottura amorosa: includi 'sadness', 'love'.
+- Se parla di stress lavorativo: includi 'anxiety', 'work'.
+- Se parla di insonnia/stanchezza: includi 'sleep', 'energy'.
+- Se parla di isolamento sociale: includi 'friendship', 'apathy'.
+- Se parla di panico/paura: includi 'fear', 'anxiety'.
+- Combina sempre le metriche più rilevanti per la situazione specifica dell'utente.
 
 IMPORTANTE: Genera SEMPRE valori per specific_emotions - non lasciare mai tutti i valori a 0.
 
@@ -190,7 +212,8 @@ Rispondi SOLO con il JSON, senza markdown.`
         crisis_risk: 'low',
         specific_emotions: { joy: 20, sadness: 20, anger: 20, fear: 20, apathy: 20 },
         clinical_indices: { rumination: null, emotional_openness: null, perceived_stress: null },
-        sleep_quality: null
+        sleep_quality: null,
+        recommended_dashboard_metrics: ['mood', 'anxiety', 'energy', 'sleep']
       };
     }
 
@@ -244,11 +267,18 @@ Rispondi SOLO con il JSON, senza markdown.`
     // Keep only the last 50 facts to prevent memory bloat
     const trimmedMemory = updatedMemory.slice(-50);
 
+    // Update dashboard metrics if AI recommends new ones
+    const recommendedMetrics = analysis.recommended_dashboard_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
+    // Only take 4 valid metrics
+    const validMetrics = recommendedMetrics.filter(m => ALL_AVAILABLE_METRICS.includes(m)).slice(0, 4);
+    const finalMetrics = validMetrics.length === 4 ? validMetrics : ['mood', 'anxiety', 'energy', 'sleep'];
+
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
         long_term_memory: trimmedMemory,
-        life_areas_scores: mergedLifeScores
+        life_areas_scores: mergedLifeScores,
+        active_dashboard_metrics: finalMetrics
       })
       .eq('user_id', user_id);
 

@@ -226,6 +226,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          active_dashboard_metrics: string[] | null
           connection_code: string | null
           created_at: string
           email: string | null
@@ -237,6 +238,7 @@ export type Database = {
           wellness_score: number | null
         }
         Insert: {
+          active_dashboard_metrics?: string[] | null
           connection_code?: string | null
           created_at?: string
           email?: string | null
@@ -248,6 +250,7 @@ export type Database = {
           wellness_score?: number | null
         }
         Update: {
+          active_dashboard_metrics?: string[] | null
           connection_code?: string | null
           created_at?: string
           email?: string | null
