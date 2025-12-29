@@ -31,6 +31,58 @@ const sleepOptions = [
 
 type Step = 'goal' | 'mood' | 'sleep' | 'analyzing' | 'result';
 
+// Map onboarding goals to dashboard metrics
+const getPersonalizedMetrics = (answers: OnboardingAnswers): string[] => {
+  const metrics: string[] = [];
+  
+  // Always include mood
+  metrics.push('mood');
+  
+  // Based on goal
+  switch (answers.goal) {
+    case 'anxiety':
+      metrics.push('anxiety');
+      break;
+    case 'sleep':
+      metrics.push('sleep');
+      break;
+    case 'growth':
+      metrics.push('growth');
+      break;
+    case 'mood':
+      metrics.push('joy');
+      break;
+    default:
+      metrics.push('anxiety');
+  }
+  
+  // Based on sleep issues
+  if (answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes') {
+    if (!metrics.includes('sleep')) {
+      metrics.push('sleep');
+    }
+  }
+  
+  // Based on mood level
+  if (answers.mood < 2) {
+    metrics.push('sadness');
+  } else {
+    metrics.push('energy');
+  }
+  
+  // Ensure we have exactly 4 unique metrics
+  const allMetrics = ['mood', 'anxiety', 'energy', 'sleep', 'joy', 'sadness', 'love', 'work'];
+  const uniqueMetrics = [...new Set(metrics)];
+  
+  while (uniqueMetrics.length < 4) {
+    const nextMetric = allMetrics.find(m => !uniqueMetrics.includes(m));
+    if (nextMetric) uniqueMetrics.push(nextMetric);
+    else break;
+  }
+  
+  return uniqueMetrics.slice(0, 4);
+};
+
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
@@ -44,7 +96,7 @@ const Onboarding: React.FC = () => {
 
   const stepOrder: Step[] = ['goal', 'mood', 'sleep', 'analyzing', 'result'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 3; // Only quiz steps for progress
+  const quizSteps = 3;
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -65,7 +117,7 @@ const Onboarding: React.FC = () => {
       case 'goal':
         return answers.goal !== null;
       case 'mood':
-        return true; // Slider always has a value
+        return true;
       case 'sleep':
         return answers.sleepIssues !== null;
       default:
@@ -75,12 +127,19 @@ const Onboarding: React.FC = () => {
 
   const handleComplete = async () => {
     try {
+      // Calculate personalized metrics based on answers
+      const personalizedMetrics = getPersonalizedMetrics(answers);
+      
       await updateProfile.mutateAsync({
         onboarding_completed: true,
         onboarding_answers: answers,
+        active_dashboard_metrics: personalizedMetrics,
       } as any);
+      
+      toast.success('Profilo personalizzato!');
       navigate('/', { replace: true });
     } catch (error) {
+      console.error('Error saving onboarding:', error);
       toast.error('Errore nel salvataggio');
       navigate('/', { replace: true });
     }
@@ -145,7 +204,7 @@ const Onboarding: React.FC = () => {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="h-14 px-6 rounded-full"
+            className="h-14 px-6 rounded-full border-border"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>

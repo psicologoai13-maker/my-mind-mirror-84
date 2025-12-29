@@ -115,19 +115,24 @@ const AdaptiveVitalsSection: React.FC = () => {
   };
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-gray-900 px-1">
-        Focus attuali
+    <div className="space-y-4">
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide px-1">
+        Focus Attuali
       </h3>
       
-      <div className="grid grid-cols-2 gap-2">
-        {activeMetrics.map((metricKey) => (
-          <AdaptiveVitalCard
+      <div className="grid grid-cols-2 gap-4">
+        {activeMetrics.map((metricKey, index) => (
+          <div 
             key={metricKey}
-            metricKey={metricKey}
-            value={metricValues[metricKey]}
-            subtitle={getSubtitle(metricKey, metricValues[metricKey])}
-          />
+            className="animate-scale-in"
+            style={{ animationDelay: `${index * 0.05}s` }}
+          >
+            <AdaptiveVitalCard
+              metricKey={metricKey}
+              value={metricValues[metricKey]}
+              subtitle={getSubtitle(metricKey, metricValues[metricKey])}
+            />
+          </div>
         ))}
       </div>
     </div>

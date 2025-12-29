@@ -4,11 +4,11 @@ import { isToday } from 'date-fns';
 import { Sparkles, MessageCircle } from 'lucide-react';
 
 const EMOTION_CONFIG = {
-  joy: { label: 'Gioia', color: 'hsl(45, 90%, 55%)' },
-  sadness: { label: 'Tristezza', color: 'hsl(220, 70%, 55%)' },
-  anger: { label: 'Rabbia', color: 'hsl(0, 70%, 55%)' },
-  fear: { label: 'Paura', color: 'hsl(280, 60%, 55%)' },
-  apathy: { label: 'Apatia', color: 'hsl(220, 10%, 60%)' },
+  joy: { label: 'Gioia', color: 'hsl(var(--mood-neutral))' },
+  sadness: { label: 'Tristezza', color: 'hsl(var(--area-friendship))' },
+  anger: { label: 'Rabbia', color: 'hsl(var(--mood-bad))' },
+  fear: { label: 'Paura', color: 'hsl(var(--accent-foreground))' },
+  apathy: { label: 'Apatia', color: 'hsl(var(--muted-foreground))' },
 };
 
 type EmotionKey = keyof typeof EMOTION_CONFIG;
@@ -90,27 +90,29 @@ const EmotionalMixBar: React.FC = () => {
     : [];
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+    <div className="rounded-3xl p-6 bg-card shadow-premium">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-2xl bg-area-work/10 flex items-center justify-center">
+          <Sparkles className="w-5 h-5 text-area-work" />
         </div>
-        <h4 className="text-sm font-semibold text-gray-900">Mix Emotivo</h4>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Mix Emotivo
+        </h3>
       </div>
 
       {!hasData ? (
-        <div className="h-16 flex flex-col items-center justify-center text-gray-400 text-center px-4">
-          <MessageCircle className="w-5 h-5 text-gray-300 mb-1" />
-          <p className="text-[11px]">Parla con l'AI per generare il grafico</p>
+        <div className="h-20 flex flex-col items-center justify-center text-muted-foreground text-center">
+          <MessageCircle className="w-8 h-8 text-muted-foreground/30 mb-2" />
+          <p className="text-sm">Parla con l'AI per generare il grafico</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Slim Pill Bar */}
-          <div className="h-4 w-full rounded-full overflow-hidden flex bg-gray-100">
+          <div className="h-4 w-full rounded-full overflow-hidden flex bg-muted">
             {segments.map((segment) => (
               <div
                 key={segment.key}
-                className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-300"
+                className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-500"
                 style={{
                   width: `${segment.percentage}%`,
                   backgroundColor: EMOTION_CONFIG[segment.key].color,
@@ -120,15 +122,15 @@ const EmotionalMixBar: React.FC = () => {
           </div>
 
           {/* Legend - Horizontal dots */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {segments.map(emotion => (
-              <div key={emotion.key} className="flex items-center gap-1">
+              <div key={emotion.key} className="flex items-center gap-1.5">
                 <div 
-                  className="w-2 h-2 rounded-full"
+                  className="w-2.5 h-2.5 rounded-full"
                   style={{ backgroundColor: EMOTION_CONFIG[emotion.key].color }}
                 />
-                <span className="text-[10px] text-gray-500">{EMOTION_CONFIG[emotion.key].label}</span>
-                <span className="text-[10px] font-medium text-gray-700">
+                <span className="text-xs text-muted-foreground">{EMOTION_CONFIG[emotion.key].label}</span>
+                <span className="text-xs font-medium text-foreground">
                   {Math.round(emotion.percentage)}%
                 </span>
               </div>

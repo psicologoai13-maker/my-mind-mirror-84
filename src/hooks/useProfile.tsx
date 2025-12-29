@@ -12,6 +12,9 @@ export interface UserProfile {
   life_areas_scores: Record<string, number> | null;
   long_term_memory?: string[] | null;
   connection_code?: string | null;
+  active_dashboard_metrics?: string[] | null;
+  onboarding_completed?: boolean;
+  onboarding_answers?: Record<string, any> | null;
 }
 
 export const useProfile = () => {
@@ -41,7 +44,7 @@ export const useProfile = () => {
       
       const { data, error } = await supabase
         .from('user_profiles')
-        .update(updates)
+        .update(updates as any)
         .eq('user_id', user.id)
         .select()
         .single();

@@ -7,7 +7,6 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Sparkles, Mail, Lock, User, Stethoscope } from 'lucide-react';
 import { z } from 'zod';
-import { supabase } from '@/integrations/supabase/client';
 
 const emailSchema = z.string().email('Email non valida');
 const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratteri');
@@ -59,7 +58,6 @@ const Auth: React.FC = () => {
           }
         } else {
           toast.success('Benvenuto!');
-          // Role will be fetched and redirect handled by useEffect
         }
       } else {
         const { error } = await signUp(email, password, name);
@@ -70,7 +68,6 @@ const Auth: React.FC = () => {
             toast.error(error.message);
           }
         } else {
-          // Wait for auth to complete, then set role
           setTimeout(async () => {
             const roleToSet = isDoctor ? 'doctor' : 'patient';
             await setUserRole(roleToSet);
@@ -85,78 +82,78 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6">
       {/* Logo */}
-      <div className="mb-8 text-center animate-slide-up">
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center shadow-sm">
+      <div className="mb-10 text-center animate-slide-up">
+        <div className="w-24 h-24 mx-auto mb-5 rounded-3xl bg-primary/10 flex items-center justify-center shadow-premium">
           {isDoctor ? (
-            <Stethoscope className="w-10 h-10 text-primary-foreground" />
+            <Stethoscope className="w-12 h-12 text-primary" />
           ) : (
-            <Sparkles className="w-10 h-10 text-primary-foreground" />
+            <Sparkles className="w-12 h-12 text-primary" />
           )}
         </div>
-        <h1 className="font-display text-3xl font-bold text-foreground">
+        <h1 className="text-4xl font-semibold text-foreground tracking-tight">
           {isDoctor ? 'Portale Medico' : 'Serenity'}
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2 text-base">
           {isDoctor ? 'Accesso professionisti sanitari' : 'Il tuo spazio di benessere mentale'}
         </p>
       </div>
 
       {/* Auth Card */}
-      <div className="w-full max-w-sm bg-card rounded-3xl p-6 shadow-card animate-slide-up stagger-2">
-        <h2 className="font-display text-xl font-bold text-foreground text-center mb-6">
+      <div className="w-full max-w-sm bg-card rounded-3xl p-8 shadow-premium animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <h2 className="text-xl font-semibold text-foreground text-center mb-8">
           {isLogin ? 'Bentornato!' : (isDoctor ? 'Registrazione Medico' : 'Crea il tuo account')}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="pl-10 h-12 rounded-xl"
+                className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
               />
             </div>
           )}
           
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="pl-10 h-12 rounded-xl"
+              className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="pl-10 h-12 rounded-xl"
+              className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <Button 
             type="submit" 
-            className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90"
+            className="w-full h-14 rounded-full text-base font-medium shadow-premium hover:shadow-elevated transition-all duration-300 mt-6"
             disabled={loading}
           >
             {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}
           </Button>
         </form>
 
-        <div className="mt-6 text-center space-y-3">
+        <div className="mt-8 text-center space-y-4">
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -168,7 +165,7 @@ const Auth: React.FC = () => {
           </button>
 
           {!isLogin && (
-            <div className="pt-2 border-t border-border">
+            <div className="pt-4 border-t border-border">
               <button
                 onClick={() => setIsDoctor(!isDoctor)}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto"
@@ -182,7 +179,7 @@ const Auth: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <p className="mt-8 text-xs text-muted-foreground text-center animate-fade-in">
+      <p className="mt-10 text-xs text-muted-foreground text-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
         Accedendo accetti i nostri Termini di Servizio e Privacy Policy
       </p>
     </div>
