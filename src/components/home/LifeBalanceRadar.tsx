@@ -1,5 +1,5 @@
 import React from 'react';
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
+import { RadarChart, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessions } from '@/hooks/useSessions';
 import { Compass, MessageCircle } from 'lucide-react';
@@ -16,14 +16,11 @@ const LifeBalanceRadar: React.FC = () => {
   const { profile } = useProfile();
   const { completedSessions } = useSessions();
   
-  // Get life areas scores from profile first
   const profileScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
   
-  // If profile scores are empty, try to get from the most recent session
   const lastSessionWithScores = React.useMemo(() => {
     if (!completedSessions) return null;
     
-    // Find the most recent session with life_balance_scores
     const sorted = [...completedSessions]
       .filter(s => {
         const scores = s.life_balance_scores as unknown as Record<string, number | null> | null;
@@ -34,7 +31,6 @@ const LifeBalanceRadar: React.FC = () => {
     return sorted[0]?.life_balance_scores as unknown as Record<string, number | null> | undefined;
   }, [completedSessions]);
 
-  // Use profile scores if available, otherwise fall back to last session scores
   const lifeAreasScores = React.useMemo(() => {
     const hasProfileData = profileScores && Object.values(profileScores).some(v => v && v > 0);
     if (hasProfileData) return profileScores;
@@ -50,40 +46,35 @@ const LifeBalanceRadar: React.FC = () => {
   const hasData = radarData.some(d => d.value > 0);
 
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center">
-          <Compass className="w-4 h-4 text-primary" />
+    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center">
+          <Compass className="w-3.5 h-3.5 text-emerald-500" />
         </div>
-        <h4 className="font-semibold text-gray-900">Aree della Vita</h4>
+        <h4 className="text-sm font-semibold text-gray-900">Aree della Vita</h4>
       </div>
 
       {!hasData ? (
-        <div className="h-32 flex flex-col items-center justify-center text-gray-500 text-center px-4">
-          <MessageCircle className="w-8 h-8 text-gray-300 mb-2" />
-          <p className="text-xs leading-relaxed">Parla con l'AI per generare il tuo primo grafico</p>
+        <div className="h-28 flex flex-col items-center justify-center text-gray-400 text-center px-4">
+          <MessageCircle className="w-6 h-6 text-gray-300 mb-1" />
+          <p className="text-[11px]">Parla con l'AI per generare il grafico</p>
         </div>
       ) : (
-        <div className="h-36">
+        <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-              <PolarGrid 
-                stroke="hsl(var(--border))" 
-                strokeOpacity={0.2}
-                strokeWidth={1}
-              />
+            <RadarChart data={radarData} margin={{ top: 5, right: 15, bottom: 5, left: 15 }}>
               <PolarAngleAxis
                 dataKey="subject"
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }}
+                tick={{ fill: '#9ca3af', fontSize: 9 }}
                 tickLine={false}
               />
               <Radar
                 name="Attuale"
                 dataKey="value"
-                stroke="hsl(150, 60%, 45%)"
-                fill="hsl(150, 60%, 45%)"
-                fillOpacity={0.2}
-                strokeWidth={1.5}
+                stroke="hsl(152, 60%, 45%)"
+                fill="hsl(152, 60%, 45%)"
+                fillOpacity={0.25}
+                strokeWidth={2}
               />
             </RadarChart>
           </ResponsiveContainer>

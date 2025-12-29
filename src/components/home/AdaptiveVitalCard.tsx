@@ -113,40 +113,38 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+    <div className="relative overflow-hidden rounded-xl p-3 bg-white border border-gray-100 shadow-sm">
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="p-1.5 rounded-xl bg-gray-50">
-            <span className="text-lg">{config.icon}</span>
-          </div>
-          <span className="text-xs font-medium text-gray-500 truncate">{config.label}</span>
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="text-sm">{config.icon}</span>
+          <span className="text-[11px] font-medium text-gray-600">{config.label}</span>
         </div>
         
-        {/* Chart */}
-        <div className="flex-1 flex items-center justify-center -my-2">
-          <div className="w-20 h-20 relative">
+        {/* Chart - Compact */}
+        <div className="flex items-center justify-center">
+          <div className="w-16 h-16 relative">
             <ResponsiveContainer width="100%" height="100%">
               <RadialBarChart 
                 cx="50%" 
                 cy="50%" 
-                innerRadius="70%" 
+                innerRadius="65%" 
                 outerRadius="100%" 
-                barSize={8} 
+                barSize={6} 
                 data={data}
-                startAngle={180} 
-                endAngle={-180}
+                startAngle={90} 
+                endAngle={-270}
               >
                 <RadialBar
-                  background={{ fill: 'hsl(var(--muted))' }}
+                  background={{ fill: '#f3f4f6' }}
                   dataKey="value"
-                  cornerRadius={10}
+                  cornerRadius={8}
                 />
               </RadialBarChart>
             </ResponsiveContainer>
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
-                className="font-semibold text-xl text-gray-900"
+                className="font-bold text-base"
                 style={{ color: fillColor }}
               >
                 {value}
@@ -155,9 +153,9 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
           </div>
         </div>
         
-        {/* Subtitle */}
+        {/* Subtitle - Smaller */}
         {subtitle && (
-          <p className="text-[10px] text-gray-500 text-center mt-1 truncate">
+          <p className="text-[9px] text-gray-400 text-center mt-0.5">
             {subtitle}
           </p>
         )}
