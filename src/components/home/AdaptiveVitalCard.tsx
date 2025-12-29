@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
 import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
 
 export type MetricKey = 
@@ -23,78 +22,78 @@ const METRIC_CONFIG: Record<MetricKey, {
   mood: {
     icon: '😌',
     label: 'Umore',
-    getColor: () => 'hsl(150, 60%, 45%)',
+    getColor: () => 'hsl(var(--primary))',
   },
   anxiety: {
     icon: '😰',
     label: 'Ansia',
     getColor: (v) => {
-      if (v <= 30) return 'hsl(150, 60%, 45%)';
-      if (v <= 60) return 'hsl(45, 70%, 50%)';
-      return 'hsl(0, 65%, 55%)';
+      if (v <= 30) return 'hsl(var(--mood-excellent))';
+      if (v <= 60) return 'hsl(var(--mood-neutral))';
+      return 'hsl(var(--mood-bad))';
     },
   },
   energy: {
     icon: '🔋',
     label: 'Energia',
-    getColor: () => 'hsl(45, 75%, 50%)',
+    getColor: () => 'hsl(var(--area-work))',
   },
   sleep: {
     icon: '💤',
     label: 'Riposo',
-    getColor: () => 'hsl(260, 50%, 55%)',
+    getColor: () => 'hsl(var(--accent-foreground))',
   },
   // Emotions
   joy: {
     icon: '😊',
     label: 'Gioia',
-    getColor: () => 'hsl(45, 90%, 55%)',
+    getColor: () => 'hsl(var(--mood-neutral))',
   },
   sadness: {
     icon: '😢',
     label: 'Tristezza',
-    getColor: () => 'hsl(220, 70%, 55%)',
+    getColor: () => 'hsl(var(--area-friendship))',
   },
   anger: {
     icon: '😠',
     label: 'Rabbia',
-    getColor: () => 'hsl(0, 70%, 55%)',
+    getColor: () => 'hsl(var(--mood-bad))',
   },
   fear: {
     icon: '😨',
     label: 'Paura',
-    getColor: () => 'hsl(280, 60%, 55%)',
+    getColor: () => 'hsl(var(--accent-foreground))',
   },
   apathy: {
     icon: '😶',
     label: 'Apatia',
-    getColor: () => 'hsl(220, 10%, 60%)',
+    getColor: () => 'hsl(var(--muted-foreground))',
   },
   // Life Areas
   love: {
     icon: '❤️',
     label: 'Amore',
-    getColor: () => 'hsl(350, 70%, 55%)',
+    getColor: () => 'hsl(var(--area-love))',
   },
   work: {
     icon: '💼',
     label: 'Lavoro',
-    getColor: () => 'hsl(210, 60%, 50%)',
+    getColor: () => 'hsl(var(--area-friendship))',
   },
   friendship: {
     icon: '👥',
     label: 'Socialità',
-    getColor: () => 'hsl(30, 70%, 55%)',
+    getColor: () => 'hsl(var(--area-work))',
   },
   growth: {
     icon: '🌱',
     label: 'Crescita',
-    getColor: () => 'hsl(80, 60%, 45%)',
+    getColor: () => 'hsl(var(--mood-good))',
   },
   health: {
     icon: '💪',
     label: 'Salute',
-    getColor: () => 'hsl(170, 60%, 45%)',
+    getColor: () => 'hsl(var(--area-wellness))',
   },
 };
 
@@ -113,38 +112,39 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-xl p-3 bg-white border border-gray-100 shadow-sm">
+    <div className="rounded-3xl p-5 bg-card shadow-premium hover:shadow-elevated transition-all duration-300">
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-sm">{config.icon}</span>
-          <span className="text-[11px] font-medium text-gray-600">{config.label}</span>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">{config.icon}</span>
+          <span className="text-sm font-medium text-muted-foreground">{config.label}</span>
         </div>
         
-        {/* Chart - Compact */}
+        {/* Chart */}
         <div className="flex items-center justify-center">
-          <div className="w-16 h-16 relative">
+          <div className="w-20 h-20 relative">
             <ResponsiveContainer width="100%" height="100%">
               <RadialBarChart 
                 cx="50%" 
                 cy="50%" 
-                innerRadius="65%" 
+                innerRadius="70%" 
                 outerRadius="100%" 
-                barSize={6} 
+                barSize={8} 
                 data={data}
                 startAngle={90} 
                 endAngle={-270}
               >
                 <RadialBar
-                  background={{ fill: '#f3f4f6' }}
+                  background={{ fill: 'hsl(var(--muted))' }}
                   dataKey="value"
-                  cornerRadius={8}
+                  cornerRadius={10}
                 />
               </RadialBarChart>
             </ResponsiveContainer>
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
-                className="font-bold text-base"
+                className="font-semibold text-xl"
                 style={{ color: fillColor }}
               >
                 {value}
@@ -153,9 +153,9 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
           </div>
         </div>
         
-        {/* Subtitle - Smaller */}
+        {/* Subtitle */}
         {subtitle && (
-          <p className="text-[9px] text-gray-400 text-center mt-0.5">
+          <p className="text-xs text-muted-foreground text-center mt-2 font-medium">
             {subtitle}
           </p>
         )}
