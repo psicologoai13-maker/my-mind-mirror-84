@@ -5,12 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useProfile } from "@/hooks/useProfile";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import Analisi from "./pages/Analisi";
 import Sessions from "./pages/Sessions";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import DoctorView from "./pages/DoctorView";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorPatientView from "./pages/DoctorPatientView";
@@ -19,16 +21,19 @@ import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
+const LoadingSpinner = () => (
+  <div className="min-h-dvh bg-background flex items-center justify-center">
+    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+  </div>
+);
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
+  const { profile, isLoading: profileLoading } = useProfile();
   
-  if (loading || roleLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (loading || roleLoading || profileLoading) {
+    return <LoadingSpinner />;
   }
   
   if (!user) {
@@ -39,6 +44,31 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (role === 'doctor') {
     return <Navigate to="/doctor-dashboard" replace />;
   }
+
+  // Redirect to onboarding if not completed
+  if (profile && !(profile as any).onboarding_completed) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const { profile, isLoading: profileLoading } = useProfile();
+  
+  if (loading || profileLoading) {
+    return <LoadingSpinner />;
+  }
+  
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // If onboarding is already completed, go to home
+  if (profile && (profile as any).onboarding_completed) {
+    return <Navigate to="/" replace />;
+  }
   
   return <>{children}</>;
 };
@@ -48,11 +78,7 @@ const DoctorRoute = ({ children }: { children: React.ReactNode }) => {
   const { role, isLoading: roleLoading } = useUserRole();
   
   if (loading || roleLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
   
   if (!user) {
@@ -75,6 +101,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<OnboardingRoute><Onboarding /></OnboardingRoute>} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/analisi" element={<ProtectedRoute><Analisi /></ProtectedRoute>} />
