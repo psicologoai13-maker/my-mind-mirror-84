@@ -70,13 +70,13 @@ const Profile: React.FC = () => {
 
       <div className="px-5 space-y-6 pb-8">
         {/* Profile Card */}
-        <div className="bg-gradient-calm rounded-3xl p-6 border border-border/50 animate-slide-up">
+        <div className="bg-card rounded-2xl p-6 border border-border/50 shadow-card animate-slide-up">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-hero flex items-center justify-center shadow-card">
-              <span className="text-4xl">👤</span>
+            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
+              <span className="text-3xl">👤</span>
             </div>
             <div className="flex-1">
-              <h2 className="font-display text-xl font-bold text-foreground">
+              <h2 className="font-display text-xl font-semibold text-foreground">
                 {profileLoading ? '...' : (profile?.name || 'Utente')}
               </h2>
               <p className="text-muted-foreground text-sm">
@@ -98,18 +98,18 @@ const Profile: React.FC = () => {
 
         {/* Stats Summary */}
         <div className="grid grid-cols-3 gap-3 animate-slide-up stagger-2">
-          <div className="bg-card rounded-2xl p-4 text-center shadow-soft">
-            <p className="text-2xl font-display font-bold text-primary">
+          <div className="bg-card rounded-2xl p-4 text-center shadow-card border border-border/50">
+            <p className="text-2xl font-display font-semibold text-primary">
               {stats.totalSessions}
             </p>
             <p className="text-xs text-muted-foreground">Sessioni</p>
           </div>
-          <div className="bg-card rounded-2xl p-4 text-center shadow-soft">
-            <p className="text-2xl font-display font-bold text-area-love">{streak}</p>
+          <div className="bg-card rounded-2xl p-4 text-center shadow-card border border-border/50">
+            <p className="text-2xl font-display font-semibold text-area-love">{streak}</p>
             <p className="text-xs text-muted-foreground">Giorni streak</p>
           </div>
-          <div className="bg-card rounded-2xl p-4 text-center shadow-soft">
-            <p className="text-2xl font-display font-bold text-area-work">
+          <div className="bg-card rounded-2xl p-4 text-center shadow-card border border-border/50">
+            <p className="text-2xl font-display font-semibold text-area-work">
               {wellnessScore > 0 ? Math.round(wellnessScore / 10) : 0}
             </p>
             <p className="text-xs text-muted-foreground">Obiettivi</p>
@@ -117,7 +117,7 @@ const Profile: React.FC = () => {
         </div>
 
         {/* Wellness Score */}
-        <div className="bg-card rounded-3xl p-6 shadow-card animate-slide-up stagger-3">
+        <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50 animate-slide-up stagger-3">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-foreground">
               Il tuo punteggio benessere
@@ -125,29 +125,29 @@ const Profile: React.FC = () => {
             <Heart className="w-5 h-5 text-area-love" />
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative w-24 h-24">
+            <div className="relative w-20 h-20">
               <svg className="w-full h-full transform -rotate-90">
                 <circle
-                  cx="48"
-                  cy="48"
-                  r="40"
+                  cx="40"
+                  cy="40"
+                  r="36"
                   stroke="hsl(var(--muted))"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   fill="none"
                 />
                 <circle
-                  cx="48"
-                  cy="48"
-                  r="40"
+                  cx="40"
+                  cy="40"
+                  r="36"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   fill="none"
                   strokeLinecap="round"
-                  strokeDasharray={`${wellnessScore * 2.51} ${100 * 2.51}`}
+                  strokeDasharray={`${wellnessScore * 2.26} ${100 * 2.26}`}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-display font-bold text-foreground">
+                <span className="text-xl font-display font-semibold text-foreground">
                   {wellnessScore}
                 </span>
               </div>
@@ -165,7 +165,7 @@ const Profile: React.FC = () => {
         </div>
 
         {/* Menu Items */}
-        <div className="bg-card rounded-3xl shadow-soft overflow-hidden animate-slide-up stagger-4">
+        <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden animate-slide-up stagger-4">
           {menuItems.map((item, index) => {
             const Icon = item.icon;
             return (
