@@ -2,10 +2,14 @@ import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useSessions } from '@/hooks/useSessions';
 import { useCheckins } from '@/hooks/useCheckins';
-import { subDays, isAfter, startOfDay, isSameDay } from 'date-fns';
-import MetricRow from '@/components/analisi/MetricRow';
+import { subDays, isAfter, startOfDay, format } from 'date-fns';
+import { it } from 'date-fns/locale';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
+import WellnessScoreHero from '@/components/analisi/WellnessScoreHero';
+import VitalMetricCard from '@/components/analisi/VitalMetricCard';
+import EmotionalSpectrumCard from '@/components/analisi/EmotionalSpectrumCard';
+import LifeAreasCard from '@/components/analisi/LifeAreasCard';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
 export type MetricType = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'love' | 'work' | 'friendship' | 'wellness';
@@ -25,7 +29,7 @@ const Analisi: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
   
-  const { completedSessions, journalSessions } = useSessions();
+  const { completedSessions } = useSessions();
   const { weeklyCheckins } = useCheckins();
 
   // Calculate date range
@@ -50,6 +54,37 @@ const Analisi: React.FC = () => {
       isAfter(new Date(s.start_time), dateRange.start)
     );
   }, [completedSessions, dateRange]);
+
+  // Generate chart data for each vital metric
+  const chartDataByMetric = useMemo(() => {
+    const getMetricValue = (session: any, key: MetricType): number | null => {
+      switch (key) {
+        case 'mood':
+          return session.mood_score_detected ? session.mood_score_detected * 10 : null;
+        case 'anxiety':
+          return session.anxiety_score_detected ? session.anxiety_score_detected * 10 : null;
+        case 'sleep':
+          return session.sleep_quality ? session.sleep_quality * 10 : null;
+        case 'energy':
+          const m = session.mood_score_detected ? session.mood_score_detected * 10 : null;
+          const a = session.anxiety_score_detected ? session.anxiety_score_detected * 10 : 50;
+          return m !== null ? Math.max(0, Math.min(100, m - (a * 0.3) + 20)) : null;
+        default:
+          return null;
+      }
+    };
+
+    const vitalKeys: MetricType[] = ['mood', 'anxiety', 'energy', 'sleep'];
+    const result: Record<string, { value: number }[]> = {};
+
+    vitalKeys.forEach(key => {
+      result[key] = filteredSessions
+        .map(s => ({ value: getMetricValue(s, key) }))
+        .filter(d => d.value !== null) as { value: number }[];
+    });
+
+    return result;
+  }, [filteredSessions]);
 
   // Calculate metrics
   const metrics = useMemo<MetricData[]>(() => {
@@ -99,7 +134,7 @@ const Analisi: React.FC = () => {
       // Vitali
       { key: 'mood' as MetricType, label: 'Umore', category: 'vitali' as const, icon: '😌', color: 'hsl(150, 60%, 45%)', average: calculateAverage(moodValues), trend: calculateTrend(moodValues), unit: '%' },
       { key: 'anxiety' as MetricType, label: 'Ansia', category: 'vitali' as const, icon: '😰', color: 'hsl(25, 80%, 55%)', average: calculateAverage(anxietyValues), trend: calculateTrend(anxietyValues), unit: '%' },
-      { key: 'energy' as MetricType, label: 'Energia', category: 'vitali' as const, icon: '🔋', color: 'hsl(45, 80%, 50%)', average: calculateAverage(energyValues), trend: calculateTrend(energyValues), unit: '%' },
+      { key: 'energy' as MetricType, label: 'Energia', category: 'vitali' as const, icon: '⚡', color: 'hsl(45, 80%, 50%)', average: calculateAverage(energyValues), trend: calculateTrend(energyValues), unit: '%' },
       { key: 'sleep' as MetricType, label: 'Sonno', category: 'vitali' as const, icon: '💤', color: 'hsl(260, 60%, 55%)', average: calculateAverage(sleepValues), trend: calculateTrend(sleepValues), unit: '%' },
       // Emozioni
       { key: 'joy' as MetricType, label: 'Gioia', category: 'emozioni' as const, icon: '😊', color: 'hsl(50, 90%, 55%)', average: calculateAverage(joyValues), trend: calculateTrend(joyValues), unit: '%' },
@@ -121,11 +156,13 @@ const Analisi: React.FC = () => {
 
   const selectedMetricData = selectedMetric ? metrics.find(m => m.key === selectedMetric) : null;
 
+  const timeRangeLabel = timeRange === 'day' ? 'Oggi' : timeRange === 'week' ? 'Questa settimana' : timeRange === 'month' ? 'Questo mese' : 'In generale';
+
   return (
     <MobileLayout>
       <header className="px-5 pt-6 pb-4">
         <h1 className="font-display text-2xl font-bold text-foreground">Analisi</h1>
-        <p className="text-muted-foreground text-sm mt-1">Centro dati e statistiche</p>
+        <p className="text-muted-foreground text-sm mt-1">La tua dashboard del benessere</p>
       </header>
 
       {/* Time Range Selector */}
@@ -133,56 +170,40 @@ const Analisi: React.FC = () => {
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
-      <div className="px-4 space-y-6 pb-8">
-        {/* Vitals Section */}
+      <div className="px-4 space-y-5 pb-8">
+        {/* Hero: Wellness Score */}
         <section className="animate-fade-in">
+          <WellnessScoreHero metrics={metrics} timeRangeLabel={timeRangeLabel} />
+        </section>
+
+        {/* Vitals Grid 2x2 */}
+        <section className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
             <span>📊</span> Parametri Vitali
           </h2>
-          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
-            {vitalMetrics.map((metric, i) => (
-              <MetricRow 
-                key={metric.key} 
-                metric={metric} 
+          <div className="grid grid-cols-2 gap-4">
+            {vitalMetrics.map((metric) => (
+              <VitalMetricCard
+                key={metric.key}
+                metric={metric}
+                chartData={chartDataByMetric[metric.key] || []}
                 onClick={() => setSelectedMetric(metric.key)}
-                isLast={i === vitalMetrics.length - 1}
               />
             ))}
           </div>
         </section>
 
-        {/* Emotions Section */}
-        <section className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
-            <span>🎭</span> Emozioni
-          </h2>
-          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
-            {emotionMetrics.map((metric, i) => (
-              <MetricRow 
-                key={metric.key} 
-                metric={metric} 
-                onClick={() => setSelectedMetric(metric.key)}
-                isLast={i === emotionMetrics.length - 1}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Life Areas Section */}
+        {/* Emotional Spectrum */}
         <section className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
-            <span>⚖️</span> Aree della Vita
-          </h2>
-          <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
-            {areaMetrics.map((metric, i) => (
-              <MetricRow 
-                key={metric.key} 
-                metric={metric} 
-                onClick={() => setSelectedMetric(metric.key)}
-                isLast={i === areaMetrics.length - 1}
-              />
-            ))}
-          </div>
+          <EmotionalSpectrumCard emotions={emotionMetrics} />
+        </section>
+
+        {/* Life Areas */}
+        <section className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <LifeAreasCard 
+            areas={areaMetrics} 
+            onClick={(key) => setSelectedMetric(key as MetricType)} 
+          />
         </section>
       </div>
 
