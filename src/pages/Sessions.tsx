@@ -121,19 +121,16 @@ const Sessions: React.FC = () => {
         </div>
       </header>
 
-      <div className="px-5 space-y-6 pb-8">
+      <div className="px-5 space-y-8 pb-8">
         {/* Thematic Notebooks Section */}
         <section className="animate-slide-up">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-semibold text-lg text-foreground">
               I Tuoi Quaderni
             </h2>
-            <span className="text-xs text-muted-foreground">
-              Persistenti ∞
-            </span>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {DIARY_THEMES.map((themeConfig) => (
               <DiaryNotebookCard
                 key={themeConfig.theme}
@@ -147,16 +144,16 @@ const Sessions: React.FC = () => {
 
         {/* Next Session Card */}
         {nextSession && (
-          <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-card animate-slide-up stagger-1">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary" />
+          <div className="bg-card rounded-3xl p-6 shadow-premium animate-slide-up stagger-1">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
               </div>
               <span className="text-xs font-medium text-primary uppercase tracking-wide">Prossima Sessione</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-foreground">
+                <h3 className="font-display font-semibold text-foreground">
                   {formatUpcomingDate(nextSession.start_time)}
                 </h3>
                 <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
@@ -185,27 +182,27 @@ const Sessions: React.FC = () => {
         <section className="space-y-4 animate-slide-up stagger-2">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-lg text-foreground">
-              Cronologia Sessioni
+              Cronologia
             </h2>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-              {journalSessions.length} {journalSessions.length === 1 ? 'voce' : 'voci'}
+            <span className="text-xs text-muted-foreground">
+              {journalSessions.length} {journalSessions.length === 1 ? 'sessione' : 'sessioni'}
             </span>
           </div>
           
           {isLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card rounded-2xl p-4 shadow-soft animate-pulse h-28" />
+                <div key={i} className="bg-card rounded-2xl p-3 shadow-premium animate-pulse h-16" />
               ))}
             </div>
           ) : journalSessions.length === 0 ? (
-            <div className="bg-card rounded-2xl p-8 shadow-card border border-border/50 text-center">
+            <div className="bg-card rounded-3xl p-8 shadow-premium text-center">
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
                 <BookOpen className="w-7 h-7 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Nessuna sessione</h3>
+              <h3 className="font-display font-semibold text-foreground mb-2">Nessuna sessione</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Le tue sessioni vocali e chat appariranno qui
+                Le tue sessioni appariranno qui
               </p>
               <Button variant="default" onClick={handleStartSession}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -213,8 +210,8 @@ const Sessions: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {journalSessions.slice(0, 5).map((session, index) => (
+            <div className="space-y-2">
+              {journalSessions.slice(0, 8).map((session, index) => (
                 <JournalEntryCard
                   key={session.id}
                   session={session}
@@ -222,10 +219,10 @@ const Sessions: React.FC = () => {
                   index={index}
                 />
               ))}
-              {journalSessions.length > 5 && (
-                <p className="text-center text-xs text-muted-foreground py-2">
-                  +{journalSessions.length - 5} altre sessioni
-                </p>
+              {journalSessions.length > 8 && (
+                <button className="w-full text-center text-xs text-primary font-medium py-3">
+                  Mostra altre {journalSessions.length - 8} sessioni
+                </button>
               )}
             </div>
           )}
