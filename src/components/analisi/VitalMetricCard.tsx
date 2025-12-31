@@ -41,29 +41,32 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
   return (
     <button
       onClick={onClick}
-      className="relative bg-card rounded-3xl shadow-premium p-4 overflow-hidden text-left transition-transform active:scale-[0.98]"
+      className="bg-card rounded-3xl shadow-premium overflow-hidden text-left transition-transform active:scale-[0.98] flex flex-col h-[140px]"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{metric.icon}</span>
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {metric.label}
-          </span>
+      {/* Top Section - Info */}
+      <div className="p-4 pb-2 flex-shrink-0">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{metric.icon}</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {metric.label}
+            </span>
+          </div>
+          <TrendIcon className={cn("w-4 h-4", trendColor)} />
         </div>
-        <TrendIcon className={cn("w-4 h-4", trendColor)} />
+
+        {/* Big Score - Flexbox layout */}
+        <div className="flex flex-row items-baseline gap-1">
+          <span className={cn("text-4xl font-bold leading-none", getScoreColor(score10))}>
+            {score10 ?? '—'}
+          </span>
+          <span className="text-sm text-muted-foreground/60">/10</span>
+        </div>
       </div>
 
-      {/* Big Score - Flexbox layout */}
-      <div className="relative z-10 flex flex-row items-baseline gap-1">
-        <span className={cn("text-5xl font-bold leading-none", getScoreColor(score10))}>
-          {score10 ?? '—'}
-        </span>
-        <span className="text-sm text-muted-foreground/60">/10</span>
-      </div>
-
-      {/* Background Chart */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 opacity-80">
+      {/* Bottom Section - Chart (pushed to bottom) */}
+      <div className="mt-auto h-14 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData.length > 0 ? chartData : [{ value: 0 }]} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
