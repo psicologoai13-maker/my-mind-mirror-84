@@ -11,6 +11,7 @@ import Chat from "./pages/Chat";
 import Analisi from "./pages/Analisi";
 import Sessions from "./pages/Sessions";
 import Profile from "./pages/Profile";
+import ClinicalArea from "./pages/ClinicalArea";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import DoctorView from "./pages/DoctorView";
@@ -118,6 +119,7 @@ const App = () => (
             <Route path="/progress" element={<Navigate to="/analisi" replace />} />
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
             <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
             <Route path="/doctor-view-patient/:patientId" element={<DoctorRoute><DoctorPatientView /></DoctorRoute>} />
             <Route path="/doctor-view/:token" element={<DoctorView />} />
