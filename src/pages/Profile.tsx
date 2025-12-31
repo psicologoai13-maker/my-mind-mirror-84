@@ -13,7 +13,8 @@ import {
   Moon,
   Globe,
   CreditCard,
-  Heart
+  Heart,
+  Stethoscope
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,18 +23,17 @@ import { useSessions } from '@/hooks/useSessions';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import ClinicalReportDialog from '@/components/profile/ClinicalReportDialog';
-import PatientConnectionCode from '@/components/profile/PatientConnectionCode';
 import LegalDisclaimer from '@/components/layout/LegalDisclaimer';
 
 const menuItems = [
-  { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo' },
-  { icon: Bell, label: 'Notifiche', description: 'Gestisci le tue preferenze' },
-  { icon: Moon, label: 'Aspetto', description: 'Tema e accessibilità' },
-  { icon: Globe, label: 'Lingua', description: 'Italiano' },
-  { icon: Shield, label: 'Privacy', description: 'Dati e sicurezza' },
-  { icon: CreditCard, label: 'Abbonamento', description: 'Piano gratuito' },
-  { icon: HelpCircle, label: 'Aiuto', description: 'FAQ e supporto' },
+  { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo', action: null },
+  { icon: Bell, label: 'Notifiche', description: 'Gestisci le tue preferenze', action: null },
+  { icon: Moon, label: 'Aspetto', description: 'Tema e accessibilità', action: null },
+  { icon: Globe, label: 'Lingua', description: 'Italiano', action: null },
+  { icon: Shield, label: 'Privacy', description: 'Dati e sicurezza', action: null },
+  { icon: CreditCard, label: 'Abbonamento', description: 'Piano gratuito', action: null },
+  { icon: Stethoscope, label: 'Area Terapeutica', description: 'Condivisione dati clinici', action: '/profile/clinical' },
+  { icon: HelpCircle, label: 'Aiuto', description: 'FAQ e supporto', action: null },
 ];
 
 const Profile: React.FC = () => {
@@ -171,13 +171,24 @@ const Profile: React.FC = () => {
             return (
               <button
                 key={item.label}
+                onClick={() => item.action && navigate(item.action)}
                 className={cn(
                   "w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors",
                   index !== menuItems.length - 1 && "border-b border-border"
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-foreground" />
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center",
+                  item.action === '/profile/clinical' 
+                    ? "bg-emerald-100 dark:bg-emerald-900/30" 
+                    : "bg-muted"
+                )}>
+                  <Icon className={cn(
+                    "w-5 h-5",
+                    item.action === '/profile/clinical' 
+                      ? "text-emerald-600 dark:text-emerald-400" 
+                      : "text-foreground"
+                  )} />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-medium text-foreground">{item.label}</p>
@@ -187,21 +198,6 @@ const Profile: React.FC = () => {
               </button>
             );
           })}
-        </div>
-
-        {/* Clinical Report */}
-        <div className="animate-slide-up stagger-5">
-          <ClinicalReportDialog />
-        </div>
-
-        {/* Patient Connection Code for Doctor */}
-        <div className="animate-slide-up stagger-5">
-          <PatientConnectionCode />
-        </div>
-
-        {/* Legal Disclaimer */}
-        <div className="animate-slide-up stagger-5">
-          <LegalDisclaimer variant="full" />
         </div>
 
         {/* Logout */}
