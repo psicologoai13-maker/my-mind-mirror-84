@@ -39,6 +39,30 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
     return { TrendIcon, colorClass };
   };
 
+  // Get qualitative label based on score and emotion type
+  const getQualitativeLabel = (score: number, emotionKey: string) => {
+    const isNegative = NEGATIVE_EMOTIONS.includes(emotionKey);
+    
+    if (isNegative) {
+      // For negative emotions: low = good, high = bad
+      if (score <= 3) return { label: 'Basso', colorClass: 'text-emerald-600' };
+      if (score <= 7) return { label: 'Moderato', colorClass: 'text-amber-600' };
+      return { label: 'Intenso', colorClass: 'text-orange-600' };
+    } else {
+      // For positive emotions: low = not great, high = good
+      if (score <= 3) return { label: 'Basso', colorClass: 'text-orange-600' };
+      if (score <= 7) return { label: 'Moderato', colorClass: 'text-amber-600' };
+      return { label: 'Intenso', colorClass: 'text-emerald-600' };
+    }
+  };
+
+  // Format score as integer
+  const formatScore = (rawScore: number) => {
+    const score = Math.round(rawScore);
+    if (rawScore > 0 && rawScore < 1) return '< 1';
+    return score.toString();
+  };
+
   if (activeEmotions.length === 0) {
     return (
       <div className="bg-card rounded-3xl shadow-premium p-6">
@@ -64,10 +88,12 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
         {activeEmotions.map(emotion => {
           // Convert from 0-100 scale to 0-10 scale
           const score10 = (emotion.average ?? 0) / 10;
+          const roundedScore = Math.round(score10);
           // Bar width based on 0-10 scale (score/10 * 100%)
           const barWidth = Math.min(score10 * 10, 100);
           const bgColorClass = EMOTION_COLORS[emotion.key] || 'bg-gray-400';
           const { TrendIcon, colorClass } = getTrendDisplay(emotion);
+          const qualitative = getQualitativeLabel(roundedScore, emotion.key);
 
           return (
             <div key={emotion.key}>
@@ -78,7 +104,10 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
                   <span className="text-sm font-medium text-foreground">{emotion.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">{score10.toFixed(1)}</span>
+                  <span className="text-sm font-bold text-foreground">{formatScore(score10)}</span>
+                  <span className={cn("text-xs font-medium", qualitative.colorClass)}>
+                    {qualitative.label}
+                  </span>
                   <TrendIcon className={cn("w-3.5 h-3.5", colorClass)} />
                 </div>
               </div>
