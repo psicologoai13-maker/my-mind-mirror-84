@@ -54,12 +54,12 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
         <TrendIcon className={cn("w-4 h-4", trendColor)} />
       </div>
 
-      {/* Big Score */}
-      <div className="relative z-10">
-        <span className={cn("text-4xl font-bold", getScoreColor(score10))}>
+      {/* Big Score - Flexbox layout */}
+      <div className="relative z-10 flex flex-row items-baseline gap-1">
+        <span className={cn("text-5xl font-bold leading-none", getScoreColor(score10))}>
           {score10 ?? '—'}
         </span>
-        <span className="text-sm text-muted-foreground ml-1">/10</span>
+        <span className="text-sm text-muted-foreground/60">/10</span>
       </div>
 
       {/* Background Chart */}
