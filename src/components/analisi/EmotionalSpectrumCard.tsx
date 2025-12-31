@@ -1,5 +1,7 @@
 import React from 'react';
 import { MetricData } from '@/pages/Analisi';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EmotionalSpectrumCardProps {
   emotions: MetricData[];
@@ -13,14 +15,29 @@ const EMOTION_COLORS: Record<string, string> = {
   apathy: 'bg-gray-400',
 };
 
+// Negative emotions where lower = better
+const NEGATIVE_EMOTIONS = ['sadness', 'anger', 'fear', 'apathy'];
+
 const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions }) => {
-  // Filter emotions with data and sort by value
+  // Filter emotions with data and sort by value (scale 0-100 -> 0-10)
   const activeEmotions = emotions
     .filter(e => e.average !== null && e.average > 0)
     .sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
 
-  // Get max value for relative bar widths
-  const maxValue = Math.max(...activeEmotions.map(e => e.average ?? 0), 1);
+  // Get trend icon and color based on whether emotion is negative
+  const getTrendDisplay = (emotion: MetricData) => {
+    const isNegative = NEGATIVE_EMOTIONS.includes(emotion.key);
+    const TrendIcon = emotion.trend === 'up' ? TrendingUp : emotion.trend === 'down' ? TrendingDown : Minus;
+    
+    let colorClass = 'text-muted-foreground';
+    if (emotion.trend === 'up') {
+      colorClass = isNegative ? 'text-orange-500' : 'text-emerald-500';
+    } else if (emotion.trend === 'down') {
+      colorClass = isNegative ? 'text-emerald-500' : 'text-orange-500';
+    }
+    
+    return { TrendIcon, colorClass };
+  };
 
   if (activeEmotions.length === 0) {
     return (
@@ -45,9 +62,12 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
 
       <div className="space-y-4">
         {activeEmotions.map(emotion => {
-          const percentage = Math.round((emotion.average ?? 0));
-          const barWidth = ((emotion.average ?? 0) / maxValue) * 100;
+          // Convert from 0-100 scale to 0-10 scale
+          const score10 = (emotion.average ?? 0) / 10;
+          // Bar width based on 0-10 scale (score/10 * 100%)
+          const barWidth = Math.min(score10 * 10, 100);
           const bgColorClass = EMOTION_COLORS[emotion.key] || 'bg-gray-400';
+          const { TrendIcon, colorClass } = getTrendDisplay(emotion);
 
           return (
             <div key={emotion.key}>
@@ -57,7 +77,10 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
                   <span className="text-sm">{emotion.icon}</span>
                   <span className="text-sm font-medium text-foreground">{emotion.label}</span>
                 </div>
-                <span className="text-sm font-bold text-foreground">{percentage}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{score10.toFixed(1)}</span>
+                  <TrendIcon className={cn("w-3.5 h-3.5", colorClass)} />
+                </div>
               </div>
               
               {/* Progress Bar */}
