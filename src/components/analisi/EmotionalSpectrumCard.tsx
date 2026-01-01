@@ -15,8 +15,10 @@ const EMOTION_COLORS: Record<string, string> = {
   apathy: 'bg-gray-400',
 };
 
-// Negative emotions where lower = better
+// Negative emotions where lower = better (having less is good)
 const NEGATIVE_EMOTIONS = ['sadness', 'anger', 'fear', 'apathy'];
+// Positive emotions where higher = better (having more is good)
+const POSITIVE_EMOTIONS = ['joy'];
 
 const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions }) => {
   // Filter emotions with data and sort by value (scale 0-100 -> 0-10)
@@ -39,20 +41,22 @@ const EmotionalSpectrumCard: React.FC<EmotionalSpectrumCardProps> = ({ emotions 
     return { TrendIcon, colorClass };
   };
 
-  // Get qualitative label based on score and emotion type
+  // SEMANTIC INVERSE LOGIC: Get qualitative label based on score and emotion type
   const getQualitativeLabel = (score: number, emotionKey: string) => {
     const isNegative = NEGATIVE_EMOTIONS.includes(emotionKey);
     
     if (isNegative) {
-      // For negative emotions: low = good, high = bad
-      if (score <= 3) return { label: 'Basso', colorClass: 'text-emerald-600' };
-      if (score <= 7) return { label: 'Moderato', colorClass: 'text-amber-600' };
-      return { label: 'Intenso', colorClass: 'text-orange-600' };
+      // For NEGATIVE emotions (Tristezza, Rabbia, Paura, Apatia):
+      // Low score = GOOD (less of bad emotion)
+      if (score <= 2) return { label: 'Ottimo', colorClass: 'text-emerald-600' };
+      if (score <= 5) return { label: 'Gestibile', colorClass: 'text-amber-600' };
+      return { label: 'Intensa', colorClass: 'text-orange-600' };
     } else {
-      // For positive emotions: low = not great, high = good
-      if (score <= 3) return { label: 'Basso', colorClass: 'text-orange-600' };
-      if (score <= 7) return { label: 'Moderato', colorClass: 'text-amber-600' };
-      return { label: 'Intenso', colorClass: 'text-emerald-600' };
+      // For POSITIVE emotions (Gioia):
+      // Low score = BAD (not enough positive emotion)
+      if (score <= 3) return { label: 'Bassa', colorClass: 'text-muted-foreground' };
+      if (score <= 7) return { label: 'Buona', colorClass: 'text-amber-500' };
+      return { label: 'Ottima', colorClass: 'text-emerald-600' };
     }
   };
 
