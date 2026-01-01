@@ -68,7 +68,7 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
       {/* Bottom Section - Chart (pushed to bottom) */}
       <div className="mt-auto h-14 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData.length > 0 ? chartData : [{ value: 0 }]} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData.length > 0 ? chartData : [{ value: 0 }]} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={metric.color} stopOpacity={0.4} />
@@ -82,6 +82,8 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
               strokeWidth={2}
               fill={`url(#${gradientId})`}
               isAnimationActive={false}
+              connectNulls
+              dot={chartData.length <= 2 ? { r: 4, fill: metric.color, strokeWidth: 0 } : false}
             />
           </AreaChart>
         </ResponsiveContainer>

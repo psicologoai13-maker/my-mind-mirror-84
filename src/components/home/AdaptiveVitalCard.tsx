@@ -107,6 +107,9 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   
   const fillColor = config.getColor(value);
   
+  // Convert 0-100 scale to 0-10 scale for display
+  const displayValue = (value / 10).toFixed(1);
+  
   const data = [
     { name: 'value', value: value, fill: fillColor },
   ];
@@ -141,14 +144,17 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
                 />
               </RadialBarChart>
             </ResponsiveContainer>
-            {/* Center value */}
+            {/* Center value - shows X.X/10 format */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span 
-                className="font-semibold text-xl"
-                style={{ color: fillColor }}
-              >
-                {value}
-              </span>
+              <div className="flex items-baseline gap-0.5">
+                <span 
+                  className="font-semibold text-lg"
+                  style={{ color: fillColor }}
+                >
+                  {displayValue}
+                </span>
+                <span className="text-[10px] text-muted-foreground">/10</span>
+              </div>
             </div>
           </div>
         </div>
