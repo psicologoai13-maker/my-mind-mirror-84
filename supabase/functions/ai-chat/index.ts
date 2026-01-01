@@ -6,6 +6,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Emotional Evaluation Rubric - added to prompts for accurate detection
+const EMOTIONAL_RUBRIC = `
+RUBRICA DI VALUTAZIONE EMOTIVA (OBBLIGATORIA):
+Quando analizzi l'input dell'utente, DEVI assegnare mentalmente un punteggio (1-10) a queste 5 DIMENSIONI:
+
+- TRISTEZZA: 
+  1-3: Malinconia passeggera, leggera nostalgia.
+  4-7: Umore deflesso persistente, pianto occasionale.
+  8-10: Disperazione profonda, pianto frequente, pensieri oscuri.
+
+- GIOIA: 
+  1-3: Leggera soddisfazione, contentezza.
+  4-7: Felicità evidente, sorrisi, riso.
+  8-10: Euforia, entusiasmo incontenibile, eccitazione.
+
+- RABBIA: 
+  1-3: Irritazione lieve, fastidio.
+  4-7: Frustrazione evidente, risentimento.
+  8-10: Furia intensa, voglia di rompere oggetti, urla.
+
+- PAURA/ANSIA: 
+  1-3: Preoccupazione lieve, nervosismo.
+  4-7: Agitazione fisica evidente, insonnia.
+  8-10: Panico, terrore, blocco fisico, attacchi di paura.
+
+- APATIA: 
+  1-3: Noia, mancanza di interesse momentanea.
+  4-7: Distacco emotivo, difficoltà a provare piacere.
+  8-10: Totale distacco emotivo, anedonia (nulla ha senso), svuotamento.
+
+ISTRUZIONE CRITICA: Se l'utente NON esprime esplicitamente un'emozione, mantieni il valore precedente o assegna 0. NON inventare emozioni. Cerca parole chiave e analizza il tono del messaggio.
+`;
+
 // Build AGGRESSIVE system prompt with identity and memory
 function buildAggressiveSystemPrompt(userName: string | null, memory: string[], missingLifeAreas: string[]): string {
   const name = userName?.split(' ')[0] || null;
@@ -53,6 +86,8 @@ ISTRUZIONI MEMORIA (CRITICHE):
 2. Agisci come se conoscessi l'utente da anni. Usa le informazioni sopra per personalizzare OGNI risposta.
 3. Se la memoria dice qualcosa (es. "si è lasciato con la ragazza"), e lui dice "sono triste", TU SAI GIÀ PERCHÉ.
 4. Fai riferimenti NATURALI al passato: "Come sta andando la situazione con [tema dalla memoria]?"
+
+${EMOTIONAL_RUBRIC}
 
 IL TUO METODO TERAPEUTICO:
 
