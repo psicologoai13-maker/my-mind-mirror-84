@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useSessions } from '@/hooks/useSessions';
 import { useCheckins } from '@/hooks/useCheckins';
-import { subDays, isAfter, startOfDay, format } from 'date-fns';
+import { subDays, isAfter, startOfDay, format, isSameDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
@@ -30,7 +30,7 @@ const Analisi: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
   
   const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+  const { weeklyCheckins, todayCheckin } = useCheckins();
 
   // Calculate date range
   const dateRange = useMemo(() => {
@@ -55,38 +55,87 @@ const Analisi: React.FC = () => {
     );
   }, [completedSessions, dateRange]);
 
-  // Generate chart data for each vital metric
-  const chartDataByMetric = useMemo(() => {
-    const getMetricValue = (session: any, key: MetricType): number | null => {
-      switch (key) {
-        case 'mood':
-          return session.mood_score_detected ? session.mood_score_detected * 10 : null;
-        case 'anxiety':
-          return session.anxiety_score_detected ? session.anxiety_score_detected * 10 : null;
-        case 'sleep':
-          return session.sleep_quality ? session.sleep_quality * 10 : null;
-        case 'energy':
-          const m = session.mood_score_detected ? session.mood_score_detected * 10 : null;
-          const a = session.anxiety_score_detected ? session.anxiety_score_detected * 10 : 50;
-          return m !== null ? Math.max(0, Math.min(100, m - (a * 0.3) + 20)) : null;
-        default:
-          return null;
-      }
-    };
+  // Filter checkins by date range
+  const filteredCheckins = useMemo(() => {
+    if (!weeklyCheckins) return [];
+    return weeklyCheckins.filter(c => 
+      isAfter(new Date(c.created_at), dateRange.start)
+    );
+  }, [weeklyCheckins, dateRange]);
 
+  // For 'day' view, use today's specific checkin if available
+  const dayMoodValue = useMemo(() => {
+    if (timeRange !== 'day' || !todayCheckin) return null;
+    // Convert 1-5 scale to 0-100
+    return (todayCheckin.mood_value / 5) * 100;
+  }, [timeRange, todayCheckin]);
+
+  // Generate chart data for each vital metric - combining sessions AND checkins
+  const chartDataByMetric = useMemo(() => {
     const vitalKeys: MetricType[] = ['mood', 'anxiety', 'energy', 'sleep'];
-    const result: Record<string, { value: number }[]> = {};
+    const result: Record<string, { value: number; date?: string }[]> = {};
 
     vitalKeys.forEach(key => {
-      result[key] = filteredSessions
-        .map(s => ({ value: getMetricValue(s, key) }))
-        .filter(d => d.value !== null) as { value: number }[];
+      const dataPoints: { value: number; date?: string }[] = [];
+      
+      // Add data from checkins (for mood primarily)
+      if (key === 'mood' && filteredCheckins.length > 0) {
+        filteredCheckins.forEach(c => {
+          // Convert 1-5 scale to 0-100
+          dataPoints.push({ 
+            value: (c.mood_value / 5) * 100,
+            date: format(new Date(c.created_at), 'dd/MM')
+          });
+        });
+      }
+      
+      // Add data from sessions
+      filteredSessions.forEach(s => {
+        let value: number | null = null;
+        switch (key) {
+          case 'mood':
+            // Only add if no checkin for that day
+            if (s.mood_score_detected) {
+              const sessionDate = new Date(s.start_time);
+              const hasCheckinForDay = filteredCheckins.some(c => 
+                isSameDay(new Date(c.created_at), sessionDate)
+              );
+              if (!hasCheckinForDay) {
+                value = s.mood_score_detected * 10;
+              }
+            }
+            break;
+          case 'anxiety':
+            if (s.anxiety_score_detected) value = s.anxiety_score_detected * 10;
+            break;
+          case 'sleep':
+            if ((s as any).sleep_quality) value = (s as any).sleep_quality * 10;
+            break;
+          case 'energy':
+            const m = s.mood_score_detected ? s.mood_score_detected * 10 : null;
+            const a = s.anxiety_score_detected ? s.anxiety_score_detected * 10 : 50;
+            if (m !== null) value = Math.max(0, Math.min(100, m - (a * 0.3) + 20));
+            break;
+        }
+        if (value !== null) {
+          dataPoints.push({ 
+            value,
+            date: format(new Date(s.start_time), 'dd/MM')
+          });
+        }
+      });
+      
+      // Sort by date and dedupe
+      result[key] = dataPoints.sort((a, b) => {
+        if (!a.date || !b.date) return 0;
+        return a.date.localeCompare(b.date);
+      });
     });
 
     return result;
-  }, [filteredSessions]);
+  }, [filteredSessions, filteredCheckins]);
 
-  // Calculate metrics
+  // Calculate metrics - using both sessions AND checkins as single source of truth
   const metrics = useMemo<MetricData[]>(() => {
     const calculateAverage = (values: (number | null | undefined)[]) => {
       const valid = values.filter((v): v is number => v !== null && v !== undefined);
@@ -107,14 +156,38 @@ const Analisi: React.FC = () => {
       return 'stable';
     };
 
-    // Vitals
-    const moodValues = filteredSessions.map(s => s.mood_score_detected ? s.mood_score_detected * 10 : null);
+    // Mood: prioritize checkins, then use sessions
+    const moodValues: number[] = [];
+    
+    // For 'day' view, use only today's value if available
+    if (timeRange === 'day' && dayMoodValue !== null) {
+      moodValues.push(dayMoodValue);
+    } else {
+      // Add checkin values (convert 1-5 to 0-100)
+      filteredCheckins.forEach(c => {
+        moodValues.push((c.mood_value / 5) * 100);
+      });
+      
+      // Add session values only if no checkin for that day
+      filteredSessions.forEach(s => {
+        if (s.mood_score_detected) {
+          const sessionDate = new Date(s.start_time);
+          const hasCheckinForDay = filteredCheckins.some(c => 
+            isSameDay(new Date(c.created_at), sessionDate)
+          );
+          if (!hasCheckinForDay) {
+            moodValues.push(s.mood_score_detected * 10);
+          }
+        }
+      });
+    }
+
     const anxietyValues = filteredSessions.map(s => s.anxiety_score_detected ? s.anxiety_score_detected * 10 : null);
     const sleepValues = filteredSessions.map(s => (s as any).sleep_quality ? (s as any).sleep_quality * 10 : null);
     const energyValues = moodValues.map((m, i) => {
       if (m === null) return null;
       const a = anxietyValues[i] ?? 50;
-      return Math.max(0, Math.min(100, m - (a * 0.3) + 20));
+      return Math.max(0, Math.min(100, m - ((a ?? 50) * 0.3) + 20));
     });
 
     // Emotions from specific_emotions
@@ -148,7 +221,7 @@ const Analisi: React.FC = () => {
       { key: 'friendship' as MetricType, label: 'Amicizia', category: 'aree' as const, icon: '🤝', color: 'hsl(200, 70%, 50%)', average: calculateAverage(friendshipValues), trend: calculateTrend(friendshipValues), unit: '/10' },
       { key: 'wellness' as MetricType, label: 'Benessere', category: 'aree' as const, icon: '🧘', color: 'hsl(150, 60%, 45%)', average: calculateAverage(wellnessValues), trend: calculateTrend(wellnessValues), unit: '/10' },
     ];
-  }, [filteredSessions]);
+  }, [filteredSessions, filteredCheckins, timeRange, dayMoodValue]);
 
   const vitalMetrics = metrics.filter(m => m.category === 'vitali');
   const emotionMetrics = metrics.filter(m => m.category === 'emozioni');
