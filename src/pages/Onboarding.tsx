@@ -6,12 +6,13 @@ import EmojiSlider from '@/components/onboarding/EmojiSlider';
 import AnalyzingScreen from '@/components/onboarding/AnalyzingScreen';
 import ResultScreen from '@/components/onboarding/ResultScreen';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Brain, Moon, Heart, Zap } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 
 interface OnboardingAnswers {
   goal: string | null;
+  primaryGoal: string | null;
   mood: number;
   sleepIssues: string | null;
 }
@@ -23,13 +24,21 @@ const goalOptions = [
   { id: 'mood', label: 'Migliorare l\'umore', emoji: '☀️', description: 'Sentirsi più positivi' },
 ];
 
+// Primary goals for the new step (maps to selected_goals in DB)
+const primaryGoalOptions = [
+  { id: 'reduce_anxiety', label: 'Ridurre l\'Ansia', emoji: '🧠', description: 'Meno stress e preoccupazioni quotidiane' },
+  { id: 'improve_sleep', label: 'Dormire Meglio', emoji: '🌙', description: 'Notti più riposanti e rigeneranti' },
+  { id: 'find_love', label: 'Migliorare Relazioni', emoji: '💕', description: 'Connessioni più profonde con gli altri' },
+  { id: 'boost_energy', label: 'Aumentare Energia', emoji: '⚡', description: 'Più vitalità durante la giornata' },
+];
+
 const sleepOptions = [
   { id: 'yes', label: 'Sì, spesso', emoji: '😔' },
   { id: 'sometimes', label: 'A volte', emoji: '😕' },
   { id: 'no', label: 'No, dormo bene', emoji: '😊' },
 ];
 
-type Step = 'goal' | 'mood' | 'sleep' | 'analyzing' | 'result';
+type Step = 'goal' | 'primaryGoal' | 'mood' | 'sleep' | 'analyzing' | 'result';
 
 // Map onboarding goals to dashboard metrics
 const getPersonalizedMetrics = (answers: OnboardingAnswers): string[] => {
@@ -90,13 +99,14 @@ const Onboarding: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('goal');
   const [answers, setAnswers] = useState<OnboardingAnswers>({
     goal: null,
+    primaryGoal: null,
     mood: 2,
     sleepIssues: null,
   });
 
-  const stepOrder: Step[] = ['goal', 'mood', 'sleep', 'analyzing', 'result'];
+  const stepOrder: Step[] = ['goal', 'primaryGoal', 'mood', 'sleep', 'analyzing', 'result'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 3;
+  const quizSteps = 4;
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -116,6 +126,8 @@ const Onboarding: React.FC = () => {
     switch (currentStep) {
       case 'goal':
         return answers.goal !== null;
+      case 'primaryGoal':
+        return answers.primaryGoal !== null;
       case 'mood':
         return true;
       case 'sleep':
@@ -130,10 +142,14 @@ const Onboarding: React.FC = () => {
       // Calculate personalized metrics based on answers
       const personalizedMetrics = getPersonalizedMetrics(answers);
       
+      // Map primary goal to selected_goals array
+      const selectedGoals = answers.primaryGoal ? [answers.primaryGoal] : [];
+      
       await updateProfile.mutateAsync({
         onboarding_completed: true,
         onboarding_answers: answers,
         active_dashboard_metrics: personalizedMetrics,
+        selected_goals: selectedGoals,
       } as any);
       
       toast.success('Profilo personalizzato!');
@@ -171,11 +187,21 @@ const Onboarding: React.FC = () => {
       {/* Step Content */}
       {currentStep === 'goal' && (
         <QuizStep
-          title="Qual è il tuo obiettivo principale?"
+          title="Cosa ti ha portato qui?"
           subtitle="Scegli quello che ti sta più a cuore"
           options={goalOptions}
           selectedValue={answers.goal}
           onSelect={(value) => setAnswers(prev => ({ ...prev, goal: value }))}
+        />
+      )}
+
+      {currentStep === 'primaryGoal' && (
+        <QuizStep
+          title="Qual è il tuo traguardo principale?"
+          subtitle="Questo obiettivo guiderà il tuo percorso"
+          options={primaryGoalOptions}
+          selectedValue={answers.primaryGoal}
+          onSelect={(value) => setAnswers(prev => ({ ...prev, primaryGoal: value }))}
         />
       )}
 

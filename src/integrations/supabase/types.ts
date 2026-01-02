@@ -236,6 +236,7 @@ export type Database = {
           name: string | null
           onboarding_answers: Json | null
           onboarding_completed: boolean | null
+          selected_goals: string[] | null
           user_id: string
           wellness_score: number | null
         }
@@ -250,6 +251,7 @@ export type Database = {
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          selected_goals?: string[] | null
           user_id: string
           wellness_score?: number | null
         }
@@ -264,6 +266,7 @@ export type Database = {
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          selected_goals?: string[] | null
           user_id?: string
           wellness_score?: number | null
         }
