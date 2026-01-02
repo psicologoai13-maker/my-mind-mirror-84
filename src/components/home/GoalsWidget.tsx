@@ -1,10 +1,19 @@
-import React from 'react';
-import { Target, Moon, Heart, Zap, Brain, Check, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { Target, Moon, Heart, Zap, Brain, Check, TrendingUp, Settings2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessions } from '@/hooks/useSessions';
 import { useCheckins } from '@/hooks/useCheckins';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface GoalConfig {
   id: string;
@@ -71,27 +80,30 @@ const goalConfigs: GoalConfig[] = [
 ];
 
 const GoalsWidget: React.FC = () => {
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const { sessions } = useSessions();
   const { weeklyCheckins } = useCheckins();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Get selected goals from profile
   const selectedGoals = (profile?.selected_goals as string[]) || [];
-  
-  if (selectedGoals.length === 0) {
-    return null;
-  }
-
-  // Get primary goal (first one)
   const primaryGoalId = selectedGoals[0];
-  const goalConfig = goalConfigs.find(g => g.id === primaryGoalId);
+  const goalConfig = primaryGoalId ? goalConfigs.find(g => g.id === primaryGoalId) : null;
 
-  if (!goalConfig) {
-    return null;
-  }
+  const handleSelectGoal = async (goalId: string) => {
+    try {
+      await updateProfile.mutateAsync({ selected_goals: [goalId] });
+      setIsDialogOpen(false);
+      toast.success('Obiettivo impostato!');
+    } catch (error) {
+      toast.error('Errore nel salvataggio');
+    }
+  };
 
   // Calculate weekly average based on metric
   const calculateProgress = (): { average: number; progress: number; isOnTrack: boolean } => {
+    if (!goalConfig) return { average: 0, progress: 0, isOnTrack: false };
+    
     let values: number[] = [];
     const lastWeekSessions = sessions?.filter(s => {
       const sessionDate = new Date(s.start_time);
@@ -112,11 +124,9 @@ const GoalsWidget: React.FC = () => {
           .filter((v): v is number => v !== null && v !== undefined);
         break;
       case 'mood':
-        // Use checkins for mood
         values = weeklyCheckins
-          ?.map(c => c.mood_value * 2) // Scale 1-5 to 2-10
+          ?.map(c => c.mood_value * 2)
           .filter((v): v is number => v !== null && v !== undefined) || [];
-        // Also add session mood scores
         const sessionMoods = lastWeekSessions
           .map(s => s.mood_score_detected)
           .filter((v): v is number => v !== null && v !== undefined);
@@ -152,12 +162,9 @@ const GoalsWidget: React.FC = () => {
     let isOnTrack: boolean;
 
     if (goalConfig.targetCondition === 'below') {
-      // For anxiety: lower is better
       isOnTrack = average <= goalConfig.targetValue;
-      // Progress: if target is 5, and we're at 3, progress = 100%. At 7, progress = 30%
       progress = Math.max(0, Math.min(100, ((10 - average) / (10 - goalConfig.targetValue)) * 100));
     } else {
-      // For sleep/energy/mood: higher is better
       isOnTrack = average >= goalConfig.targetValue;
       progress = Math.max(0, Math.min(100, (average / goalConfig.targetValue) * 100));
     }
@@ -166,70 +173,146 @@ const GoalsWidget: React.FC = () => {
   };
 
   const { average, progress, isOnTrack } = calculateProgress();
+
+  // Goal Selection Dialog
+  const GoalSelectionDialog = (
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogContent className="max-w-sm mx-auto rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">Scegli il tuo obiettivo</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Su cosa vorresti concentrarti?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 mt-4">
+          {goalConfigs.map((goal) => {
+            const GoalIcon = goal.icon;
+            return (
+              <button
+                key={goal.id}
+                onClick={() => handleSelectGoal(goal.id)}
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-2xl text-left transition-all",
+                  "bg-muted/50 hover:bg-muted hover:scale-[1.02] active:scale-[0.98]"
+                )}
+              >
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", goal.bgColor)}>
+                  <GoalIcon className={cn("w-6 h-6", goal.color)} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{goal.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {goal.targetCondition === 'below' 
+                      ? `Obiettivo: < ${goal.targetValue}/10`
+                      : `Obiettivo: > ${goal.targetValue}/10`
+                    }
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Empty State - No goal selected
+  if (!goalConfig) {
+    return (
+      <>
+        {GoalSelectionDialog}
+        <div className="bg-card rounded-3xl p-6 shadow-premium">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-muted">
+              <Target className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground font-medium">Traguardi</p>
+              <h3 className="text-base font-semibold text-foreground">Nessun obiettivo impostato</h3>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Scegli un focus per permettermi di aiutarti meglio.
+          </p>
+          <Button 
+            onClick={() => setIsDialogOpen(true)}
+            className="w-full rounded-2xl gap-2"
+          >
+            <Settings2 className="w-4 h-4" />
+            Imposta Obiettivo
+          </Button>
+        </div>
+      </>
+    );
+  }
+
   const Icon = goalConfig.icon;
 
   return (
-    <div className="bg-card rounded-3xl p-6 shadow-premium">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className={cn(
-          "w-11 h-11 rounded-2xl flex items-center justify-center",
-          goalConfig.bgColor
-        )}>
-          <Icon className={cn("w-5 h-5", goalConfig.color)} />
-        </div>
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground font-medium">Il tuo obiettivo</p>
-          <h3 className="text-base font-semibold text-foreground">{goalConfig.label}</h3>
-        </div>
-        {average > 0 && (
+    <>
+      {GoalSelectionDialog}
+      <div className="bg-card rounded-3xl p-6 shadow-premium">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
           <div className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5",
-            isOnTrack 
-              ? "bg-emerald-100 text-emerald-700" 
-              : "bg-amber-100 text-amber-700"
+            "w-11 h-11 rounded-2xl flex items-center justify-center",
+            goalConfig.bgColor
           )}>
-            {isOnTrack ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                In linea
-              </>
-            ) : (
-              <>
-                <TrendingUp className="w-3.5 h-3.5" />
-                Continua così
-              </>
-            )}
+            <Icon className={cn("w-5 h-5", goalConfig.color)} />
           </div>
-        )}
-      </div>
-
-      {/* Progress Bar */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Progresso settimanale</span>
-          <span className="font-medium text-foreground">{progress}%</span>
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground font-medium">Il tuo obiettivo</p>
+            <h3 className="text-base font-semibold text-foreground">{goalConfig.label}</h3>
+          </div>
+          {average > 0 && (
+            <div className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5",
+              isOnTrack 
+                ? "bg-emerald-100 text-emerald-700" 
+                : "bg-amber-100 text-amber-700"
+            )}>
+              {isOnTrack ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  In linea
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Continua così
+                </>
+              )}
+            </div>
+          )}
         </div>
-        <Progress 
-          value={progress} 
-          className="h-3 bg-muted"
-        />
-        {average > 0 && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Media ultimi 7 giorni: <span className="font-medium text-foreground">{average}/10</span>
-            {goalConfig.targetCondition === 'below' 
-              ? ` (obiettivo: < ${goalConfig.targetValue})`
-              : ` (obiettivo: > ${goalConfig.targetValue})`
-            }
-          </p>
-        )}
-        {average === 0 && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Inizia a registrare i tuoi dati per vedere i progressi 💪
-          </p>
-        )}
+
+        {/* Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Progresso settimanale</span>
+            <span className="font-medium text-foreground">{progress}%</span>
+          </div>
+          <Progress 
+            value={progress} 
+            className="h-3 bg-muted"
+          />
+          {average > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Media ultimi 7 giorni: <span className="font-medium text-foreground">{average}/10</span>
+              {goalConfig.targetCondition === 'below' 
+                ? ` (obiettivo: < ${goalConfig.targetValue})`
+                : ` (obiettivo: > ${goalConfig.targetValue})`
+              }
+            </p>
+          )}
+          {average === 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Inizia a registrare i tuoi dati per vedere i progressi 💪
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
