@@ -15,6 +15,7 @@ export interface UserProfile {
   active_dashboard_metrics?: string[] | null;
   onboarding_completed?: boolean;
   onboarding_answers?: Record<string, any> | null;
+  selected_goals?: string[] | null;
 }
 
 export const useProfile = () => {

@@ -3,6 +3,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
+import GoalsWidget from '@/components/home/GoalsWidget';
 import { Bell, Smile, Brain, Zap, Moon, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -195,7 +196,12 @@ const Index: React.FC = () => {
           <AdaptiveVitalsSection />
         </div>
 
-        {/* Block 2: Life Radar & Emotional Mix */}
+        {/* Block 2: Goals Widget */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.25s' }}>
+          <GoalsWidget />
+        </div>
+
+        {/* Block 3: Life Radar & Emotional Mix */}
         <div className="grid grid-cols-1 gap-5 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <LifeBalanceRadar />
           <EmotionalMixBar />
