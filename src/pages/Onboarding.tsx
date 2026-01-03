@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 interface OnboardingAnswers {
   goal: string | null;
-  primaryGoal: string | null;
+  primaryGoals: string[];
   mood: number;
   sleepIssues: string | null;
 }
@@ -99,7 +99,7 @@ const Onboarding: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('goal');
   const [answers, setAnswers] = useState<OnboardingAnswers>({
     goal: null,
-    primaryGoal: null,
+    primaryGoals: [],
     mood: 2,
     sleepIssues: null,
   });
@@ -127,7 +127,7 @@ const Onboarding: React.FC = () => {
       case 'goal':
         return answers.goal !== null;
       case 'primaryGoal':
-        return answers.primaryGoal !== null;
+        return answers.primaryGoals.length > 0;
       case 'mood':
         return true;
       case 'sleep':
@@ -142,14 +142,11 @@ const Onboarding: React.FC = () => {
       // Calculate personalized metrics based on answers
       const personalizedMetrics = getPersonalizedMetrics(answers);
       
-      // Map primary goal to selected_goals array
-      const selectedGoals = answers.primaryGoal ? [answers.primaryGoal] : [];
-      
       await updateProfile.mutateAsync({
         onboarding_completed: true,
         onboarding_answers: answers,
         active_dashboard_metrics: personalizedMetrics,
-        selected_goals: selectedGoals,
+        selected_goals: answers.primaryGoals,
       } as any);
       
       toast.success('Profilo personalizzato!');
@@ -197,11 +194,14 @@ const Onboarding: React.FC = () => {
 
       {currentStep === 'primaryGoal' && (
         <QuizStep
-          title="Qual è il tuo traguardo principale?"
-          subtitle="Questo obiettivo guiderà il tuo percorso"
+          title="Quali sono i tuoi traguardi?"
+          subtitle="Puoi selezionarne più di uno"
           options={primaryGoalOptions}
-          selectedValue={answers.primaryGoal}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, primaryGoal: value }))}
+          selectedValue={null}
+          onSelect={() => {}}
+          multiSelect={true}
+          selectedValues={answers.primaryGoals}
+          onMultiSelect={(values) => setAnswers(prev => ({ ...prev, primaryGoals: values }))}
         />
       )}
 
