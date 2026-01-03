@@ -70,43 +70,47 @@ const Analisi: React.FC = () => {
     return (todayCheckin.mood_value / 5) * 100;
   }, [timeRange, todayCheckin]);
 
-  // Generate chart data for each vital metric - combining sessions AND checkins
+  // Generate chart data for each vital metric - combining sessions AND checkins with proper aggregation
   const chartDataByMetric = useMemo(() => {
     const vitalKeys: MetricType[] = ['mood', 'anxiety', 'energy', 'sleep'];
-    const result: Record<string, { value: number; date?: string }[]> = {};
+    const result: Record<string, { value: number; date?: string; timestamp: number }[]> = {};
 
     vitalKeys.forEach(key => {
-      const dataPoints: { value: number; date?: string }[] = [];
+      // Group data by date (aggregate multiple entries per day)
+      const dataByDay = new Map<string, { values: number[]; timestamp: number }>();
       
       // Add data from checkins (for mood primarily)
       if (key === 'mood' && filteredCheckins.length > 0) {
         filteredCheckins.forEach(c => {
+          const dateKey = format(new Date(c.created_at), 'yyyy-MM-dd');
+          const displayDate = format(new Date(c.created_at), 'dd/MM');
+          const timestamp = new Date(c.created_at).getTime();
+          
+          if (!dataByDay.has(dateKey)) {
+            dataByDay.set(dateKey, { values: [], timestamp });
+          }
           // Convert 1-5 scale to 0-100
-          dataPoints.push({ 
-            value: (c.mood_value / 5) * 100,
-            date: format(new Date(c.created_at), 'dd/MM')
-          });
+          dataByDay.get(dateKey)!.values.push((c.mood_value / 5) * 100);
         });
       }
       
       // Add data from sessions
       filteredSessions.forEach(s => {
         let value: number | null = null;
+        const dateKey = format(new Date(s.start_time), 'yyyy-MM-dd');
+        const timestamp = new Date(s.start_time).getTime();
+        
         switch (key) {
           case 'mood':
-            // Only add if no checkin for that day
+            // Only add session mood if no checkin for that day
             if (s.mood_score_detected) {
-              const sessionDate = new Date(s.start_time);
               const hasCheckinForDay = filteredCheckins.some(c => 
-                isSameDay(new Date(c.created_at), sessionDate)
+                isSameDay(new Date(c.created_at), new Date(s.start_time))
               );
               if (!hasCheckinForDay) {
                 value = s.mood_score_detected * 10;
               }
             }
-            break;
-          case 'anxiety':
-            if (s.anxiety_score_detected) value = s.anxiety_score_detected * 10;
             break;
           case 'sleep':
             if ((s as any).sleep_quality) value = (s as any).sleep_quality * 10;
@@ -117,19 +121,25 @@ const Analisi: React.FC = () => {
             if (m !== null) value = Math.max(0, Math.min(100, m - (a * 0.3) + 20));
             break;
         }
+        
         if (value !== null) {
-          dataPoints.push({ 
-            value,
-            date: format(new Date(s.start_time), 'dd/MM')
-          });
+          if (!dataByDay.has(dateKey)) {
+            dataByDay.set(dateKey, { values: [], timestamp });
+          }
+          dataByDay.get(dateKey)!.values.push(value);
         }
       });
       
-      // Sort by date and dedupe
-      result[key] = dataPoints.sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        return a.date.localeCompare(b.date);
-      });
+      // Convert to array, calculate average per day, and sort by date
+      const dataPoints = Array.from(dataByDay.entries())
+        .map(([dateKey, { values, timestamp }]) => ({
+          value: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+          date: format(new Date(dateKey), 'dd/MM'),
+          timestamp
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+      
+      result[key] = dataPoints;
     });
 
     return result;

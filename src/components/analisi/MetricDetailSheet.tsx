@@ -215,6 +215,7 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
                       fill={`url(#gradient-${metric.key})`}
                       dot={{ fill: metric.color, strokeWidth: 0, r: 3 }}
                       activeDot={{ r: 5, fill: metric.color }}
+                      connectNulls
                     />
                   </AreaChart>
                 </ResponsiveContainer>

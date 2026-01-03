@@ -152,7 +152,12 @@ REGOLE PER ESTRAZIONE DATI CLINICI:
   * rumination: quanto l'utente ripete gli stessi pensieri negativi (1=nessuno, 10=estremo)
   * emotional_openness: quanto l'utente si apre ed esprime emozioni (1=chiuso, 10=molto aperto)
   * perceived_stress: livello di stress generale percepito (1=rilassato, 10=molto stressato)
-- sleep_quality: se l'utente menziona sonno, insonnia, stanchezza, estrai un punteggio (1=pessimo, 10=ottimo). Null se non menzionato.
+- sleep_quality: ESTRAI SEMPRE un punteggio se l'utente menziona QUALSIASI cosa relativa al sonno:
+  * Frasi come "ho dormito male", "ho fatto un incubo", "mi sono svegliato stanco" → punteggio basso (1-4)
+  * Frasi come "ho dormito 8 ore", "mi sono riposato bene", "ho fatto bei sogni" → punteggio alto (7-10)
+  * Frasi come "ho dormito ok", "normale" → punteggio medio (5-6)
+  * STIMA il valore anche da indizi indiretti come "sono esausto", "non ho energie" → deduce sonno scarso
+  * NON IGNORARE MAI menzioni di sonno, stanchezza, insonnia, riposo. Restituisci SEMPRE un numero, MAI null se c'è un indizio.
 - crisis_risk: 'high' SOLO per pensieri suicidi/autolesionismo. 'medium' per forte angoscia. 'low' normale.
 
 REGOLE PER DASHBOARD ADATTIVA (recommended_dashboard_metrics):
