@@ -109,73 +109,77 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Sei un analista clinico esperto di conversazioni terapeutiche. Analizza la conversazione e restituisci SEMPRE un JSON valido con questa struttura esatta:
+            content: `Sei un analista clinico esperto. Analizza la conversazione e restituisci SEMPRE un JSON valido.
 
+⚠️ REGOLA ANTI-HALLUCINATION (CRITICA):
+- NON INVENTARE DATI. Se l'utente NON esprime un'emozione, il valore è 0.
+- APATIA: Assegna > 0 SOLO per frasi come "non sento niente", "vuoto", "indifferenza". Altrimenti = 0.
+- Se non c'è evidenza chiara, usa NULL per i valori opzionali, NON inventare numeri.
+
+STRUTTURA JSON RICHIESTA:
 {
-  "mood_score": <numero da 1 a 10, dove 1 è molto triste e 10 è molto felice>,
-  "anxiety_score": <numero da 1 a 10, dove 1 è calmo e 10 è molto ansioso>,
-  "emotion_tags": [<array di tag emotivi rilevanti, es. "#Lavoro", "#Relazioni", "#Stress", "#Famiglia">],
-  "key_facts": [<array di fatti importanti da ricordare per sessioni future>],
-  "summary": "<riassunto breve della sessione in 1-2 frasi>",
+  "mood_score": <1-10, null se non valutabile>,
+  "anxiety_score": <1-10, null se non valutabile>,
+  "emotion_tags": ["#Tag1", "#Tag2"],
+  "key_facts": ["fatto concreto da ricordare"],
+  "summary": "<riassunto 1-2 frasi>",
   "life_balance_scores": {
-    "love": <punteggio 1-10 per Amore/Relazioni romantiche, null se non menzionato>,
-    "work": <punteggio 1-10 per Lavoro/Carriera, null se non menzionato>,
-    "friendship": <punteggio 1-10 per Amicizia/Vita sociale, null se non menzionato>,
-    "energy": <punteggio 1-10 per Energia/Salute fisica, null se non menzionato>,
-    "growth": <punteggio 1-10 per Autostima/Crescita personale, null se non menzionato>
+    "love": <1-10 o null>,
+    "work": <1-10 o null>,
+    "friendship": <1-10 o null>,
+    "energy": <1-10 o null>,
+    "growth": <1-10 o null>
   },
-  "emotion_breakdown": {
-    "<emozione>": <percentuale come numero intero>
-  },
+  "emotion_breakdown": {},
   "specific_emotions": {
-    "joy": <percentuale di Gioia (0-100)>,
-    "sadness": <percentuale di Tristezza (0-100)>,
-    "anger": <percentuale di Rabbia (0-100)>,
-    "fear": <percentuale di Paura (0-100)>,
-    "apathy": <percentuale di Apatia (0-100)>
+    "joy": <0-100, 0 se non presente>,
+    "sadness": <0-100, 0 se non presente>,
+    "anger": <0-100, 0 se non presente>,
+    "fear": <0-100, 0 se non presente>,
+    "apathy": <0-100, 0 se non esplicitamente menzionato vuoto/distacco>
   },
   "clinical_indices": {
-    "rumination": <livello di ruminazione 1-10, null se non valutabile>,
-    "emotional_openness": <apertura emotiva 1-10, null se non valutabile>,
-    "perceived_stress": <stress percepito 1-10, null se non valutabile>
+    "rumination": <1-10 o null>,
+    "emotional_openness": <1-10 o null>,
+    "perceived_stress": <1-10 o null>
   },
-  "sleep_quality": <qualità del sonno 1-10 se menzionato, null altrimenti>,
-  "key_events": [<lista di eventi fattuali concreti>],
-  "insights": "<osservazione clinica breve>",
-  "crisis_risk": "<'low', 'medium', o 'high'>",
-  "recommended_dashboard_metrics": [<array di 4 stringhe: i 4 KPI più urgenti per questo utente>]
+  "sleep_quality": <1-10 o null>,
+  "key_events": [],
+  "insights": "<osservazione clinica>",
+  "crisis_risk": "<low/medium/high>",
+  "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"]
 }
 
-REGOLE PER ESTRAZIONE DATI CLINICI:
-- specific_emotions: le 5 emozioni DEVONO sommare a 100. Basati sul tono generale della conversazione. NON lasciare MAI valori a 0 per tutte le emozioni - se la conversazione è neutra, usa valori distribuiti (es. joy:30, sadness:20, anger:10, fear:15, apathy:25).
-- clinical_indices:
-  * rumination: quanto l'utente ripete gli stessi pensieri negativi (1=nessuno, 10=estremo)
-  * emotional_openness: quanto l'utente si apre ed esprime emozioni (1=chiuso, 10=molto aperto)
-  * perceived_stress: livello di stress generale percepito (1=rilassato, 10=molto stressato)
-- sleep_quality: ESTRAI SEMPRE un punteggio se l'utente menziona QUALSIASI cosa relativa al sonno:
-  * Frasi come "ho dormito male", "ho fatto un incubo", "mi sono svegliato stanco" → punteggio basso (1-4)
-  * Frasi come "ho dormito 8 ore", "mi sono riposato bene", "ho fatto bei sogni" → punteggio alto (7-10)
-  * Frasi come "ho dormito ok", "normale" → punteggio medio (5-6)
-  * STIMA il valore anche da indizi indiretti come "sono esausto", "non ho energie" → deduce sonno scarso
-  * NON IGNORARE MAI menzioni di sonno, stanchezza, insonnia, riposo. Restituisci SEMPRE un numero, MAI null se c'è un indizio.
-- crisis_risk: 'high' SOLO per pensieri suicidi/autolesionismo. 'medium' per forte angoscia. 'low' normale.
+REGOLE EMOZIONI (specific_emotions):
+- Rileva SOLO: Gioia, Tristezza, Rabbia, Paura, Apatia
+- I valori NON devono per forza sommare a 100
+- Se conversazione neutra: joy=0, sadness=0, anger=0, fear=0, apathy=0
+- APATIA > 0 SOLO se l'utente dice esplicitamente: "non provo niente", "mi sento vuoto", "sono apatico", "non mi importa di nulla", "anedonia"
+- NON assegnare apatia per stanchezza fisica o noia
 
-REGOLE PER DASHBOARD ADATTIVA (recommended_dashboard_metrics):
-- Scegli i 4 KPI più URGENTI e RILEVANTI per questo utente in base alla conversazione.
-- Metriche disponibili: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, friendship, growth, health
-- Se parla di rottura amorosa: includi 'sadness', 'love'.
-- Se parla di stress lavorativo: includi 'anxiety', 'work'.
-- Se parla di insonnia/stanchezza: includi 'sleep', 'energy'.
-- Se parla di isolamento sociale: includi 'friendship', 'apathy'.
-- Se parla di panico/paura: includi 'fear', 'anxiety'.
-- Combina sempre le metriche più rilevanti per la situazione specifica dell'utente.
+REGOLE SONNO (sleep_quality):
+- Estrai SOLO se menzionato esplicitamente il sonno
+- "ho dormito male/poco/incubi" → 2-4
+- "ho dormito ok/normale" → 5-6
+- "ho dormito bene/riposato" → 7-9
+- "non ho dormito" → 1
+- Se NON menzionato → null (NON inventare)
 
-IMPORTANTE: Genera SEMPRE valori per specific_emotions - non lasciare mai tutti i valori a 0.
+REGOLE ANSIA (anxiety_score):
+- Estrai da sintomi fisici: "cuore che batte", "respiro corto", "agitazione"
+- Estrai da preoccupazioni esplicite
+- Se conversazione calma senza stress → null o 2-3
+- NON confondere tristezza con ansia
+
+METRICHE DASHBOARD (recommended_dashboard_metrics):
+- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, friendship, growth, health
+- Basati sui temi REALI della conversazione
+- Default se neutro: ["mood", "anxiety", "energy", "sleep"]
 
 Valori attuali aree di vita (aggiorna SOLO se menzionate):
 ${JSON.stringify(currentLifeScores)}
 
-Rispondi SOLO con il JSON, senza markdown.`
+Rispondi SOLO con JSON valido, senza markdown.`
           },
           {
             role: 'user',
