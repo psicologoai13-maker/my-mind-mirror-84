@@ -126,6 +126,7 @@ export const useSessions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-metrics', user?.id] });
     },
   });
 
@@ -198,6 +199,7 @@ export const useSessions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-metrics', user?.id] });
     },
   });
 

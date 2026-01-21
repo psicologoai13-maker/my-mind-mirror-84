@@ -306,6 +306,10 @@ export type Database = {
         }[]
       }
       generate_connection_code: { Args: never; Returns: string }
+      get_daily_metrics: {
+        Args: { p_date?: string; p_user_id: string }
+        Returns: Json
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
@@ -8,7 +8,7 @@ import { Bell, Smile, Brain, Zap, Moon, X, Check, CheckCircle2 } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
 import { useCheckins } from '@/hooks/useCheckins';
-import { useQueryClient } from '@tanstack/react-query';
+import { useDailyMetrics } from '@/hooks/useDailyMetrics';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -32,7 +32,7 @@ const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 const Index: React.FC = () => {
   const { profile, isLoading } = useProfile();
   const { saveCheckin, todayCheckin } = useCheckins();
-  const queryClient = useQueryClient();
+  const { invalidateMetrics } = useDailyMetrics();
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
 
@@ -113,10 +113,8 @@ const Index: React.FC = () => {
         });
       }
       
-      // Invalidate all relevant queries for instant refresh
-      queryClient.invalidateQueries({ queryKey: ['checkin-today'] });
-      queryClient.invalidateQueries({ queryKey: ['checkins-weekly'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      // Invalidate all metrics for instant refresh (unified source)
+      invalidateMetrics();
       
       toast.success('Check-in salvato!');
     } catch (error) {

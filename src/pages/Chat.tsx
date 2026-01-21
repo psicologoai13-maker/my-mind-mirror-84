@@ -8,6 +8,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CrisisModal from '@/components/safety/CrisisModal';
 import {
@@ -31,6 +32,7 @@ const Chat: React.FC = () => {
   const { profile, isLoading: isProfileLoading } = useProfile();
   const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -281,6 +283,9 @@ const Chat: React.FC = () => {
           });
           
           if (!error) {
+            // Invalidate metrics cache for instant sync with Dashboard/Analisi
+            queryClient.invalidateQueries({ queryKey: ['daily-metrics', user.id] });
+            queryClient.invalidateQueries({ queryKey: ['sessions', user.id] });
             toast.success('Salvato nel diario! La memoria è stata aggiornata 🧠');
           } else {
             toast.success('Salvato nel diario!');
