@@ -55,7 +55,7 @@ const Analisi: React.FC = () => {
     );
   }, [completedSessions, dateRange]);
 
-  // Filter checkins by date range
+  // Filter checkins by date range and parse notes for all metrics
   const filteredCheckins = useMemo(() => {
     if (!weeklyCheckins) return [];
     return weeklyCheckins.filter(c => 
@@ -63,11 +63,31 @@ const Analisi: React.FC = () => {
     );
   }, [weeklyCheckins, dateRange]);
 
+  // Parse checkin notes to extract anxiety, energy, sleep
+  const parseCheckinNotes = (notes: string | null): { anxiety?: number; energy?: number; sleep?: number } => {
+    if (!notes) return {};
+    try {
+      const parsed = JSON.parse(notes);
+      return {
+        anxiety: parsed.anxiety as number | undefined, // Already 1-10
+        energy: parsed.energy as number | undefined,
+        sleep: parsed.sleep as number | undefined,
+      };
+    } catch {
+      return {};
+    }
+  };
+
   // For 'day' view, use today's specific checkin if available
-  const dayMoodValue = useMemo(() => {
+  const dayCheckinData = useMemo(() => {
     if (timeRange !== 'day' || !todayCheckin) return null;
-    // Convert 1-5 scale to 0-100
-    return (todayCheckin.mood_value / 5) * 100;
+    const notes = parseCheckinNotes(todayCheckin.notes);
+    return {
+      mood: (todayCheckin.mood_value / 5) * 100,
+      anxiety: notes.anxiety ? notes.anxiety * 10 : null, // 1-10 to 0-100
+      energy: notes.energy ? notes.energy * 10 : null,
+      sleep: notes.sleep ? notes.sleep * 10 : null,
+    };
   }, [timeRange, todayCheckin]);
 
   // Generate chart data for each vital metric - combining sessions AND checkins with proper aggregation
@@ -79,46 +99,68 @@ const Analisi: React.FC = () => {
       // Group data by date (aggregate multiple entries per day)
       const dataByDay = new Map<string, { values: number[]; timestamp: number }>();
       
-      // Add data from checkins (for mood primarily)
-      if (key === 'mood' && filteredCheckins.length > 0) {
-        filteredCheckins.forEach(c => {
-          const dateKey = format(new Date(c.created_at), 'yyyy-MM-dd');
-          const displayDate = format(new Date(c.created_at), 'dd/MM');
-          const timestamp = new Date(c.created_at).getTime();
-          
-          if (!dataByDay.has(dateKey)) {
-            dataByDay.set(dateKey, { values: [], timestamp });
-          }
-          // Convert 1-5 scale to 0-100
-          dataByDay.get(dateKey)!.values.push((c.mood_value / 5) * 100);
-        });
-      }
+      // Add data from checkins (now includes ALL metrics)
+      filteredCheckins.forEach(c => {
+        const dateKey = format(new Date(c.created_at), 'yyyy-MM-dd');
+        const timestamp = new Date(c.created_at).getTime();
+        const notes = parseCheckinNotes(c.notes);
+        
+        if (!dataByDay.has(dateKey)) {
+          dataByDay.set(dateKey, { values: [], timestamp });
+        }
+        
+        let value: number | null = null;
+        switch (key) {
+          case 'mood':
+            value = (c.mood_value / 5) * 100;
+            break;
+          case 'anxiety':
+            if (notes.anxiety) value = notes.anxiety * 10;
+            break;
+          case 'energy':
+            if (notes.energy) value = notes.energy * 10;
+            break;
+          case 'sleep':
+            if (notes.sleep) value = notes.sleep * 10;
+            break;
+        }
+        
+        if (value !== null) {
+          dataByDay.get(dateKey)!.values.push(value);
+        }
+      });
       
-      // Add data from sessions
+      // Add data from sessions (as fallback)
       filteredSessions.forEach(s => {
         let value: number | null = null;
         const dateKey = format(new Date(s.start_time), 'yyyy-MM-dd');
         const timestamp = new Date(s.start_time).getTime();
         
+        // Check if we already have data from checkin for this day
+        const hasCheckinData = dataByDay.has(dateKey) && dataByDay.get(dateKey)!.values.length > 0;
+        
         switch (key) {
           case 'mood':
-            // Only add session mood if no checkin for that day
-            if (s.mood_score_detected) {
-              const hasCheckinForDay = filteredCheckins.some(c => 
-                isSameDay(new Date(c.created_at), new Date(s.start_time))
-              );
-              if (!hasCheckinForDay) {
-                value = s.mood_score_detected * 10;
-              }
+            if (!hasCheckinData && s.mood_score_detected) {
+              value = s.mood_score_detected * 10;
+            }
+            break;
+          case 'anxiety':
+            if (!hasCheckinData && s.anxiety_score_detected) {
+              value = s.anxiety_score_detected * 10;
             }
             break;
           case 'sleep':
-            if ((s as any).sleep_quality) value = (s as any).sleep_quality * 10;
+            if (!hasCheckinData && (s as any).sleep_quality) {
+              value = (s as any).sleep_quality * 10;
+            }
             break;
           case 'energy':
-            const m = s.mood_score_detected ? s.mood_score_detected * 10 : null;
-            const a = s.anxiety_score_detected ? s.anxiety_score_detected * 10 : 50;
-            if (m !== null) value = Math.max(0, Math.min(100, m - (a * 0.3) + 20));
+            if (!hasCheckinData) {
+              const m = s.mood_score_detected ? s.mood_score_detected * 10 : null;
+              const a = s.anxiety_score_detected ? s.anxiety_score_detected * 10 : 50;
+              if (m !== null) value = Math.max(0, Math.min(100, m - (a * 0.3) + 20));
+            }
             break;
         }
         
@@ -168,37 +210,54 @@ const Analisi: React.FC = () => {
 
     // Mood: prioritize checkins, then use sessions
     const moodValues: number[] = [];
+    const anxietyValues: number[] = [];
+    const sleepValues: number[] = [];
+    const energyValues: number[] = [];
     
-    // For 'day' view, use only today's value if available
-    if (timeRange === 'day' && dayMoodValue !== null) {
-      moodValues.push(dayMoodValue);
+    // For 'day' view, use today's checkin data if available
+    if (timeRange === 'day' && dayCheckinData) {
+      if (dayCheckinData.mood !== null) moodValues.push(dayCheckinData.mood);
+      if (dayCheckinData.anxiety !== null) anxietyValues.push(dayCheckinData.anxiety);
+      if (dayCheckinData.energy !== null) energyValues.push(dayCheckinData.energy);
+      if (dayCheckinData.sleep !== null) sleepValues.push(dayCheckinData.sleep);
     } else {
-      // Add checkin values (convert 1-5 to 0-100)
+      // Collect from all checkins
       filteredCheckins.forEach(c => {
         moodValues.push((c.mood_value / 5) * 100);
+        const notes = parseCheckinNotes(c.notes);
+        if (notes.anxiety) anxietyValues.push(notes.anxiety * 10);
+        if (notes.energy) energyValues.push(notes.energy * 10);
+        if (notes.sleep) sleepValues.push(notes.sleep * 10);
       });
       
-      // Add session values only if no checkin for that day
+      // Add session values as fallback (only if no checkin for that day)
       filteredSessions.forEach(s => {
-        if (s.mood_score_detected) {
-          const sessionDate = new Date(s.start_time);
-          const hasCheckinForDay = filteredCheckins.some(c => 
-            isSameDay(new Date(c.created_at), sessionDate)
-          );
-          if (!hasCheckinForDay) {
+        const sessionDate = new Date(s.start_time);
+        const hasCheckinForDay = filteredCheckins.some(c => 
+          isSameDay(new Date(c.created_at), sessionDate)
+        );
+        
+        if (!hasCheckinForDay) {
+          if (s.mood_score_detected) {
             moodValues.push(s.mood_score_detected * 10);
+          }
+          if (s.anxiety_score_detected) {
+            anxietyValues.push(s.anxiety_score_detected * 10);
+          }
+          if ((s as any).sleep_quality) {
+            sleepValues.push((s as any).sleep_quality * 10);
           }
         }
       });
     }
 
-    const anxietyValues = filteredSessions.map(s => s.anxiety_score_detected ? s.anxiety_score_detected * 10 : null);
-    const sleepValues = filteredSessions.map(s => (s as any).sleep_quality ? (s as any).sleep_quality * 10 : null);
-    const energyValues = moodValues.map((m, i) => {
-      if (m === null) return null;
-      const a = anxietyValues[i] ?? 50;
-      return Math.max(0, Math.min(100, m - ((a ?? 50) * 0.3) + 20));
-    });
+    // Calculate energy from mood and anxiety if not directly available
+    if (energyValues.length === 0 && moodValues.length > 0) {
+      moodValues.forEach((m, i) => {
+        const a = anxietyValues[i] ?? 50;
+        energyValues.push(Math.max(0, Math.min(100, m - (a * 0.3) + 20)));
+      });
+    }
 
     // Emotions from specific_emotions
     const joyValues = filteredSessions.map(s => (s as any).specific_emotions?.joy ?? null);
@@ -231,7 +290,7 @@ const Analisi: React.FC = () => {
       { key: 'friendship' as MetricType, label: 'Amicizia', category: 'aree' as const, icon: '🤝', color: 'hsl(200, 70%, 50%)', average: calculateAverage(friendshipValues), trend: calculateTrend(friendshipValues), unit: '/10' },
       { key: 'wellness' as MetricType, label: 'Benessere', category: 'aree' as const, icon: '🧘', color: 'hsl(150, 60%, 45%)', average: calculateAverage(wellnessValues), trend: calculateTrend(wellnessValues), unit: '/10' },
     ];
-  }, [filteredSessions, filteredCheckins, timeRange, dayMoodValue]);
+  }, [filteredSessions, filteredCheckins, timeRange, dayCheckinData]);
 
   const vitalMetrics = metrics.filter(m => m.category === 'vitali');
   const emotionMetrics = metrics.filter(m => m.category === 'emozioni');
