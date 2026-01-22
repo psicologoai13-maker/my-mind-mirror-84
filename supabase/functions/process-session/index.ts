@@ -14,10 +14,6 @@ interface LifeBalanceScores {
   growth: number | null;
 }
 
-interface EmotionBreakdown {
-  [emotion: string]: number;
-}
-
 interface SpecificEmotions {
   joy: number;
   sadness: number;
@@ -32,30 +28,44 @@ interface ClinicalIndices {
   perceived_stress: number | null;
 }
 
-interface SessionAnalysis {
-  mood_score: number;
-  anxiety_score: number;
+interface LifeAreas {
+  work: number | null;
+  love: number | null;
+  health: number | null;
+  social: number | null;
+  growth: number | null;
+}
+
+interface VoiceAnalysis {
+  tone: 'calm' | 'agitated' | 'neutral';
+  speed: 'slow' | 'fast' | 'normal';
+  confidence: number;
+}
+
+interface OmniscientAnalysis {
+  vitals: {
+    mood: number | null;
+    anxiety: number | null;
+    energy: number | null;
+    sleep: number | null;
+  };
+  emotions: SpecificEmotions;
+  life_areas: LifeAreas;
+  voice_analysis: VoiceAnalysis | null;
   emotion_tags: string[];
   key_facts: string[];
   summary: string;
-  life_balance_scores: LifeBalanceScores;
-  emotion_breakdown: EmotionBreakdown;
   key_events: string[];
   insights: string;
   crisis_risk: 'low' | 'medium' | 'high';
-  specific_emotions: SpecificEmotions;
   clinical_indices: ClinicalIndices;
-  sleep_quality: number | null;
   recommended_dashboard_metrics: string[];
 }
 
 // All available metrics for the adaptive dashboard
 const ALL_AVAILABLE_METRICS = [
-  // Vitals
   'mood', 'anxiety', 'energy', 'sleep',
-  // Emotions
   'joy', 'sadness', 'anger', 'fear', 'apathy',
-  // Life Areas
   'love', 'work', 'friendship', 'growth', 'health'
 ];
 
@@ -65,17 +75,16 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, user_id, transcript } = await req.json();
+    const { session_id, user_id, transcript, is_voice = false } = await req.json();
 
     if (!session_id || !user_id || !transcript) {
       console.error('Missing required fields:', { session_id, user_id, hasTranscript: !!transcript });
       throw new Error('Missing required fields: session_id, user_id, transcript');
     }
 
-    console.log('[process-session] Processing session:', session_id);
+    console.log('[process-session] Processing session:', session_id, 'is_voice:', is_voice);
     console.log('[process-session] Transcript length:', transcript.length);
 
-    // Use Lovable AI Gateway (Gemini Flash) - FREE
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -86,7 +95,7 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get current user profile for existing life balance scores
+    // Get current user profile
     const { data: profileData } = await supabase
       .from('user_profiles')
       .select('life_areas_scores, long_term_memory')
@@ -95,8 +104,94 @@ serve(async (req) => {
 
     const currentLifeScores = profileData?.life_areas_scores || {};
 
-    // Call Gemini Flash via Lovable AI Gateway for FREE analysis
-    console.log('[process-session] Calling Gemini Flash for comprehensive analysis...');
+    // VOICE ANALYSIS EURISTICS (text-based)
+    const voiceHeuristicsPrompt = is_voice ? `
+ANALISI VOCALE (euristica testuale):
+Analizza la struttura del testo per inferire il tono emotivo:
+- Frasi BREVI e SPEZZATE (< 5 parole), molti punti → tono: "agitated", speed: "fast"
+- Frasi LUNGHE e scorrevoli → tono: "calm", speed: "slow"
+- Uso di "...", esitazioni, filler ("ehm", "boh", "cioè") → tono: "neutral", velocità normale
+- Esclamazioni frequenti (!) → energia alta, possibile agitazione
+- Domande retoriche continue → possibile ansia
+Restituisci voice_analysis con tone, speed e confidence (0-1).
+` : '';
+
+    // Build the OMNISCIENT analysis prompt
+    const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE. Analizza la conversazione e restituisci SEMPRE un JSON valido.
+
+⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE):
+- NON INVENTARE DATI. Se qualcosa non è espresso, usa 0 per emozioni o null per metriche opzionali.
+- APATIA: Assegna > 0 SOLO per frasi esplicite come "non sento niente", "vuoto", "indifferenza totale", "non mi importa di nulla". 
+  Stanchezza fisica o noia NON sono apatia → apathy = 0.
+- SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
+- ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
+
+📊 STRUTTURA JSON RICHIESTA:
+{
+  "vitals": {
+    "mood": <1-10 o null>,
+    "anxiety": <1-10 o null>,
+    "energy": <1-10 o null>,
+    "sleep": <1-10 o null>
+  },
+  "emotions": {
+    "joy": <0-10, 0 se non presente>,
+    "sadness": <0-10, 0 se non presente>,
+    "anger": <0-10, 0 se non presente>,
+    "fear": <0-10, 0 se non presente>,
+    "apathy": <0-10, 0 se non ESPLICITAMENTE vuoto/distacco>
+  },
+  "life_areas": {
+    "work": <1-10 o null>,
+    "love": <1-10 o null>,
+    "health": <1-10 o null>,
+    "social": <1-10 o null>,
+    "growth": <1-10 o null>
+  },
+  "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
+  "emotion_tags": ["#Tag1", "#Tag2"],
+  "key_facts": ["fatto concreto da ricordare"],
+  "summary": "<riassunto 1-2 frasi>",
+  "key_events": ["evento chiave"],
+  "insights": "<osservazione clinica breve>",
+  "crisis_risk": "low|medium|high",
+  "clinical_indices": {
+    "rumination": <1-10 o null>,
+    "emotional_openness": <1-10 o null>,
+    "perceived_stress": <1-10 o null>
+  },
+  "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"]
+}
+
+🎯 REGOLE LIFE_AREAS (CRUCIALI):
+- Se l'utente PARLA di un'area, DEVI stimare un punteggio:
+  - "Il lavoro va bene" → work: 7-8
+  - "Il lavoro va benissimo/fantastico" → work: 9-10
+  - "Il lavoro va male/stressante" → work: 3-4
+  - "Sono innamorato/felice in amore" → love: 8-9
+  - "Sono single ma sto bene" → love: 6
+  - "Ho litigato col partner" → love: 4
+  - "Mi alleno regolarmente" → health: 8
+  - "Mi sento in salute" → health: 7
+  - "Sono malato/stanco fisicamente" → health: 3-4
+  - "Ho visto gli amici" → social: 7
+  - "Mi sento solo" → social: 3
+  - "Sto imparando cose nuove" → growth: 7-8
+- Se NON menzionata → null (NON inventare)
+
+${voiceHeuristicsPrompt}
+
+📝 METRICHE DASHBOARD:
+- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, social, growth, health
+- Basati sui temi REALI della conversazione
+- Default se conversazione neutra: ["mood", "anxiety", "energy", "sleep"]
+
+🔒 Valori ATTUALI aree di vita (aggiorna SOLO se menzionate con nuovi dati):
+${JSON.stringify(currentLifeScores)}
+
+⚡ Rispondi SOLO con JSON valido, SENZA markdown code blocks.`;
+
+    console.log('[process-session] Calling Gemini Flash for omniscient analysis...');
     
     const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -107,84 +202,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          {
-            role: 'system',
-            content: `Sei un analista clinico esperto. Analizza la conversazione e restituisci SEMPRE un JSON valido.
-
-⚠️ REGOLA ANTI-HALLUCINATION (CRITICA):
-- NON INVENTARE DATI. Se l'utente NON esprime un'emozione, il valore è 0.
-- APATIA: Assegna > 0 SOLO per frasi come "non sento niente", "vuoto", "indifferenza". Altrimenti = 0.
-- Se non c'è evidenza chiara, usa NULL per i valori opzionali, NON inventare numeri.
-
-STRUTTURA JSON RICHIESTA:
-{
-  "mood_score": <1-10, null se non valutabile>,
-  "anxiety_score": <1-10, null se non valutabile>,
-  "emotion_tags": ["#Tag1", "#Tag2"],
-  "key_facts": ["fatto concreto da ricordare"],
-  "summary": "<riassunto 1-2 frasi>",
-  "life_balance_scores": {
-    "love": <1-10 o null>,
-    "work": <1-10 o null>,
-    "friendship": <1-10 o null>,
-    "energy": <1-10 o null>,
-    "growth": <1-10 o null>
-  },
-  "emotion_breakdown": {},
-  "specific_emotions": {
-    "joy": <0-100, 0 se non presente>,
-    "sadness": <0-100, 0 se non presente>,
-    "anger": <0-100, 0 se non presente>,
-    "fear": <0-100, 0 se non presente>,
-    "apathy": <0-100, 0 se non esplicitamente menzionato vuoto/distacco>
-  },
-  "clinical_indices": {
-    "rumination": <1-10 o null>,
-    "emotional_openness": <1-10 o null>,
-    "perceived_stress": <1-10 o null>
-  },
-  "sleep_quality": <1-10 o null>,
-  "key_events": [],
-  "insights": "<osservazione clinica>",
-  "crisis_risk": "<low/medium/high>",
-  "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"]
-}
-
-REGOLE EMOZIONI (specific_emotions):
-- Rileva SOLO: Gioia, Tristezza, Rabbia, Paura, Apatia
-- I valori NON devono per forza sommare a 100
-- Se conversazione neutra: joy=0, sadness=0, anger=0, fear=0, apathy=0
-- APATIA > 0 SOLO se l'utente dice esplicitamente: "non provo niente", "mi sento vuoto", "sono apatico", "non mi importa di nulla", "anedonia"
-- NON assegnare apatia per stanchezza fisica o noia
-
-REGOLE SONNO (sleep_quality):
-- Estrai SOLO se menzionato esplicitamente il sonno
-- "ho dormito male/poco/incubi" → 2-4
-- "ho dormito ok/normale" → 5-6
-- "ho dormito bene/riposato" → 7-9
-- "non ho dormito" → 1
-- Se NON menzionato → null (NON inventare)
-
-REGOLE ANSIA (anxiety_score):
-- Estrai da sintomi fisici: "cuore che batte", "respiro corto", "agitazione"
-- Estrai da preoccupazioni esplicite
-- Se conversazione calma senza stress → null o 2-3
-- NON confondere tristezza con ansia
-
-METRICHE DASHBOARD (recommended_dashboard_metrics):
-- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, friendship, growth, health
-- Basati sui temi REALI della conversazione
-- Default se neutro: ["mood", "anxiety", "energy", "sleep"]
-
-Valori attuali aree di vita (aggiorna SOLO se menzionate):
-${JSON.stringify(currentLifeScores)}
-
-Rispondi SOLO con JSON valido, senza markdown.`
-          },
-          {
-            role: 'user',
-            content: `Analizza questa conversazione terapeutica:\n\n${transcript}`
-          }
+          { role: 'system', content: analysisPrompt },
+          { role: 'user', content: `Analizza questa conversazione terapeutica:\n\n${transcript}` }
         ],
       }),
     });
@@ -200,56 +219,62 @@ Rispondi SOLO con JSON valido, senza markdown.`
     
     console.log('[process-session] Raw analysis:', analysisText);
 
-    let analysis: SessionAnalysis;
+    let analysis: OmniscientAnalysis;
     try {
-      // Clean up the response in case it has markdown code blocks
       const cleanedText = analysisText.replace(/```json\n?|\n?```/g, '').trim();
       analysis = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('[process-session] Failed to parse analysis:', parseError);
-      // Fallback values
       analysis = {
-        mood_score: 5,
-        anxiety_score: 5,
+        vitals: { mood: null, anxiety: null, energy: null, sleep: null },
+        emotions: { joy: 0, sadness: 0, anger: 0, fear: 0, apathy: 0 },
+        life_areas: { work: null, love: null, health: null, social: null, growth: null },
+        voice_analysis: null,
         emotion_tags: [],
         key_facts: [],
         summary: 'Sessione analizzata con valori predefiniti.',
-        life_balance_scores: { love: null, work: null, friendship: null, energy: null, growth: null },
-        emotion_breakdown: {},
         key_events: [],
         insights: '',
         crisis_risk: 'low',
-        specific_emotions: { joy: 20, sadness: 20, anger: 20, fear: 20, apathy: 20 },
         clinical_indices: { rumination: null, emotional_openness: null, perceived_stress: null },
-        sleep_quality: null,
         recommended_dashboard_metrics: ['mood', 'anxiety', 'energy', 'sleep']
       };
     }
 
-    console.log('[process-session] Parsed analysis:', analysis);
+    console.log('[process-session] Parsed analysis:', JSON.stringify(analysis, null, 2));
 
-    // Update the session with all analysis results
+    const isCrisisAlert = analysis.crisis_risk === 'high';
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Update the SESSION with all analysis results
     console.log('[process-session] Updating session in database...');
     
-    const isCrisisAlert = analysis.crisis_risk === 'high';
-    
+    // Map new life_areas to old life_balance_scores for backwards compatibility
+    const lifeBalanceScores: LifeBalanceScores = {
+      love: analysis.life_areas.love,
+      work: analysis.life_areas.work,
+      friendship: analysis.life_areas.social, // Map social -> friendship
+      energy: analysis.life_areas.health, // Map health -> energy
+      growth: analysis.life_areas.growth
+    };
+
     const { error: sessionError } = await supabase
       .from('sessions')
       .update({
         transcript: transcript,
-        mood_score_detected: analysis.mood_score,
-        anxiety_score_detected: analysis.anxiety_score,
+        mood_score_detected: analysis.vitals.mood,
+        anxiety_score_detected: analysis.vitals.anxiety,
         emotion_tags: analysis.emotion_tags,
         ai_summary: analysis.summary,
-        life_balance_scores: analysis.life_balance_scores,
-        emotion_breakdown: analysis.emotion_breakdown,
+        life_balance_scores: lifeBalanceScores,
+        emotion_breakdown: analysis.emotions,
         key_events: analysis.key_events,
         insights: analysis.insights,
         crisis_alert: isCrisisAlert,
         status: 'completed',
-        specific_emotions: analysis.specific_emotions,
+        specific_emotions: analysis.emotions,
         clinical_indices: analysis.clinical_indices,
-        sleep_quality: analysis.sleep_quality
+        sleep_quality: analysis.vitals.sleep
       })
       .eq('id', session_id);
 
@@ -258,34 +283,73 @@ Rispondi SOLO con JSON valido, senza markdown.`
       throw new Error(`Failed to update session: ${sessionError.message}`);
     }
 
-    // Update user's profile with new data
-    console.log('[process-session] Updating user profile...');
-    
-    // Merge life balance scores - only update areas that were mentioned
-    const mergedLifeScores = { ...currentLifeScores };
-    for (const [key, value] of Object.entries(analysis.life_balance_scores)) {
-      if (value !== null) {
-        mergedLifeScores[key] = value;
+    // 2. SAVE TO daily_emotions (upsert)
+    console.log('[process-session] Saving to daily_emotions...');
+    const { error: emotionsError } = await supabase
+      .from('daily_emotions')
+      .upsert({
+        user_id: user_id,
+        date: today,
+        joy: analysis.emotions.joy || 0,
+        sadness: analysis.emotions.sadness || 0,
+        anger: analysis.emotions.anger || 0,
+        fear: analysis.emotions.fear || 0,
+        apathy: analysis.emotions.apathy || 0,
+        source: 'session',
+        session_id: session_id
+      }, { onConflict: 'user_id,date,source' });
+
+    if (emotionsError) {
+      console.error('[process-session] Error saving daily_emotions:', emotionsError);
+    }
+
+    // 3. SAVE TO daily_life_areas (upsert) - only if any area was detected
+    const hasLifeAreas = Object.values(analysis.life_areas).some(v => v !== null);
+    if (hasLifeAreas) {
+      console.log('[process-session] Saving to daily_life_areas...');
+      const { error: lifeAreasError } = await supabase
+        .from('daily_life_areas')
+        .upsert({
+          user_id: user_id,
+          date: today,
+          work: analysis.life_areas.work,
+          love: analysis.life_areas.love,
+          health: analysis.life_areas.health,
+          social: analysis.life_areas.social,
+          growth: analysis.life_areas.growth,
+          source: 'session',
+          session_id: session_id
+        }, { onConflict: 'user_id,date,source' });
+
+      if (lifeAreasError) {
+        console.error('[process-session] Error saving daily_life_areas:', lifeAreasError);
       }
     }
 
-    // Update long-term memory with new key facts
-    const existingMemory = profileData?.long_term_memory || [];
-    const updatedMemory = [...existingMemory, ...analysis.key_facts];
+    // 4. Update user's profile
+    console.log('[process-session] Updating user profile...');
     
-    // Keep only the last 50 facts to prevent memory bloat
-    const trimmedMemory = updatedMemory.slice(-50);
+    // Merge life balance scores
+    const mergedLifeScores = { ...currentLifeScores };
+    if (analysis.life_areas.love !== null) mergedLifeScores.love = analysis.life_areas.love;
+    if (analysis.life_areas.work !== null) mergedLifeScores.work = analysis.life_areas.work;
+    if (analysis.life_areas.social !== null) mergedLifeScores.friendship = analysis.life_areas.social;
+    if (analysis.life_areas.health !== null) mergedLifeScores.wellness = analysis.life_areas.health;
+    if (analysis.life_areas.growth !== null) mergedLifeScores.growth = analysis.life_areas.growth;
 
-    // Update dashboard metrics if AI recommends new ones
+    // Update long-term memory
+    const existingMemory = profileData?.long_term_memory || [];
+    const updatedMemory = [...existingMemory, ...analysis.key_facts].slice(-50);
+
+    // Update dashboard metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
-    // Only take 4 valid metrics
     const validMetrics = recommendedMetrics.filter(m => ALL_AVAILABLE_METRICS.includes(m)).slice(0, 4);
     const finalMetrics = validMetrics.length === 4 ? validMetrics : ['mood', 'anxiety', 'energy', 'sleep'];
 
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
-        long_term_memory: trimmedMemory,
+        long_term_memory: updatedMemory,
         life_areas_scores: mergedLifeScores,
         active_dashboard_metrics: finalMetrics
       })
@@ -294,7 +358,7 @@ Rispondi SOLO con JSON valido, senza markdown.`
     if (profileUpdateError) {
       console.error('[process-session] Error updating profile:', profileUpdateError);
     } else {
-      console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts and life scores');
+      console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts');
     }
 
     console.log('[process-session] Session processing complete!');
@@ -303,14 +367,12 @@ Rispondi SOLO con JSON valido, senza markdown.`
       success: true,
       crisis_alert: isCrisisAlert,
       analysis: {
-        mood_score: analysis.mood_score,
-        anxiety_score: analysis.anxiety_score,
-        emotion_tags: analysis.emotion_tags,
+        vitals: analysis.vitals,
+        emotions: analysis.emotions,
+        life_areas: analysis.life_areas,
+        voice_analysis: analysis.voice_analysis,
         summary: analysis.summary,
-        life_balance_scores: analysis.life_balance_scores,
-        emotion_breakdown: analysis.emotion_breakdown,
-        key_events: analysis.key_events,
-        insights: analysis.insights,
+        emotion_tags: analysis.emotion_tags,
         crisis_risk: analysis.crisis_risk
       }
     }), {

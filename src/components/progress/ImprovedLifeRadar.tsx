@@ -1,51 +1,40 @@
 import React, { useMemo } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
-import { useProfile } from '@/hooks/useProfile';
-import { useSessions, LifeBalanceScores } from '@/hooks/useSessions';
+import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
 import { Heart, Briefcase, Users, Zap, Sprout, Compass } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { subDays, isAfter } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 const LIFE_AREAS = [
   { key: 'love', label: 'Amore', icon: Heart, color: 'hsl(340, 70%, 60%)' },
   { key: 'work', label: 'Lavoro', icon: Briefcase, color: 'hsl(220, 70%, 55%)' },
-  { key: 'friendship', label: 'Socialità', icon: Users, color: 'hsl(45, 80%, 50%)' },
+  { key: 'social', label: 'Socialità', icon: Users, color: 'hsl(45, 80%, 50%)' },
   { key: 'growth', label: 'Crescita', icon: Sprout, color: 'hsl(280, 60%, 55%)' },
-  { key: 'energy', label: 'Salute', icon: Zap, color: 'hsl(150, 60%, 45%)' },
+  { key: 'health', label: 'Salute', icon: Zap, color: 'hsl(150, 60%, 45%)' },
 ];
 
 const ImprovedLifeRadar: React.FC = () => {
-  const { profile } = useProfile();
-  const { completedSessions } = useSessions();
+  const { latestLifeAreas, useLifeAreasRange } = useDailyLifeAreas();
 
-  const lifeAreasScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
+  // Get last month's data for comparison
+  const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd');
+  const { data: lastMonthData } = useLifeAreasRange(sixtyDaysAgo, thirtyDaysAgo);
 
   // Calculate last month's average
   const lastMonthAverage = useMemo(() => {
-    const thirtyDaysAgo = subDays(new Date(), 30);
-    const sixtyDaysAgo = subDays(new Date(), 60);
-
-    const previousMonthSessions = completedSessions.filter(s => {
-      const sessionDate = new Date(s.start_time);
-      return isAfter(sessionDate, sixtyDaysAgo) && !isAfter(sessionDate, thirtyDaysAgo);
-    });
-
-    if (previousMonthSessions.length === 0) return null;
+    if (!lastMonthData || lastMonthData.length === 0) return null;
 
     const averages: Record<string, number> = {};
     const counts: Record<string, number> = {};
 
-    previousMonthSessions.forEach(session => {
-      if (session.life_balance_scores) {
-        const scores = session.life_balance_scores as LifeBalanceScores;
-        LIFE_AREAS.forEach(area => {
-          const value = scores[area.key as keyof LifeBalanceScores];
-          if (value !== null && value !== undefined) {
-            averages[area.key] = (averages[area.key] || 0) + value;
-            counts[area.key] = (counts[area.key] || 0) + 1;
-          }
-        });
-      }
+    lastMonthData.forEach(record => {
+      LIFE_AREAS.forEach(area => {
+        const value = record[area.key as keyof typeof record] as number | null;
+        if (value !== null && value !== undefined) {
+          averages[area.key] = (averages[area.key] || 0) + value;
+          counts[area.key] = (counts[area.key] || 0) + 1;
+        }
+      });
     });
 
     const result: Record<string, number> = {};
@@ -54,11 +43,23 @@ const ImprovedLifeRadar: React.FC = () => {
     });
 
     return Object.keys(result).length > 0 ? result : null;
-  }, [completedSessions]);
+  }, [lastMonthData]);
+
+  // Current scores from latest record
+  const currentScores = useMemo(() => {
+    if (!latestLifeAreas) return {};
+    return {
+      love: latestLifeAreas.love,
+      work: latestLifeAreas.work,
+      social: latestLifeAreas.social,
+      growth: latestLifeAreas.growth,
+      health: latestLifeAreas.health,
+    };
+  }, [latestLifeAreas]);
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,
-    current: (lifeAreasScores?.[area.key] || 0) as number,
+    current: (currentScores[area.key as keyof typeof currentScores] || 0) as number,
     previous: lastMonthAverage?.[area.key] || 0,
     fullMark: 10,
   }));
@@ -131,7 +132,7 @@ const ImprovedLifeRadar: React.FC = () => {
           {/* Side legend with values */}
           <div className="w-24 space-y-1.5">
             {LIFE_AREAS.map(area => {
-              const current = lifeAreasScores?.[area.key] || 0;
+              const current = currentScores[area.key as keyof typeof currentScores] || 0;
               const Icon = area.icon;
 
               return (

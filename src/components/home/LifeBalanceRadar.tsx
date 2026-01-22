@@ -1,45 +1,54 @@
 import React from 'react';
 import { RadarChart, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
+import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
 import { useProfile } from '@/hooks/useProfile';
-import { useSessions } from '@/hooks/useSessions';
 import { Compass, MessageCircle } from 'lucide-react';
 
 const LIFE_AREAS = [
   { key: 'love', label: 'Amore' },
   { key: 'work', label: 'Lavoro' },
-  { key: 'friendship', label: 'Socialità' },
+  { key: 'social', label: 'Socialità' },
   { key: 'growth', label: 'Crescita' },
-  { key: 'energy', label: 'Salute' },
+  { key: 'health', label: 'Salute' },
 ];
 
 const LifeBalanceRadar: React.FC = () => {
+  const { latestLifeAreas, isLoading } = useDailyLifeAreas();
   const { profile } = useProfile();
-  const { completedSessions } = useSessions();
   
+  // Fallback to profile life_areas_scores if no daily data
   const profileScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
-  
-  const lastSessionWithScores = React.useMemo(() => {
-    if (!completedSessions) return null;
-    
-    const sorted = [...completedSessions]
-      .filter(s => {
-        const scores = s.life_balance_scores as unknown as Record<string, number | null> | null;
-        return scores && Object.values(scores).some(v => v && v > 0);
-      })
-      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    
-    return sorted[0]?.life_balance_scores as unknown as Record<string, number | null> | undefined;
-  }, [completedSessions]);
 
+  // Use daily_life_areas as primary source, fallback to profile
   const lifeAreasScores = React.useMemo(() => {
-    const hasProfileData = profileScores && Object.values(profileScores).some(v => v && v > 0);
-    if (hasProfileData) return profileScores;
-    return lastSessionWithScores || {};
-  }, [profileScores, lastSessionWithScores]);
+    // Priority 1: Latest daily_life_areas
+    if (latestLifeAreas) {
+      return {
+        love: latestLifeAreas.love,
+        work: latestLifeAreas.work,
+        social: latestLifeAreas.social,
+        growth: latestLifeAreas.growth,
+        health: latestLifeAreas.health,
+      };
+    }
+    
+    // Priority 2: Profile life_areas_scores (legacy)
+    if (profileScores) {
+      return {
+        love: profileScores.love || null,
+        work: profileScores.work || null,
+        social: profileScores.friendship || null, // Map friendship -> social
+        growth: profileScores.growth || null,
+        health: profileScores.wellness || profileScores.energy || null, // Map wellness/energy -> health
+      };
+    }
+    
+    return {};
+  }, [latestLifeAreas, profileScores]);
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,
-    value: (lifeAreasScores?.[area.key] || 0) as number,
+    value: (lifeAreasScores?.[area.key as keyof typeof lifeAreasScores] || 0) as number,
     fullMark: 10,
   }));
 
@@ -56,7 +65,7 @@ const LifeBalanceRadar: React.FC = () => {
         </h3>
       </div>
 
-      {!hasData ? (
+      {!hasData && !isLoading ? (
         <div className="h-36 flex flex-col items-center justify-center text-muted-foreground text-center">
           <MessageCircle className="w-8 h-8 text-muted-foreground/30 mb-2" />
           <p className="text-sm">Parla con l'AI per generare il grafico</p>
