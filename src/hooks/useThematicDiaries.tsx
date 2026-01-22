@@ -170,8 +170,12 @@ export const useThematicDiaries = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['thematic-diaries', user?.id] });
-      // Also invalidate profile to refresh memory
+      // Invalidate all related data for instant sync
       queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-metrics', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-life-areas', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-emotions', user?.id] });
     },
   });
 

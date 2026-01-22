@@ -41,6 +41,112 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_emotions: {
+        Row: {
+          anger: number | null
+          apathy: number | null
+          created_at: string
+          date: string
+          fear: number | null
+          id: string
+          joy: number | null
+          sadness: number | null
+          session_id: string | null
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anger?: number | null
+          apathy?: number | null
+          created_at?: string
+          date?: string
+          fear?: number | null
+          id?: string
+          joy?: number | null
+          sadness?: number | null
+          session_id?: string | null
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anger?: number | null
+          apathy?: number | null
+          created_at?: string
+          date?: string
+          fear?: number | null
+          id?: string
+          joy?: number | null
+          sadness?: number | null
+          session_id?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_emotions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_life_areas: {
+        Row: {
+          created_at: string
+          date: string
+          growth: number | null
+          health: number | null
+          id: string
+          love: number | null
+          session_id: string | null
+          social: number | null
+          source: string
+          updated_at: string
+          user_id: string
+          work: number | null
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          growth?: number | null
+          health?: number | null
+          id?: string
+          love?: number | null
+          session_id?: string | null
+          social?: number | null
+          source?: string
+          updated_at?: string
+          user_id: string
+          work?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          growth?: number | null
+          health?: number | null
+          id?: string
+          love?: number | null
+          session_id?: string | null
+          social?: number | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+          work?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_life_areas_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_patient_access: {
         Row: {
           access_granted_at: string
