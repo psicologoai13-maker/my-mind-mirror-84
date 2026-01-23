@@ -346,7 +346,10 @@ const Chat: React.FC = () => {
   // Loading state
   if (isProfileLoading || !isSessionReady) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-background">
+      <div 
+        className="flex flex-col bg-background"
+        style={{ height: viewportHeight || '100dvh' }}
+      >
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="relative">
             <Brain className="w-12 h-12 text-primary animate-pulse" />
@@ -364,10 +367,10 @@ const Chat: React.FC = () => {
   return (
     <div 
       ref={containerRef}
-      className="fixed inset-0 flex flex-col bg-background overflow-hidden"
+      className="flex flex-col bg-background overflow-hidden"
       style={{ 
-        height: isKeyboardOpen && viewportHeight ? `${viewportHeight}px` : '100dvh',
-        transition: 'height 0.1s ease-out',
+        height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+        maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh',
       }}
     >
       {/* Crisis Emergency Modal */}
@@ -476,14 +479,14 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area - Fixed at bottom, moves with keyboard */}
+      {/* Input Area - Sticky at bottom with safe area */}
       <div 
-        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4"
+        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 z-50"
         style={{
           paddingTop: '0.75rem',
           paddingBottom: isKeyboardOpen 
-            ? '0.5rem' 
-            : 'max(0.75rem, env(safe-area-inset-bottom))',
+            ? '0.75rem' 
+            : 'calc(0.75rem + env(safe-area-inset-bottom))',
         }}
       >
         <div className="flex items-center gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
@@ -493,24 +496,17 @@ const Chat: React.FC = () => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Scrivi come ti senti..."
-            className="flex-1 bg-transparent border-none outline-none text-base px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
-            disabled={isTyping}
-            autoComplete="off"
-            autoCorrect="on"
-            autoCapitalize="sentences"
-            enterKeyHint="send"
+            disabled={isTyping || !isSessionReady}
+            className="flex-1 bg-transparent px-4 py-2.5 text-[16px] placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
           <Button
+            variant="default"
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="shrink-0 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground w-10 h-10"
+            className="shrink-0 rounded-xl h-10 w-10 shadow-sm"
           >
-            {isTyping ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+            <Send className="w-4 h-4" />
           </Button>
         </div>
       </div>
