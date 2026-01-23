@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,17 +21,52 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { isKeyboardOpen } = useVisualViewport();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
   
   const { sendMessage } = useThematicDiaries();
   const themeConfig = DIARY_THEMES.find(t => t.theme === theme)!;
   
   const messages = diary?.messages || [];
   
+  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
+
+  // Auto-adjust textarea height
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 120); // Max 5 lines (~120px)
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  // Reset textarea height after sending
+  useEffect(() => {
+    if (input === '' && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  }, [input]);
+
+  // Prevent rubber-banding on header
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const preventTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    header.addEventListener('touchmove', preventTouchMove, { passive: false });
+    return () => {
+      header.removeEventListener('touchmove', preventTouchMove);
+    };
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -40,19 +75,33 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
     setInput('');
     setIsSending(true);
     
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    
     try {
       await sendMessage.mutateAsync({ theme, message: messageText });
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Errore nell\'invio del messaggio');
-      setInput(messageText); // Restore input on error
+      setInput(messageText);
     } finally {
       setIsSending(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    adjustTextareaHeight();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Desktop: Enter sends, Shift+Enter for new line
+    // Mobile: Enter creates new line (send button is used)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
       e.preventDefault();
       handleSend();
     }
@@ -68,10 +117,34 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
 
   const colors = themeColors[theme];
 
+  // Dynamic container style based on viewport
+  const containerStyle: React.CSSProperties = isKeyboardOpen
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: `${viewportHeight}px`,
+        display: 'flex',
+        flexDirection: 'column',
+      }
+    : {
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+      };
+
   return (
-    <div className="flex flex-col h-[100dvh] bg-gray-50">
+    <div 
+      ref={containerRef}
+      className="bg-gray-50 overscroll-contain"
+      style={containerStyle}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-50 px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-xl">
+      <header 
+        ref={headerRef}
+        className="shrink-0 px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-xl z-50"
+      >
         <Button 
           variant="ghost" 
           size="icon" 
@@ -95,7 +168,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 overscroll-contain">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>
@@ -132,11 +205,10 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Dynamic positioning with visual viewport */}
+      {/* Input - Smart Auto-Growing Textarea */}
       <div 
-        className="sticky z-50 bg-white/95 backdrop-blur-lg border-t border-gray-100"
+        className="shrink-0 bg-white/95 backdrop-blur-lg border-t border-gray-100"
         style={{
-          bottom: isKeyboardOpen ? 0 : 0,
           paddingBottom: isKeyboardOpen ? '0.5rem' : 'calc(0.75rem + env(safe-area-inset-bottom))',
           paddingTop: '0.75rem',
           paddingLeft: '1rem',
@@ -145,13 +217,18 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
       >
         <div className="flex items-end gap-3 bg-gray-100/80 border border-gray-200/50 rounded-2xl px-4 py-2">
           <textarea
-            ref={inputRef}
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             placeholder={`Scrivi nel tuo diario ${themeConfig.label.toLowerCase()}...`}
             rows={1}
-            className="flex-1 bg-transparent border-none outline-none resize-none text-[16px] text-gray-900 placeholder:text-gray-400 max-h-24 focus:outline-none"
+            className="chat-input flex-1 bg-transparent border-none outline-none resize-none text-gray-900 placeholder:text-gray-400 max-h-[120px] overflow-y-auto focus:outline-none focus:ring-0"
+            style={{
+              fontSize: '16px',
+              lineHeight: '1.5',
+              minHeight: '24px',
+            }}
             disabled={isSending}
           />
           <Button
