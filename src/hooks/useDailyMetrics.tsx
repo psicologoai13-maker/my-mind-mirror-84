@@ -18,8 +18,17 @@ export interface DailyMetrics {
     fear: number;
     apathy: number;
   };
+  life_areas: {
+    love: number | null;
+    work: number | null;
+    health: number | null;
+    social: number | null;
+    growth: number | null;
+  };
   has_checkin: boolean;
   has_sessions: boolean;
+  has_emotions: boolean;
+  has_life_areas: boolean;
   checkin_priority: boolean;
 }
 
@@ -88,7 +97,8 @@ export const useDailyMetrics = (date?: Date) => {
     vitals: data?.vitals || null,
     vitalsPercentage,
     emotions: data?.emotions || null,
-    hasData: data?.has_checkin || data?.has_sessions || false,
+    lifeAreas: data?.life_areas || null,
+    hasData: data?.has_checkin || data?.has_sessions || data?.has_emotions || data?.has_life_areas || false,
     isLoading,
     error,
     refetch,

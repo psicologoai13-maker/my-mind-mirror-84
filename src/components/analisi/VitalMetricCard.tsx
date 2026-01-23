@@ -16,10 +16,9 @@ const NEGATIVE_METRICS = ['anxiety', 'stress', 'anger', 'fear', 'sadness', 'apat
 const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, onClick }) => {
   const isNegative = NEGATIVE_METRICS.includes(metric.key);
   
-  // Score in 1-10 scale - INVERT for negative metrics
-  // If user votes 10 ("I'm great!") for anxiety, stored value is 10, but visual = 10 - 10 = 0 (no anxiety)
-  // If user votes 2 ("I'm bad") for anxiety, stored value is 2, but visual = 10 - 2 = 8 (high anxiety)
-  const rawScore = metric.average !== null ? metric.average / 10 : null;
+  // metric.average is already in 1-10 scale from unified source
+  // For negative metrics: INVERT for display (high anxiety stored = low visual score)
+  const rawScore = metric.average;
   const score10 = rawScore !== null 
     ? Math.round(isNegative ? 10 - rawScore : rawScore) 
     : null;

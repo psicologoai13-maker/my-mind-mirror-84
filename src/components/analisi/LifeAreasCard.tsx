@@ -24,7 +24,8 @@ const LifeAreasCard: React.FC<LifeAreasCardProps> = ({ areas, onClick }) => {
 
       <div className="grid grid-cols-2 gap-3">
         {areas.map(area => {
-          const score10 = area.average !== null ? Math.round(area.average / 10) : null;
+          // area.average is already in 1-10 scale from unified source
+          const score10 = area.average !== null ? Math.round(area.average) : null;
           
           return (
             <button
