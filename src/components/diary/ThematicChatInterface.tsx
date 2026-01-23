@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DiaryTheme, ThematicDiary, DIARY_THEMES, useThematicDiaries } from '@/hooks/useThematicDiaries';
 import { toast } from 'sonner';
+import ChatBubble from '@/components/chat/ChatBubble';
 
 interface ThematicChatInterfaceProps {
   theme: DiaryTheme;
@@ -66,9 +67,9 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const colors = themeColors[theme];
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-[100dvh] bg-gray-50">
       {/* Header */}
-      <header className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white">
+      <header className="sticky top-0 z-50 px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-xl">
         <Button 
           variant="ghost" 
           size="icon" 
@@ -106,33 +107,31 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
           </div>
         ) : (
           messages.map((msg) => (
-            <div
+            <ChatBubble
               key={msg.id}
-              className={cn(
-                "max-w-[85%] px-4 py-3 rounded-2xl animate-fade-in",
-                msg.role === 'user' 
-                  ? "ml-auto bg-primary text-white rounded-tr-none" 
-                  : "mr-auto bg-white text-gray-900 border border-gray-100 rounded-tl-none"
-              )}
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {msg.content}
-              </p>
-            </div>
+              content={msg.content}
+              role={msg.role}
+              timestamp={new Date(msg.timestamp)}
+            />
           ))
         )}
         
         {isSending && (
-          <div className="max-w-[85%] mr-auto px-4 py-3 rounded-2xl rounded-tl-none bg-white border border-gray-100">
-            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          <div className="flex gap-2 animate-fade-in">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <div className="bg-white rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-gray-100">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            </div>
           </div>
         )}
         
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-4 pb-6 bg-white border-t border-gray-100">
+      {/* Input - Fixed at bottom with safe area */}
+      <div className="sticky bottom-0 z-50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-100">
         <div className="flex items-end gap-2 bg-gray-50 border border-gray-100 rounded-full px-4 py-2">
           <textarea
             ref={inputRef}
