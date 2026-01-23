@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ArrowLeft, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { DiaryTheme, ThematicDiary, DIARY_THEMES, useThematicDiaries } from '@/hooks/useThematicDiaries';
+import { DiaryTheme, DiaryMessage, ThematicDiary, DIARY_THEMES, useThematicDiaries } from '@/hooks/useThematicDiaries';
 import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { toast } from 'sonner';
 import ChatBubble from '@/components/chat/ChatBubble';
@@ -20,6 +20,10 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  
+  // OPTIMISTIC UI: Local state for instant message display
+  const [optimisticMessages, setOptimisticMessages] = useState<DiaryMessage[]>([]);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -31,7 +35,33 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const { sendMessage } = useThematicDiaries();
   const themeConfig = DIARY_THEMES.find(t => t.theme === theme)!;
   
-  const messages = diary?.messages || [];
+  // Merge persisted messages with optimistic ones, deduplicating by content
+  const messages = useMemo(() => {
+    const persistedMessages = diary?.messages || [];
+    
+    // Filter out optimistic messages that now exist in persisted (deduplication)
+    const newOptimistic = optimisticMessages.filter(opt => 
+      !persistedMessages.some(p => 
+        p.content === opt.content && p.role === opt.role
+      )
+    );
+    
+    return [...persistedMessages, ...newOptimistic];
+  }, [diary?.messages, optimisticMessages]);
+  
+  // Clear optimistic messages when persisted messages update
+  useEffect(() => {
+    if (diary?.messages?.length) {
+      // Remove optimistic messages that have been persisted
+      setOptimisticMessages(prev => 
+        prev.filter(opt => 
+          !diary.messages.some(p => 
+            p.content === opt.content && p.role === opt.role
+          )
+        )
+      );
+    }
+  }, [diary?.messages]);
   
   // Scroll to bottom - IDENTICAL to main Chat
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -87,21 +117,42 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
     
     const messageText = input.trim();
     setInput('');
-    setIsSending(true);
     
     // Reset textarea height after sending
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
     
-    // Scroll immediately
+    // 1. OPTIMISTIC: Add user message IMMEDIATELY to local state
+    const optimisticUserMessage: DiaryMessage = {
+      id: `temp-user-${Date.now()}`,
+      role: 'user',
+      content: messageText,
+      timestamp: new Date().toISOString(),
+    };
+    
+    setOptimisticMessages(prev => [...prev, optimisticUserMessage]);
+    
+    // 2. Show typing indicator
+    setIsSending(true);
+    
+    // 3. Scroll immediately to show user message + typing indicator
     requestAnimationFrame(() => scrollToBottom('instant'));
     
     try {
+      // 4. Call API in background - on success, query will be invalidated
       await sendMessage.mutateAsync({ theme, message: messageText });
+      // Optimistic message will be deduplicated when query refreshes
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Errore nell\'invio del messaggio');
+      
+      // Remove optimistic message on error
+      setOptimisticMessages(prev => 
+        prev.filter(m => m.id !== optimisticUserMessage.id)
+      );
+      
+      // Restore input
       setInput(messageText);
     } finally {
       setIsSending(false);
@@ -134,6 +185,9 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
       }
     : {};
 
+  // Count only persisted messages for display (not optimistic)
+  const persistedCount = diary?.messages?.length || 0;
+
   return (
     <div 
       className={cn(
@@ -165,7 +219,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
                 Diario {themeConfig.label}
               </h1>
               <p className="text-xs text-muted-foreground">
-                {messages.length} {messages.length === 1 ? 'messaggio' : 'messaggi'}
+                {persistedCount} {persistedCount === 1 ? 'messaggio' : 'messaggi'}
               </p>
             </div>
           </div>
@@ -178,7 +232,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>
             <h2 className="font-display font-semibold text-foreground mb-2">
