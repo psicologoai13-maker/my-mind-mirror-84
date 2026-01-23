@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Check, RefreshCw, Wind, Heart, Sparkles } from 'lucide-react';
+import { Check, RefreshCw, Wind, Heart, Sparkles, Moon, Zap, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 
@@ -16,9 +16,9 @@ const moods = [
 ];
 
 const anxietyLevels = [
-  { icon: '🧘', label: 'Zen', value: 1, color: 'bg-green-500' },
-  { icon: '😌', label: 'Calmo', value: 2, color: 'bg-green-400' },
-  { icon: '😊', label: 'Ok', value: 3, color: 'bg-yellow-400' },
+  { icon: '🧘', label: 'Zen', value: 1, color: 'bg-emerald-500' },
+  { icon: '😌', label: 'Calmo', value: 2, color: 'bg-emerald-400' },
+  { icon: '😊', label: 'Ok', value: 3, color: 'bg-amber-400' },
   { icon: '😟', label: 'Teso', value: 4, color: 'bg-orange-400' },
   { icon: '😰', label: 'Panico', value: 5, color: 'bg-red-500' },
 ];
@@ -63,6 +63,14 @@ const stepLabels: Record<Exclude<CheckinStep, 'complete'>, string> = {
   sleep: 'Come hai dormito?',
 };
 
+// Premium minimal quick action button config
+const QUICK_ACTIONS = [
+  { key: 'mood', icon: Heart, label: 'Umore', color: 'text-rose-500', bgCompleted: 'bg-rose-50' },
+  { key: 'anxiety', icon: Brain, label: 'Ansia', color: 'text-violet-500', bgCompleted: 'bg-violet-50' },
+  { key: 'energy', icon: Zap, label: 'Energia', color: 'text-amber-500', bgCompleted: 'bg-amber-50' },
+  { key: 'sleep', icon: Moon, label: 'Sonno', color: 'text-indigo-500', bgCompleted: 'bg-indigo-50' },
+] as const;
+
 interface QuickCheckinProps {
   selectedMood: number | null;
   onMoodSelect: (mood: number) => void;
@@ -78,6 +86,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const [energyValue, setEnergyValue] = useState<number | null>(null);
   const [sleepValue, setSleepValue] = useState<number | null>(null);
   const [isCheckinComplete, setIsCheckinComplete] = useState(false);
+  const [showQuickButtons, setShowQuickButtons] = useState(true);
 
   // Get personalized greeting
   const getGreeting = () => {
@@ -106,6 +115,30 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     return weeklyCheckins.map(c => ({ value: c.mood_value * 2 })); // Scale to 1-10
   }, [weeklyCheckins]);
 
+  // Check completed status for each metric
+  const completedMetrics = useMemo(() => {
+    const completed = { mood: false, anxiety: false, energy: false, sleep: false };
+    
+    if (todayCheckin) {
+      completed.mood = true;
+      
+      if (todayCheckin.notes) {
+        try {
+          const notes = JSON.parse(todayCheckin.notes);
+          if (notes.anxiety) completed.anxiety = true;
+          if (notes.energy) completed.energy = true;
+          if (notes.sleep) completed.sleep = true;
+        } catch (e) {
+          // Notes not in JSON format
+        }
+      }
+    }
+    
+    return completed;
+  }, [todayCheckin]);
+
+  const allCompleted = Object.values(completedMetrics).every(Boolean);
+
   // Check if already completed today
   useEffect(() => {
     if (todayCheckin) {
@@ -123,6 +156,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           if (notes.anxiety && notes.energy && notes.sleep) {
             setIsCheckinComplete(true);
             setCurrentStep('complete');
+            setShowQuickButtons(false);
           }
         } catch (e) {
           // Notes not in JSON format
@@ -155,6 +189,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
       });
       
       setIsCheckinComplete(true);
+      setShowQuickButtons(false);
       toast.success('Check-in completato!', { duration: 2000 });
     } catch (error) {
       toast.error('Errore nel salvare');
@@ -181,18 +216,24 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const handleSleepSelect = async (value: number) => {
     setSleepValue(value);
     setCurrentStep('complete');
-    // Auto-save after last selection
     await saveAllParameters(
       moodValue || 3,
       anxietyValue || 3,
-      value,
+      energyValue || 3,
       value
     );
+  };
+
+  // Start check-in flow from quick button
+  const handleQuickButtonClick = (step: CheckinStep) => {
+    setShowQuickButtons(false);
+    setCurrentStep(step);
   };
 
   // Reset check-in to edit
   const handleReset = () => {
     setIsCheckinComplete(false);
+    setShowQuickButtons(true);
     setCurrentStep('mood');
   };
 
@@ -204,50 +245,84 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     const energy = energyValue || 3;
     const mood = moodValue || 3;
     
-    // High anxiety
     if (anxiety >= 4) {
       return {
         icon: <Wind className="w-5 h-5" />,
         title: 'Esercizio di respirazione',
         message: 'Prova 4-7-8: inspira 4 sec, trattieni 7, espira 8.',
         color: 'text-blue-500',
-        bgColor: 'bg-blue-500/10',
+        bgColor: 'bg-blue-50',
       };
     }
     
-    // Low energy
     if (energy <= 2) {
       return {
         icon: <Sparkles className="w-5 h-5" />,
         title: 'Ricarica le energie',
         message: 'Una breve passeggiata o stretching può aiutare.',
         color: 'text-amber-500',
-        bgColor: 'bg-amber-500/10',
+        bgColor: 'bg-amber-50',
       };
     }
     
-    // Low mood
     if (mood <= 2) {
       return {
         icon: <Heart className="w-5 h-5" />,
         title: 'Prenditi cura di te',
         message: 'Parla con qualcuno o fai qualcosa che ti piace.',
         color: 'text-rose-500',
-        bgColor: 'bg-rose-500/10',
+        bgColor: 'bg-rose-50',
       };
     }
     
-    // Good state
     return {
       icon: <Sparkles className="w-5 h-5" />,
       title: 'Ottima giornata!',
       message: 'Continua così, stai facendo un buon lavoro.',
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
+      color: 'text-emerald-500',
+      bgColor: 'bg-emerald-50',
     };
   }, [isCheckinComplete, anxietyValue, energyValue, moodValue]);
 
-  // Render step buttons
+  // Render Premium Quick Buttons
+  const renderQuickButtons = () => (
+    <div className="grid grid-cols-4 gap-3">
+      {QUICK_ACTIONS.map((action) => {
+        const Icon = action.icon;
+        const isCompleted = completedMetrics[action.key as keyof typeof completedMetrics];
+        
+        return (
+          <button
+            key={action.key}
+            onClick={() => handleQuickButtonClick(action.key as CheckinStep)}
+            className={cn(
+              "flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200",
+              "active:scale-95",
+              isCompleted
+                ? cn(action.bgCompleted, "border border-emerald-200")
+                : "bg-white shadow-sm hover:shadow-md"
+            )}
+          >
+            {isCompleted ? (
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Check className="w-4 h-4 text-emerald-600" />
+              </div>
+            ) : (
+              <Icon className={cn("w-6 h-6", action.color)} />
+            )}
+            <span className={cn(
+              "text-xs font-medium",
+              isCompleted ? "text-emerald-700" : "text-gray-600"
+            )}>
+              {action.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Render step content
   const renderStepContent = () => {
     switch (currentStep) {
       case 'mood':
@@ -367,7 +442,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete'>);
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-3xl p-6 shadow-premium">
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-1">
           {getGreeting()}
@@ -376,8 +451,20 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           {motivationalPhrase}
         </p>
         
-        {/* Check-in flow or Summary */}
-        {isCheckinComplete ? (
+        {/* Quick Buttons or Check-in Flow */}
+        {showQuickButtons && !isCheckinComplete ? (
+          <div className="animate-fade-in">
+            {renderQuickButtons()}
+            
+            {/* All complete indicator */}
+            {allCompleted && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-emerald-600">
+                <Check className="w-4 h-4" />
+                <span className="text-sm font-medium">Check-in completato oggi!</span>
+              </div>
+            )}
+          </div>
+        ) : isCheckinComplete ? (
           // Summary Card
           <div className="animate-fade-in">
             {/* Suggestion Card */}
@@ -462,9 +549,17 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
         ) : (
           // Progressive Check-in Flow
           <div className="animate-fade-in">
+            {/* Back button */}
+            <button 
+              onClick={() => setShowQuickButtons(true)}
+              className="text-sm text-gray-500 mb-3 hover:text-gray-700"
+            >
+              ← Indietro
+            </button>
+            
             {/* Step label */}
             {currentStep !== 'complete' && (
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-gray-700 font-medium mb-3">
                 {stepLabels[currentStep]}
               </p>
             )}

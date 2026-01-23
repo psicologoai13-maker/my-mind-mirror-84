@@ -1,5 +1,5 @@
 import React from 'react';
-import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
+import { cn } from '@/lib/utils';
 
 export type MetricKey = 
   | 'mood' | 'anxiety' | 'energy' | 'sleep' 
@@ -9,162 +9,183 @@ export type MetricKey =
 interface AdaptiveVitalCardProps {
   metricKey: MetricKey;
   value: number; // 0-100
-  subtitle?: string;
+  isWeeklyAverage?: boolean;
 }
+
+// Negative metrics: lower is BETTER
+const NEGATIVE_METRICS = ['anxiety', 'sadness', 'anger', 'fear', 'apathy'];
+
+// Smart color/label logic based on metric type
+const getMetricStatus = (key: MetricKey, value: number): { 
+  color: string; 
+  bgColor: string; 
+  label: string;
+  ringColor: string;
+} => {
+  const isNegative = NEGATIVE_METRICS.includes(key);
+  const normalized = value / 10; // Convert to 0-10 scale
+  
+  if (isNegative) {
+    // For negative metrics: LOW = GOOD (green), HIGH = BAD (red)
+    if (normalized <= 3) {
+      return {
+        color: 'text-emerald-600',
+        bgColor: 'bg-emerald-500',
+        ringColor: 'ring-emerald-200',
+        label: key === 'anxiety' ? 'Calma' : 'Basso',
+      };
+    }
+    if (normalized <= 6) {
+      return {
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-500',
+        ringColor: 'ring-amber-200',
+        label: 'Gestibile',
+      };
+    }
+    return {
+      color: 'text-red-600',
+      bgColor: 'bg-red-500',
+      ringColor: 'ring-red-200',
+      label: key === 'anxiety' ? 'Alta' : 'Elevato',
+    };
+  } else {
+    // For positive metrics: HIGH = GOOD (green), LOW = BAD (red)
+    if (normalized >= 7) {
+      return {
+        color: 'text-emerald-600',
+        bgColor: 'bg-emerald-500',
+        ringColor: 'ring-emerald-200',
+        label: key === 'mood' ? 'Ottimo' : key === 'energy' ? 'Carico' : key === 'sleep' ? 'Riposato' : 'Buono',
+      };
+    }
+    if (normalized >= 4) {
+      return {
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-500',
+        ringColor: 'ring-amber-200',
+        label: key === 'mood' ? 'Neutro' : key === 'energy' ? 'Normale' : key === 'sleep' ? 'Ok' : 'Medio',
+      };
+    }
+    return {
+      color: 'text-red-600',
+      bgColor: 'bg-red-500',
+      ringColor: 'ring-red-200',
+      label: key === 'mood' ? 'Basso' : key === 'energy' ? 'Scarso' : key === 'sleep' ? 'Stanco' : 'Critico',
+    };
+  }
+};
 
 // Configuration for ALL possible metrics
 const METRIC_CONFIG: Record<MetricKey, {
   icon: string;
   label: string;
-  getColor: (v: number) => string;
 }> = {
-  // Vitals
-  mood: {
-    icon: '😌',
-    label: 'Umore',
-    getColor: () => 'hsl(var(--primary))',
-  },
-  anxiety: {
-    icon: '😰',
-    label: 'Ansia',
-    getColor: (v) => {
-      if (v <= 30) return 'hsl(var(--mood-excellent))';
-      if (v <= 60) return 'hsl(var(--mood-neutral))';
-      return 'hsl(var(--mood-bad))';
-    },
-  },
-  energy: {
-    icon: '🔋',
-    label: 'Energia',
-    getColor: () => 'hsl(var(--area-work))',
-  },
-  sleep: {
-    icon: '💤',
-    label: 'Riposo',
-    getColor: () => 'hsl(var(--accent-foreground))',
-  },
-  // Emotions
-  joy: {
-    icon: '😊',
-    label: 'Gioia',
-    getColor: () => 'hsl(var(--mood-neutral))',
-  },
-  sadness: {
-    icon: '😢',
-    label: 'Tristezza',
-    getColor: () => 'hsl(var(--area-friendship))',
-  },
-  anger: {
-    icon: '😠',
-    label: 'Rabbia',
-    getColor: () => 'hsl(var(--mood-bad))',
-  },
-  fear: {
-    icon: '😨',
-    label: 'Paura',
-    getColor: () => 'hsl(var(--accent-foreground))',
-  },
-  apathy: {
-    icon: '😶',
-    label: 'Apatia',
-    getColor: () => 'hsl(var(--muted-foreground))',
-  },
-  // Life Areas
-  love: {
-    icon: '❤️',
-    label: 'Amore',
-    getColor: () => 'hsl(var(--area-love))',
-  },
-  work: {
-    icon: '💼',
-    label: 'Lavoro',
-    getColor: () => 'hsl(var(--area-friendship))',
-  },
-  friendship: {
-    icon: '👥',
-    label: 'Socialità',
-    getColor: () => 'hsl(var(--area-work))',
-  },
-  growth: {
-    icon: '🌱',
-    label: 'Crescita',
-    getColor: () => 'hsl(var(--mood-good))',
-  },
-  health: {
-    icon: '💪',
-    label: 'Salute',
-    getColor: () => 'hsl(var(--area-wellness))',
-  },
+  mood: { icon: '😌', label: 'Umore' },
+  anxiety: { icon: '😰', label: 'Ansia' },
+  energy: { icon: '🔋', label: 'Energia' },
+  sleep: { icon: '💤', label: 'Riposo' },
+  joy: { icon: '😊', label: 'Gioia' },
+  sadness: { icon: '😢', label: 'Tristezza' },
+  anger: { icon: '😠', label: 'Rabbia' },
+  fear: { icon: '😨', label: 'Paura' },
+  apathy: { icon: '😶', label: 'Apatia' },
+  love: { icon: '❤️', label: 'Amore' },
+  work: { icon: '💼', label: 'Lavoro' },
+  friendship: { icon: '👥', label: 'Socialità' },
+  growth: { icon: '🌱', label: 'Crescita' },
+  health: { icon: '💪', label: 'Salute' },
 };
 
 const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   metricKey,
   value,
-  subtitle,
+  isWeeklyAverage = false,
 }) => {
   const config = METRIC_CONFIG[metricKey];
   if (!config) return null;
   
-  const fillColor = config.getColor(value);
+  const status = getMetricStatus(metricKey, value);
   
   // Convert 0-100 scale to 0-10 scale for display
   const displayValue = (value / 10).toFixed(1);
   
-  const data = [
-    { name: 'value', value: value, fill: fillColor },
-  ];
+  // Calculate circle progress (0-100 for stroke-dashoffset)
+  const circumference = 2 * Math.PI * 32; // radius = 32
+  const progress = Math.min(100, Math.max(0, value));
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
     <div className="rounded-3xl p-5 bg-card shadow-premium hover:shadow-elevated transition-all duration-300">
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">{config.icon}</span>
           <span className="text-sm font-medium text-muted-foreground">{config.label}</span>
         </div>
         
-        {/* Chart */}
+        {/* Custom SVG Circle Chart - Fixed sizing */}
         <div className="flex items-center justify-center">
-          <div className="w-20 h-20 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart 
-                cx="50%" 
-                cy="50%" 
-                innerRadius="70%" 
-                outerRadius="100%" 
-                barSize={8} 
-                data={data}
-                startAngle={90} 
-                endAngle={-270}
-              >
-                <RadialBar
-                  background={{ fill: 'hsl(var(--muted))' }}
-                  dataKey="value"
-                  cornerRadius={10}
-                />
-              </RadialBarChart>
-            </ResponsiveContainer>
-            {/* Center value - shows X.X/10 format */}
+          <div className="relative w-20 h-20">
+            <svg 
+              viewBox="0 0 80 80" 
+              className="w-full h-full transform -rotate-90"
+            >
+              {/* Background circle */}
+              <circle
+                cx="40"
+                cy="40"
+                r="32"
+                stroke="hsl(var(--muted))"
+                strokeWidth="6"
+                fill="none"
+              />
+              {/* Progress circle */}
+              <circle
+                cx="40"
+                cy="40"
+                r="32"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                className={cn("transition-all duration-500", status.color)}
+                style={{ color: `var(--${status.bgColor.replace('bg-', '')})` }}
+              />
+            </svg>
+            
+            {/* Center value - Fixed text sizing */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="flex items-baseline gap-0.5">
                 <span 
-                  className="font-semibold text-lg"
-                  style={{ color: fillColor }}
+                  className={cn(
+                    "font-semibold text-xl leading-none",
+                    status.color
+                  )}
                 >
                   {displayValue}
                 </span>
-                <span className="text-[10px] text-muted-foreground">/10</span>
+                <span className="text-[10px] text-muted-foreground leading-none">/10</span>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Subtitle */}
-        {subtitle && (
-          <p className="text-xs text-muted-foreground text-center mt-2 font-medium">
-            {subtitle}
-          </p>
-        )}
+        {/* Status label */}
+        <div className="mt-3 text-center">
+          <span className={cn(
+            "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+            status.bgColor.replace('bg-', 'bg-') + '/10',
+            status.color
+          )}>
+            {status.label}
+          </span>
+          {isWeeklyAverage && (
+            <p className="text-[10px] text-muted-foreground mt-1">Media 7gg</p>
+          )}
+        </div>
       </div>
     </div>
   );
