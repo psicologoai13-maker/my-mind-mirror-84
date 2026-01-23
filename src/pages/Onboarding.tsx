@@ -6,7 +6,7 @@ import EmojiSlider from '@/components/onboarding/EmojiSlider';
 import AnalyzingScreen from '@/components/onboarding/AnalyzingScreen';
 import ResultScreen from '@/components/onboarding/ResultScreen';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowLeft, Brain, Moon, Heart, Zap } from 'lucide-react';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 
@@ -15,6 +15,13 @@ interface OnboardingAnswers {
   primaryGoals: string[];
   mood: number;
   sleepIssues: string | null;
+}
+
+interface DashboardConfig {
+  priority_metrics: string[];
+  secondary_metrics: string[];
+  hidden_metrics: string[];
+  theme: string;
 }
 
 const goalOptions = [
@@ -30,6 +37,7 @@ const primaryGoalOptions = [
   { id: 'improve_sleep', label: 'Dormire Meglio', emoji: '🌙', description: 'Notti più riposanti e rigeneranti' },
   { id: 'find_love', label: 'Migliorare Relazioni', emoji: '💕', description: 'Connessioni più profonde con gli altri' },
   { id: 'boost_energy', label: 'Aumentare Energia', emoji: '⚡', description: 'Più vitalità durante la giornata' },
+  { id: 'express_feelings', label: 'Sfogarmi/Diario', emoji: '📝', description: 'Esprimere pensieri ed emozioni' },
 ];
 
 const sleepOptions = [
@@ -40,56 +48,96 @@ const sleepOptions = [
 
 type Step = 'goal' | 'primaryGoal' | 'mood' | 'sleep' | 'analyzing' | 'result';
 
-// Map onboarding goals to dashboard metrics
-const getPersonalizedMetrics = (answers: OnboardingAnswers): string[] => {
-  const metrics: string[] = [];
-  
-  // Always include mood
-  metrics.push('mood');
-  
-  // Based on goal
-  switch (answers.goal) {
-    case 'anxiety':
-      metrics.push('anxiety');
-      break;
-    case 'sleep':
-      metrics.push('sleep');
-      break;
-    case 'growth':
-      metrics.push('growth');
-      break;
-    case 'mood':
-      metrics.push('joy');
-      break;
-    default:
-      metrics.push('anxiety');
-  }
-  
-  // Based on sleep issues
-  if (answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes') {
-    if (!metrics.includes('sleep')) {
-      metrics.push('sleep');
+// ============================================
+// CORE MAPPING LOGIC: Goals -> Dashboard Config
+// ============================================
+const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
+  const priorityMetrics: string[] = [];
+  const secondaryMetrics: string[] = [];
+  const hiddenMetrics: string[] = [];
+
+  // Process primary goals selected by user
+  answers.primaryGoals.forEach(goal => {
+    switch (goal) {
+      case 'reduce_anxiety':
+        priorityMetrics.push('anxiety', 'stress');
+        secondaryMetrics.push('calmness');
+        break;
+      case 'improve_sleep':
+        priorityMetrics.push('sleep', 'energy');
+        secondaryMetrics.push('evening_routine');
+        break;
+      case 'find_love':
+        priorityMetrics.push('love', 'social');
+        secondaryMetrics.push('loneliness');
+        break;
+      case 'boost_energy':
+        priorityMetrics.push('energy', 'mood');
+        secondaryMetrics.push('vitality');
+        break;
+      case 'express_feelings':
+        priorityMetrics.push('mood', 'emotional_clarity');
+        secondaryMetrics.push('sadness', 'joy');
+        break;
+    }
+  });
+
+  // Add based on single goal selection (backup)
+  if (answers.goal && priorityMetrics.length === 0) {
+    switch (answers.goal) {
+      case 'anxiety':
+        priorityMetrics.push('anxiety', 'stress');
+        break;
+      case 'sleep':
+        priorityMetrics.push('sleep', 'energy');
+        break;
+      case 'growth':
+        priorityMetrics.push('growth', 'mood');
+        break;
+      case 'mood':
+        priorityMetrics.push('mood', 'joy');
+        break;
     }
   }
-  
-  // Based on mood level
-  if (answers.mood < 2) {
-    metrics.push('sadness');
-  } else {
-    metrics.push('energy');
+
+  // Add sleep if user has sleep issues
+  if ((answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes') && 
+      !priorityMetrics.includes('sleep')) {
+    priorityMetrics.push('sleep');
   }
-  
-  // Ensure we have exactly 4 unique metrics
-  const allMetrics = ['mood', 'anxiety', 'energy', 'sleep', 'joy', 'sadness', 'love', 'work'];
-  const uniqueMetrics = [...new Set(metrics)];
-  
-  while (uniqueMetrics.length < 4) {
-    const nextMetric = allMetrics.find(m => !uniqueMetrics.includes(m));
-    if (nextMetric) uniqueMetrics.push(nextMetric);
-    else break;
+
+  // Add mood-related metrics based on current mood
+  if (answers.mood <= 1 && !priorityMetrics.includes('mood')) {
+    priorityMetrics.push('mood');
+    secondaryMetrics.push('sadness');
   }
-  
-  return uniqueMetrics.slice(0, 4);
+
+  // Ensure we always have at least 4 priority metrics
+  const defaultMetrics = ['mood', 'anxiety', 'energy', 'sleep'];
+  defaultMetrics.forEach(metric => {
+    if (priorityMetrics.length < 4 && !priorityMetrics.includes(metric)) {
+      priorityMetrics.push(metric);
+    }
+  });
+
+  // Deduplicate and limit
+  const uniquePriority = [...new Set(priorityMetrics)].slice(0, 6);
+  const uniqueSecondary = [...new Set(secondaryMetrics)]
+    .filter(m => !uniquePriority.includes(m))
+    .slice(0, 4);
+
+  return {
+    priority_metrics: uniquePriority,
+    secondary_metrics: uniqueSecondary,
+    hidden_metrics: hiddenMetrics,
+    theme: 'default',
+  };
+};
+
+// Legacy function for active_dashboard_metrics (keeps backward compatibility)
+const getPersonalizedMetrics = (answers: OnboardingAnswers): string[] => {
+  const config = buildDashboardConfig(answers);
+  return config.priority_metrics.slice(0, 4);
 };
 
 const Onboarding: React.FC = () => {
@@ -139,12 +187,16 @@ const Onboarding: React.FC = () => {
 
   const handleComplete = async () => {
     try {
-      // Calculate personalized metrics based on answers
+      // Build personalized dashboard configuration
+      const dashboardConfig = buildDashboardConfig(answers);
       const personalizedMetrics = getPersonalizedMetrics(answers);
+      
+      console.log('[Onboarding] Saving config:', { dashboardConfig, personalizedMetrics });
       
       await updateProfile.mutateAsync({
         onboarding_completed: true,
         onboarding_answers: answers,
+        dashboard_config: dashboardConfig,
         active_dashboard_metrics: personalizedMetrics,
         selected_goals: answers.primaryGoals,
       } as any);
@@ -168,6 +220,7 @@ const Onboarding: React.FC = () => {
       <ResultScreen 
         answers={{
           goal: answers.goal ?? undefined,
+          primaryGoals: answers.primaryGoals,
           mood: answers.mood,
           sleepIssues: answers.sleepIssues ?? undefined,
         }}
