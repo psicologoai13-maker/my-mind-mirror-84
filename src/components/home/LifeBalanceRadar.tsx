@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
-import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
-import { useProfile } from '@/hooks/useProfile';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { Compass, MessageCircle, Heart, Briefcase, Users, Sprout, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { subDays } from 'date-fns';
 
 const LIFE_AREAS = [
   { key: 'love', label: 'Amore', icon: Heart, color: 'hsl(340, 70%, 60%)' },
@@ -14,38 +14,37 @@ const LIFE_AREAS = [
 ];
 
 const LifeBalanceRadar: React.FC = () => {
-  const { latestLifeAreas, isLoading } = useDailyLifeAreas();
-  const { profile } = useProfile();
-  
-  // Fallback to profile life_areas_scores if no daily data
-  const profileScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook (same as Analisi page)
+  const today = new Date();
+  const thirtyDaysAgo = subDays(today, 30);
+  const { metricsRange, isLoading } = useDailyMetricsRange(thirtyDaysAgo, today);
 
-  // Use daily_life_areas as primary source, fallback to profile
-  const lifeAreasScores = React.useMemo(() => {
-    // Priority 1: Latest daily_life_areas
-    if (latestLifeAreas) {
+  // Get the LATEST life areas data from the unified source
+  const lifeAreasScores = useMemo(() => {
+    // Filter days that have life_areas data
+    const daysWithLifeAreas = metricsRange.filter(m => m.has_life_areas);
+    
+    // Get the most recent day with data
+    const latest = daysWithLifeAreas[daysWithLifeAreas.length - 1];
+    
+    if (!latest) {
       return {
-        love: latestLifeAreas.love,
-        work: latestLifeAreas.work,
-        social: latestLifeAreas.social,
-        growth: latestLifeAreas.growth,
-        health: latestLifeAreas.health,
+        love: null,
+        work: null,
+        social: null,
+        growth: null,
+        health: null,
       };
     }
     
-    // Priority 2: Profile life_areas_scores (legacy)
-    if (profileScores) {
-      return {
-        love: profileScores.love || null,
-        work: profileScores.work || null,
-        social: profileScores.friendship || null,
-        growth: profileScores.growth || null,
-        health: profileScores.wellness || profileScores.energy || null,
-      };
-    }
-    
-    return {};
-  }, [latestLifeAreas, profileScores]);
+    return {
+      love: latest.life_areas?.love ?? null,
+      work: latest.life_areas?.work ?? null,
+      social: latest.life_areas?.social ?? null,
+      growth: latest.life_areas?.growth ?? null,
+      health: latest.life_areas?.health ?? null,
+    };
+  }, [metricsRange]);
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,
