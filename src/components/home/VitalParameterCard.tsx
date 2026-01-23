@@ -30,6 +30,9 @@ const colorConfig = {
   },
 };
 
+// Negative metrics where the visual value should be inverted
+const NEGATIVE_COLORS = ['anxiety'];
+
 const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
   icon,
   label,
@@ -38,10 +41,17 @@ const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
   subtitle,
 }) => {
   const config = colorConfig[color];
-  const fillColor = config.getColor(value);
+  
+  // For anxiety: invert the visual value
+  // User votes 10 ("I feel great!") -> show 0 (no anxiety, GREEN)
+  // User votes 2 ("I feel bad") -> show 80 (high anxiety, RED)
+  const isNegative = NEGATIVE_COLORS.includes(color);
+  const visualValue = isNegative ? (100 - value) : value;
+  
+  const fillColor = config.getColor(visualValue);
   
   const data = [
-    { name: 'value', value: value, fill: fillColor },
+    { name: 'value', value: visualValue, fill: fillColor },
   ];
 
   return (
@@ -76,13 +86,13 @@ const VitalParameterCard: React.FC<VitalParameterCardProps> = ({
                 />
               </RadialBarChart>
             </ResponsiveContainer>
-            {/* Center value */}
+            {/* Center value - show inverted value for negative metrics */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
                 className="font-semibold text-xl text-gray-900"
                 style={{ color: fillColor }}
               >
-                {value}
+                {visualValue}
               </span>
             </div>
           </div>

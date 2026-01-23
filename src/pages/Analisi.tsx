@@ -8,7 +8,7 @@ import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
 import WellnessScoreHero from '@/components/analisi/WellnessScoreHero';
 import VitalMetricCard from '@/components/analisi/VitalMetricCard';
-import EmotionalSpectrumCard from '@/components/analisi/EmotionalSpectrumCard';
+import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import LifeAreasCard from '@/components/analisi/LifeAreasCard';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
@@ -335,9 +335,9 @@ const Analisi: React.FC = () => {
           </div>
         </section>
 
-        {/* Emotional Spectrum */}
+        {/* Emotional Mix Bar */}
         <section className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <EmotionalSpectrumCard emotions={emotionMetrics} />
+          <EmotionalMixBar />
         </section>
 
         {/* Life Areas */}

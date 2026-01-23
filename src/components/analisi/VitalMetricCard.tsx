@@ -10,29 +10,45 @@ interface VitalMetricCardProps {
   onClick: () => void;
 }
 
-// Negative metrics where lower = better
-const NEGATIVE_METRICS = ['anxiety'];
+// Negative metrics where lower = better (user votes HIGH when feeling good = show LOW value)
+const NEGATIVE_METRICS = ['anxiety', 'stress', 'anger', 'fear', 'sadness', 'apathy'];
 
 const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, onClick }) => {
   const isNegative = NEGATIVE_METRICS.includes(metric.key);
   
-  // Score in 1-10 scale
-  const score10 = metric.average !== null ? Math.round(metric.average / 10) : null;
+  // Score in 1-10 scale - INVERT for negative metrics
+  // If user votes 10 ("I'm great!") for anxiety, stored value is 10, but visual = 10 - 10 = 0 (no anxiety)
+  // If user votes 2 ("I'm bad") for anxiety, stored value is 2, but visual = 10 - 2 = 8 (high anxiety)
+  const rawScore = metric.average !== null ? metric.average / 10 : null;
+  const score10 = rawScore !== null 
+    ? Math.round(isNegative ? 10 - rawScore : rawScore) 
+    : null;
   
   const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
   
   // Trend color (inverted for negative metrics)
+  // For negative metrics: stored value going UP = feeling worse = RED
+  // For negative metrics: stored value going DOWN = feeling better = GREEN
   const trendColor = isNegative
     ? (metric.trend === 'up' ? 'text-orange-500' : metric.trend === 'down' ? 'text-emerald-500' : 'text-muted-foreground')
     : (metric.trend === 'up' ? 'text-emerald-500' : metric.trend === 'down' ? 'text-orange-500' : 'text-muted-foreground');
 
-  // Score color (inverted for negative metrics)
+  // Score color based on INVERTED visual score for negative metrics
+  // After inversion: LOW score = GREEN (good), HIGH score = RED (bad)
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
-    const effectiveScore = isNegative ? 11 - score : score;
-    if (effectiveScore >= 7) return 'text-emerald-500';
-    if (effectiveScore >= 5) return 'text-amber-500';
-    return 'text-orange-500';
+    
+    if (isNegative) {
+      // For negative metrics (after inversion): 0-3 = green, 4-6 = amber, 7-10 = red
+      if (score <= 3) return 'text-emerald-500';
+      if (score <= 6) return 'text-amber-500';
+      return 'text-orange-500';
+    } else {
+      // For positive metrics: 7-10 = green, 5-6 = amber, 0-4 = red
+      if (score >= 7) return 'text-emerald-500';
+      if (score >= 5) return 'text-amber-500';
+      return 'text-orange-500';
+    }
   };
 
   // Chart gradient color based on metric

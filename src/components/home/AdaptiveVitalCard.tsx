@@ -163,15 +163,24 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   const config = METRIC_CONFIG[metricKey];
   if (!config) return null;
   
-  const status = getMetricStatus(metricKey, value);
+  const isNegative = NEGATIVE_METRICS.includes(metricKey);
   
-  // Convert 0-100 scale to 0-10 scale for display
-  const displayValue = (value / 10).toFixed(1);
+  // INVERSION LOGIC for negative metrics:
+  // User votes 10 ("I feel great!") -> stored 100 -> inverted visual = 0 (no anxiety)
+  // User votes 2 ("I feel bad") -> stored 20 -> inverted visual = 80 (high anxiety)
+  const invertedValue = isNegative ? (100 - value) : value;
+  
+  // Status is calculated on the INVERTED value for negative metrics
+  const status = getMetricStatus(metricKey, invertedValue);
+  
+  // Convert 0-100 scale to 0-10 scale for display (using inverted value)
+  const displayValue = (invertedValue / 10).toFixed(1);
   
   // Calculate circle progress (0-100 for stroke-dashoffset)
+  // For negative metrics: show inverted progress (low anxiety = mostly empty ring)
   const radius = isSecondary ? 24 : 32;
   const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(100, Math.max(0, value));
+  const progress = Math.min(100, Math.max(0, invertedValue));
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   const viewBoxSize = isSecondary ? 60 : 80;
   const center = viewBoxSize / 2;
