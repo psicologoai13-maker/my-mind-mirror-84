@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 export interface DailyMetrics {
   date: string;
@@ -21,6 +21,14 @@ export interface DailyMetrics {
   has_checkin: boolean;
   has_sessions: boolean;
   checkin_priority: boolean;
+}
+
+export interface WeeklyAverages {
+  mood: number;
+  anxiety: number;
+  energy: number;
+  sleep: number;
+  daysWithData: number;
 }
 
 /**
@@ -58,6 +66,7 @@ export const useDailyMetrics = (date?: Date) => {
   // Function to invalidate and refetch metrics
   const invalidateMetrics = () => {
     queryClient.invalidateQueries({ queryKey: ['daily-metrics', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['weekly-averages', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['checkin-today'] });
     queryClient.invalidateQueries({ queryKey: ['checkins-weekly'] });
     queryClient.invalidateQueries({ queryKey: ['sessions'] });
@@ -84,6 +93,75 @@ export const useDailyMetrics = (date?: Date) => {
     error,
     refetch,
     invalidateMetrics,
+  };
+};
+
+/**
+ * Hook per ottenere la MEDIA degli ultimi 7 giorni
+ */
+export const useWeeklyAverages = () => {
+  const { user } = useAuth();
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['weekly-averages', user?.id],
+    queryFn: async (): Promise<WeeklyAverages> => {
+      if (!user) {
+        return { mood: 0, anxiety: 0, energy: 0, sleep: 0, daysWithData: 0 };
+      }
+
+      const today = new Date();
+      const results: DailyMetrics[] = [];
+
+      // Fetch last 7 days
+      for (let i = 0; i < 7; i++) {
+        const date = subDays(today, i);
+        const dateStr = format(date, 'yyyy-MM-dd');
+
+        const { data, error } = await supabase.rpc('get_daily_metrics', {
+          p_user_id: user.id,
+          p_date: dateStr,
+        });
+
+        if (!error && data) {
+          const metrics = data as unknown as DailyMetrics;
+          // Only include days with actual data
+          if (metrics.has_checkin || metrics.has_sessions) {
+            results.push(metrics);
+          }
+        }
+      }
+
+      if (results.length === 0) {
+        return { mood: 0, anxiety: 0, energy: 0, sleep: 0, daysWithData: 0 };
+      }
+
+      // Calculate averages
+      const sum = results.reduce(
+        (acc, m) => ({
+          mood: acc.mood + (m.vitals?.mood || 0),
+          anxiety: acc.anxiety + (m.vitals?.anxiety || 0),
+          energy: acc.energy + (m.vitals?.energy || 0),
+          sleep: acc.sleep + (m.vitals?.sleep || 0),
+        }),
+        { mood: 0, anxiety: 0, energy: 0, sleep: 0 }
+      );
+
+      return {
+        mood: Number((sum.mood / results.length).toFixed(1)),
+        anxiety: Number((sum.anxiety / results.length).toFixed(1)),
+        energy: Number((sum.energy / results.length).toFixed(1)),
+        sleep: Number((sum.sleep / results.length).toFixed(1)),
+        daysWithData: results.length,
+      };
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000, // 1 minute cache
+  });
+
+  return {
+    averages: data || { mood: 0, anxiety: 0, energy: 0, sleep: 0, daysWithData: 0 },
+    isLoading,
+    refetch,
   };
 };
 
