@@ -429,35 +429,35 @@ const Chat: React.FC = () => {
     );
   }
 
-  // Calculate dynamic heights based on viewport
-  const inputAreaHeight = 72; // Approximate input area height
-  const headerHeight = 56; // Approximate header height
-  const safeAreaBottom = viewport.isKeyboardOpen ? 0 : 20; // env(safe-area-inset-bottom) approximation
-  
-  // When keyboard is open, use exact visualViewport height
-  // When closed, use 100dvh (CSS handles this)
-  const containerStyle: React.CSSProperties = viewport.isKeyboardOpen 
-    ? { 
-        height: `${viewport.height}px`,
-        position: 'fixed',
-        top: `${viewport.offsetTop}px`,
-        left: 0,
-        right: 0,
-        overflow: 'hidden',
-      }
-    : {};
+  // Container style for iOS keyboard handling
+  // CRITICAL: Always provide stable dimensions to prevent flicker
+  const containerStyle: React.CSSProperties = {
+    // Always use fixed background to prevent transparency flash
+    backgroundColor: 'hsl(var(--background))',
+    // Prevent iOS rubber-banding
+    overscrollBehavior: 'none',
+    // Hardware acceleration for smoother transitions
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    ...(viewport.isKeyboardOpen ? { 
+      height: `${viewport.height}px`,
+      position: 'fixed' as const,
+      top: `${viewport.offsetTop}px`,
+      left: 0,
+      right: 0,
+      overflow: 'hidden',
+    } : {
+      minHeight: '100dvh',
+    }),
+  };
 
   return (
     <div 
       className={cn(
-        "flex flex-col bg-background min-h-[100dvh]",
+        "flex flex-col bg-background chat-container-stable",
         !viewport.isKeyboardOpen && "h-[100dvh]"
       )}
-      style={{
-        ...containerStyle,
-        // CRITICAL: Fixed background to prevent white flash during resize
-        backgroundColor: 'hsl(var(--background))',
-      }}
+      style={containerStyle}
     >
       {/* Crisis Emergency Modal */}
       <CrisisModal 

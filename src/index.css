@@ -53,6 +53,8 @@
   html {
     height: 100%;
     height: -webkit-fill-available;
+    /* Prevent iOS zoom on input focus */
+    touch-action: manipulation;
   }
   
   body {
@@ -61,6 +63,8 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    /* Prevent white flash during resize */
+    background-color: hsl(var(--background));
   }
   
   #root {
@@ -68,6 +72,18 @@
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    /* Prevent flicker - always solid background */
+    background-color: hsl(var(--background));
+  }
+
+  /* Chat container stability - prevent white flash on iOS keyboard */
+  .chat-container-stable {
+    background-color: hsl(var(--background));
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: height;
   }
 
   :root {
