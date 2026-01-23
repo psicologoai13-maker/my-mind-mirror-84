@@ -450,10 +450,14 @@ const Chat: React.FC = () => {
   return (
     <div 
       className={cn(
-        "flex flex-col bg-background",
+        "flex flex-col bg-background min-h-[100dvh]",
         !viewport.isKeyboardOpen && "h-[100dvh]"
       )}
-      style={containerStyle}
+      style={{
+        ...containerStyle,
+        // CRITICAL: Fixed background to prevent white flash during resize
+        backgroundColor: 'hsl(var(--background))',
+      }}
     >
       {/* Crisis Emergency Modal */}
       <CrisisModal 
@@ -519,13 +523,18 @@ const Chat: React.FC = () => {
       </header>
 
       {/* Messages - Flex grow with overflow scroll */}
+      {/* GOLDEN RULE: If messages.length > 0, NEVER show loading spinner - always keep messages visible */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3 bg-background"
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          // CRITICAL: Fixed background to prevent transparency during resize
+          backgroundColor: 'hsl(var(--background))',
+        }}
       >
-        {isLoadingMessages ? (
-          // Skeleton loader instead of blank screen
+        {/* Show skeleton ONLY if loading AND no messages yet (first load) */}
+        {isLoadingMessages && messages.length === 0 ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className={cn(
