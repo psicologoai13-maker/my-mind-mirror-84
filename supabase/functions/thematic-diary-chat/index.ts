@@ -13,6 +13,88 @@ interface DiaryMessage {
   timestamp: string;
 }
 
+interface DashboardConfig {
+  priority_metrics?: string[];
+  secondary_metrics?: string[];
+  hidden_metrics?: string[];
+  theme?: string;
+}
+
+interface OnboardingAnswers {
+  goal?: string;
+  primaryGoals?: string[];
+  mood?: number;
+  sleepIssues?: string;
+}
+
+// Map goals to AI persona style
+const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers | null): string => {
+  // Priority check: explicit goals first
+  if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety') {
+    return `STILE: CALMO & RASSICURANTE
+- Usa un tono lento, validante, rassicurante.
+- Frasi come "Capisco, respira con calma...", "È normale sentirsi così...", "Sei al sicuro qui..."
+- Evita domande incalzanti. Dai spazio.
+- Valida prima di tutto, poi esplora delicatamente.
+- Suggerisci tecniche di grounding quando appropriato.`;
+  }
+  
+  if (goals.includes('boost_energy') || goals.includes('growth') || onboardingAnswers?.goal === 'growth') {
+    return `STILE: ENERGICO & ORIENTATO ALL'AZIONE
+- Usa un tono motivante, analitico, propositivo.
+- Frasi come "Ottimo! Qual è il prossimo passo?", "Come possiamo trasformarlo in azione?", "Cosa ti servirebbe per..."
+- Focus su obiettivi concreti e progressi.
+- Celebra i successi, anche piccoli.
+- Spingi verso la riflessione produttiva.`;
+  }
+  
+  if (goals.includes('express_feelings') || goals.includes('find_love')) {
+    return `STILE: EMPATICO & SPAZIO LIBERO
+- Usa un tono accogliente, con minimo intervento.
+- Frasi come "Dimmi di più...", "Come ti ha fatto sentire?", "Sono qui per ascoltarti..."
+- Fai domande aperte e lascia parlare.
+- Non interrompere i flussi emotivi.
+- Rifletti i sentimenti senza giudicare.`;
+  }
+  
+  if (goals.includes('improve_sleep') || onboardingAnswers?.goal === 'sleep') {
+    return `STILE: RILASSANTE & GUIDATO
+- Usa un tono calmo, metodico, orientato al benessere.
+- Interesse genuino per routine serali, qualità del riposo.
+- Suggerisci pratiche di igiene del sonno quando appropriato.
+- Esplora fattori che influenzano il sonno (stress, pensieri, abitudini).`;
+  }
+  
+  // Default balanced style
+  return `STILE: BILANCIATO
+- Tono caldo, professionale, empatico.
+- Alterna ascolto attivo e domande esplorative.
+- Adattati al mood dell'utente momento per momento.`;
+};
+
+// Get priority metrics description
+const getPriorityFocus = (config: DashboardConfig | null): string => {
+  const metrics = config?.priority_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
+  
+  const metricLabels: Record<string, string> = {
+    mood: 'umore generale',
+    anxiety: 'livello di ansia e stress',
+    energy: 'energia e vitalità',
+    sleep: 'qualità del sonno',
+    love: 'relazioni amorose',
+    social: 'vita sociale e connessioni',
+    work: 'lavoro e carriera',
+    growth: 'crescita personale',
+    stress: 'gestione dello stress',
+    calmness: 'senso di calma',
+    loneliness: 'solitudine percepita',
+    emotional_clarity: 'chiarezza emotiva',
+  };
+  
+  const labels = metrics.slice(0, 4).map(m => metricLabels[m] || m).join(', ');
+  return labels;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -40,19 +122,37 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Get user profile for memory
+    // Get FULL user profile for personalization
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('name, long_term_memory, life_areas_scores')
+      .select('name, long_term_memory, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
       .eq('user_id', user.id)
       .single();
 
     const firstName = profile?.name?.split(' ')[0] || 'Amico';
     const longTermMemory = profile?.long_term_memory || [];
     const currentLifeScores = profile?.life_areas_scores || {};
+    const selectedGoals = (profile?.selected_goals as string[]) || [];
+    const onboardingAnswers = profile?.onboarding_answers as OnboardingAnswers | null;
+    const dashboardConfig = profile?.dashboard_config as DashboardConfig | null;
+    
     const memoryContext = longTermMemory.length > 0 
       ? longTermMemory.join('\n- ') 
       : 'Nessuna memoria precedente.';
+
+    // Build personalization context
+    const personaStyle = getPersonaStyle(selectedGoals, onboardingAnswers);
+    const priorityFocus = getPriorityFocus(dashboardConfig);
+    
+    // Map goals to readable labels
+    const goalLabels: Record<string, string> = {
+      reduce_anxiety: 'gestire ansia e stress',
+      improve_sleep: 'dormire meglio',
+      find_love: 'migliorare le relazioni',
+      boost_energy: 'aumentare energia e vitalità',
+      express_feelings: 'esprimere emozioni e sfogarsi',
+    };
+    const goalDescriptions = selectedGoals.map(g => goalLabels[g] || g).join(', ') || 'benessere generale';
 
     const { theme, themeLabel, message, history } = await req.json() as {
       theme: string;
@@ -77,44 +177,50 @@ serve(async (req) => {
 
     const themeContext = themeContextMap[theme] || theme;
 
-    // Build system prompt
-    const systemPrompt = `SEI UNA MEMORIA VIVENTE - DIARIO "${themeLabel.toUpperCase()}".
+    // Build PERSONALIZED system prompt
+    const systemPrompt = `SEI UNA MEMORIA VIVENTE - DIARIO "${themeLabel.toUpperCase()}"
 
-IDENTITÀ UTENTE:
-- Nome: ${firstName} (NON chiamarlo mai con altri nomi)
-- Questo è il suo diario personale sul tema: ${themeLabel}
+═══════════════════════════════════════════════
+📋 CONTESTO UTENTE PERSONALIZZATO
+═══════════════════════════════════════════════
+- Nome: ${firstName}
+- Obiettivi: ${goalDescriptions}
+- Metriche prioritarie: ${priorityFocus}
+- Tema diario: ${themeLabel} (${themeContext})
 
-MEMORIA CENTRALE (dai colloqui precedenti):
+${personaStyle}
+
+═══════════════════════════════════════════════
+🧠 MEMORIA CENTRALE
+═══════════════════════════════════════════════
 - ${memoryContext}
 
-CONTESTO TEMATICO:
-Questo diario è dedicato a: ${themeContext}.
-Mantieni la conversazione focalizzata su questo tema, ma usa la memoria centrale per collegamenti.
-
-=== REGOLE DI STILE INDEROGABILI ===
+═══════════════════════════════════════════════
+⚙️ REGOLE DI STILE INDEROGABILI
+═══════════════════════════════════════════════
 
 1. ANTI-SALUTI RIPETITIVI (CRITICO):
    - CONTROLLA la cronologia: se ci siamo già salutati, NON salutare di nuovo.
    - Vai dritto al punto. Niente "Ciao!", "Ehi!" ripetuti.
    
-2. TONO NATURALE:
-   - Sei un confidente empatico che conosce ${firstName} da tempo.
-   - NON dire MAI "non ho memoria" o "non ricordo". Tu HAI memoria.
+2. TONO PERSONALIZZATO:
+   - Adatta il tuo stile in base alle istruzioni STILE sopra.
+   - Sei un confidente che conosce ${firstName} da tempo.
+   - NON dire MAI "non ho memoria". Tu HAI memoria.
    - Fai riferimenti specifici alla memoria quando pertinente.
-   - Varia il linguaggio. Non essere ripetitivo.
 
-3. NO META-COMMENTI:
+3. FOCUS PRIORITÀ:
+   - Presta ATTENZIONE EXTRA a: ${priorityFocus}
+   - Se l'utente parla di temi correlati alle sue priorità, approfondisci.
+   - Cerca indizi nascosti sulle metriche prioritarie anche se non espliciti.
+
+4. NO META-COMMENTI:
    - NON stampare MAI istruzioni interne, "Note mentali:", "[Analisi]", ecc.
-   - La risposta deve essere una conversazione naturale, non un report.
+   - La risposta deve essere una conversazione naturale.
 
-4. FORMATTAZIONE:
+5. FORMATTAZIONE:
    - Usa **grassetto** SOLO per singole parole chiave emotive (1-3 parole max).
-   - NON usare grassetto per intere frasi.
-   - Fai domande aperte per esplorare sentimenti.
-
-5. LUNGHEZZA:
    - Sii caldo, breve (2-3 frasi max), e terapeutico.
-   - Usa il tono di un caro amico che ascolta senza giudicare.
 
 SICUREZZA:
 - Se l'utente esprime pensieri di autolesionismo, rispondi con empatia e suggerisci di parlare con un professionista (Telefono Amico: 02 2327 2327).`;
@@ -192,7 +298,7 @@ SICUREZZA:
 
         console.log('[thematic-diary-chat] Created session:', newSession.id);
 
-        // Call process-session edge function for full omniscient analysis
+        // Call process-session edge function with user context
         const processResponse = await fetch(`${supabaseUrl}/functions/v1/process-session`, {
           method: 'POST',
           headers: {
@@ -203,7 +309,13 @@ SICUREZZA:
             session_id: newSession.id,
             user_id: user.id,
             transcript: fullTranscript,
-            is_voice: false
+            is_voice: false,
+            // Pass user context for personalized analysis
+            user_context: {
+              selected_goals: selectedGoals,
+              priority_metrics: dashboardConfig?.priority_metrics || [],
+              primary_life_area: primaryLifeArea,
+            }
           }),
         });
 
