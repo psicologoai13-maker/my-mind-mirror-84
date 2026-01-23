@@ -213,9 +213,27 @@ Analizza la struttura del testo per inferire il tono emotivo:
 Restituisci voice_analysis con tone, speed e confidence (0-1).
 ` : '';
 
+    // Build Data Hunter instructions for missing life areas
+    const lifeAreasKeys = ['love', 'work', 'social', 'growth', 'health'];
+    const missingLifeAreas = lifeAreasKeys.filter(key => {
+      const score = currentLifeScores[key];
+      return score === null || score === undefined || score === 0;
+    });
+    
+    const dataHunterLifeAreas = missingLifeAreas.length > 0
+      ? `
+═══════════════════════════════════════════════
+🎯 DATA HUNTER - AREE MANCANTI DA RIEMPIRE
+═══════════════════════════════════════════════
+Il radar dell'utente ha queste aree VUOTE: ${missingLifeAreas.join(', ')}
+PRESTA ATTENZIONE EXTRA a qualsiasi indizio su queste aree nella conversazione.
+Se trovi anche un minimo riferimento, ESTRAI un punteggio.`
+      : '';
+
     // Build the OMNISCIENT analysis prompt with personalization
     const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE. Analizza la conversazione e restituisci SEMPRE un JSON valido.
 ${personalizedInstructions}
+${dataHunterLifeAreas}
 
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
