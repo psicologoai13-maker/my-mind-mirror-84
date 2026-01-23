@@ -173,17 +173,24 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
     }
   };
 
-  // Container style - IDENTICAL to main Chat
-  const containerStyle: React.CSSProperties = viewport.isKeyboardOpen 
-    ? { 
-        height: `${viewport.height}px`,
-        position: 'fixed',
-        top: `${viewport.offsetTop}px`,
-        left: 0,
-        right: 0,
-        overflow: 'hidden',
-      }
-    : {};
+  // Container style for iOS keyboard handling - IDENTICAL to main Chat
+  // CRITICAL: Always provide stable dimensions to prevent flicker
+  const containerStyle: React.CSSProperties = {
+    backgroundColor: 'hsl(var(--background))',
+    overscrollBehavior: 'none',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    ...(viewport.isKeyboardOpen ? { 
+      height: `${viewport.height}px`,
+      position: 'fixed' as const,
+      top: `${viewport.offsetTop}px`,
+      left: 0,
+      right: 0,
+      overflow: 'hidden',
+    } : {
+      minHeight: '100dvh',
+    }),
+  };
 
   // Count only persisted messages for display (not optimistic)
   const persistedCount = diary?.messages?.length || 0;
@@ -191,14 +198,10 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   return (
     <div 
       className={cn(
-        "flex flex-col bg-background min-h-[100dvh]",
+        "flex flex-col bg-background chat-container-stable",
         !viewport.isKeyboardOpen && "h-[100dvh]"
       )}
-      style={{
-        ...containerStyle,
-        // CRITICAL: Fixed background to prevent white flash during resize
-        backgroundColor: 'hsl(var(--background))',
-      }}
+      style={containerStyle}
     >
       {/* Header - IDENTICAL structure to main Chat */}
       <header 
