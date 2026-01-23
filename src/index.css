@@ -264,8 +264,24 @@
 /* iOS Safari input zoom prevention - CRITICAL for mobile UX */
 input,
 textarea,
-select {
+select,
+.chat-input {
   font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Chat input specific styles */
+.chat-input {
+  font-size: 16px !important;
+  max-height: 120px;
+  overflow-y: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-input:focus {
+  font-size: 16px !important;
+  outline: none !important;
 }
 
 /* Remove default browser focus outlines */
@@ -274,6 +290,12 @@ textarea:focus,
 select:focus {
   outline: none !important;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent overscroll/rubber-banding on fixed containers */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Custom scrollbar - minimal */
