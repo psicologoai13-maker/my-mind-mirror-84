@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
+import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ const Chat: React.FC = () => {
   const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
   const queryClient = useQueryClient();
+  const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -421,9 +423,18 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area - Fixed at bottom with safe area padding */}
-      <div className="sticky bottom-0 z-50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-background border-t border-border/50">
-        <div className="flex items-center gap-2 bg-muted rounded-full p-1.5 shadow-soft">
+      {/* Input Area - Dynamic positioning with visual viewport */}
+      <div 
+        className="sticky z-50 bg-background/95 backdrop-blur-lg border-t border-border/50"
+        style={{
+          bottom: isKeyboardOpen ? 0 : 0,
+          paddingBottom: isKeyboardOpen ? '0.5rem' : 'calc(0.75rem + env(safe-area-inset-bottom))',
+          paddingTop: '0.75rem',
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
+        }}
+      >
+        <div className="flex items-center gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
           <input
             type="text"
             value={input}
@@ -431,14 +442,14 @@ const Chat: React.FC = () => {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Scrivi come ti senti..."
             disabled={isTyping || !isMemoryLoaded}
-            className="flex-1 bg-transparent px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            className="flex-1 bg-transparent px-4 py-2.5 text-[16px] placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
           <Button
             variant="default"
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="shrink-0 rounded-full h-10 w-10"
+            className="shrink-0 rounded-xl h-10 w-10 shadow-sm"
           >
             <Send className="w-4 h-4" />
           </Button>
