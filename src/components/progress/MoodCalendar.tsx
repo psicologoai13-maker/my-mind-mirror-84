@@ -1,85 +1,79 @@
 import React, { useMemo, useState } from 'react';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
-  isSameMonth,
-  addMonths,
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameDay, 
+  addMonths, 
   subMonths,
-  getDay,
-  startOfWeek,
+  getDay 
 } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DayData {
   date: Date;
   mood: number | null;
-  sessions: number;
-  hasCheckin: boolean;
+  hasData: boolean;
 }
 
 const MoodCalendar: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const { metricsRange } = useDailyMetricsRange(monthStart, monthEnd);
 
   const calendarData = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     return days.map(day => {
-      const daySessions = completedSessions.filter(s => isSameDay(new Date(s.start_time), day));
-      const dayCheckin = weeklyCheckins?.find(c => isSameDay(new Date(c.created_at), day));
-
+      // Find metrics for this day
+      const dayMetrics = metricsRange.find(m => isSameDay(new Date(m.date), day));
+      
       let mood: number | null = null;
-      if (dayCheckin) {
-        mood = (dayCheckin.mood_value / 5) * 100;
-      } else if (daySessions.length > 0) {
-        const avgMood = daySessions.reduce((acc, s) => acc + (s.mood_score_detected || 50), 0) / daySessions.length;
-        mood = avgMood * 10;
+      let hasData = false;
+      
+      if (dayMetrics && (dayMetrics.has_checkin || dayMetrics.has_sessions)) {
+        hasData = true;
+        // Mood is 1-10 scale, convert to 0-100 for color gradient
+        if (dayMetrics.vitals.mood > 0) {
+          mood = dayMetrics.vitals.mood * 10;
+        }
       }
 
       return {
         date: day,
         mood,
-        sessions: daySessions.length,
-        hasCheckin: !!dayCheckin,
+        hasData,
       } as DayData;
     });
-  }, [currentMonth, completedSessions, weeklyCheckins]);
+  }, [monthStart, monthEnd, metricsRange]);
 
   const getMoodColor = (mood: number | null): string => {
     if (mood === null) return 'bg-muted/30';
     if (mood >= 70) return 'bg-emerald-400';
-    if (mood >= 40) return 'bg-amber-400';
+    if (mood >= 50) return 'bg-yellow-400';
+    if (mood >= 30) return 'bg-orange-400';
     return 'bg-red-400';
   };
 
   const getMoodLabel = (mood: number | null): string => {
     if (mood === null) return 'Nessun dato';
-    if (mood >= 70) return 'Buono';
-    if (mood >= 40) return 'Nella media';
+    if (mood >= 70) return 'Ottimo';
+    if (mood >= 50) return 'Buono';
+    if (mood >= 30) return 'Così così';
     return 'Difficile';
   };
 
-  // Calculate padding days for calendar grid
-  const firstDayOfMonth = startOfMonth(currentMonth);
-  const startDayOfWeek = getDay(firstDayOfMonth);
-  // Adjust for Monday start (Italian calendar)
-  const paddingDays = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+  // Get the weekday of the first day (0 = Sunday, 1 = Monday, etc.)
+  const firstDayOfWeek = getDay(monthStart);
+  // Adjust for Monday start (in Italian calendar Monday is first)
+  const paddingDays = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
   const weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
@@ -92,105 +86,82 @@ const MoodCalendar: React.FC = () => {
           </div>
           <h3 className="font-display font-semibold text-foreground">Calendario Umore</h3>
         </div>
-
-        <div className="flex items-center gap-1">
-          <button
+        
+        {/* Month Navigation */}
+        <div className="flex items-center gap-2">
+          <button 
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
-          <span className="text-sm font-medium text-foreground min-w-[100px] text-center capitalize">
+          <span className="text-sm font-medium text-foreground min-w-[100px] text-center">
             {format(currentMonth, 'MMMM yyyy', { locale: it })}
           </span>
-          <button
+          <button 
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
       </div>
 
-      {/* Week day headers */}
+      {/* Weekday Headers */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {weekDays.map(day => (
-          <div key={day} className="text-center text-[10px] text-muted-foreground font-medium py-1">
+          <div key={day} className="text-center text-[10px] text-muted-foreground font-medium">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
+      {/* Calendar Grid */}
       <TooltipProvider>
         <div className="grid grid-cols-7 gap-1">
           {/* Padding days */}
           {Array.from({ length: paddingDays }).map((_, i) => (
-            <div key={`pad-${i}`} className="aspect-square" />
+            <div key={`padding-${i}`} className="aspect-square" />
           ))}
-
+          
           {/* Actual days */}
-          {calendarData.map(dayData => {
-            const isToday = isSameDay(dayData.date, new Date());
-            const hasActivity = dayData.mood !== null;
-
-            return (
-              <Tooltip key={dayData.date.toISOString()}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      'aspect-square rounded-lg flex items-center justify-center relative cursor-default transition-all',
-                      isToday && 'ring-2 ring-primary ring-offset-1 ring-offset-card'
-                    )}
-                  >
-                    <span className="text-[11px] text-muted-foreground font-medium z-10">
-                      {format(dayData.date, 'd')}
-                    </span>
-                    {hasActivity && (
-                      <div
-                        className={cn(
-                          'absolute bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full',
-                          getMoodColor(dayData.mood)
-                        )}
-                      />
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  <div className="space-y-1">
-                    <p className="font-medium">{format(dayData.date, 'd MMMM', { locale: it })}</p>
-                    <p className="text-muted-foreground">
-                      Umore: {getMoodLabel(dayData.mood)}
-                      {dayData.mood !== null && ` (${Math.round(dayData.mood)}%)`}
-                    </p>
-                    {dayData.sessions > 0 && (
-                      <p className="text-muted-foreground">{dayData.sessions} sessioni</p>
-                    )}
-                    {dayData.hasCheckin && (
-                      <p className="text-primary">✓ Check-in completato</p>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+          {calendarData.map((day, index) => (
+            <Tooltip key={index}>
+              <TooltipTrigger asChild>
+                <div 
+                  className={`aspect-square rounded-md flex items-center justify-center text-xs cursor-default transition-colors ${
+                    day.hasData ? getMoodColor(day.mood) : 'bg-muted/30'
+                  } ${day.hasData ? 'text-white font-medium' : 'text-muted-foreground'}`}
+                >
+                  {format(day.date, 'd')}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="font-medium">{format(day.date, 'd MMMM', { locale: it })}</p>
+                <p className="text-xs text-muted-foreground">
+                  {getMoodLabel(day.mood)}
+                  {day.mood !== null && ` (${Math.round(day.mood)}%)`}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
         </div>
       </TooltipProvider>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-border/20">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-          <span className="text-[10px] text-muted-foreground">Buono</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-          <span className="text-[10px] text-muted-foreground">Nella media</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-          <span className="text-[10px] text-muted-foreground">Difficile</span>
-        </div>
+      <div className="flex items-center justify-center gap-4 mt-4">
+        {[
+          { color: 'bg-muted/30', label: 'Nessun dato' },
+          { color: 'bg-red-400', label: 'Difficile' },
+          { color: 'bg-orange-400', label: 'Così così' },
+          { color: 'bg-yellow-400', label: 'Buono' },
+          { color: 'bg-emerald-400', label: 'Ottimo' },
+        ].map(item => (
+          <div key={item.label} className="flex items-center gap-1">
+            <div className={`w-3 h-3 rounded-sm ${item.color}`} />
+            <span className="text-[10px] text-muted-foreground">{item.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

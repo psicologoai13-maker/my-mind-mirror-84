@@ -1,107 +1,74 @@
 import React from 'react';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
+import { useDailyMetrics } from '@/hooks/useDailyMetrics';
+import { Zap, Brain, Heart, Moon } from 'lucide-react';
 import VitalParameterCard from './VitalParameterCard';
 
 const VitalParametersSection: React.FC = () => {
-  const { journalSessions } = useSessions();
-  const { todayCheckin, weeklyCheckins } = useCheckins();
-  
-  // Calculate current vital parameters from sessions and check-ins
-  const vitals = React.useMemo(() => {
-    // Get latest session data
-    const latestSession = journalSessions?.[0];
-    
-    // Anxiety: from latest session or default
-    const anxietyScore = latestSession?.anxiety_score_detected ?? 30;
-    const anxiety = Math.min(100, Math.max(0, anxietyScore));
-    
-    // Mood: from today's check-in or latest session
-    let mood = 50;
-    if (todayCheckin) {
-      mood = (todayCheckin.mood_value / 5) * 100;
-    } else if (latestSession?.mood_score_detected) {
-      mood = Math.min(100, Math.max(0, latestSession.mood_score_detected));
-    }
-    
-    // Energy: derived from mood and anxiety (inverse relationship)
-    const baseEnergy = mood - (anxiety * 0.3);
-    const energy = Math.min(100, Math.max(0, baseEnergy + 20));
-    
-    // Sleep/Stress: inverse of anxiety with some randomness based on weekly trend
-    const weeklyMoodAvg = weeklyCheckins?.length 
-      ? weeklyCheckins.reduce((acc, c) => acc + c.mood_value, 0) / weeklyCheckins.length 
-      : 3;
-    const sleep = Math.min(100, Math.max(0, ((weeklyMoodAvg / 5) * 60) + 20));
-    
-    return {
-      anxiety: Math.round(anxiety),
-      energy: Math.round(energy),
-      mood: Math.round(mood),
-      sleep: Math.round(sleep),
-    };
-  }, [journalSessions, todayCheckin, weeklyCheckins]);
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const { vitalsPercentage } = useDailyMetrics();
 
   const getAnxietyLabel = (v: number) => {
-    if (v <= 30) return 'Basso';
-    if (v <= 60) return 'Moderato';
-    return 'Alto';
+    if (v <= 30) return 'Calmo';
+    if (v <= 50) return 'Leggera';
+    if (v <= 70) return 'Moderata';
+    return 'Alta';
   };
 
   const getEnergyLabel = (v: number) => {
-    if (v >= 70) return 'Carico';
-    if (v >= 40) return 'Normale';
-    return 'Scarso';
+    if (v >= 70) return 'Energico';
+    if (v >= 50) return 'Buona';
+    if (v >= 30) return 'Stanco';
+    return 'Esausto';
   };
 
   const getMoodLabel = (v: number) => {
-    if (v >= 80) return 'Ottimo';
-    if (v >= 60) return 'Buono';
-    if (v >= 40) return 'Neutro';
-    return 'Basso';
+    if (v >= 70) return 'Ottimo';
+    if (v >= 50) return 'Buono';
+    if (v >= 30) return 'Così così';
+    return 'Difficile';
   };
 
   const getSleepLabel = (v: number) => {
     if (v >= 70) return 'Riposato';
-    if (v >= 40) return 'Ok';
-    return 'Stanco';
+    if (v >= 50) return 'Discreto';
+    if (v >= 30) return 'Stanco';
+    return 'Esausto';
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="font-display font-semibold text-foreground flex items-center gap-2 px-1">
-        <span className="text-lg">📊</span>
+    <div className="space-y-4">
+      <h2 className="text-lg font-display font-semibold text-foreground px-1">
         I tuoi livelli attuali
-      </h3>
-      
+      </h2>
       <div className="grid grid-cols-2 gap-3">
         <VitalParameterCard
-          icon="😰"
           label="Ansia"
-          value={vitals.anxiety}
-          color="anxiety"
-          subtitle={getAnxietyLabel(vitals.anxiety)}
+          value={vitalsPercentage.anxiety}
+          color="hsl(25, 80%, 55%)"
+          icon={<Brain className="w-4 h-4" />}
+          subtitle={getAnxietyLabel(vitalsPercentage.anxiety)}
+          invertColor
         />
         <VitalParameterCard
-          icon="🔋"
           label="Energia"
-          value={vitals.energy}
-          color="energy"
-          subtitle={getEnergyLabel(vitals.energy)}
+          value={vitalsPercentage.energy}
+          color="hsl(45, 85%, 55%)"
+          icon={<Zap className="w-4 h-4" />}
+          subtitle={getEnergyLabel(vitalsPercentage.energy)}
         />
         <VitalParameterCard
-          icon="😌"
           label="Umore"
-          value={vitals.mood}
-          color="mood"
-          subtitle={getMoodLabel(vitals.mood)}
+          value={vitalsPercentage.mood}
+          color="hsl(150, 60%, 45%)"
+          icon={<Heart className="w-4 h-4" />}
+          subtitle={getMoodLabel(vitalsPercentage.mood)}
         />
         <VitalParameterCard
-          icon="💤"
-          label="Riposo"
-          value={vitals.sleep}
-          color="sleep"
-          subtitle={getSleepLabel(vitals.sleep)}
+          label="Sonno"
+          value={vitalsPercentage.sleep}
+          color="hsl(260, 60%, 55%)"
+          icon={<Moon className="w-4 h-4" />}
+          subtitle={getSleepLabel(vitalsPercentage.sleep)}
         />
       </div>
     </div>

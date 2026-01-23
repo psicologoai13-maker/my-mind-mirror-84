@@ -1,57 +1,30 @@
 import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
-import { format, subDays, eachDayOfInterval, isSameDay } from 'date-fns';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { format, subDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { TrendingUp } from 'lucide-react';
 
 const MoodAnxietyChart: React.FC = () => {
-  const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const startDate = subDays(new Date(), 30);
+  const endDate = new Date();
+  const { metricsRange } = useDailyMetricsRange(startDate, endDate);
 
   const chartData = useMemo(() => {
-    const today = new Date();
-    const thirtyDaysAgo = subDays(today, 30);
-    
-    // Generate all days in range
-    const days = eachDayOfInterval({ start: thirtyDaysAgo, end: today });
-    
-    return days.map(day => {
-      // Find sessions for this day
-      const daySessions = completedSessions.filter(s => 
-        isSameDay(new Date(s.start_time), day)
-      );
-      
-      // Find check-in for this day
-      const dayCheckin = weeklyCheckins?.find(c => 
-        isSameDay(new Date(c.created_at), day)
-      );
-      
-      // Calculate mood (0-100 scale)
-      let mood: number | null = null;
-      if (dayCheckin) {
-        mood = (dayCheckin.mood_value / 5) * 100;
-      } else if (daySessions.length > 0) {
-        const avgMood = daySessions.reduce((acc, s) => acc + (s.mood_score_detected || 50), 0) / daySessions.length;
-        mood = avgMood;
-      }
-      
-      // Calculate anxiety (0-100 scale)
-      let anxiety: number | null = null;
-      if (daySessions.length > 0) {
-        const avgAnxiety = daySessions.reduce((acc, s) => acc + (s.anxiety_score_detected || 0), 0) / daySessions.length;
-        anxiety = avgAnxiety;
-      }
+    return metricsRange.map(dayMetrics => {
+      const day = new Date(dayMetrics.date);
+      const hasData = dayMetrics.has_checkin || dayMetrics.has_sessions;
       
       return {
         date: format(day, 'd', { locale: it }),
         fullDate: format(day, 'd MMM', { locale: it }),
-        mood,
-        anxiety,
+        // Vitals are 1-10 scale, multiply by 10 for 0-100 display
+        mood: hasData && dayMetrics.vitals.mood > 0 ? dayMetrics.vitals.mood * 10 : null,
+        anxiety: hasData && dayMetrics.vitals.anxiety > 0 ? dayMetrics.vitals.anxiety * 10 : null,
       };
     });
-  }, [completedSessions, weeklyCheckins]);
+  }, [metricsRange]);
 
   const hasData = chartData.some(d => d.mood !== null || d.anxiety !== null);
 

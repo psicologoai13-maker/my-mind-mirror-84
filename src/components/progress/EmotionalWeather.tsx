@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import { useSessions } from '@/hooks/useSessions';
-import { subDays, eachDayOfInterval, isSameDay, format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { subDays, format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Cloud } from 'lucide-react';
 
@@ -24,48 +24,27 @@ interface DayEmotions {
 }
 
 const EmotionalWeather: React.FC = () => {
-  const { completedSessions } = useSessions();
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const startDate = subDays(new Date(), 6);
+  const endDate = new Date();
+  const { metricsRange } = useDailyMetricsRange(startDate, endDate);
 
   const weeklyData = useMemo(() => {
-    const today = new Date();
-    const sevenDaysAgo = subDays(today, 6);
-    const days = eachDayOfInterval({ start: sevenDaysAgo, end: today });
-
-    return days.map(day => {
-      const daySessions = completedSessions.filter(s => isSameDay(new Date(s.start_time), day));
+    return metricsRange.map(dayMetrics => {
+      const day = new Date(dayMetrics.date);
       
-      // Aggregate specific_emotions from all sessions of the day
-      let emotions = { joy: 0, sadness: 0, anger: 0, fear: 0, apathy: 0 };
-      let sessionCount = 0;
-
-      daySessions.forEach(session => {
-        const specificEmotions = (session as any).specific_emotions;
-        if (specificEmotions) {
-          emotions.joy += specificEmotions.joy || 0;
-          emotions.sadness += specificEmotions.sadness || 0;
-          emotions.anger += specificEmotions.anger || 0;
-          emotions.fear += specificEmotions.fear || 0;
-          emotions.apathy += specificEmotions.apathy || 0;
-          sessionCount++;
-        }
-      });
-
-      // Average if multiple sessions
-      if (sessionCount > 0) {
-        emotions.joy = Math.round(emotions.joy / sessionCount);
-        emotions.sadness = Math.round(emotions.sadness / sessionCount);
-        emotions.anger = Math.round(emotions.anger / sessionCount);
-        emotions.fear = Math.round(emotions.fear / sessionCount);
-        emotions.apathy = Math.round(emotions.apathy / sessionCount);
-      }
-
+      // Emotions are already aggregated in the RPC (1-10 scale, displayed as %)
       return {
         day: format(day, 'EEE', { locale: it }).slice(0, 3),
         fullDate: format(day, 'd MMM', { locale: it }),
-        ...emotions,
+        joy: dayMetrics.emotions.joy * 10,
+        sadness: dayMetrics.emotions.sadness * 10,
+        anger: dayMetrics.emotions.anger * 10,
+        fear: dayMetrics.emotions.fear * 10,
+        apathy: dayMetrics.emotions.apathy * 10,
       } as DayEmotions;
     });
-  }, [completedSessions]);
+  }, [metricsRange]);
 
   const hasData = weeklyData.some(d => d.joy + d.sadness + d.anger + d.fear + d.apathy > 0);
 
@@ -111,7 +90,7 @@ const EmotionalWeather: React.FC = () => {
                   }}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
                   formatter={(value: number, name: string) => [
-                    `${value}%`,
+                    `${Math.round(value)}%`,
                     EMOTION_CONFIG[name as keyof typeof EMOTION_CONFIG]?.label || name
                   ]}
                 />

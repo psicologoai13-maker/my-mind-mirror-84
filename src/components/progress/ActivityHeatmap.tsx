@@ -1,48 +1,47 @@
 import React, { useMemo } from 'react';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
-import { format, subDays, eachDayOfInterval, isSameDay, getDay, startOfWeek, addDays } from 'date-fns';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { subDays, format, getDay } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Calendar } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Activity } from 'lucide-react';
+
+interface DayData {
+  date: Date;
+  formattedDate: string;
+  dayOfWeek: number;
+  intensity: number;
+  hasData: boolean;
+}
 
 const ActivityHeatmap: React.FC = () => {
-  const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const startDate = subDays(new Date(), 90);
+  const endDate = new Date();
+  const { metricsRange } = useDailyMetricsRange(startDate, endDate);
 
   const heatmapData = useMemo(() => {
-    const today = new Date();
-    const startDate = subDays(today, 90); // Last 90 days
-    
-    const days = eachDayOfInterval({ start: startDate, end: today });
-    
-    return days.map(day => {
-      // Find sessions for this day
-      const daySessions = completedSessions.filter(s => 
-        isSameDay(new Date(s.start_time), day)
-      );
+    return metricsRange.map(dayMetrics => {
+      const day = new Date(dayMetrics.date);
+      const hasData = dayMetrics.has_checkin || dayMetrics.has_sessions || dayMetrics.has_emotions || dayMetrics.has_life_areas;
       
-      // Find check-in for this day
-      const dayCheckin = weeklyCheckins?.find(c => 
-        isSameDay(new Date(c.created_at), day)
-      );
-      
-      // Calculate intensity (0-4 scale like GitHub)
+      // Calculate intensity (0-4 scale like GitHub) based on mood and activity
       let intensity = 0;
-      if (daySessions.length > 0 || dayCheckin) {
-        // Base intensity from having activity
-        intensity = 1;
+      if (hasData) {
+        intensity = 1; // Base intensity for any activity
         
-        // Add more based on mood
-        if (dayCheckin) {
-          intensity = Math.min(4, Math.ceil(dayCheckin.mood_value * 0.8));
-        } else if (daySessions.length > 0) {
-          const avgMood = daySessions.reduce((acc, s) => acc + (s.mood_score_detected || 50), 0) / daySessions.length;
-          intensity = Math.min(4, Math.ceil((avgMood / 100) * 4));
+        // Use mood from unified source (1-10 scale)
+        if (dayMetrics.vitals.mood > 0) {
+          intensity = Math.min(4, Math.ceil((dayMetrics.vitals.mood / 10) * 4));
         }
         
-        // Boost if multiple sessions
-        if (daySessions.length > 1) {
+        // Boost if has multiple data sources
+        const sourcesCount = [
+          dayMetrics.has_checkin,
+          dayMetrics.has_sessions,
+          dayMetrics.has_emotions,
+          dayMetrics.has_life_areas
+        ].filter(Boolean).length;
+        
+        if (sourcesCount > 1) {
           intensity = Math.min(4, intensity + 1);
         }
       }
@@ -52,24 +51,25 @@ const ActivityHeatmap: React.FC = () => {
         formattedDate: format(day, 'd MMM', { locale: it }),
         dayOfWeek: getDay(day),
         intensity,
-        sessions: daySessions.length,
-        hasCheckin: !!dayCheckin,
-      };
+        hasData,
+      } as DayData;
     });
-  }, [completedSessions, weeklyCheckins]);
+  }, [metricsRange]);
 
-  // Group by weeks for grid layout
+  // Group by weeks
   const weeks = useMemo(() => {
-    const result: typeof heatmapData[] = [];
-    let currentWeek: typeof heatmapData = [];
+    const result: DayData[][] = [];
+    let currentWeek: DayData[] = [];
     
     heatmapData.forEach((day, index) => {
-      currentWeek.push(day);
-      
-      // New week starts on Monday (dayOfWeek === 0 is Sunday in JS, we use Monday as start)
-      if (day.dayOfWeek === 0 || index === heatmapData.length - 1) {
+      if (day.dayOfWeek === 0 && currentWeek.length > 0) {
         result.push(currentWeek);
         currentWeek = [];
+      }
+      currentWeek.push(day);
+      
+      if (index === heatmapData.length - 1) {
+        result.push(currentWeek);
       }
     });
     
@@ -78,24 +78,23 @@ const ActivityHeatmap: React.FC = () => {
 
   const getIntensityColor = (intensity: number) => {
     switch (intensity) {
-      case 0: return 'bg-muted/40';
-      case 1: return 'bg-emerald-200 dark:bg-emerald-900/40';
-      case 2: return 'bg-emerald-300 dark:bg-emerald-700/60';
-      case 3: return 'bg-emerald-400 dark:bg-emerald-600/80';
-      case 4: return 'bg-emerald-500 dark:bg-emerald-500';
-      default: return 'bg-muted/40';
+      case 0: return 'bg-muted/30';
+      case 1: return 'bg-primary/20';
+      case 2: return 'bg-primary/40';
+      case 3: return 'bg-primary/60';
+      case 4: return 'bg-primary/80';
+      default: return 'bg-muted/30';
     }
   };
 
-  const totalActiveDays = heatmapData.filter(d => d.intensity > 0).length;
-  const totalSessions = heatmapData.reduce((acc, d) => acc + d.sessions, 0);
+  const activeDays = heatmapData.filter(d => d.hasData).length;
 
   return (
-    <div className="bg-card rounded-3xl p-5 shadow-card border border-border/30">
+    <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/20">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-            <Calendar className="w-4 h-4 text-emerald-500" />
+          <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Activity className="w-4 h-4 text-primary" />
           </div>
           <div>
             <h3 className="font-display font-semibold text-foreground">Attività</h3>
@@ -103,43 +102,33 @@ const ActivityHeatmap: React.FC = () => {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold text-foreground">{totalActiveDays}</p>
+          <span className="text-lg font-bold text-foreground">{activeDays}</span>
           <p className="text-[10px] text-muted-foreground">giorni attivi</p>
         </div>
       </div>
-      
+
       {/* Heatmap Grid */}
-      <div className="overflow-x-auto -mx-2 px-2">
-        <div className="flex gap-1 min-w-fit">
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-1">
-              {week.map((day, dayIndex) => (
-                <div
-                  key={`${weekIndex}-${dayIndex}`}
-                  className={cn(
-                    "w-3 h-3 rounded-sm transition-colors",
-                    getIntensityColor(day.intensity)
-                  )}
-                  title={`${day.formattedDate}: ${day.sessions} sessioni${day.hasCheckin ? ', check-in' : ''}`}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
+      <div className="flex gap-0.5 overflow-x-auto pb-2">
+        {weeks.map((week, weekIndex) => (
+          <div key={weekIndex} className="flex flex-col gap-0.5">
+            {week.map((day, dayIndex) => (
+              <div
+                key={dayIndex}
+                className={`w-3 h-3 rounded-sm ${getIntensityColor(day.intensity)}`}
+                title={`${day.formattedDate}: ${day.hasData ? 'Attivo' : 'Inattivo'}`}
+              />
+            ))}
+          </div>
+        ))}
       </div>
-      
+
       {/* Legend */}
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-[10px] text-muted-foreground">Meno</span>
-        <div className="flex gap-1">
-          {[0, 1, 2, 3, 4].map(intensity => (
-            <div
-              key={intensity}
-              className={cn("w-3 h-3 rounded-sm", getIntensityColor(intensity))}
-            />
-          ))}
-        </div>
-        <span className="text-[10px] text-muted-foreground">Più</span>
+      <div className="flex items-center justify-end gap-1 mt-3">
+        <span className="text-[10px] text-muted-foreground mr-1">Meno</span>
+        {[0, 1, 2, 3, 4].map(intensity => (
+          <div key={intensity} className={`w-3 h-3 rounded-sm ${getIntensityColor(intensity)}`} />
+        ))}
+        <span className="text-[10px] text-muted-foreground ml-1">Più</span>
       </div>
     </div>
   );
