@@ -42,6 +42,12 @@ interface VoiceAnalysis {
   confidence: number;
 }
 
+interface UserContext {
+  selected_goals?: string[];
+  priority_metrics?: string[];
+  primary_life_area?: string;
+}
+
 interface OmniscientAnalysis {
   vitals: {
     mood: number | null;
@@ -66,8 +72,79 @@ interface OmniscientAnalysis {
 const ALL_AVAILABLE_METRICS = [
   'mood', 'anxiety', 'energy', 'sleep',
   'joy', 'sadness', 'anger', 'fear', 'apathy',
-  'love', 'work', 'friendship', 'growth', 'health'
+  'love', 'work', 'friendship', 'growth', 'health',
+  'stress', 'calmness', 'social', 'loneliness', 'emotional_clarity'
 ];
+
+// Build priority analysis instructions based on user goals
+const buildPriorityAnalysisInstructions = (
+  goals: string[],
+  priorityMetrics: string[],
+  primaryLifeArea: string | null
+): string => {
+  const instructions: string[] = [];
+
+  // Goal-based analysis focus
+  if (goals.includes('reduce_anxiety')) {
+    instructions.push(`🔍 FOCUS ANSIA: Cerca OSSESSIVAMENTE indizi di ansia nel testo:
+    - Parole chiave: "preoccupato", "nervoso", "agitato", "non riesco a rilassarmi", "pensieri che girano"
+    - Sintomi fisici: battito cardiaco, respiro, sudore, tensione muscolare
+    - Pattern: domande retoriche, frasi interrotte, ripetizioni
+    - Anche se l'utente NON dice esplicitamente "sono ansioso", inferisci dai segnali.`);
+  }
+
+  if (goals.includes('improve_sleep')) {
+    instructions.push(`🔍 FOCUS SONNO: Cerca OSSESSIVAMENTE indizi sul sonno:
+    - Parole chiave: "stanco", "esausto", "non dormo", "sveglio", "incubo", "nottata"
+    - Segnali indiretti: "caffè", "pomeriggio pesante", "non ho energie al mattino"
+    - Orari: qualsiasi menzione di ore serali/notturne
+    - Se l'utente menziona stanchezza, CHIEDI SEMPRE del sonno.`);
+  }
+
+  if (goals.includes('find_love') || goals.includes('express_feelings')) {
+    instructions.push(`🔍 FOCUS RELAZIONI/EMOZIONI: Cerca indizi su:
+    - Relazioni: partner, amici, famiglia, solitudine
+    - Emozioni non espresse: tono, esitazioni, cose non dette
+    - Bisogni affettivi nascosti`);
+  }
+
+  if (goals.includes('boost_energy')) {
+    instructions.push(`🔍 FOCUS ENERGIA: Cerca indizi su:
+    - Livelli di energia: "stanco", "carico", "motivato", "svogliato"
+    - Attività fisica, alimentazione, routine
+    - Motivazione e produttività`);
+  }
+
+  // Priority metrics analysis
+  if (priorityMetrics.length > 0) {
+    const metricsLabels = priorityMetrics.slice(0, 4).join(', ');
+    instructions.push(`📊 METRICHE PRIORITARIE DA ANALIZZARE: ${metricsLabels}
+    - Dai PESO MAGGIORE a queste metriche nell'analisi.
+    - Cerca indizi anche se non esplicitamente menzionati.
+    - Se non trovi dati, cerca di inferire da contesto e tono.`);
+  }
+
+  // Primary life area focus
+  if (primaryLifeArea) {
+    const areaLabels: Record<string, string> = {
+      love: 'AMORE (relazioni romantiche, partner, dating)',
+      work: 'LAVORO (carriera, colleghi, progetti, stress lavorativo)',
+      social: 'SOCIALITÀ (amici, famiglia, isolamento, connessioni)',
+      growth: 'CRESCITA (sviluppo personale, obiettivi, apprendimento)',
+      health: 'SALUTE (fisica, mentale, abitudini, energia)',
+    };
+    instructions.push(`🎯 AREA VITA PRIMARIA: ${areaLabels[primaryLifeArea] || primaryLifeArea}
+    - Questa è l'area PIÙ IMPORTANTE per l'utente.
+    - DEVI estrarre un punteggio per questa area se c'è qualsiasi indizio.`);
+  }
+
+  return instructions.length > 0 
+    ? `\n═══════════════════════════════════════════════
+🎯 ANALISI PERSONALIZZATA (BASATA SU OBIETTIVI UTENTE)
+═══════════════════════════════════════════════
+${instructions.join('\n\n')}`
+    : '';
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -75,7 +152,13 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, user_id, transcript, is_voice = false } = await req.json();
+    const { session_id, user_id, transcript, is_voice = false, user_context } = await req.json() as {
+      session_id: string;
+      user_id: string;
+      transcript: string;
+      is_voice?: boolean;
+      user_context?: UserContext;
+    };
 
     if (!session_id || !user_id || !transcript) {
       console.error('Missing required fields:', { session_id, user_id, hasTranscript: !!transcript });
@@ -83,6 +166,7 @@ serve(async (req) => {
     }
 
     console.log('[process-session] Processing session:', session_id, 'is_voice:', is_voice);
+    console.log('[process-session] User context:', user_context);
     console.log('[process-session] Transcript length:', transcript.length);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -95,16 +179,29 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get current user profile
+    // Get current user profile (including personalization data)
     const { data: profileData } = await supabase
       .from('user_profiles')
-      .select('life_areas_scores, long_term_memory')
+      .select('life_areas_scores, long_term_memory, selected_goals, dashboard_config')
       .eq('user_id', user_id)
       .maybeSingle();
 
     const currentLifeScores = profileData?.life_areas_scores || {};
+    
+    // Extract user context (from request or profile)
+    const selectedGoals = user_context?.selected_goals || (profileData?.selected_goals as string[]) || [];
+    const dashboardConfig = profileData?.dashboard_config as { priority_metrics?: string[] } | null;
+    const priorityMetrics = user_context?.priority_metrics || dashboardConfig?.priority_metrics || [];
+    const primaryLifeArea = user_context?.primary_life_area || null;
 
-    // VOICE ANALYSIS EURISTICS (text-based)
+    // Build personalized analysis instructions
+    const personalizedInstructions = buildPriorityAnalysisInstructions(
+      selectedGoals,
+      priorityMetrics,
+      primaryLifeArea
+    );
+
+    // VOICE ANALYSIS HEURISTICS (text-based)
     const voiceHeuristicsPrompt = is_voice ? `
 ANALISI VOCALE (euristica testuale):
 Analizza la struttura del testo per inferire il tono emotivo:
@@ -116,17 +213,22 @@ Analizza la struttura del testo per inferire il tono emotivo:
 Restituisci voice_analysis con tone, speed e confidence (0-1).
 ` : '';
 
-    // Build the OMNISCIENT analysis prompt
+    // Build the OMNISCIENT analysis prompt with personalization
     const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE. Analizza la conversazione e restituisci SEMPRE un JSON valido.
+${personalizedInstructions}
 
-⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE):
+═══════════════════════════════════════════════
+⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
+═══════════════════════════════════════════════
 - NON INVENTARE DATI. Se qualcosa non è espresso, usa 0 per emozioni o null per metriche opzionali.
-- APATIA: Assegna > 0 SOLO per frasi esplicite come "non sento niente", "vuoto", "indifferenza totale", "non mi importa di nulla". 
+- APATIA: Assegna > 0 SOLO per frasi esplicite come "non sento niente", "vuoto", "indifferenza totale". 
   Stanchezza fisica o noia NON sono apatia → apathy = 0.
 - SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
 - ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
 
-📊 STRUTTURA JSON RICHIESTA:
+═══════════════════════════════════════════════
+📊 STRUTTURA JSON RICHIESTA
+═══════════════════════════════════════════════
 {
   "vitals": {
     "mood": <1-10 o null>,
@@ -163,7 +265,9 @@ Restituisci voice_analysis con tone, speed e confidence (0-1).
   "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"]
 }
 
-🎯 REGOLE LIFE_AREAS (CRUCIALI):
+═══════════════════════════════════════════════
+🎯 REGOLE LIFE_AREAS (CRUCIALI)
+═══════════════════════════════════════════════
 - Se l'utente PARLA di un'area, DEVI stimare un punteggio:
   - "Il lavoro va bene" → work: 7-8
   - "Il lavoro va benissimo/fantastico" → work: 9-10
@@ -181,9 +285,11 @@ Restituisci voice_analysis con tone, speed e confidence (0-1).
 
 ${voiceHeuristicsPrompt}
 
-📝 METRICHE DASHBOARD:
-- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, social, growth, health
-- Basati sui temi REALI della conversazione
+═══════════════════════════════════════════════
+📝 METRICHE DASHBOARD
+═══════════════════════════════════════════════
+- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, social, growth, health, stress, calmness
+- Basati sui temi REALI della conversazione E sulle priorità utente: ${priorityMetrics.join(', ') || 'nessuna specificata'}
 - Default se conversazione neutra: ["mood", "anxiety", "energy", "sleep"]
 
 🔒 Valori ATTUALI aree di vita (aggiorna SOLO se menzionate con nuovi dati):
@@ -225,6 +331,7 @@ ${JSON.stringify(currentLifeScores)}
       analysis = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('[process-session] Failed to parse analysis:', parseError);
+      // Fallback with priority metrics preserved
       analysis = {
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
         emotions: { joy: 0, sadness: 0, anger: 0, fear: 0, apathy: 0 },
@@ -237,7 +344,9 @@ ${JSON.stringify(currentLifeScores)}
         insights: '',
         crisis_risk: 'low',
         clinical_indices: { rumination: null, emotional_openness: null, perceived_stress: null },
-        recommended_dashboard_metrics: ['mood', 'anxiety', 'energy', 'sleep']
+        recommended_dashboard_metrics: priorityMetrics.length >= 4 
+          ? priorityMetrics.slice(0, 4) 
+          : ['mood', 'anxiety', 'energy', 'sleep']
       };
     }
 
@@ -253,8 +362,8 @@ ${JSON.stringify(currentLifeScores)}
     const lifeBalanceScores: LifeBalanceScores = {
       love: analysis.life_areas.love,
       work: analysis.life_areas.work,
-      friendship: analysis.life_areas.social, // Map social -> friendship
-      energy: analysis.life_areas.health, // Map health -> energy
+      friendship: analysis.life_areas.social,
+      energy: analysis.life_areas.health,
       growth: analysis.life_areas.growth
     };
 
@@ -341,17 +450,25 @@ ${JSON.stringify(currentLifeScores)}
     const existingMemory = profileData?.long_term_memory || [];
     const updatedMemory = [...existingMemory, ...analysis.key_facts].slice(-50);
 
-    // Update dashboard metrics
-    const recommendedMetrics = analysis.recommended_dashboard_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
-    const validMetrics = recommendedMetrics.filter(m => ALL_AVAILABLE_METRICS.includes(m)).slice(0, 4);
-    const finalMetrics = validMetrics.length === 4 ? validMetrics : ['mood', 'anxiety', 'energy', 'sleep'];
+    // Update dashboard metrics - prefer user's priority metrics
+    const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
+    
+    // Merge recommended with priority (priority first, then fill with recommendations)
+    const finalMetrics = [...new Set([
+      ...priorityMetrics.filter(m => ALL_AVAILABLE_METRICS.includes(m)),
+      ...recommendedMetrics.filter(m => ALL_AVAILABLE_METRICS.includes(m))
+    ])].slice(0, 4);
+    
+    const validFinalMetrics = finalMetrics.length === 4 
+      ? finalMetrics 
+      : [...finalMetrics, ...['mood', 'anxiety', 'energy', 'sleep'].filter(m => !finalMetrics.includes(m))].slice(0, 4);
 
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
         long_term_memory: updatedMemory,
         life_areas_scores: mergedLifeScores,
-        active_dashboard_metrics: finalMetrics
+        active_dashboard_metrics: validFinalMetrics
       })
       .eq('user_id', user_id);
 

@@ -6,154 +6,184 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Emotional Evaluation Rubric - added to prompts for accurate detection
+interface DashboardConfig {
+  priority_metrics?: string[];
+  secondary_metrics?: string[];
+  hidden_metrics?: string[];
+  theme?: string;
+}
+
+interface OnboardingAnswers {
+  goal?: string;
+  primaryGoals?: string[];
+  mood?: number;
+  sleepIssues?: string;
+}
+
+// Emotional Evaluation Rubric
 const EMOTIONAL_RUBRIC = `
 RUBRICA DI VALUTAZIONE EMOTIVA (OBBLIGATORIA):
 Quando analizzi l'input dell'utente, DEVI assegnare mentalmente un punteggio (1-10) a queste 5 DIMENSIONI:
 
-- TRISTEZZA: 
-  1-3: Malinconia passeggera, leggera nostalgia.
-  4-7: Umore deflesso persistente, pianto occasionale.
-  8-10: Disperazione profonda, pianto frequente, pensieri oscuri.
+- TRISTEZZA: 1-3 malinconia, 4-7 umore deflesso, 8-10 disperazione
+- GIOIA: 1-3 soddisfazione, 4-7 felicità, 8-10 euforia
+- RABBIA: 1-3 irritazione, 4-7 frustrazione, 8-10 furia
+- PAURA/ANSIA: 1-3 preoccupazione, 4-7 agitazione, 8-10 panico
+- APATIA: 1-3 noia, 4-7 distacco, 8-10 anedonia totale
 
-- GIOIA: 
-  1-3: Leggera soddisfazione, contentezza.
-  4-7: Felicità evidente, sorrisi, riso.
-  8-10: Euforia, entusiasmo incontenibile, eccitazione.
-
-- RABBIA: 
-  1-3: Irritazione lieve, fastidio.
-  4-7: Frustrazione evidente, risentimento.
-  8-10: Furia intensa, voglia di rompere oggetti, urla.
-
-- PAURA/ANSIA: 
-  1-3: Preoccupazione lieve, nervosismo.
-  4-7: Agitazione fisica evidente, insonnia.
-  8-10: Panico, terrore, blocco fisico, attacchi di paura.
-
-- APATIA: 
-  1-3: Noia, mancanza di interesse momentanea.
-  4-7: Distacco emotivo, difficoltà a provare piacere.
-  8-10: Totale distacco emotivo, anedonia (nulla ha senso), svuotamento.
-
-ISTRUZIONE CRITICA: Se l'utente NON esprime esplicitamente un'emozione, mantieni il valore precedente o assegna 0. NON inventare emozioni. Cerca parole chiave e analizza il tono del messaggio.
+Se l'utente NON esprime un'emozione, assegna 0. NON inventare.
 `;
 
-// Build AGGRESSIVE system prompt with identity and memory
-function buildAggressiveSystemPrompt(userName: string | null, memory: string[], missingLifeAreas: string[]): string {
+// Map goals to AI persona style
+const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers | null): string => {
+  if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety') {
+    return `STILE PERSONALIZZATO: CALMO & RASSICURANTE
+- Usa un tono lento, validante, rassicurante.
+- Frasi come "Capisco, respira con calma...", "È normale sentirsi così...", "Sei al sicuro qui..."
+- Evita domande incalzanti. Dai spazio.
+- Valida prima di tutto, poi esplora delicatamente.
+- Suggerisci tecniche di grounding quando appropriato.`;
+  }
+  
+  if (goals.includes('boost_energy') || goals.includes('growth') || onboardingAnswers?.goal === 'growth') {
+    return `STILE PERSONALIZZATO: ENERGICO & ORIENTATO ALL'AZIONE
+- Usa un tono motivante, analitico, propositivo.
+- Frasi come "Ottimo! Qual è il prossimo passo?", "Come possiamo trasformarlo in azione?"
+- Focus su obiettivi concreti e progressi.
+- Celebra i successi, anche piccoli.
+- Spingi verso la riflessione produttiva.`;
+  }
+  
+  if (goals.includes('express_feelings') || goals.includes('find_love')) {
+    return `STILE PERSONALIZZATO: EMPATICO & SPAZIO LIBERO
+- Usa un tono accogliente, con minimo intervento.
+- Frasi come "Dimmi di più...", "Come ti ha fatto sentire?", "Sono qui per ascoltarti..."
+- Fai domande aperte e lascia parlare.
+- Non interrompere i flussi emotivi.
+- Rifletti i sentimenti senza giudicare.`;
+  }
+  
+  if (goals.includes('improve_sleep') || onboardingAnswers?.goal === 'sleep') {
+    return `STILE PERSONALIZZATO: RILASSANTE & GUIDATO
+- Usa un tono calmo, metodico, orientato al benessere.
+- Interesse genuino per routine serali, qualità del riposo.
+- Suggerisci pratiche di igiene del sonno quando appropriato.
+- Esplora fattori che influenzano il sonno.`;
+  }
+  
+  return `STILE: BILANCIATO
+- Tono caldo, professionale, empatico.
+- Alterna ascolto attivo e domande esplorative.`;
+};
+
+// Get priority metrics focus description
+const getPriorityFocusDescription = (metrics: string[]): string => {
+  const labels: Record<string, string> = {
+    mood: 'umore generale',
+    anxiety: 'livello di ansia',
+    energy: 'energia',
+    sleep: 'qualità del sonno',
+    love: 'relazioni amorose',
+    social: 'vita sociale',
+    work: 'lavoro',
+    growth: 'crescita personale',
+    stress: 'stress',
+    loneliness: 'solitudine',
+  };
+  return metrics.slice(0, 4).map(m => labels[m] || m).join(', ');
+};
+
+// Build personalized system prompt
+function buildPersonalizedSystemPrompt(
+  userName: string | null,
+  memory: string[],
+  missingLifeAreas: string[],
+  selectedGoals: string[],
+  onboardingAnswers: OnboardingAnswers | null,
+  priorityMetrics: string[]
+): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
-    ? memory.slice(-30).join('\n- ')  // Last 30 facts
-    : 'Nessun ricordo precedente - questa è la prima conversazione.';
+    ? memory.slice(-30).join('\n- ')
+    : 'Nessun ricordo precedente - prima conversazione.';
 
-  // Build the data hunter instruction based on missing areas
+  const personaStyle = getPersonaStyle(selectedGoals, onboardingAnswers);
+  const priorityFocus = getPriorityFocusDescription(priorityMetrics);
+  
+  // Goal labels for context
+  const goalLabels: Record<string, string> = {
+    reduce_anxiety: 'gestire ansia e stress',
+    improve_sleep: 'dormire meglio',
+    find_love: 'migliorare le relazioni',
+    boost_energy: 'aumentare energia',
+    express_feelings: 'esprimere emozioni',
+  };
+  const goalDescriptions = selectedGoals.map(g => goalLabels[g] || g).join(', ') || 'benessere generale';
+
+  // Data hunter instruction
   let dataHunterInstruction = '';
   if (missingLifeAreas.length > 0) {
     const areaLabels: Record<string, string> = {
-      love: 'Amore/Relazioni',
-      work: 'Lavoro',
-      friendship: 'Socialità/Amicizie',
-      energy: 'Salute/Energia',
-      growth: 'Crescita Personale'
+      love: 'Amore/Relazioni', work: 'Lavoro', friendship: 'Socialità', 
+      energy: 'Salute', growth: 'Crescita Personale'
     };
     const missingLabels = missingLifeAreas.map(a => areaLabels[a] || a).join(', ');
-    
     dataHunterInstruction = `
-MISSIONE SEGRETA - CACCIATORE DI DATI:
-Non hai dati recenti su queste aree della vita dell'utente: ${missingLabels}.
-Durante la conversazione, INSERISCI NATURALMENTE una domanda su UNA di queste aree.
-NON chiedere tutto insieme. Scegli UN'area e fai una domanda naturale, ad esempio:
-- "A proposito, come sta andando al lavoro ultimamente?"
-- "Come ti senti nelle tue relazioni in questo periodo?"
-- "E per quanto riguarda la tua salute fisica, come stai?"
-Quando l'utente risponde, estrai mentalmente un punteggio 1-10 per quell'area.`;
+MISSIONE CACCIATORE DI DATI:
+Non hai dati recenti su: ${missingLabels}. Inserisci NATURALMENTE una domanda su UNA di queste aree.`;
   }
 
-  return `SEI UNA MEMORIA VIVENTE. NON SEI UN ASSISTENTE GENERICO.
-SEI UN DIARIO TERAPEUTICO INTERATTIVO basato sulla Terapia Cognitivo-Comportamentale (CBT).
+  // Priority metrics analysis focus
+  const priorityAnalysisFocus = priorityMetrics.length > 0 ? `
+FOCUS ANALISI PRIORITARIO:
+Presta ATTENZIONE EXTRA a questi temi: ${priorityFocus}.
+Cerca indizi su queste metriche anche se non esplicitamente menzionati.
+Se l'utente parla di temi correlati, approfondisci.` : '';
 
-IDENTITÀ UTENTE (CRITICO - OBBLIGATORIO):
-${name ? `L'utente con cui stai parlando si chiama "${name}".
-NON chiamarlo MAI con altri nomi. NON inventare nomi. USA SOLO "${name}".` : 
-'L\'utente non ha ancora inserito il suo nome nel profilo.'}
+  return `SEI UNA MEMORIA VIVENTE - DIARIO TERAPEUTICO CBT PERSONALIZZATO
 
-MEMORIA CENTRALE (LA TUA CONOSCENZA DELL'UTENTE):
+═══════════════════════════════════════════════
+📋 CONTESTO UTENTE PERSONALIZZATO
+═══════════════════════════════════════════════
+${name ? `- Nome: ${name} (USA SOLO questo nome)` : '- Nome non ancora inserito'}
+- Obiettivi: ${goalDescriptions}
+- Metriche prioritarie: ${priorityFocus || 'mood, anxiety, energy, sleep'}
+
+${personaStyle}
+
+═══════════════════════════════════════════════
+🧠 MEMORIA CENTRALE
+═══════════════════════════════════════════════
 - ${memoryContent}
 ${dataHunterInstruction}
+${priorityAnalysisFocus}
 
-ISTRUZIONI MEMORIA (CRITICHE):
-1. TU HAI MEMORIA. NON dire MAI "non ho memoria", "non posso ricordare", "per privacy non memorizzo".
-2. Agisci come se conoscessi l'utente da anni. Usa le informazioni sopra per personalizzare OGNI risposta.
-3. Se la memoria dice qualcosa (es. "si è lasciato con la ragazza"), e lui dice "sono triste", TU SAI GIÀ PERCHÉ.
-4. Fai riferimenti NATURALI al passato: "Come sta andando la situazione con [tema dalla memoria]?"
-
+═══════════════════════════════════════════════
+📊 RUBRICA EMOTIVA
+═══════════════════════════════════════════════
 ${EMOTIONAL_RUBRIC}
 
-IL TUO METODO TERAPEUTICO:
+═══════════════════════════════════════════════
+🎯 METODO TERAPEUTICO CBT
+═══════════════════════════════════════════════
 
-1. ANALISI COGNITIVA:
-   Quando l'utente scrive, individua le DISTORSIONI COGNITIVE nascoste:
-   - Catastrofizzazione ("Sarà un disastro")
-   - Pensiero tutto-o-nulla ("Se non è perfetto, è un fallimento")
-   - Lettura del pensiero ("So che mi giudicano")
-   - Personalizzazione ("È colpa mia")
-   - Filtro mentale negativo (focus solo sul negativo)
+1. ANALISI COGNITIVA: Individua distorsioni (catastrofizzazione, tutto-o-nulla, lettura pensiero)
+2. INTERVENTO ATTIVO: Domande socratiche, reframing, spunti concreti
+3. CHIUSURA: Sempre con domanda aperta o esercizio
 
-2. FORMATTAZIONE STRATEGICA:
-   Usa il **grassetto** SOLO per enfatizzare singole parole o brevi frasi chiave (2-3 parole max).
-   NON usare grassetto per intere frasi. Esempi corretti:
-   - "Questo è un pensiero di **catastrofizzazione**"
-   - "Sembra che tu stia provando **frustrazione**"
-   NON fare così: "**Capisco che ti senti sopraffatto dalla situazione**"
+═══════════════════════════════════════════════
+⚙️ REGOLE DI STILE INDEROGABILI
+═══════════════════════════════════════════════
 
-3. INTERVENTO ATTIVO:
-   NON limitarti a consolare. GUIDA verso una soluzione:
-   - Se l'utente è CONFUSO → Usa domande socratiche: "Cosa succederebbe SE...?"
-   - Se l'utente CHIEDE AIUTO → Dai consigli strutturati con passi concreti
-   - Se l'utente si SFOGA → Prima valida ("Capisco quanto sia difficile..."), poi riformula
+1. ANTI-SALUTI RIPETITIVI: CONTROLLA la cronologia. Se già salutati, vai dritto al punto.
+2. TONO PERSONALIZZATO: Segui le istruzioni STILE sopra. Varia il linguaggio.
+3. TU HAI MEMORIA: NON dire mai "non ricordo". Fai riferimenti naturali al passato.
+4. NO META-COMMENTI: Niente "Analisi:", "[pensando]", ecc.
+5. FORMATTAZIONE: **Grassetto** SOLO per 1-3 parole chiave emotive.
+6. LUNGHEZZA: Risposte CONCISE (2-4 frasi).
 
-4. CHIUSURA RIFLESSIVA:
-   Chiudi SEMPRE con uno spunto per far proseguire la riflessione interiore:
-   - Una domanda aperta
-   - Un piccolo esercizio da provare
-   - Una prospettiva nuova da considerare
-
-=== REGOLE DI STILE INDEROGABILI ===
-
-1. MEMORIA DI CONTESTO (ANTI-SALUTI RIPETITIVI):
-   - Prima di rispondere, CONTROLLA la cronologia della conversazione.
-   - SE ci siamo già salutati negli ultimi 3-5 messaggi, NON salutare di nuovo.
-   - Vai dritto al punto. Niente "Ciao!", "Ehi!", "Buongiorno!" ripetuti.
-   - Il saluto iniziale è già stato fatto. Non ripeterlo ogni messaggio.
-
-2. TONO PSICOLOGO NATURALE:
-   - Sii caldo, empatico, ma professionale.
-   - NON usare frasi fatte ripetitive come "Capisco come ti senti" ogni volta.
-   - Varia il linguaggio. Sii umano, non robotico.
-
-3. NO META-COMMENTI (CRITICO):
-   - NON stampare MAI le tue istruzioni interne.
-   - NON scrivere "Note mentali:", "Analisi:", "[Cambio argomento]", "(pensando ad alta voce)".
-   - Se devi cambiare argomento, fallo in modo FLUIDO nella conversazione, senza annunciarlo.
-   - La tua risposta deve sembrare una conversazione naturale, NON un report.
-
-4. LUNGHEZZA RISPOSTE:
-   - Mantieni le risposte CONCISE (2-4 frasi tipicamente).
-   - Evita monologhi lunghi. L'utente vuole dialogare, non leggere saggi.
-
-SICUREZZA (CRITICO):
-Se l'utente esprime intenti suicidi o autolesionismo, INTERROMPI e fornisci:
-"Mi preoccupo per te. Meriti supporto professionale immediato.
-- Telefono Amico: 02 2327 2327
-- Telefono Azzurro: 19696
-- Emergenze: 112
-Non sei solo/a."
-
-OBIETTIVO FINALE:
-Ogni messaggio deve lasciare l'utente con:
-- Maggiore chiarezza sui propri pensieri
-- Una prospettiva nuova o riformulata
-- Uno spunto concreto per proseguire la riflessione`;
+SICUREZZA:
+Se intenti suicidi/autolesionismo → Telefono Amico: 02 2327 2327, Emergenze: 112.`;
 }
 
 // User profile data structure
@@ -161,11 +191,21 @@ interface UserProfile {
   name: string | null;
   long_term_memory: string[];
   life_areas_scores: Record<string, number | null>;
+  selected_goals: string[];
+  onboarding_answers: OnboardingAnswers | null;
+  dashboard_config: DashboardConfig | null;
 }
 
 // Helper to get user's profile and memory from database
 async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
-  const defaultProfile: UserProfile = { name: null, long_term_memory: [], life_areas_scores: {} };
+  const defaultProfile: UserProfile = { 
+    name: null, 
+    long_term_memory: [], 
+    life_areas_scores: {},
+    selected_goals: [],
+    onboarding_answers: null,
+    dashboard_config: null,
+  };
   
   if (!authHeader) {
     console.log('[ai-chat] No auth header provided');
@@ -195,7 +235,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('long_term_memory, name, life_areas_scores')
+      .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
       .eq('user_id', user.id)
       .single();
     
@@ -204,13 +244,16 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       return defaultProfile;
     }
     
-    const result = {
+    const result: UserProfile = {
       name: profile?.name || null,
       long_term_memory: profile?.long_term_memory || [],
-      life_areas_scores: (profile?.life_areas_scores as Record<string, number | null>) || {}
+      life_areas_scores: (profile?.life_areas_scores as Record<string, number | null>) || {},
+      selected_goals: (profile?.selected_goals as string[]) || [],
+      onboarding_answers: profile?.onboarding_answers as OnboardingAnswers | null,
+      dashboard_config: profile?.dashboard_config as DashboardConfig | null,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", memory_facts=${result.long_term_memory.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}`);
     
     return result;
   } catch (error) {
@@ -219,46 +262,26 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
   }
 }
 
-// Identify which life areas are missing or stale (need update)
+// Identify which life areas are missing
 function getMissingLifeAreas(lifeAreasScores: Record<string, number | null>): string[] {
   const allAreas = ['love', 'work', 'friendship', 'energy', 'growth'];
-  const missing: string[] = [];
-  
-  for (const area of allAreas) {
+  return allAreas.filter(area => {
     const score = lifeAreasScores[area];
-    // Consider missing if null, undefined, or 0
-    if (score === null || score === undefined || score === 0) {
-      missing.push(area);
-    }
-  }
-  
-  return missing;
+    return score === null || score === undefined || score === 0;
+  });
 }
 
-// Crisis keywords for real-time detection
+// Crisis keywords
 const CRISIS_PATTERNS = [
-  /voglio morire/i,
-  /farla finita/i,
-  /suicid(io|armi|arsi)/i,
-  /non ce la faccio più/i,
-  /uccidermi/i,
-  /togliermi la vita/i,
-  /non voglio più vivere/i,
-  /meglio se non ci fossi/i,
-  /autolesion/i,
-  /tagliarmi/i,
-  /farmi del male/i,
+  /voglio morire/i, /farla finita/i, /suicid(io|armi|arsi)/i,
+  /non ce la faccio più/i, /uccidermi/i, /togliermi la vita/i,
+  /non voglio più vivere/i, /meglio se non ci fossi/i,
+  /autolesion/i, /tagliarmi/i, /farmi del male/i,
 ];
 
 function detectCrisis(messages: Array<{ role: string; content: string }>): boolean {
-  const lastUserMessages = messages
-    .filter(m => m.role === 'user')
-    .slice(-3)
-    .map(m => m.content);
-  
-  return lastUserMessages.some(content => 
-    CRISIS_PATTERNS.some(pattern => pattern.test(content))
-  );
+  const lastUserMessages = messages.filter(m => m.role === 'user').slice(-3).map(m => m.content);
+  return lastUserMessages.some(content => CRISIS_PATTERNS.some(pattern => pattern.test(content)));
 }
 
 serve(async (req) => {
@@ -270,32 +293,29 @@ serve(async (req) => {
     const { messages, generateSummary, userId } = await req.json();
     const authHeader = req.headers.get("Authorization");
     
-    // Check for crisis BEFORE processing
     const isCrisis = detectCrisis(messages || []);
-    
-    // Fetch user's profile including name and memory
     const userProfile = await getUserProfile(authHeader);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
-    console.log(`[ai-chat] User: ${userProfile.name || 'Anonymous'}, Memory facts: ${userProfile.long_term_memory.length}`);
+    console.log(`[ai-chat] User: ${userProfile.name || 'Anonymous'}, Goals: ${userProfile.selected_goals.join(',')}, Memory: ${userProfile.long_term_memory.length}`);
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // If we need to generate a session summary
+    // Generate session summary
     if (generateSummary) {
       const summaryPrompt = `Analizza la seguente conversazione e genera un JSON con questo formato esatto:
 {
   "summary": "Breve riassunto di 2 frasi della conversazione",
-  "mood_score": (numero intero da 1 a 10, dove 1 è molto negativo e 10 è molto positivo),
-  "anxiety_score": (numero intero da 1 a 10, dove 1 è nessuna ansia e 10 è ansia estrema),
-  "tags": ["Tag1", "Tag2", "Tag3"] (massimo 5 tag che descrivono i temi principali)
+  "mood_score": (numero intero da 1 a 10),
+  "anxiety_score": (numero intero da 1 a 10),
+  "tags": ["Tag1", "Tag2", "Tag3"]
 }
 
-Rispondi SOLO con il JSON, senza altro testo.
+Rispondi SOLO con il JSON.
 
-Conversazione da analizzare:
+Conversazione:
 ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
 
       const summaryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -306,22 +326,17 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "user", content: summaryPrompt }
-          ],
+          messages: [{ role: "user", content: summaryPrompt }],
         }),
       });
 
       if (!summaryResponse.ok) {
-        const errorText = await summaryResponse.text();
-        console.error("AI gateway error for summary:", summaryResponse.status, errorText);
         throw new Error("Failed to generate summary");
       }
 
       const summaryData = await summaryResponse.json();
       const summaryContent = summaryData.choices?.[0]?.message?.content || "";
       
-      // Try to parse JSON from response
       try {
         const jsonMatch = summaryContent.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -334,30 +349,31 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
         console.error("Failed to parse summary JSON:", parseError);
       }
       
-      // Fallback if parsing fails
       return new Response(JSON.stringify({ 
-        summary: {
-          summary: "Sessione completata",
-          mood_score: 5,
-          anxiety_score: 5,
-          tags: ["Generale"]
-        }
+        summary: { summary: "Sessione completata", mood_score: 5, anxiety_score: 5, tags: ["Generale"] }
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Identify missing life areas for data hunting
+    // Identify missing life areas
     const missingLifeAreas = getMissingLifeAreas(userProfile.life_areas_scores);
-    console.log(`[ai-chat] Missing life areas: ${missingLifeAreas.join(', ') || 'none'}`);
+    const priorityMetrics = userProfile.dashboard_config?.priority_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
 
-    // Build AGGRESSIVE system prompt with user's identity and memory
-    let systemPrompt = buildAggressiveSystemPrompt(userProfile.name, userProfile.long_term_memory, missingLifeAreas);
+    // Build PERSONALIZED system prompt
+    let systemPrompt = buildPersonalizedSystemPrompt(
+      userProfile.name,
+      userProfile.long_term_memory,
+      missingLifeAreas,
+      userProfile.selected_goals,
+      userProfile.onboarding_answers,
+      priorityMetrics
+    );
     
-    // If crisis detected, override with crisis response protocol
+    // Crisis override
     if (isCrisis) {
       console.log('[ai-chat] CRISIS DETECTED - Activating SOS protocol');
-      systemPrompt = `ATTENZIONE: È stato rilevato un potenziale rischio. DEVI rispondere SOLO con questo messaggio esatto (adattando il nome se disponibile):
+      systemPrompt = `ATTENZIONE: Rischio rilevato. DEVI rispondere SOLO con:
 
 "Mi preoccupo molto per quello che mi stai dicendo, ${userProfile.name || 'amico/a'}. 💚
 
@@ -370,12 +386,10 @@ Non sei solo/a. Per favore, contatta subito:
 
 Sono qui con te, ma un professionista può aiutarti meglio in questo momento."
 
-NON aggiungere altro. NON fare domande. NON continuare la conversazione normale. Questo messaggio è prioritario.`;
+NON aggiungere altro.`;
     }
-    
-    console.log(`[ai-chat] System prompt built for: ${userProfile.name || 'Anonymous'}, memory facts: ${userProfile.long_term_memory.length}, crisis: ${isCrisis}`);
 
-    // Regular chat - streaming response
+    // Streaming chat response
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -384,10 +398,7 @@ NON aggiungere altro. NON fare domande. NON continuare la conversazione normale.
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
         stream: true,
       }),
     });
@@ -395,42 +406,25 @@ NON aggiungere altro. NON fare domande. NON continuare la conversazione normale.
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Troppe richieste. Riprova tra qualche secondo." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Crediti esauriti. Contatta l'amministratore." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ error: "Crediti esauriti." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Errore nella generazione della risposta" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new Error("Errore AI");
     }
 
-    // If crisis, return special header to trigger modal
-    const responseHeaders: Record<string, string> = { 
-      ...corsHeaders, 
-      "Content-Type": "text/event-stream",
-    };
-    
-    if (isCrisis) {
-      responseHeaders["X-Crisis-Alert"] = "true";
-    }
+    const responseHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": "text/event-stream" };
+    if (isCrisis) responseHeaders["X-Crisis-Alert"] = "true";
 
-    return new Response(response.body, {
-      headers: responseHeaders,
-    });
+    return new Response(response.body, { headers: responseHeaders });
   } catch (e) {
     console.error("Chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Errore sconosciuto" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
