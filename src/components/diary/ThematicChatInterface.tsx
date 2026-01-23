@@ -23,48 +23,62 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Use IDENTICAL viewport hook as main Chat
+  const viewport = useVisualViewport();
   
   const { sendMessage } = useThematicDiaries();
   const themeConfig = DIARY_THEMES.find(t => t.theme === theme)!;
   
   const messages = diary?.messages || [];
   
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
-
-  // Auto-adjust textarea height
-  const adjustTextareaHeight = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 120); // Max 5 lines (~120px)
-      textarea.style.height = `${newHeight}px`;
-    }
+  // Scroll to bottom - IDENTICAL to main Chat
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+      });
+    });
   }, []);
 
-  // Reset textarea height after sending
+  // Scroll when messages change or keyboard opens
   useEffect(() => {
-    if (input === '' && textareaRef.current) {
+    scrollToBottom();
+  }, [messages.length, viewport.isKeyboardOpen, scrollToBottom]);
+
+  // Auto-adjust textarea height - IDENTICAL to main Chat
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get accurate scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Calculate new height (max 120px = ~5 lines)
+    const newHeight = Math.min(textarea.scrollHeight, 120);
+    textarea.style.height = `${newHeight}px`;
+  }, []);
+
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (!input && textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
   }, [input]);
 
-  // Prevent rubber-banding on header
+  // Prevent rubber-banding on header touch - IDENTICAL to main Chat
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
 
-    const preventTouchMove = (e: TouchEvent) => {
+    const preventRubberBand = (e: TouchEvent) => {
       e.preventDefault();
     };
 
-    header.addEventListener('touchmove', preventTouchMove, { passive: false });
+    header.addEventListener('touchmove', preventRubberBand, { passive: false });
     return () => {
-      header.removeEventListener('touchmove', preventTouchMove);
+      header.removeEventListener('touchmove', preventRubberBand);
     };
   }, []);
 
@@ -75,10 +89,13 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
     setInput('');
     setIsSending(true);
     
-    // Reset textarea height
+    // Reset textarea height after sending
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
+    
+    // Scroll immediately
+    requestAnimationFrame(() => scrollToBottom('instant'));
     
     try {
       await sendMessage.mutateAsync({ theme, message: messageText });
@@ -97,149 +114,152 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Desktop: Enter sends, Shift+Enter for new line
-    // Mobile: Enter creates new line (send button is used)
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+    // On desktop: Enter sends, Shift+Enter for new line
+    // On mobile: Enter creates new line (send button required)
+    if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  // Theme-specific colors (clean, no gradients)
-  const themeColors: Record<DiaryTheme, { accent: string }> = {
-    love: { accent: 'bg-rose-500' },
-    work: { accent: 'bg-blue-500' },
-    relationships: { accent: 'bg-amber-500' },
-    self: { accent: 'bg-emerald-500' },
-  };
-
-  const colors = themeColors[theme];
-
-  // Dynamic container style based on viewport
-  const containerStyle: React.CSSProperties = isKeyboardOpen
-    ? {
+  // Container style - IDENTICAL to main Chat
+  const containerStyle: React.CSSProperties = viewport.isKeyboardOpen 
+    ? { 
+        height: `${viewport.height}px`,
         position: 'fixed',
-        top: 0,
+        top: `${viewport.offsetTop}px`,
         left: 0,
         right: 0,
-        height: `${viewportHeight}px`,
-        display: 'flex',
-        flexDirection: 'column',
+        overflow: 'hidden',
       }
-    : {
-        height: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-      };
+    : {};
 
   return (
     <div 
-      ref={containerRef}
-      className="bg-gray-50 overscroll-contain"
+      className={cn(
+        "flex flex-col bg-background",
+        !viewport.isKeyboardOpen && "h-[100dvh]"
+      )}
       style={containerStyle}
     >
-      {/* Header */}
+      {/* Header - IDENTICAL structure to main Chat */}
       <header 
         ref={headerRef}
-        className="shrink-0 px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-xl z-50"
+        className="shrink-0 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3 z-50 select-none"
+        style={{ touchAction: 'none' }}
       >
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onBack}
-          className="shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{themeConfig.emoji}</span>
-          <div>
-            <h1 className="font-semibold text-gray-900">
-              Diario {themeConfig.label}
-            </h1>
-            <p className="text-xs text-gray-500">
-              {messages.length} messaggi
-            </p>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onBack}
+            className="shrink-0"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{themeConfig.emoji}</span>
+            <div>
+              <h1 className="font-display font-semibold text-foreground text-lg">
+                Diario {themeConfig.label}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {messages.length} {messages.length === 1 ? 'messaggio' : 'messaggi'}
+              </p>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 overscroll-contain">
+      {/* Messages - IDENTICAL structure to main Chat */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>
-            <h2 className="font-semibold text-gray-900 mb-2">
+            <h2 className="font-display font-semibold text-foreground mb-2">
               Il tuo Diario {themeConfig.label}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Scrivi i tuoi pensieri, emozioni e riflessioni su questo tema. 
               L'AI ricorderà tutto per le prossime conversazioni.
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <ChatBubble
-              key={msg.id}
-              content={msg.content}
-              role={msg.role}
-              timestamp={new Date(msg.timestamp)}
-            />
-          ))
+          <>
+            {messages.map((msg) => (
+              <ChatBubble
+                key={msg.id}
+                content={msg.content}
+                role={msg.role}
+                timestamp={new Date(msg.timestamp)}
+              />
+            ))}
+          </>
         )}
         
+        {/* Typing indicator - IDENTICAL to main Chat */}
         {isSending && (
           <div className="flex gap-2 animate-fade-in">
             <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
-            <div className="bg-white rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-gray-100">
-              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            <div className="bg-white dark:bg-card rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-border/50">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs text-muted-foreground ml-1">Sta scrivendo...</span>
+              </div>
             </div>
           </div>
         )}
         
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input - Smart Auto-Growing Textarea */}
+      {/* Input Area - IDENTICAL to main Chat */}
       <div 
-        className="shrink-0 bg-white/95 backdrop-blur-lg border-t border-gray-100"
+        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 pt-3 z-50"
         style={{
-          paddingBottom: isKeyboardOpen ? '0.5rem' : 'calc(0.75rem + env(safe-area-inset-bottom))',
-          paddingTop: '0.75rem',
-          paddingLeft: '1rem',
-          paddingRight: '1rem',
+          paddingBottom: viewport.isKeyboardOpen 
+            ? '12px' 
+            : `calc(12px + env(safe-area-inset-bottom, 0px))`,
         }}
       >
-        <div className="flex items-end gap-3 bg-gray-100/80 border border-gray-200/50 rounded-2xl px-4 py-2">
+        <div className="flex items-end gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={`Scrivi nel tuo diario ${themeConfig.label.toLowerCase()}...`}
+            disabled={isSending}
+            autoComplete="off"
+            autoCorrect="on"
+            autoCapitalize="sentences"
             rows={1}
-            className="chat-input flex-1 bg-transparent border-none outline-none resize-none text-gray-900 placeholder:text-gray-400 max-h-[120px] overflow-y-auto focus:outline-none focus:ring-0"
+            className="chat-input flex-1 bg-transparent px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 resize-none overflow-y-auto"
             style={{
               fontSize: '16px',
               lineHeight: '1.5',
-              minHeight: '24px',
+              touchAction: 'manipulation',
+              minHeight: '40px',
+              maxHeight: '120px',
             }}
-            disabled={isSending}
           />
           <Button
+            variant="default"
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isSending}
-            className={cn(
-              "shrink-0 rounded-xl w-10 h-10 shadow-sm",
-              colors.accent,
-              "text-white hover:opacity-90"
-            )}
+            className="shrink-0 rounded-xl h-10 w-10 shadow-sm mb-0.5"
           >
             {isSending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
