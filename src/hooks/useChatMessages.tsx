@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -9,12 +9,15 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: Date;
+  isOptimistic?: boolean; // Flag for optimistic updates
 }
 
 interface UseChatMessagesReturn {
   messages: ChatMessage[];
   isLoading: boolean;
   addMessage: (role: 'user' | 'assistant' | 'system', content: string) => Promise<ChatMessage | null>;
+  addOptimisticMessage: (role: 'user' | 'assistant' | 'system', content: string) => string;
+  confirmMessage: (tempId: string, realMessage: ChatMessage) => void;
   loadMessages: (sessionId: string) => Promise<void>;
 }
 
@@ -22,6 +25,7 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const messageIdsRef = useRef<Set<string>>(new Set());
 
   // Load existing messages for a session
   const loadMessages = useCallback(async (sid: string) => {
@@ -41,11 +45,20 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
       }
       
       if (data) {
-        setMessages(data.map(m => ({
+        const loadedMessages = data.map(m => ({
           ...m,
           role: m.role as 'user' | 'assistant' | 'system',
           created_at: new Date(m.created_at),
-        })));
+        }));
+        
+        // Track IDs to prevent duplicates
+        messageIdsRef.current = new Set(loadedMessages.map(m => m.id));
+        
+        setMessages(prev => {
+          // Keep optimistic messages that aren't in the loaded data
+          const optimisticMessages = prev.filter(m => m.isOptimistic && !messageIdsRef.current.has(m.id));
+          return [...loadedMessages, ...optimisticMessages];
+        });
       }
     } catch (err) {
       console.error('Failed to load messages:', err);
@@ -53,6 +66,35 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
       setIsLoading(false);
     }
   }, [user?.id]);
+
+  // Add optimistic message immediately (no DB wait)
+  const addOptimisticMessage = useCallback((
+    role: 'user' | 'assistant' | 'system',
+    content: string
+  ): string => {
+    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const optimisticMessage: ChatMessage = {
+      id: tempId,
+      session_id: sessionId || '',
+      user_id: user?.id || '',
+      role,
+      content,
+      created_at: new Date(),
+      isOptimistic: true,
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+    return tempId;
+  }, [sessionId, user?.id]);
+
+  // Confirm optimistic message with real data from DB
+  const confirmMessage = useCallback((tempId: string, realMessage: ChatMessage) => {
+    setMessages(prev => prev.map(m => 
+      m.id === tempId ? { ...realMessage, isOptimistic: false } : m
+    ));
+    messageIdsRef.current.add(realMessage.id);
+  }, []);
 
   // Add a new message and persist immediately to DB
   const addMessage = useCallback(async (
@@ -64,7 +106,7 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
       return null;
     }
 
-    const newMessage: Omit<ChatMessage, 'id' | 'created_at'> = {
+    const newMessage = {
       session_id: sessionId,
       user_id: user.id,
       role,
@@ -82,11 +124,16 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
         console.error('Error saving message:', error);
         // Still add to local state for UX continuity
         const fallbackMessage: ChatMessage = {
-          id: `temp-${Date.now()}`,
+          id: `fallback-${Date.now()}`,
           ...newMessage,
           created_at: new Date(),
         };
-        setMessages(prev => [...prev, fallbackMessage]);
+        
+        // Avoid duplicates
+        if (!messageIdsRef.current.has(fallbackMessage.id)) {
+          setMessages(prev => [...prev, fallbackMessage]);
+          messageIdsRef.current.add(fallbackMessage.id);
+        }
         return fallbackMessage;
       }
 
@@ -96,7 +143,12 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
         created_at: new Date(data.created_at),
       };
       
-      setMessages(prev => [...prev, savedMessage]);
+      // Avoid duplicates
+      if (!messageIdsRef.current.has(savedMessage.id)) {
+        setMessages(prev => [...prev, savedMessage]);
+        messageIdsRef.current.add(savedMessage.id);
+      }
+      
       return savedMessage;
     } catch (err) {
       console.error('Failed to save message:', err);
@@ -104,19 +156,13 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
     }
   }, [sessionId, user?.id]);
 
-  // Update a message content (for streaming AI responses)
-  const updateMessageContent = useCallback((messageId: string, content: string) => {
-    setMessages(prev => prev.map(m => 
-      m.id === messageId ? { ...m, content } : m
-    ));
-  }, []);
-
   // Load messages when sessionId changes
   useEffect(() => {
     if (sessionId && user?.id) {
       loadMessages(sessionId);
     } else {
       setMessages([]);
+      messageIdsRef.current.clear();
     }
   }, [sessionId, user?.id, loadMessages]);
 
@@ -124,6 +170,8 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
     messages,
     isLoading,
     addMessage,
+    addOptimisticMessage,
+    confirmMessage,
     loadMessages,
   };
 }

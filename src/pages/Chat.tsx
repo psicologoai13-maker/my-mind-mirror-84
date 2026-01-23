@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +29,6 @@ const Chat: React.FC = () => {
   const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
   const queryClient = useQueryClient();
-  const { height: viewportHeight, isKeyboardOpen } = useVisualViewport();
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -42,10 +40,10 @@ const Chat: React.FC = () => {
   const [isClosingSession, setIsClosingSession] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Real-time message persistence
-  const { messages, addMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
+  // Real-time message persistence with optimistic updates
+  const { messages, addMessage, addOptimisticMessage, confirmMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
   
   const userName = profile?.name?.split(' ')[0] || 'Amico';
   const memoryFacts = profile?.long_term_memory || [];
@@ -194,40 +192,48 @@ const Chat: React.FC = () => {
     initChat();
   }, [isProfileLoading, isSessionReady, profile?.name, startSession, user?.id, queryClient]);
 
-  // Scroll to bottom
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Scroll to bottom - optimized for mobile
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    });
   }, []);
 
+  // Scroll when messages change or streaming updates
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent, scrollToBottom]);
+  }, [messages.length, streamingContent, scrollToBottom]);
 
-  // Force scroll when keyboard opens
-  useEffect(() => {
-    if (isKeyboardOpen) {
-      setTimeout(scrollToBottom, 100);
-    }
-  }, [isKeyboardOpen, scrollToBottom]);
-
-  // Handle message send
+  // Handle message send with optimistic UI
   const handleSend = async () => {
     if (!input.trim() || isTyping || !isSessionReady || !sessionId) return;
 
-    const userInput = input;
+    const userInput = input.trim();
     setInput('');
+    
+    // OPTIMISTIC: Show user message immediately (no DB wait)
+    const userTempId = addOptimisticMessage('user', userInput);
+    
+    // Start typing indicator immediately
     setIsTyping(true);
+    
+    // Scroll to show the new message + typing indicator
+    requestAnimationFrame(() => scrollToBottom('instant'));
 
-    // Persist user message immediately
-    await addMessage('user', userInput);
-
-    // Get all messages for context
+    // Get all messages for context (include the optimistic one)
     const apiMessages = [
       ...messages.map(m => ({ role: m.role, content: m.content })),
       { role: 'user' as const, content: userInput },
     ];
 
     let assistantContent = '';
+
+    // Persist user message in background (don't block UI)
+    addMessage('user', userInput).then((savedMsg) => {
+      if (savedMsg) {
+        confirmMessage(userTempId, savedMsg);
+      }
+    });
 
     try {
       const response = await fetch(CHAT_URL, {
@@ -346,10 +352,7 @@ const Chat: React.FC = () => {
   // Loading state
   if (isProfileLoading || !isSessionReady) {
     return (
-      <div 
-        className="flex flex-col bg-background"
-        style={{ height: viewportHeight || '100dvh' }}
-      >
+      <div className="flex flex-col h-[100dvh] bg-background">
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="relative">
             <Brain className="w-12 h-12 text-primary animate-pulse" />
@@ -365,21 +368,14 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="flex flex-col bg-background overflow-hidden"
-      style={{ 
-        height: viewportHeight ? `${viewportHeight}px` : '100dvh',
-        maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh',
-      }}
-    >
+    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
       {/* Crisis Emergency Modal */}
       <CrisisModal 
         isOpen={showCrisisModal} 
         onClose={() => setShowCrisisModal(false)} 
       />
       
-      {/* Header - Compact */}
+      {/* Header - Compact & fixed */}
       <header className="shrink-0 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -432,11 +428,30 @@ const Chat: React.FC = () => {
         </div>
       </header>
 
-      {/* Messages - Flexible scroll area */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-3">
+      {/* Messages - Flex grow with overflow scroll */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-3"
+      >
         {isLoadingMessages ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          // Skeleton loader instead of blank screen
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className={cn(
+                "flex gap-2 animate-pulse",
+                i % 2 === 0 ? "justify-end" : ""
+              )}>
+                {i % 2 !== 0 && <div className="w-8 h-8 rounded-full bg-muted" />}
+                <div className={cn(
+                  "rounded-2xl px-4 py-3",
+                  i % 2 === 0 ? "bg-primary/20 w-2/3" : "bg-muted w-3/4"
+                )}>
+                  <div className="h-4 bg-muted-foreground/10 rounded w-full mb-2" />
+                  <div className="h-4 bg-muted-foreground/10 rounded w-2/3" />
+                </div>
+                {i % 2 === 0 && <div className="w-8 h-8 rounded-full bg-muted" />}
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -459,36 +474,31 @@ const Chat: React.FC = () => {
               />
             )}
             
-            {/* Typing indicator */}
+            {/* Typing indicator - shows immediately when waiting for AI */}
             {isTyping && !streamingContent && (
               <div className="flex gap-2 animate-fade-in">
                 <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-primary" />
                 </div>
                 <div className="bg-white dark:bg-card rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-border/50">
-                  <div className="flex gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground ml-1">Sta scrivendo...</span>
                   </div>
                 </div>
               </div>
             )}
           </>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input Area - Sticky at bottom with safe area */}
-      <div 
-        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 z-50"
-        style={{
-          paddingTop: '0.75rem',
-          paddingBottom: isKeyboardOpen 
-            ? '0.75rem' 
-            : 'calc(0.75rem + env(safe-area-inset-bottom))',
-        }}
-      >
+      {/* Input Area - Sticky bottom with safe area padding */}
+      <div className="shrink-0 sticky bottom-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-50">
         <div className="flex items-center gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
           <input
             type="text"
@@ -497,7 +507,7 @@ const Chat: React.FC = () => {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Scrivi come ti senti..."
             disabled={isTyping || !isSessionReady}
-            className="flex-1 bg-transparent px-4 py-2.5 text-[16px] placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            className="flex-1 bg-transparent px-4 py-2.5 text-base placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
           <Button
             variant="default"
