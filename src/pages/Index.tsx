@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
-import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import GoalsWidget from '@/components/home/GoalsWidget';
 import { Bell, Smile, Brain, Zap, Moon, X, Check, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -272,10 +271,9 @@ const Index: React.FC = () => {
           <GoalsWidget />
         </div>
 
-        {/* Block 3: Life Radar & Emotional Mix */}
-        <div className="grid grid-cols-1 gap-5 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+        {/* Block 3: Life Radar */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <LifeBalanceRadar />
-          <EmotionalMixBar />
         </div>
       </div>
     </MobileLayout>
