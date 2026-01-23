@@ -8,6 +8,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
+import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -30,6 +31,9 @@ const Chat: React.FC = () => {
   const { startSession, endSession } = useSessions();
   const queryClient = useQueryClient();
   
+  // VisualViewport for iOS keyboard handling
+  const viewport = useVisualViewport();
+  
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -41,9 +45,11 @@ const Chat: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Real-time message persistence with optimistic updates
-  const { messages, addMessage, addOptimisticMessage, confirmMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
+  const { messages, addMessage, addOptimisticMessage, confirmMessage, removeOptimisticMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
   
   const userName = profile?.name?.split(' ')[0] || 'Amico';
   const memoryFacts = profile?.long_term_memory || [];
@@ -195,14 +201,31 @@ const Chat: React.FC = () => {
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+      });
     });
   }, []);
 
-  // Scroll when messages change or streaming updates
+  // Scroll when messages change, streaming updates, or keyboard opens
   useEffect(() => {
     scrollToBottom();
-  }, [messages.length, streamingContent, scrollToBottom]);
+  }, [messages.length, streamingContent, viewport.isKeyboardOpen, scrollToBottom]);
+
+  // Prevent rubber-banding on header touch
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    
+    const preventRubberBand = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    
+    header.addEventListener('touchmove', preventRubberBand, { passive: false });
+    return () => {
+      header.removeEventListener('touchmove', preventRubberBand);
+    };
+  }, []);
 
   // Handle message send with optimistic UI
   const handleSend = async () => {
@@ -233,6 +256,10 @@ const Chat: React.FC = () => {
       if (savedMsg) {
         confirmMessage(userTempId, savedMsg);
       }
+    }).catch(() => {
+      // On error, remove the optimistic message
+      removeOptimisticMessage(userTempId);
+      toast.error('Errore nell\'invio del messaggio');
     });
 
     try {
@@ -367,8 +394,32 @@ const Chat: React.FC = () => {
     );
   }
 
+  // Calculate dynamic heights based on viewport
+  const inputAreaHeight = 72; // Approximate input area height
+  const headerHeight = 56; // Approximate header height
+  const safeAreaBottom = viewport.isKeyboardOpen ? 0 : 20; // env(safe-area-inset-bottom) approximation
+  
+  // When keyboard is open, use exact visualViewport height
+  // When closed, use 100dvh (CSS handles this)
+  const containerStyle: React.CSSProperties = viewport.isKeyboardOpen 
+    ? { 
+        height: `${viewport.height}px`,
+        position: 'fixed',
+        top: `${viewport.offsetTop}px`,
+        left: 0,
+        right: 0,
+        overflow: 'hidden',
+      }
+    : {};
+
   return (
-    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
+    <div 
+      className={cn(
+        "flex flex-col bg-background",
+        !viewport.isKeyboardOpen && "h-[100dvh]"
+      )}
+      style={containerStyle}
+    >
       {/* Crisis Emergency Modal */}
       <CrisisModal 
         isOpen={showCrisisModal} 
@@ -376,7 +427,11 @@ const Chat: React.FC = () => {
       />
       
       {/* Header - Compact & fixed */}
-      <header className="shrink-0 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3 z-50">
+      <header 
+        ref={headerRef}
+        className="shrink-0 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3 z-50 select-none"
+        style={{ touchAction: 'none' }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button 
@@ -431,7 +486,8 @@ const Chat: React.FC = () => {
       {/* Messages - Flex grow with overflow scroll */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-3"
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {isLoadingMessages ? (
           // Skeleton loader instead of blank screen
@@ -497,8 +553,16 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input Area - Sticky bottom with safe area padding */}
-      <div className="shrink-0 sticky bottom-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-50">
+      {/* Input Area - Fixed at bottom, respects keyboard */}
+      <div 
+        ref={inputContainerRef}
+        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 pt-3 z-50"
+        style={{
+          paddingBottom: viewport.isKeyboardOpen 
+            ? '12px' 
+            : `calc(12px + env(safe-area-inset-bottom, 0px))`,
+        }}
+      >
         <div className="flex items-center gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
           <input
             type="text"
@@ -507,7 +571,16 @@ const Chat: React.FC = () => {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Scrivi come ti senti..."
             disabled={isTyping || !isSessionReady}
-            className="flex-1 bg-transparent px-4 py-2.5 text-base placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            autoComplete="off"
+            autoCorrect="on"
+            autoCapitalize="sentences"
+            enterKeyHint="send"
+            className="chat-input flex-1 bg-transparent px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            style={{
+              fontSize: '16px',
+              lineHeight: '1.5',
+              touchAction: 'manipulation',
+            }}
           />
           <Button
             variant="default"
