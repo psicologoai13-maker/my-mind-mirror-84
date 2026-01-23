@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, Brain, Sparkles, BookOpen, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CrisisModal from '@/components/safety/CrisisModal';
+import ChatBubble from '@/components/chat/ChatBubble';
 import {
   Tooltip,
   TooltipContent,
@@ -317,7 +317,7 @@ const Chat: React.FC = () => {
   // LOADING STATE - Block UI until memory is loaded
   if (isProfileLoading || !isMemoryLoaded) {
     return (
-      <MobileLayout hideNav className="pb-0">
+      <div className="flex flex-col h-[100dvh] bg-background">
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="relative">
             <Brain className="w-12 h-12 text-primary animate-pulse" />
@@ -328,12 +328,12 @@ const Chat: React.FC = () => {
             <p className="text-muted-foreground text-sm mt-1">Sto caricando il tuo profilo</p>
           </div>
         </div>
-      </MobileLayout>
+      </div>
     );
   }
 
   return (
-    <MobileLayout hideNav className="pb-0">
+    <div className="flex flex-col h-[100dvh] bg-background">
       {/* Crisis Emergency Modal */}
       <CrisisModal 
         isOpen={showCrisisModal} 
@@ -341,10 +341,10 @@ const Chat: React.FC = () => {
       />
       
       {/* Header - Modern Minimal */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={handleBack}>
+            <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -393,44 +393,27 @@ const Chat: React.FC = () => {
         </div>
       </header>
 
-      {/* Messages - Clean Bubbles */}
+      {/* Messages - Clean Bubbles with Markdown */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((message) => (
-          <div
+          <ChatBubble
             key={message.id}
-            className={cn(
-              'flex animate-slide-up',
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
-            <div
-              className={cn(
-                'max-w-[85%] px-4 py-3',
-                message.role === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm'
-                  : 'bg-muted text-foreground rounded-2xl rounded-tl-sm'
-              )}
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-              <p
-                className={cn(
-                  'text-[10px] mt-1.5 opacity-60',
-                  message.role === 'user' ? 'text-right' : 'text-left'
-                )}
-              >
-                {message.timestamp.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-          </div>
+            content={message.content}
+            role={message.role}
+            timestamp={message.timestamp}
+          />
         ))}
         
         {isTyping && (
-          <div className="flex justify-start animate-fade-in">
-            <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
+          <div className="flex gap-2 animate-fade-in">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <div className="bg-white rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-gray-100">
               <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -438,8 +421,8 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area - Floating Pill Style */}
-      <div className="p-4 pb-6">
+      {/* Input Area - Fixed at bottom with safe area padding */}
+      <div className="sticky bottom-0 z-50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-background border-t border-border/50">
         <div className="flex items-center gap-2 bg-muted rounded-full p-1.5 shadow-soft">
           <input
             type="text"
@@ -461,7 +444,7 @@ const Chat: React.FC = () => {
           </Button>
         </div>
       </div>
-    </MobileLayout>
+    </div>
   );
 };
 
