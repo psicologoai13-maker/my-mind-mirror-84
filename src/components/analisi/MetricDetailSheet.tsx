@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
-import { format, subDays, isAfter, startOfDay, isSameDay } from 'date-fns';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { format, subDays, startOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { MetricData, TimeRange, MetricType } from '@/pages/Analisi';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -17,9 +16,6 @@ interface MetricDetailSheetProps {
 }
 
 const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, onClose, timeRange }) => {
-  const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
-
   // Calculate date range based on timeRange
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -32,88 +28,84 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
         return { start: subDays(now, 30), end: now };
       case 'all':
       default:
-        return { start: new Date(0), end: now };
+        return { start: subDays(now, 365), end: now };
     }
   }, [timeRange]);
 
-  // Generate chart data - ONLY for days with actual data (stretch effect)
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const { metricsRange } = useDailyMetricsRange(dateRange.start, dateRange.end);
+
+  // Generate chart data from unified source
   const chartData = useMemo(() => {
     if (!metric) return [];
 
-    // Filter sessions in range
-    const sessionsInRange = completedSessions.filter(s => 
-      isAfter(new Date(s.start_time), dateRange.start)
+    // Filter days with actual data
+    const daysWithData = metricsRange.filter(m => 
+      m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas
     );
 
-    // Get unique days with data, sorted chronologically
-    const daysWithData = new Map<string, { date: Date; sessions: typeof sessionsInRange }>();
-    
-    sessionsInRange.forEach(session => {
-      const date = new Date(session.start_time);
-      const dateKey = format(date, 'yyyy-MM-dd');
-      if (!daysWithData.has(dateKey)) {
-        daysWithData.set(dateKey, { date, sessions: [] });
-      }
-      daysWithData.get(dateKey)!.sessions.push(session);
-    });
-
-    // Convert to array and sort
-    const sortedDays = Array.from(daysWithData.entries())
-      .sort((a, b) => a[1].date.getTime() - b[1].date.getTime());
-
-    // Map to chart data
-    return sortedDays.map(([dateKey, { date, sessions }]) => {
+    // Map to chart data based on metric type
+    return daysWithData.map(dayData => {
       let value: number | null = null;
 
-      const getSessionValue = (metricKey: MetricType): number | null => {
-        const values = sessions.map(s => {
-          switch (metricKey) {
-            case 'mood':
-              return s.mood_score_detected ? s.mood_score_detected * 10 : null;
-            case 'anxiety':
-              return s.anxiety_score_detected ? s.anxiety_score_detected * 10 : null;
-            case 'sleep':
-              return (s as any).sleep_quality ? (s as any).sleep_quality * 10 : null;
-            case 'energy':
-              const m = s.mood_score_detected ? s.mood_score_detected * 10 : null;
-              const a = s.anxiety_score_detected ? s.anxiety_score_detected * 10 : 50;
-              return m !== null ? Math.max(0, Math.min(100, m - (a * 0.3) + 20)) : null;
-            case 'joy':
-              return (s as any).specific_emotions?.joy ?? null;
-            case 'sadness':
-              return (s as any).specific_emotions?.sadness ?? null;
-            case 'anger':
-              return (s as any).specific_emotions?.anger ?? null;
-            case 'fear':
-              return (s as any).specific_emotions?.fear ?? null;
-            case 'apathy':
-              return (s as any).specific_emotions?.apathy ?? null;
-            case 'love':
-              return s.life_balance_scores?.love ? s.life_balance_scores.love * 10 : null;
-            case 'work':
-              return s.life_balance_scores?.work ? s.life_balance_scores.work * 10 : null;
-            case 'friendship':
-              return s.life_balance_scores?.friendship ? s.life_balance_scores.friendship * 10 : null;
-            case 'wellness':
-              return s.life_balance_scores?.energy ? s.life_balance_scores.energy * 10 : null;
-            default:
-              return null;
-          }
-        }).filter((v): v is number => v !== null);
-
-        if (values.length === 0) return null;
-        return values.reduce((a, b) => a + b, 0) / values.length;
-      };
-
-      value = getSessionValue(metric.key);
+      // Get value based on metric category and key
+      switch (metric.key) {
+        // Vitali (scala 1-10)
+        case 'mood':
+          value = dayData.vitals.mood > 0 ? dayData.vitals.mood * 10 : null;
+          break;
+        case 'anxiety':
+          value = dayData.vitals.anxiety > 0 ? dayData.vitals.anxiety * 10 : null;
+          break;
+        case 'energy':
+          value = dayData.vitals.energy > 0 ? dayData.vitals.energy * 10 : null;
+          break;
+        case 'sleep':
+          value = dayData.vitals.sleep > 0 ? dayData.vitals.sleep * 10 : null;
+          break;
+        // Emozioni (scala 0-10)
+        case 'joy':
+          value = dayData.emotions.joy > 0 ? dayData.emotions.joy * 10 : null;
+          break;
+        case 'sadness':
+          value = dayData.emotions.sadness > 0 ? dayData.emotions.sadness * 10 : null;
+          break;
+        case 'anger':
+          value = dayData.emotions.anger > 0 ? dayData.emotions.anger * 10 : null;
+          break;
+        case 'fear':
+          value = dayData.emotions.fear > 0 ? dayData.emotions.fear * 10 : null;
+          break;
+        case 'apathy':
+          value = dayData.emotions.apathy > 0 ? dayData.emotions.apathy * 10 : null;
+          break;
+        // Aree Vita (scala 1-10)
+        case 'love':
+          value = dayData.life_areas.love ? dayData.life_areas.love * 10 : null;
+          break;
+        case 'work':
+          value = dayData.life_areas.work ? dayData.life_areas.work * 10 : null;
+          break;
+        case 'health':
+          value = dayData.life_areas.health ? dayData.life_areas.health * 10 : null;
+          break;
+        case 'social':
+          value = dayData.life_areas.social ? dayData.life_areas.social * 10 : null;
+          break;
+        case 'growth':
+          value = dayData.life_areas.growth ? dayData.life_areas.growth * 10 : null;
+          break;
+        default:
+          value = null;
+      }
 
       return {
-        date: format(date, 'd MMM', { locale: it }),
-        fullDate: format(date, 'd MMMM yyyy', { locale: it }),
+        date: format(new Date(dayData.date), 'd MMM', { locale: it }),
+        fullDate: format(new Date(dayData.date), 'd MMMM yyyy', { locale: it }),
         value: value !== null ? Math.round(value) : null,
       };
-    }).filter(d => d.value !== null); // Only include days with data
-  }, [metric, completedSessions, weeklyCheckins, dateRange]);
+    }).filter(d => d.value !== null); // Only include days with data for this metric
+  }, [metric, metricsRange]);
 
   if (!metric) return null;
 
@@ -121,10 +113,9 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
   const trendColor = metric.trend === 'up' ? 'text-emerald-500' : metric.trend === 'down' ? 'text-destructive' : 'text-muted-foreground';
   const trendLabel = metric.trend === 'up' ? 'In aumento' : metric.trend === 'down' ? 'In calo' : 'Stabile';
 
+  // Display value as X.X/10
   const displayValue = metric.average !== null 
-    ? metric.unit === '/10' 
-      ? `${Math.round(metric.average / 10)}/10`
-      : `${metric.average}%`
+    ? `${metric.average}/10`
     : '—';
 
   return (
@@ -202,7 +193,7 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
                         padding: '8px 12px'
                       }}
                       formatter={(value: number) => [
-                        metric.unit === '/10' ? `${Math.round(value / 10)}/10` : `${value}%`,
+                        `${(value / 10).toFixed(1)}/10`,
                         metric.label
                       ]}
                       labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
