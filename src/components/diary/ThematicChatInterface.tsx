@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DiaryTheme, ThematicDiary, DIARY_THEMES, useThematicDiaries } from '@/hooks/useThematicDiaries';
 import { useVisualViewport } from '@/hooks/useVisualViewport';
+import { useEffect as useLayoutEffect } from 'react';
 import { toast } from 'sonner';
 import ChatBubble from '@/components/chat/ChatBubble';
 
@@ -21,8 +22,8 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { isKeyboardOpen } = useVisualViewport();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { isKeyboardOpen, height: viewportHeight } = useVisualViewport();
   
   const { sendMessage } = useThematicDiaries();
   const themeConfig = DIARY_THEMES.find(t => t.theme === theme)!;
@@ -32,6 +33,15 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
+
+  // Scroll when keyboard opens
+  useEffect(() => {
+    if (isKeyboardOpen) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [isKeyboardOpen]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -69,9 +79,15 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const colors = themeColors[theme];
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gray-50">
+    <div 
+      className="fixed inset-0 flex flex-col bg-background overflow-hidden"
+      style={{ 
+        height: isKeyboardOpen && viewportHeight ? `${viewportHeight}px` : '100dvh',
+        transition: 'height 0.1s ease-out',
+      }}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-50 px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-xl">
+      <header className="shrink-0 px-4 py-3 border-b border-border/50 flex items-center gap-3 bg-background/80 backdrop-blur-xl z-50">
         <Button 
           variant="ghost" 
           size="icon" 
@@ -84,25 +100,25 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-2xl">{themeConfig.emoji}</span>
           <div>
-            <h1 className="font-semibold text-gray-900">
+            <h1 className="font-semibold text-foreground">
               Diario {themeConfig.label}
             </h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {messages.length} messaggi
             </p>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      {/* Messages - Scrollable area */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-3">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>
-            <h2 className="font-semibold text-gray-900 mb-2">
+            <h2 className="font-semibold text-foreground mb-2">
               Il tuo Diario {themeConfig.label}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Scrivi i tuoi pensieri, emozioni e riflessioni su questo tema. 
               L'AI ricorderà tutto per le prossime conversazioni.
             </p>
@@ -123,8 +139,8 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
             <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
-            <div className="bg-white rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-gray-100">
-              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            <div className="bg-card rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-border/50">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
             </div>
           </div>
         )}
@@ -132,27 +148,30 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Dynamic positioning with visual viewport */}
+      {/* Input - Fixed at bottom, shrinks with keyboard */}
       <div 
-        className="sticky z-50 bg-white/95 backdrop-blur-lg border-t border-gray-100"
+        className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4"
         style={{
-          bottom: isKeyboardOpen ? 0 : 0,
-          paddingBottom: isKeyboardOpen ? '0.5rem' : 'calc(0.75rem + env(safe-area-inset-bottom))',
           paddingTop: '0.75rem',
-          paddingLeft: '1rem',
-          paddingRight: '1rem',
+          paddingBottom: isKeyboardOpen 
+            ? '0.5rem' 
+            : 'max(0.75rem, env(safe-area-inset-bottom))',
         }}
       >
-        <div className="flex items-end gap-3 bg-gray-100/80 border border-gray-200/50 rounded-2xl px-4 py-2">
-          <textarea
+        <div className="flex items-center gap-3 bg-muted/80 border border-border/30 rounded-2xl px-4 py-2">
+          <input
             ref={inputRef}
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder={`Scrivi nel tuo diario ${themeConfig.label.toLowerCase()}...`}
-            rows={1}
-            className="flex-1 bg-transparent border-none outline-none resize-none text-[16px] text-gray-900 placeholder:text-gray-400 max-h-24 focus:outline-none"
+            className="flex-1 bg-transparent border-none outline-none text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
             disabled={isSending}
+            autoComplete="off"
+            autoCorrect="on"
+            autoCapitalize="sentences"
+            enterKeyHint="send"
           />
           <Button
             size="icon"
