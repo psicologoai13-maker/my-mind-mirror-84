@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, BarChart3, BookOpen, User, Mic, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
+import { useVisualViewport } from '@/hooks/useVisualViewport';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -15,6 +16,7 @@ const navItems = [
 const BottomNav: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isKeyboardOpen } = useVisualViewport();
   const [showSessionChoice, setShowSessionChoice] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
@@ -31,6 +33,11 @@ const BottomNav: React.FC = () => {
     setShowSessionChoice(false);
     setShowVoiceModal(true);
   };
+
+  // Hide navbar when keyboard is open to avoid overlap
+  if (isKeyboardOpen) {
+    return <ZenVoiceModal isOpen={showVoiceModal} onClose={() => setShowVoiceModal(false)} />;
+  }
 
   return (
     <>

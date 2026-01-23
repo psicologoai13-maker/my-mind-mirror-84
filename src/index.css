@@ -261,6 +261,21 @@
   }
 }
 
+/* iOS Safari input zoom prevention - CRITICAL for mobile UX */
+input,
+textarea,
+select {
+  font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+}
+
+/* Remove default browser focus outlines */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Custom scrollbar - minimal */
 ::-webkit-scrollbar {
   width: 4px;

@@ -3,6 +3,7 @@ import { ArrowLeft, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DiaryTheme, ThematicDiary, DIARY_THEMES, useThematicDiaries } from '@/hooks/useThematicDiaries';
+import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { toast } from 'sonner';
 import ChatBubble from '@/components/chat/ChatBubble';
 
@@ -21,6 +22,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { isKeyboardOpen } = useVisualViewport();
   
   const { sendMessage } = useThematicDiaries();
   const themeConfig = DIARY_THEMES.find(t => t.theme === theme)!;
@@ -130,9 +132,18 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Fixed at bottom with safe area */}
-      <div className="sticky bottom-0 z-50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-100">
-        <div className="flex items-end gap-2 bg-gray-50 border border-gray-100 rounded-full px-4 py-2">
+      {/* Input - Dynamic positioning with visual viewport */}
+      <div 
+        className="sticky z-50 bg-white/95 backdrop-blur-lg border-t border-gray-100"
+        style={{
+          bottom: isKeyboardOpen ? 0 : 0,
+          paddingBottom: isKeyboardOpen ? '0.5rem' : 'calc(0.75rem + env(safe-area-inset-bottom))',
+          paddingTop: '0.75rem',
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
+        }}
+      >
+        <div className="flex items-end gap-3 bg-gray-100/80 border border-gray-200/50 rounded-2xl px-4 py-2">
           <textarea
             ref={inputRef}
             value={input}
@@ -140,7 +151,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
             onKeyDown={handleKeyPress}
             placeholder={`Scrivi nel tuo diario ${themeConfig.label.toLowerCase()}...`}
             rows={1}
-            className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gray-900 placeholder:text-gray-400 max-h-24"
+            className="flex-1 bg-transparent border-none outline-none resize-none text-[16px] text-gray-900 placeholder:text-gray-400 max-h-24 focus:outline-none"
             disabled={isSending}
           />
           <Button
@@ -148,7 +159,7 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
             onClick={handleSend}
             disabled={!input.trim() || isSending}
             className={cn(
-              "shrink-0 rounded-full w-9 h-9",
+              "shrink-0 rounded-xl w-10 h-10 shadow-sm",
               colors.accent,
               "text-white hover:opacity-90"
             )}
