@@ -191,10 +191,14 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
   return (
     <div 
       className={cn(
-        "flex flex-col bg-background",
+        "flex flex-col bg-background min-h-[100dvh]",
         !viewport.isKeyboardOpen && "h-[100dvh]"
       )}
-      style={containerStyle}
+      style={{
+        ...containerStyle,
+        // CRITICAL: Fixed background to prevent white flash during resize
+        backgroundColor: 'hsl(var(--background))',
+      }}
     >
       {/* Header - IDENTICAL structure to main Chat */}
       <header 
@@ -227,11 +231,17 @@ const ThematicChatInterface: React.FC<ThematicChatInterfaceProps> = ({
       </header>
 
       {/* Messages - IDENTICAL structure to main Chat */}
+      {/* GOLDEN RULE: If messages.length > 0, NEVER show loading/empty - always keep messages visible */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3 bg-background"
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          // CRITICAL: Fixed background to prevent transparency during resize
+          backgroundColor: 'hsl(var(--background))',
+        }}
       >
+        {/* Show empty state ONLY if truly empty (not during sending) */}
         {messages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <span className="text-5xl mb-4">{themeConfig.emoji}</span>

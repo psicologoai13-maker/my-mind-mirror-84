@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useLayoutEffect, useCallback } from 'react';
 
 interface ViewportState {
   height: number;
@@ -12,20 +12,30 @@ interface ViewportState {
  * Hook to track visual viewport changes (especially for iOS keyboard)
  * Uses the VisualViewport API to detect actual visible height when keyboard opens
  * This is the "Native App" approach for iOS PWA keyboard handling
+ * 
+ * Uses useLayoutEffect to prevent visual "jump" on mount
  */
 export function useVisualViewport(): ViewportState {
+  // Initialize with window.innerHeight immediately to prevent layout lag
   const [viewport, setViewport] = useState<ViewportState>(() => {
     const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const visualViewport = typeof window !== 'undefined' ? window.visualViewport : null;
+    
+    // Use visualViewport if available, otherwise fallback to innerHeight
+    const height = visualViewport?.height ?? windowHeight;
+    const offsetTop = visualViewport?.offsetTop ?? 0;
+    
     return {
-      height: windowHeight,
-      offsetTop: 0,
+      height,
+      offsetTop,
       isKeyboardOpen: false,
       keyboardHeight: 0,
       windowHeight,
     };
   });
 
-  useEffect(() => {
+  // Use useLayoutEffect to calculate BEFORE browser paint (prevents visual jump)
+  useLayoutEffect(() => {
     const visualViewport = window.visualViewport;
     
     // Store initial height at mount (before any keyboard)
@@ -58,7 +68,7 @@ export function useVisualViewport(): ViewportState {
       });
     };
 
-    // Initial call
+    // CRITICAL: Call immediately on mount (not waiting for first resize event)
     handleViewportChange();
 
     if (visualViewport) {
