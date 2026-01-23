@@ -5,7 +5,7 @@ import { User, Sparkles } from 'lucide-react';
 
 interface ChatBubbleProps {
   content: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   timestamp?: Date;
   showAvatar?: boolean;
 }
@@ -17,6 +17,18 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
   showAvatar = true 
 }) => {
   const isUser = role === 'user';
+  const isSystem = role === 'system';
+  
+  // System messages are displayed as centered info
+  if (isSystem) {
+    return (
+      <div className="flex justify-center my-2">
+        <div className="bg-muted/50 text-muted-foreground text-xs px-4 py-2 rounded-full">
+          {content}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
