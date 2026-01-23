@@ -47,6 +47,7 @@ const Chat: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Real-time message persistence with optimistic updates
   const { messages, addMessage, addOptimisticMessage, confirmMessage, removeOptimisticMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
@@ -228,11 +229,45 @@ const Chat: React.FC = () => {
   }, []);
 
   // Handle message send with optimistic UI
+  // Auto-resize textarea
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get accurate scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Calculate new height (max 120px = ~5 lines)
+    const newHeight = Math.min(textarea.scrollHeight, 120);
+    textarea.style.height = `${newHeight}px`;
+  }, []);
+
+  // Handle input change with auto-resize
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    adjustTextareaHeight();
+  }, [adjustTextareaHeight]);
+
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (!input) {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.style.height = 'auto';
+      }
+    }
+  }, [input]);
+
   const handleSend = async () => {
     if (!input.trim() || isTyping || !isSessionReady || !sessionId) return;
 
     const userInput = input.trim();
     setInput('');
+    
+    // Reset textarea height after sending
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
     
     // OPTIMISTIC: Show user message immediately (no DB wait)
     const userTempId = addOptimisticMessage('user', userInput);
@@ -563,23 +598,32 @@ const Chat: React.FC = () => {
             : `calc(12px + env(safe-area-inset-bottom, 0px))`,
         }}
       >
-        <div className="flex items-center gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
-          <input
-            type="text"
+        <div className="flex items-end gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
+          <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            onChange={handleInputChange}
+            onKeyDown={(e) => {
+              // On desktop: Enter sends, Shift+Enter for new line
+              // On mobile: Enter creates new line (send button required)
+              if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="Scrivi come ti senti..."
             disabled={isTyping || !isSessionReady}
             autoComplete="off"
             autoCorrect="on"
             autoCapitalize="sentences"
-            enterKeyHint="send"
-            className="chat-input flex-1 bg-transparent px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            rows={1}
+            className="chat-input flex-1 bg-transparent px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 resize-none overflow-y-auto"
             style={{
               fontSize: '16px',
               lineHeight: '1.5',
               touchAction: 'manipulation',
+              minHeight: '40px',
+              maxHeight: '120px',
             }}
           />
           <Button
@@ -587,7 +631,7 @@ const Chat: React.FC = () => {
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="shrink-0 rounded-xl h-10 w-10 shadow-sm"
+            className="shrink-0 rounded-xl h-10 w-10 shadow-sm mb-0.5"
           >
             <Send className="w-4 h-4" />
           </Button>
