@@ -177,6 +177,40 @@ serve(async (req) => {
 
     const themeContext = themeContextMap[theme] || theme;
 
+    // Build life areas status for Data Hunter
+    const lifeAreasKeys = ['love', 'work', 'social', 'growth', 'health'];
+    const lifeAreasLabels: Record<string, string> = {
+      love: 'Amore (relazioni, partner)',
+      work: 'Lavoro (carriera, progetti)',
+      social: 'Socialità (amici, famiglia)',
+      growth: 'Crescita (sviluppo personale)',
+      health: 'Salute (fisica, mentale)',
+    };
+    
+    // Check which areas are missing or stale
+    const missingAreas = lifeAreasKeys.filter(key => {
+      const score = currentLifeScores[key];
+      return score === null || score === undefined || score === 0;
+    });
+    
+    const dataHunterInstructions = missingAreas.length > 0 
+      ? `
+═══════════════════════════════════════════════
+🎯 DATA HUNTER - AREE MANCANTI
+═══════════════════════════════════════════════
+Le seguenti aree della vita NON hanno dati nel radar dell'utente:
+${missingAreas.map(k => `- ${lifeAreasLabels[k]}`).join('\n')}
+
+ISTRUZIONE CRITICA: Se la conversazione lo permette naturalmente, inserisci UNA domanda casuale su una di queste aree.
+Esempi:
+- "A proposito, come vanno le cose sul lavoro ultimamente?"
+- "Hai avuto modo di vedere gli amici di recente?"
+- "Come ti senti fisicamente in questo periodo?"
+
+NON fare un interrogatorio. Sii naturale. Una domanda alla volta, solo se ha senso nel contesto.
+L'obiettivo è aiutare ${firstName} a completare il suo radar delle aree di vita.`
+      : '';
+
     // Build PERSONALIZED system prompt
     const systemPrompt = `SEI UNA MEMORIA VIVENTE - DIARIO "${themeLabel.toUpperCase()}"
 
@@ -189,6 +223,7 @@ serve(async (req) => {
 - Tema diario: ${themeLabel} (${themeContext})
 
 ${personaStyle}
+${dataHunterInstructions}
 
 ═══════════════════════════════════════════════
 🧠 MEMORIA CENTRALE
