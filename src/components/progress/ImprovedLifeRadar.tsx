@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
-import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { Heart, Briefcase, Users, Zap, Sprout, Compass } from 'lucide-react';
 import { subDays, format } from 'date-fns';
 
@@ -13,24 +13,45 @@ const LIFE_AREAS = [
 ];
 
 const ImprovedLifeRadar: React.FC = () => {
-  const { latestLifeAreas, useLifeAreasRange } = useDailyLifeAreas();
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const today = new Date();
+  const thirtyDaysAgo = subDays(today, 30);
+  const sixtyDaysAgo = subDays(today, 60);
+  
+  // Current period (last 30 days)
+  const { metricsRange: currentRange } = useDailyMetricsRange(thirtyDaysAgo, today);
+  // Previous period (30-60 days ago)
+  const { metricsRange: previousRange } = useDailyMetricsRange(sixtyDaysAgo, thirtyDaysAgo);
 
-  // Get last month's data for comparison
-  const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-  const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd');
-  const { data: lastMonthData } = useLifeAreasRange(sixtyDaysAgo, thirtyDaysAgo);
+  // Get latest life areas from current period
+  const currentScores = useMemo(() => {
+    // Find the most recent day with life areas data
+    const daysWithLifeAreas = currentRange.filter(m => m.has_life_areas);
+    const latest = daysWithLifeAreas[daysWithLifeAreas.length - 1];
+    
+    if (!latest) return {};
+    
+    return {
+      love: latest.life_areas?.love ?? null,
+      work: latest.life_areas?.work ?? null,
+      social: latest.life_areas?.social ?? null,
+      growth: latest.life_areas?.growth ?? null,
+      health: latest.life_areas?.health ?? null,
+    };
+  }, [currentRange]);
 
   // Calculate last month's average
   const lastMonthAverage = useMemo(() => {
-    if (!lastMonthData || lastMonthData.length === 0) return null;
+    const daysWithData = previousRange.filter(m => m.has_life_areas);
+    if (daysWithData.length === 0) return null;
 
     const averages: Record<string, number> = {};
     const counts: Record<string, number> = {};
 
-    lastMonthData.forEach(record => {
+    daysWithData.forEach(dayMetrics => {
       LIFE_AREAS.forEach(area => {
-        const value = record[area.key as keyof typeof record] as number | null;
-        if (value !== null && value !== undefined) {
+        const value = dayMetrics.life_areas?.[area.key as keyof typeof dayMetrics.life_areas];
+        if (value !== null && value !== undefined && value > 0) {
           averages[area.key] = (averages[area.key] || 0) + value;
           counts[area.key] = (counts[area.key] || 0) + 1;
         }
@@ -43,19 +64,7 @@ const ImprovedLifeRadar: React.FC = () => {
     });
 
     return Object.keys(result).length > 0 ? result : null;
-  }, [lastMonthData]);
-
-  // Current scores from latest record
-  const currentScores = useMemo(() => {
-    if (!latestLifeAreas) return {};
-    return {
-      love: latestLifeAreas.love,
-      work: latestLifeAreas.work,
-      social: latestLifeAreas.social,
-      growth: latestLifeAreas.growth,
-      health: latestLifeAreas.health,
-    };
-  }, [latestLifeAreas]);
+  }, [previousRange]);
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,

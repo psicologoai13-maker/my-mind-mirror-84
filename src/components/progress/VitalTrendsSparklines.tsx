@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
-import { format, isSameDay } from 'date-fns';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { format, subDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { TrendingUp, Moon, Brain } from 'lucide-react';
 
@@ -21,9 +20,9 @@ interface SparklineProps {
   unit?: string;
 }
 
-const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, icon, unit = '%' }) => {
+const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, icon, unit = '/10' }) => {
   // Filter to only include data points with values (stretch effect)
-  const filteredData = data.filter(d => d.value !== null);
+  const filteredData = data.filter(d => d.value !== null && d.value > 0);
   const hasData = filteredData.length > 0;
   const latestValue = filteredData[filteredData.length - 1]?.value;
 
@@ -56,7 +55,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, i
                 </linearGradient>
               </defs>
               <XAxis dataKey="date" hide />
-              <YAxis domain={[0, 100]} hide />
+              <YAxis domain={[0, 10]} hide />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
@@ -75,6 +74,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, i
                 strokeWidth={2}
                 fill={`url(#${gradientId})`}
                 dot={{ fill: color, strokeWidth: 0, r: 2 }}
+                connectNulls
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -85,69 +85,44 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color, gradientId, label, i
 };
 
 const VitalTrendsSparklines: React.FC = () => {
-  const { completedSessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  const startDate = subDays(new Date(), 30);
+  const endDate = new Date();
+  const { metricsRange } = useDailyMetricsRange(startDate, endDate);
 
   const { moodData, anxietyData, sleepData } = useMemo(() => {
-    // Group sessions by day
-    const sessionsByDay = new Map<string, typeof completedSessions>();
-    
-    completedSessions.forEach(session => {
-      const dateKey = format(new Date(session.start_time), 'yyyy-MM-dd');
-      if (!sessionsByDay.has(dateKey)) {
-        sessionsByDay.set(dateKey, []);
-      }
-      sessionsByDay.get(dateKey)!.push(session);
-    });
-
-    // Sort days chronologically
-    const sortedDays = Array.from(sessionsByDay.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]));
-
     const moodData: SparklineData[] = [];
     const anxietyData: SparklineData[] = [];
     const sleepData: SparklineData[] = [];
 
-    sortedDays.forEach(([dateKey, daySessions]) => {
-      const day = new Date(dateKey);
-      const dayCheckin = weeklyCheckins?.find(c => isSameDay(new Date(c.created_at), day));
+    // Filter days with actual data and build sparklines
+    metricsRange
+      .filter(m => m.has_checkin || m.has_sessions)
+      .forEach(dayMetrics => {
+        const day = new Date(dayMetrics.date);
+        const dateStr = format(day, 'd', { locale: it });
+        const fullDate = format(day, 'd MMM', { locale: it });
 
-      // Mood
-      let mood: number | null = null;
-      if (dayCheckin) {
-        mood = (dayCheckin.mood_value / 5) * 100;
-      } else if (daySessions.length > 0) {
-        const avgMood = daySessions.reduce((acc, s) => acc + (s.mood_score_detected || 50), 0) / daySessions.length;
-        mood = avgMood * 10;
-      }
-
-      // Anxiety
-      let anxiety: number | null = null;
-      if (daySessions.length > 0) {
-        const sessionsWithAnxiety = daySessions.filter(s => s.anxiety_score_detected !== null);
-        if (sessionsWithAnxiety.length > 0) {
-          const avgAnxiety = sessionsWithAnxiety.reduce((acc, s) => acc + (s.anxiety_score_detected || 0), 0) / sessionsWithAnxiety.length;
-          anxiety = avgAnxiety * 10;
-        }
-      }
-
-      // Sleep quality
-      let sleep: number | null = null;
-      const sessionWithSleep = daySessions.find(s => (s as any).sleep_quality !== null);
-      if (sessionWithSleep) {
-        sleep = ((sessionWithSleep as any).sleep_quality || 0) * 10;
-      }
-
-      const dateStr = format(day, 'd', { locale: it });
-      const fullDate = format(day, 'd MMM', { locale: it });
-
-      moodData.push({ date: dateStr, fullDate, value: mood });
-      anxietyData.push({ date: dateStr, fullDate, value: anxiety });
-      sleepData.push({ date: dateStr, fullDate, value: sleep });
-    });
+        // All vitals are already 1-10 scale from RPC
+        moodData.push({ 
+          date: dateStr, 
+          fullDate, 
+          value: dayMetrics.vitals.mood > 0 ? dayMetrics.vitals.mood : null 
+        });
+        anxietyData.push({ 
+          date: dateStr, 
+          fullDate, 
+          value: dayMetrics.vitals.anxiety > 0 ? dayMetrics.vitals.anxiety : null 
+        });
+        sleepData.push({ 
+          date: dateStr, 
+          fullDate, 
+          value: dayMetrics.vitals.sleep > 0 ? dayMetrics.vitals.sleep : null 
+        });
+      });
 
     return { moodData, anxietyData, sleepData };
-  }, [completedSessions, weeklyCheckins]);
+  }, [metricsRange]);
 
   return (
     <div className="space-y-3">
