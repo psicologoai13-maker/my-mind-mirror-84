@@ -370,6 +370,7 @@ export type Database = {
           active_dashboard_metrics: string[] | null
           connection_code: string | null
           created_at: string
+          dashboard_config: Json | null
           email: string | null
           id: string
           life_areas_scores: Json | null
@@ -385,6 +386,7 @@ export type Database = {
           active_dashboard_metrics?: string[] | null
           connection_code?: string | null
           created_at?: string
+          dashboard_config?: Json | null
           email?: string | null
           id?: string
           life_areas_scores?: Json | null
@@ -400,6 +402,7 @@ export type Database = {
           active_dashboard_metrics?: string[] | null
           connection_code?: string | null
           created_at?: string
+          dashboard_config?: Json | null
           email?: string | null
           id?: string
           life_areas_scores?: Json | null
