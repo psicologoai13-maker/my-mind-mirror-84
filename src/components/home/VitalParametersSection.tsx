@@ -1,6 +1,5 @@
 import React from 'react';
 import { useDailyMetrics } from '@/hooks/useDailyMetrics';
-import { Zap, Brain, Heart, Moon } from 'lucide-react';
 import VitalParameterCard from './VitalParameterCard';
 
 const VitalParametersSection: React.FC = () => {
@@ -44,30 +43,29 @@ const VitalParametersSection: React.FC = () => {
         <VitalParameterCard
           label="Ansia"
           value={vitalsPercentage.anxiety}
-          color="hsl(25, 80%, 55%)"
-          icon={<Brain className="w-4 h-4" />}
+          color="anxiety"
+          icon="🧠"
           subtitle={getAnxietyLabel(vitalsPercentage.anxiety)}
-          invertColor
         />
         <VitalParameterCard
           label="Energia"
           value={vitalsPercentage.energy}
-          color="hsl(45, 85%, 55%)"
-          icon={<Zap className="w-4 h-4" />}
+          color="energy"
+          icon="⚡"
           subtitle={getEnergyLabel(vitalsPercentage.energy)}
         />
         <VitalParameterCard
           label="Umore"
           value={vitalsPercentage.mood}
-          color="hsl(150, 60%, 45%)"
-          icon={<Heart className="w-4 h-4" />}
+          color="mood"
+          icon="❤️"
           subtitle={getMoodLabel(vitalsPercentage.mood)}
         />
         <VitalParameterCard
           label="Sonno"
           value={vitalsPercentage.sleep}
-          color="hsl(260, 60%, 55%)"
-          icon={<Moon className="w-4 h-4" />}
+          color="sleep"
+          icon="🌙"
           subtitle={getSleepLabel(vitalsPercentage.sleep)}
         />
       </div>
