@@ -60,10 +60,16 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
   const realMessageIdsRef = useRef<Set<string>>(new Set());
   // Track optimistic message temp IDs
   const optimisticIdsRef = useRef<Set<string>>(new Set());
+  // Prevent multiple simultaneous loads
+  const loadingSessionRef = useRef<string | null>(null);
 
   // Load existing messages for a session
   const loadMessages = useCallback(async (sid: string) => {
     if (!user?.id) return;
+    
+    // Prevent duplicate loads for the same session
+    if (loadingSessionRef.current === sid) return;
+    loadingSessionRef.current = sid;
     
     setIsLoading(true);
     try {
@@ -112,6 +118,7 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
       console.error('Failed to load messages:', err);
     } finally {
       setIsLoading(false);
+      loadingSessionRef.current = null;
     }
   }, [user?.id]);
 
