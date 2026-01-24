@@ -157,30 +157,31 @@ const Chat: React.FC = () => {
     enabled: isSessionReady && messages.length >= 2,
   });
 
-  // Initialize session - OPTIMIZED: no setTimeout, no double-loads
+  // Initialize session - FAST: don't wait for profile, use name if available
   useEffect(() => {
-    if (isProfileLoading || isSessionReady) return;
+    if (isSessionReady || !user?.id) return;
     
     const initChat = async () => {
       try {
+        // Start session immediately - don't wait for profile
         const newSession = await startSession.mutateAsync('chat');
         
-        // Create greeting message
-        const greeting = profile?.name 
-          ? `Ciao ${profile.name.split(' ')[0]}! 💚 Come stai oggi? Sono qui per ascoltarti.`
+        // Use profile name if already loaded, otherwise generic greeting
+        const userName = profile?.name?.split(' ')[0];
+        const greeting = userName 
+          ? `Ciao ${userName}! 💚 Come stai oggi? Sono qui per ascoltarti.`
           : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
         
-        // Insert greeting BEFORE setting sessionId to avoid double-load
+        // Insert greeting and set session in parallel
         await supabase
           .from('chat_messages')
           .insert({
             session_id: newSession.id,
-            user_id: user?.id,
+            user_id: user.id,
             role: 'assistant',
             content: greeting,
           });
         
-        // Now set sessionId - useChatMessages will load messages (including greeting)
         setSessionId(newSession.id);
         setIsSessionReady(true);
       } catch (error) {
@@ -190,7 +191,7 @@ const Chat: React.FC = () => {
     };
     
     initChat();
-  }, [isProfileLoading, isSessionReady, profile?.name, startSession, user?.id]);
+  }, [isSessionReady, user?.id, profile?.name, startSession]);
 
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -404,8 +405,8 @@ const Chat: React.FC = () => {
     navigate('/');
   };
 
-  // Loading state
-  if (isProfileLoading || !isSessionReady) {
+  // Loading state - only show briefly while session is being created
+  if (!isSessionReady) {
     return (
       <div className="flex flex-col h-[100dvh] bg-background">
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -414,8 +415,7 @@ const Chat: React.FC = () => {
             <Loader2 className="w-6 h-6 text-primary/60 animate-spin absolute -bottom-1 -right-1" />
           </div>
           <div className="text-center">
-            <p className="text-foreground font-medium">Preparando la chat...</p>
-            <p className="text-muted-foreground text-sm mt-1">Sto caricando il tuo profilo</p>
+            <p className="text-foreground font-medium">Avvio chat...</p>
           </div>
         </div>
       </div>
