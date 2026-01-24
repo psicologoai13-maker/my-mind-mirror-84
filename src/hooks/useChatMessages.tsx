@@ -67,7 +67,7 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
   const loadMessages = useCallback(async (sid: string) => {
     if (!user?.id) return;
     
-    // Prevent duplicate loads for the same session
+    // Prevent duplicate loads for the same session - keep ref set until complete
     if (loadingSessionRef.current === sid) return;
     loadingSessionRef.current = sid;
     
@@ -81,6 +81,8 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
       
       if (error) {
         console.error('Error loading messages:', error);
+        loadingSessionRef.current = null;
+        setIsLoading(false);
         return;
       }
       
@@ -114,11 +116,13 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
           return [...loadedMessages, ...optimisticToKeep];
         });
       }
+      
+      setIsLoading(false);
+      // NOTE: Don't reset loadingSessionRef here - keep it to prevent re-loads of same session
     } catch (err) {
       console.error('Failed to load messages:', err);
-    } finally {
-      setIsLoading(false);
       loadingSessionRef.current = null;
+      setIsLoading(false);
     }
   }, [user?.id]);
 
@@ -270,14 +274,17 @@ export function useChatMessages(sessionId: string | null): UseChatMessagesReturn
   // Load messages when sessionId changes
   useEffect(() => {
     if (sessionId && user?.id) {
-      // Reset tracking on session change
-      realMessageIdsRef.current.clear();
-      optimisticIdsRef.current.clear();
-      loadMessages(sessionId);
-    } else {
+      // Only reset if this is a NEW session (different from what we just loaded)
+      if (loadingSessionRef.current !== sessionId) {
+        realMessageIdsRef.current.clear();
+        optimisticIdsRef.current.clear();
+        loadMessages(sessionId);
+      }
+    } else if (!sessionId) {
       setMessages([]);
       realMessageIdsRef.current.clear();
       optimisticIdsRef.current.clear();
+      loadingSessionRef.current = null;
     }
   }, [sessionId, user?.id, loadMessages]);
 

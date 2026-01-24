@@ -42,12 +42,15 @@ const Chat: React.FC = () => {
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [showCrisisModal, setShowCrisisModal] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
+  const [initialGreeting, setInitialGreeting] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // CRITICAL: Prevent multiple init calls
+  const initCalledRef = useRef(false);
 
   // Real-time message persistence with optimistic updates
   const { messages, addMessage, addOptimisticMessage, confirmMessage, removeOptimisticMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
@@ -157,41 +160,51 @@ const Chat: React.FC = () => {
     enabled: isSessionReady && messages.length >= 2,
   });
 
-  // Initialize session - FAST: don't wait for profile, use name if available
+  // Initialize session - ULTRA FAST: use ref to prevent double init, show greeting immediately
   useEffect(() => {
-    if (isSessionReady || !user?.id) return;
+    // CRITICAL: Only run once per mount
+    if (initCalledRef.current || !user?.id) return;
+    initCalledRef.current = true;
     
     const initChat = async () => {
       try {
-        // Start session immediately - don't wait for profile
-        const newSession = await startSession.mutateAsync('chat');
-        
-        // Use profile name if already loaded, otherwise generic greeting
+        // Create greeting immediately (use cached profile name if available)
         const userName = profile?.name?.split(' ')[0];
         const greeting = userName 
           ? `Ciao ${userName}! 💚 Come stai oggi? Sono qui per ascoltarti.`
           : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
         
-        // Insert greeting and set session in parallel
-        await supabase
+        // Show greeting IMMEDIATELY in UI (optimistic)
+        setInitialGreeting(greeting);
+        setIsSessionReady(true);
+        
+        // Create session in background (non-blocking)
+        const newSession = await startSession.mutateAsync('chat');
+        
+        // Persist greeting to DB in background
+        supabase
           .from('chat_messages')
           .insert({
             session_id: newSession.id,
             user_id: user.id,
             role: 'assistant',
             content: greeting,
+          })
+          .then(() => {
+            // After DB insert, set sessionId to trigger message load
+            setSessionId(newSession.id);
+            setInitialGreeting(null); // Clear optimistic greeting
           });
-        
-        setSessionId(newSession.id);
-        setIsSessionReady(true);
+          
       } catch (error) {
         console.error('Failed to start session:', error);
         toast.error('Errore nell\'avvio della chat');
+        initCalledRef.current = false; // Allow retry on error
       }
     };
     
     initChat();
-  }, [isSessionReady, user?.id, profile?.name, startSession]);
+  }, [user?.id, profile?.name, startSession]);
 
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -526,8 +539,8 @@ const Chat: React.FC = () => {
           backgroundColor: 'hsl(var(--background))',
         }}
       >
-        {/* Show skeleton ONLY if loading AND no messages yet (first load) */}
-        {isLoadingMessages && messages.length === 0 ? (
+        {/* Show skeleton ONLY if loading AND no messages yet AND no initial greeting (first load) */}
+        {isLoadingMessages && messages.length === 0 && !initialGreeting ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className={cn(
@@ -548,6 +561,17 @@ const Chat: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* INSTANT: Show optimistic greeting while DB loads */}
+            {initialGreeting && messages.length === 0 && (
+              <ChatBubble
+                key="initial-greeting"
+                content={initialGreeting}
+                role="assistant"
+                timestamp={new Date()}
+              />
+            )}
+            
+            {/* Real messages from DB */}
             {messages.map((message) => (
               <ChatBubble
                 key={message.id}
