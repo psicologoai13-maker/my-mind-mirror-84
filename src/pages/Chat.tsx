@@ -157,38 +157,31 @@ const Chat: React.FC = () => {
     enabled: isSessionReady && messages.length >= 2,
   });
 
-  // Initialize session
+  // Initialize session - OPTIMIZED: no setTimeout, no double-loads
   useEffect(() => {
     if (isProfileLoading || isSessionReady) return;
     
     const initChat = async () => {
       try {
         const newSession = await startSession.mutateAsync('chat');
-        setSessionId(newSession.id);
         
-        // Add initial greeting as system message
+        // Create greeting message
         const greeting = profile?.name 
           ? `Ciao ${profile.name.split(' ')[0]}! 💚 Come stai oggi? Sono qui per ascoltarti.`
           : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
         
-        // Wait for session ID to be set, then add greeting
-        setTimeout(async () => {
-          if (newSession.id) {
-            const { error } = await supabase
-              .from('chat_messages')
-              .insert({
-                session_id: newSession.id,
-                user_id: user?.id,
-                role: 'assistant',
-                content: greeting,
-              });
-            if (!error) {
-              // Force reload messages
-              queryClient.invalidateQueries({ queryKey: ['chat-messages', newSession.id] });
-            }
-          }
-        }, 100);
+        // Insert greeting BEFORE setting sessionId to avoid double-load
+        await supabase
+          .from('chat_messages')
+          .insert({
+            session_id: newSession.id,
+            user_id: user?.id,
+            role: 'assistant',
+            content: greeting,
+          });
         
+        // Now set sessionId - useChatMessages will load messages (including greeting)
+        setSessionId(newSession.id);
         setIsSessionReady(true);
       } catch (error) {
         console.error('Failed to start session:', error);
@@ -197,7 +190,7 @@ const Chat: React.FC = () => {
     };
     
     initChat();
-  }, [isProfileLoading, isSessionReady, profile?.name, startSession, user?.id, queryClient]);
+  }, [isProfileLoading, isSessionReady, profile?.name, startSession, user?.id]);
 
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
