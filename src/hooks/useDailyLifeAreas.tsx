@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { format } from 'date-fns';
 
 export interface DailyLifeAreas {
   id: string;
@@ -24,8 +25,30 @@ export interface DailyLifeAreas {
 export const useDailyLifeAreas = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const today = format(new Date(), 'yyyy-MM-dd');
 
-  const { data: latestLifeAreas, isLoading } = useQuery({
+  // Fetch TODAY's life areas (for check-in status)
+  const { data: todayLifeAreas, isLoading: todayLoading } = useQuery({
+    queryKey: ['daily-life-areas', user?.id, 'today', today],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from('daily_life_areas')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as DailyLifeAreas | null;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30, // 30 seconds (refresh more often for checkins)
+  });
+
+  // Fetch the most recent life areas record (any date)
+  const { data: latestLifeAreas, isLoading: latestLoading } = useQuery({
     queryKey: ['daily-life-areas', user?.id, 'latest'],
     queryFn: async () => {
       if (!user) return null;
@@ -76,8 +99,9 @@ export const useDailyLifeAreas = () => {
   };
 
   return {
-    latestLifeAreas,
-    isLoading,
+    latestLifeAreas: todayLifeAreas || latestLifeAreas, // Prefer today's if exists
+    todayLifeAreas,
+    isLoading: todayLoading || latestLoading,
     useLifeAreasRange,
     invalidateLifeAreas,
   };
