@@ -17,21 +17,45 @@ export const useCheckins = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Get start and end of today in Rome timezone, converted to UTC for DB queries
+  const getTodayRomeRange = (): { start: string; end: string } => {
+    // Get current date in Rome timezone
+    const now = new Date();
+    const romeFormatter = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayRome = romeFormatter.format(now);
+    
+    // Create start of day in Rome and convert to UTC
+    // Rome is UTC+1 in winter, UTC+2 in summer
+    // We need to find the UTC equivalent of midnight Rome time
+    const startRome = new Date(`${todayRome}T00:00:00+01:00`); // Use +01:00 for winter, DST handled by Date
+    const endRome = new Date(`${todayRome}T23:59:59.999+01:00`);
+    
+    return {
+      start: startRome.toISOString(),
+      end: endRome.toISOString()
+    };
+  };
+
   const { data: todayCheckin, isLoading: todayLoading } = useQuery({
-    queryKey: ['checkin-today', user?.id],
+    queryKey: ['checkin-today', user?.id, new Date().toDateString()],
     queryFn: async () => {
       if (!user) return null;
       
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+      const { start, end } = getTodayRomeRange();
       
       const { data, error } = await supabase
         .from('daily_checkins')
         .select('*')
         .eq('user_id', user.id)
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay)
+        .gte('created_at', start)
+        .lte('created_at', end)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       
       if (error) throw error;
