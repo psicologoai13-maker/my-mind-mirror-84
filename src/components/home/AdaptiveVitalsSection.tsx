@@ -1,88 +1,38 @@
 import React from 'react';
+import { useAIDashboard, MetricConfig } from '@/hooks/useAIDashboard';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
-import { useProfile } from '@/hooks/useProfile';
 import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard';
-import { Loader2, ChevronDown } from 'lucide-react';
+import { Loader2, Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Default metrics for users without config
-const DEFAULT_PRIORITY_METRICS: MetricKey[] = ['mood', 'anxiety', 'energy', 'sleep'];
-
-// All available metrics that can be displayed
-const ALL_METRICS: MetricKey[] = [
-  'mood', 'anxiety', 'energy', 'sleep',
-  'joy', 'sadness', 'anger', 'fear', 'apathy',
-  'love', 'work', 'friendship', 'growth', 'health',
-];
-
-interface DashboardConfig {
-  priority_metrics?: string[];
-  secondary_metrics?: string[];
-  hidden_metrics?: string[];
-  theme?: string;
-}
-
 const AdaptiveVitalsSection: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
-  const { vitals, emotions, lifeAreas, hasData, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 7);
-  const { profile, isLoading: isLoadingProfile } = useProfile();
+  // 🎯 AI-DRIVEN: Layout deciso dall'AI in base al focus utente
+  const { layout, isLoading: isLoadingAI, error: aiError } = useAIDashboard();
+  // 🎯 TIME-WEIGHTED: Valori calcolati con pesatura temporale
+  const { vitals, emotions, lifeAreas, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 7);
   const [showSecondary, setShowSecondary] = React.useState(false);
-
-  // Parse dashboard_config from profile
-  const dashboardConfig = React.useMemo((): DashboardConfig => {
-    const config = (profile as any)?.dashboard_config;
-    if (config && typeof config === 'object') {
-      return config as DashboardConfig;
-    }
-    return { priority_metrics: DEFAULT_PRIORITY_METRICS };
-  }, [profile]);
-
-  // Get priority and secondary metrics from config
-  const priorityMetrics = React.useMemo((): MetricKey[] => {
-    const configMetrics = dashboardConfig.priority_metrics || [];
-    const validMetrics = configMetrics.filter(
-      (m): m is MetricKey => ALL_METRICS.includes(m as MetricKey)
-    );
-    return validMetrics.length > 0 ? validMetrics.slice(0, 6) : DEFAULT_PRIORITY_METRICS;
-  }, [dashboardConfig]);
-
-  const secondaryMetrics = React.useMemo((): MetricKey[] => {
-    const configMetrics = dashboardConfig.secondary_metrics || [];
-    const hiddenMetrics = dashboardConfig.hidden_metrics || [];
-    return configMetrics.filter(
-      (m): m is MetricKey => 
-        ALL_METRICS.includes(m as MetricKey) && 
-        !hiddenMetrics.includes(m) &&
-        !priorityMetrics.includes(m as MetricKey)
-    ).slice(0, 4);
-  }, [dashboardConfig, priorityMetrics]);
 
   // Build metric values from time-weighted source
   const metricValues = React.useMemo((): Partial<Record<MetricKey, number>> => {
-    // Convert 1-10 scale to 0-100 for display
     const toPercentage = (val: number | null | undefined) => 
       val ? Math.min(100, Math.max(0, val * 10)) : 0;
 
     return {
-      // Vitals from time-weighted averages
       mood: toPercentage(vitals.mood),
       anxiety: toPercentage(vitals.anxiety),
       energy: toPercentage(vitals.energy),
       sleep: toPercentage(vitals.sleep),
-      // Emotions from time-weighted averages
       joy: toPercentage(emotions.joy),
       sadness: toPercentage(emotions.sadness),
       anger: toPercentage(emotions.anger),
       fear: toPercentage(emotions.fear),
       apathy: toPercentage(emotions.apathy),
-      // Life Areas from time-weighted averages
       love: toPercentage(lifeAreas.love),
       work: toPercentage(lifeAreas.work),
       friendship: toPercentage(lifeAreas.social),
       social: toPercentage(lifeAreas.social),
       growth: toPercentage(lifeAreas.growth),
       health: toPercentage(lifeAreas.health),
-      // Derived metrics
       stress: toPercentage(vitals.anxiety),
       calmness: toPercentage(vitals.anxiety ? 10 - vitals.anxiety : null),
       loneliness: toPercentage(lifeAreas.social ? 10 - lifeAreas.social : null),
@@ -90,14 +40,31 @@ const AdaptiveVitalsSection: React.FC = () => {
     };
   }, [vitals, emotions, lifeAreas]);
 
-  const isLoading = isLoadingMetrics || isLoadingProfile;
+  // Get metrics from AI layout
+  const primaryMetrics = React.useMemo((): MetricConfig[] => {
+    if (layout.primary_metrics && layout.primary_metrics.length > 0) {
+      return layout.primary_metrics.slice(0, 6);
+    }
+    // Fallback
+    return [
+      { key: 'mood', priority: 1, reason: 'Umore generale', value: 0 },
+      { key: 'anxiety', priority: 2, reason: 'Livello di stress', value: 0 },
+      { key: 'energy', priority: 3, reason: 'Energia disponibile', value: 0 },
+      { key: 'sleep', priority: 4, reason: 'Qualità del sonno', value: 0 },
+    ];
+  }, [layout]);
+
+  const isLoading = isLoadingAI || isLoadingMetrics;
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide px-1">
-          I Tuoi Focus
-        </h3>
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            AI sta analizzando...
+          </span>
+        </div>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 text-primary animate-spin" />
         </div>
@@ -107,70 +74,78 @@ const AdaptiveVitalsSection: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header with AI badge */}
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          I Tuoi Focus
-        </h3>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            I Tuoi Focus
+          </h3>
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
+            AI
+          </span>
+        </div>
         <span className="text-xs text-muted-foreground">
-          Media ponderata {daysWithData > 0 && `(${daysWithData} giorni)`}
+          {daysWithData > 0 && `Media ${daysWithData}gg`}
         </span>
       </div>
+
+      {/* AI Message */}
+      {layout.ai_message && (
+        <div className="px-3 py-2 bg-primary/5 rounded-2xl border border-primary/10">
+          <p className="text-sm text-foreground/80 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            {layout.ai_message}
+          </p>
+        </div>
+      )}
       
-      {/* Priority Metrics Grid - Dynamic */}
+      {/* Priority Metrics Grid - AI Driven */}
       <div className={cn(
         "grid gap-4",
-        priorityMetrics.length <= 2 ? "grid-cols-2" : 
-        priorityMetrics.length <= 4 ? "grid-cols-2" :
+        primaryMetrics.length <= 2 ? "grid-cols-2" : 
+        primaryMetrics.length <= 4 ? "grid-cols-2" :
         "grid-cols-2 sm:grid-cols-3"
       )}>
-        {priorityMetrics.map((metricKey, index) => (
-          <div 
-            key={metricKey}
-            className="animate-scale-in"
-            style={{ animationDelay: `${index * 0.05}s` }}
-          >
-            <AdaptiveVitalCard
-              metricKey={metricKey}
-              value={metricValues[metricKey]}
-              isWeeklyAverage={true}
-            />
-          </div>
-        ))}
+        {primaryMetrics.map((metric, index) => {
+          const metricKey = metric.key as MetricKey;
+          const config = METRIC_CONFIG[metricKey];
+          
+          if (!config) return null;
+
+          return (
+            <div 
+              key={metricKey}
+              className="animate-scale-in relative group"
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <AdaptiveVitalCard
+                metricKey={metricKey}
+                value={metricValues[metricKey]}
+                isWeeklyAverage={true}
+              />
+              {/* AI Reason tooltip on hover */}
+              {metric.reason && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 border border-border">
+                  {metric.reason}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Secondary Metrics - Collapsible */}
-      {secondaryMetrics.length > 0 && (
-        <div className="mt-2">
-          <button
-            onClick={() => setShowSecondary(!showSecondary)}
-            className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>{showSecondary ? 'Nascondi' : 'Altri parametri'}</span>
-            <ChevronDown className={cn(
-              "w-4 h-4 transition-transform",
-              showSecondary && "rotate-180"
-            )} />
-          </button>
-          
-          {showSecondary && (
-            <div className="grid grid-cols-2 gap-3 mt-3 animate-slide-up">
-              {secondaryMetrics.map((metricKey, index) => (
-                <div 
-                  key={metricKey}
-                  className="animate-scale-in"
-                  style={{ animationDelay: `${index * 0.03}s` }}
-                >
-                  <AdaptiveVitalCard
-                    metricKey={metricKey}
-                    value={metricValues[metricKey]}
-                    isWeeklyAverage={true}
-                    isSecondary={true}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Focus Areas Tags */}
+      {layout.focus_areas && layout.focus_areas.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {layout.focus_areas.map((area) => (
+            <span 
+              key={area}
+              className="px-2 py-1 text-xs font-medium bg-accent/50 text-accent-foreground rounded-full"
+            >
+              #{area}
+            </span>
+          ))}
         </div>
       )}
     </div>

@@ -5,9 +5,11 @@ import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import FlashInsights from '@/components/home/FlashInsights';
 import GoalsWidget from '@/components/home/GoalsWidget';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
-import { Bell } from 'lucide-react';
+import EmotionalMixBar from '@/components/home/EmotionalMixBar';
+import { Bell, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
+import { useAIDashboard } from '@/hooks/useAIDashboard';
 
 const motivationalPhrases = [
   "Ogni giorno è un nuovo inizio.",
@@ -19,6 +21,7 @@ const motivationalPhrases = [
 
 const Index: React.FC = () => {
   const { profile, isLoading } = useProfile();
+  const { layout } = useAIDashboard();
   const userName = profile?.name?.split(' ')[0] || 'Utente';
 
   const motivationalPhrase = useMemo(() => {
@@ -26,6 +29,52 @@ const Index: React.FC = () => {
     const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
     return motivationalPhrases[dayOfYear % motivationalPhrases.length];
   }, []);
+
+  // Sort widgets by priority from AI
+  const sortedWidgets = useMemo(() => {
+    if (!layout.widgets) return [];
+    return [...layout.widgets]
+      .filter(w => w.visible)
+      .sort((a, b) => a.priority - b.priority);
+  }, [layout.widgets]);
+
+  // Helper to render widget by type
+  const renderWidget = (widget: typeof sortedWidgets[0], index: number) => {
+    const baseProps = {
+      key: widget.type,
+      className: "animate-slide-up",
+      style: { animationDelay: `${0.1 + index * 0.05}s` },
+    };
+
+    switch (widget.type) {
+      case 'vitals_grid':
+        return (
+          <div {...baseProps}>
+            <AdaptiveVitalsSection />
+          </div>
+        );
+      case 'goals_progress':
+        return (
+          <div {...baseProps}>
+            <GoalsWidget />
+          </div>
+        );
+      case 'radar_chart':
+        return (
+          <div {...baseProps}>
+            <LifeBalanceRadar />
+          </div>
+        );
+      case 'emotional_mix':
+        return (
+          <div {...baseProps}>
+            <EmotionalMixBar />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <MobileLayout>
@@ -54,26 +103,14 @@ const Index: React.FC = () => {
         <SmartCheckinSection />
       </header>
 
-      {/* Content Blocks */}
+      {/* Content Blocks - AI Driven Order */}
       <div className="px-6 pb-8 space-y-5">
-        {/* Block 1: Focus Cards - Bento Grid */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <AdaptiveVitalsSection />
-        </div>
+        {/* AI-Ordered Widgets */}
+        {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
 
-        {/* Block 2: Goals Widget */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-          <GoalsWidget />
-        </div>
-
-        {/* Block 3: Flash Insights */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        {/* Flash Insights - Always at the end as AI-generated content */}
+        <div className="animate-slide-up" style={{ animationDelay: `${0.1 + sortedWidgets.length * 0.05}s` }}>
           <FlashInsights />
-        </div>
-
-        {/* Block 4: Life Radar */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.25s' }}>
-          <LifeBalanceRadar />
         </div>
       </div>
     </MobileLayout>
