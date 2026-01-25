@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Lightbulb, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Target, Heart, Loader2 } from 'lucide-react';
+import { Lightbulb, TrendingDown, AlertTriangle, Sparkles, Target, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Insight {
   type: 'correlation' | 'alert' | 'positive' | 'suggestion' | 'goal';
   title: string;
   message: string;
+}
+
+interface CacheData {
+  insights: Insight[];
 }
 
 const iconMap = {
@@ -29,7 +32,6 @@ const colorMap = {
 
 const FlashInsights: React.FC = () => {
   const { user, session } = useAuth();
-  const { profile } = useProfile();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,32 @@ const FlashInsights: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
+
+        // Check cache first
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('ai_insights_cache, ai_cache_updated_at, last_data_change_at')
+          .eq('user_id', user.id)
+          .single();
+
+        const cacheUpdatedAt = profile?.ai_cache_updated_at ? new Date(profile.ai_cache_updated_at as string) : null;
+        const lastDataChange = profile?.last_data_change_at ? new Date(profile.last_data_change_at as string) : null;
+        const cachedData = profile?.ai_insights_cache as unknown as CacheData | null;
+
+        // Use cache if valid
+        const shouldUseCache = cachedData?.insights && 
+          cacheUpdatedAt && 
+          lastDataChange && 
+          cacheUpdatedAt >= lastDataChange;
+
+        if (shouldUseCache && cachedData?.insights) {
+          console.log('[FlashInsights] Using cached insights');
+          setInsights(cachedData.insights);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[FlashInsights] Fetching fresh AI insights');
 
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-insights`,
@@ -60,8 +88,10 @@ const FlashInsights: React.FC = () => {
         if (!response.ok) {
           if (response.status === 429) {
             setError('Limite richieste raggiunto');
+            if (cachedData?.insights) setInsights(cachedData.insights);
           } else if (response.status === 402) {
             setError('Crediti AI esauriti');
+            if (cachedData?.insights) setInsights(cachedData.insights);
           } else {
             throw new Error(`HTTP ${response.status}`);
           }
@@ -69,7 +99,19 @@ const FlashInsights: React.FC = () => {
         }
 
         const data = await response.json();
-        setInsights(data.insights || []);
+        const newInsights = data.insights || [];
+        setInsights(newInsights);
+
+        // Save to cache
+        const cachePayload: CacheData = { insights: newInsights };
+        await supabase
+          .from('user_profiles')
+          .update({
+            ai_insights_cache: cachePayload as unknown as null,
+            ai_cache_updated_at: new Date().toISOString(),
+          } as Record<string, unknown>)
+          .eq('user_id', user.id);
+
       } catch (err) {
         console.error('[FlashInsights] Error:', err);
         setError('Errore nel caricamento');
@@ -91,7 +133,7 @@ const FlashInsights: React.FC = () => {
         </h3>
         <div className="flex items-center justify-center py-6 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          <span className="text-sm">AI sta analizzando...</span>
+          <span className="text-sm">Caricamento...</span>
         </div>
       </div>
     );
