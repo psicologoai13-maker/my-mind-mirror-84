@@ -31,19 +31,19 @@ export interface CheckinItem {
   reason?: string;
 }
 
-// Response type configurations
+// Response type configurations - LEFT = negative, RIGHT = positive (always)
 export const responseTypeConfig = {
   emoji: {
     options: ['😔', '😕', '😐', '🙂', '😊'],
     labels: ['Molto male', 'Male', 'Così così', 'Bene', 'Benissimo'],
   },
   yesno: {
-    options: ['Sì, molto', 'Un po\'', 'Neutro', 'Poco', 'Per niente'],
-    labels: ['Sì, molto', 'Un po\'', 'Neutro', 'Poco', 'Per niente'],
+    options: ['Per niente', 'Poco', 'Neutro', 'Un po\'', 'Sì, molto'],
+    labels: ['Per niente', 'Poco', 'Neutro', 'Un po\'', 'Sì, molto'],
   },
   intensity: {
-    options: ['Altissima', 'Alta', 'Media', 'Bassa', 'Nessuna'],
-    labels: ['Altissima', 'Alta', 'Media', 'Bassa', 'Nessuna'],
+    options: ['Nessuna', 'Bassa', 'Media', 'Alta', 'Altissima'],
+    labels: ['Nessuna', 'Bassa', 'Media', 'Alta', 'Altissima'],
   },
   slider: {
     options: ['1', '2', '3', '4', '5'],
