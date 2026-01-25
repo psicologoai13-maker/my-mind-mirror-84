@@ -182,6 +182,80 @@ export type Database = {
           },
         ]
       }
+      daily_psychology: {
+        Row: {
+          appetite_changes: number | null
+          burnout_level: number | null
+          coping_ability: number | null
+          created_at: string
+          date: string
+          gratitude: number | null
+          guilt: number | null
+          id: string
+          irritability: number | null
+          loneliness_perceived: number | null
+          mental_clarity: number | null
+          rumination: number | null
+          self_efficacy: number | null
+          session_id: string | null
+          somatic_tension: number | null
+          source: string
+          sunlight_exposure: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          appetite_changes?: number | null
+          burnout_level?: number | null
+          coping_ability?: number | null
+          created_at?: string
+          date?: string
+          gratitude?: number | null
+          guilt?: number | null
+          id?: string
+          irritability?: number | null
+          loneliness_perceived?: number | null
+          mental_clarity?: number | null
+          rumination?: number | null
+          self_efficacy?: number | null
+          session_id?: string | null
+          somatic_tension?: number | null
+          source?: string
+          sunlight_exposure?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          appetite_changes?: number | null
+          burnout_level?: number | null
+          coping_ability?: number | null
+          created_at?: string
+          date?: string
+          gratitude?: number | null
+          guilt?: number | null
+          id?: string
+          irritability?: number | null
+          loneliness_perceived?: number | null
+          mental_clarity?: number | null
+          rumination?: number | null
+          self_efficacy?: number | null
+          session_id?: string | null
+          somatic_tension?: number | null
+          source?: string
+          sunlight_exposure?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_psychology_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_patient_access: {
         Row: {
           access_granted_at: string
@@ -239,6 +313,7 @@ export type Database = {
           anxiety_score_detected: number | null
           clinical_indices: Json | null
           crisis_alert: boolean | null
+          deep_psychology: Json | null
           duration: number | null
           emotion_breakdown: Json | null
           emotion_tags: string[] | null
@@ -261,6 +336,7 @@ export type Database = {
           anxiety_score_detected?: number | null
           clinical_indices?: Json | null
           crisis_alert?: boolean | null
+          deep_psychology?: Json | null
           duration?: number | null
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
@@ -283,6 +359,7 @@ export type Database = {
           anxiety_score_detected?: number | null
           clinical_indices?: Json | null
           crisis_alert?: boolean | null
+          deep_psychology?: Json | null
           duration?: number | null
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
