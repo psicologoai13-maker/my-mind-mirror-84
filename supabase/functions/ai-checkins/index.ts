@@ -68,7 +68,11 @@ serve(async (req) => {
     }
 
     const userId = claimsData.user.id;
-    const today = new Date().toISOString().split("T")[0];
+    
+    // Use Rome timezone (UTC+1 in winter, UTC+2 in summer)
+    const now = new Date();
+    const romeTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Rome" }));
+    const today = romeTime.toISOString().split("T")[0];
 
     // Get user profile and goals
     const { data: profile } = await supabase

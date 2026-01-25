@@ -9,8 +9,18 @@ import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
+
+// Get current date in Rome timezone
+function getRomeDateString(): string {
+  const now = new Date();
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+}
 
 const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 
@@ -26,7 +36,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const { invalidateLifeAreas } = useDailyLifeAreas();
   const { profile } = useProfile();
   const { startCheckinTimer } = useCheckinTimer();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getRomeDateString();
   
   const [activeItem, setActiveItem] = useState<CheckinItem | null>(null);
   const [selectedValue, setSelectedValue] = useState<number | null>(null);

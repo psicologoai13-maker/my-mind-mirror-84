@@ -2,9 +2,8 @@ import React, { useMemo, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { useCheckins } from './useCheckins';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { 
+import {
   Smile, Brain, Zap, Moon, Heart, Briefcase, Users, Sprout, Activity,
   Flame, CloudRain, Wind, Eye, Battery, Frown, ThumbsUp, AlertCircle,
   Sparkles, TrendingDown, Coffee, Sun
@@ -90,11 +89,22 @@ interface AICheckinResponse {
   reason?: string;
 }
 
+// Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
+function getRomeDateString(): string {
+  const now = new Date();
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now); // Returns 'YYYY-MM-DD'
+}
+
 export const usePersonalizedCheckins = () => {
   const { user, session } = useAuth();
   const { todayCheckin } = useCheckins();
   const queryClient = useQueryClient();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getRomeDateString();
 
   // Fetch AI-selected checkins
   const { data: aiData, isLoading: aiLoading, refetch: refetchAI, error: aiError } = useQuery({
