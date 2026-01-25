@@ -1,23 +1,28 @@
 import React, { useMemo } from 'react';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
-import { useCriticalPsychologyMetrics } from '@/hooks/useCriticalPsychologyMetrics';
-import { Lightbulb, TrendingDown, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { useProfile } from '@/hooks/useProfile';
+import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
+import { Lightbulb, TrendingDown, TrendingUp, AlertTriangle, Sparkles, Target, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Insight {
   id: string;
-  type: 'correlation' | 'alert' | 'positive' | 'suggestion';
+  type: 'correlation' | 'alert' | 'positive' | 'suggestion' | 'goal';
   icon: React.ReactNode;
   title: string;
   message: string;
   color: string;
   bgColor: string;
+  priority: number;
 }
 
 const FlashInsights: React.FC = () => {
   // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
-  const { vitals, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
-  const { criticalMetrics } = useCriticalPsychologyMetrics();
+  const { vitals, deepPsychology, emotions, lifeAreas, hasData } = useTimeWeightedMetrics(30, 7);
+  const { profile } = useProfile();
+  const { completedToday } = usePersonalizedCheckins();
+  
+  const userGoals = profile?.selected_goals || [];
 
   const insights = useMemo<Insight[]>(() => {
     const result: Insight[] = [];
@@ -27,11 +32,83 @@ const FlashInsights: React.FC = () => {
     const psych = deepPsychology;
     
     // 🔄 L'ansia usa logica inversa: nel DB alto = bene, nella UI basso = bene
-    // Per i controlli degli insight, dobbiamo usare il valore come "intensità dell'ansia"
-    // Se vitals.anxiety dal DB è 8 (bene), l'ansia effettiva è 10-8=2 (bassa)
     const actualAnxiety = vitals?.anxiety !== null ? 10 - vitals.anxiety : null;
 
-    // 1. Rumination -> Sleep correlation
+    // === GOAL-BASED INSIGHTS (priorità alta) ===
+    
+    // Se l'utente ha obiettivo ansia e l'ansia è migliorata
+    if (userGoals.some(g => g.toLowerCase().includes('ansia') || g.toLowerCase().includes('stress'))) {
+      if (actualAnxiety !== null && actualAnxiety <= 3) {
+        result.push({
+          id: 'goal-anxiety-good',
+          type: 'goal',
+          icon: <Target className="w-4 h-4" />,
+          title: 'Obiettivo: Ansia sotto controllo',
+          message: 'Stai gestendo bene l\'ansia! Continua con le tue strategie.',
+          color: 'text-emerald-600',
+          bgColor: 'bg-emerald-50',
+          priority: 100,
+        });
+      } else if (actualAnxiety !== null && actualAnxiety >= 6) {
+        result.push({
+          id: 'goal-anxiety-high',
+          type: 'goal',
+          icon: <Target className="w-4 h-4" />,
+          title: 'Focus: Gestione ansia',
+          message: 'L\'ansia è elevata. Prova una sessione vocale per elaborare i pensieri.',
+          color: 'text-amber-600',
+          bgColor: 'bg-amber-50',
+          priority: 95,
+        });
+      }
+    }
+
+    // Se l'utente ha obiettivo sonno
+    if (userGoals.some(g => g.toLowerCase().includes('sonno') || g.toLowerCase().includes('dormire'))) {
+      if (vitals?.sleep && vitals.sleep >= 7) {
+        result.push({
+          id: 'goal-sleep-good',
+          type: 'goal',
+          icon: <Target className="w-4 h-4" />,
+          title: 'Obiettivo: Sonno migliorato',
+          message: 'La qualità del sonno sta migliorando. Ottimo lavoro!',
+          color: 'text-emerald-600',
+          bgColor: 'bg-emerald-50',
+          priority: 100,
+        });
+      } else if (vitals?.sleep && vitals.sleep <= 4) {
+        result.push({
+          id: 'goal-sleep-low',
+          type: 'goal',
+          icon: <Target className="w-4 h-4" />,
+          title: 'Focus: Qualità del sonno',
+          message: 'Il sonno è ancora critico. Prova a ridurre schermi prima di dormire.',
+          color: 'text-amber-600',
+          bgColor: 'bg-amber-50',
+          priority: 95,
+        });
+      }
+    }
+
+    // Se l'utente ha obiettivo relazioni
+    if (userGoals.some(g => g.toLowerCase().includes('relazion') || g.toLowerCase().includes('social'))) {
+      if (lifeAreas?.social && lifeAreas.social >= 7) {
+        result.push({
+          id: 'goal-social-good',
+          type: 'goal',
+          icon: <Heart className="w-4 h-4" />,
+          title: 'Relazioni in crescita',
+          message: 'Le tue connessioni sociali stanno fiorendo!',
+          color: 'text-emerald-600',
+          bgColor: 'bg-emerald-50',
+          priority: 90,
+        });
+      }
+    }
+
+    // === CORRELATION INSIGHTS ===
+    
+    // Rumination -> Sleep correlation
     if (psych?.rumination && psych.rumination >= 7 && vitals?.sleep && vitals.sleep <= 4) {
       result.push({
         id: 'rumination-sleep',
@@ -41,11 +118,12 @@ const FlashInsights: React.FC = () => {
         message: 'Quando la ruminazione sale, il sonno scende. Prova a scrivere i pensieri prima di dormire.',
         color: 'text-violet-600',
         bgColor: 'bg-violet-50',
+        priority: 80,
       });
     }
 
-    // 2. High burnout alert
-    if (psych?.burnout_level && psych.burnout_level >= 8) {
+    // High burnout alert (solo se non già completato oggi)
+    if (psych?.burnout_level && psych.burnout_level >= 8 && !('burnout_level' in completedToday)) {
       result.push({
         id: 'burnout-alert',
         type: 'alert',
@@ -54,10 +132,11 @@ const FlashInsights: React.FC = () => {
         message: 'Il tuo livello di burnout è alto. Considera di prenderti una pausa.',
         color: 'text-orange-600',
         bgColor: 'bg-orange-50',
+        priority: 85,
       });
     }
 
-    // 3. Low self-efficacy
+    // Low self-efficacy
     if (psych?.self_efficacy && psych.self_efficacy <= 3) {
       result.push({
         id: 'self-efficacy-low',
@@ -67,11 +146,12 @@ const FlashInsights: React.FC = () => {
         message: 'Ricorda: hai superato sfide prima. Fai una lista dei tuoi successi recenti.',
         color: 'text-blue-600',
         bgColor: 'bg-blue-50',
+        priority: 70,
       });
     }
 
-    // 4. High loneliness
-    if (psych?.loneliness_perceived && psych.loneliness_perceived >= 7) {
+    // High loneliness
+    if (psych?.loneliness_perceived && psych.loneliness_perceived >= 7 && !('loneliness_perceived' in completedToday)) {
       result.push({
         id: 'loneliness-high',
         type: 'alert',
@@ -80,10 +160,11 @@ const FlashInsights: React.FC = () => {
         message: 'Ti sei sentito solo ultimamente. Anche una breve chiamata può aiutare.',
         color: 'text-indigo-600',
         bgColor: 'bg-indigo-50',
+        priority: 75,
       });
     }
 
-    // 5. Somatic tension -> anxiety correlation (usa actualAnxiety per logica inversa)
+    // Somatic tension -> anxiety correlation
     if (psych?.somatic_tension && psych.somatic_tension >= 6 && actualAnxiety !== null && actualAnxiety >= 6) {
       result.push({
         id: 'somatic-anxiety',
@@ -93,10 +174,11 @@ const FlashInsights: React.FC = () => {
         message: 'Il tuo corpo sta portando tensione. Prova stretching o respirazione profonda.',
         color: 'text-rose-600',
         bgColor: 'bg-rose-50',
+        priority: 80,
       });
     }
 
-    // 6. Positive: High gratitude
+    // Positive: High gratitude
     if (psych?.gratitude && psych.gratitude >= 8) {
       result.push({
         id: 'gratitude-high',
@@ -106,11 +188,12 @@ const FlashInsights: React.FC = () => {
         message: 'Stai apprezzando le cose buone della vita. Questo protegge la salute mentale.',
         color: 'text-emerald-600',
         bgColor: 'bg-emerald-50',
+        priority: 60,
       });
     }
 
-    // 7. Low sunlight exposure
-    if (psych?.sunlight_exposure && psych.sunlight_exposure <= 3 && vitals?.mood && vitals.mood <= 5) {
+    // Low sunlight exposure (solo se non già completato oggi)
+    if (psych?.sunlight_exposure && psych.sunlight_exposure <= 3 && vitals?.mood && vitals.mood <= 5 && !('sunlight_exposure' in completedToday)) {
       result.push({
         id: 'sunlight-mood',
         type: 'suggestion',
@@ -119,10 +202,11 @@ const FlashInsights: React.FC = () => {
         message: 'L\'umore potrebbe beneficiare di più tempo all\'aperto. Anche 15 minuti aiutano.',
         color: 'text-amber-600',
         bgColor: 'bg-amber-50',
+        priority: 65,
       });
     }
 
-    // 8. High guilt
+    // High guilt
     if (psych?.guilt && psych.guilt >= 7) {
       result.push({
         id: 'guilt-high',
@@ -132,10 +216,11 @@ const FlashInsights: React.FC = () => {
         message: 'Stai portando un peso. Ricorda: essere gentili con sé stessi è importante.',
         color: 'text-purple-600',
         bgColor: 'bg-purple-50',
+        priority: 70,
       });
     }
 
-    // 9. High irritability + low sleep
+    // High irritability + low sleep
     if (psych?.irritability && psych.irritability >= 7 && vitals?.sleep && vitals.sleep <= 4) {
       result.push({
         id: 'irritability-sleep',
@@ -145,10 +230,11 @@ const FlashInsights: React.FC = () => {
         message: 'Dormire poco aumenta l\'irritabilità. Prova a migliorare la qualità del riposo.',
         color: 'text-red-600',
         bgColor: 'bg-red-50',
+        priority: 75,
       });
     }
 
-    // 10. Positive: High coping + low anxiety (usa actualAnxiety per logica inversa)
+    // Positive: High coping + low anxiety
     if (psych?.coping_ability && psych.coping_ability >= 7 && actualAnxiety !== null && actualAnxiety <= 4) {
       result.push({
         id: 'coping-resilience',
@@ -158,40 +244,53 @@ const FlashInsights: React.FC = () => {
         message: 'Stai gestendo bene lo stress. Le tue strategie funzionano!',
         color: 'text-emerald-600',
         bgColor: 'bg-emerald-50',
+        priority: 60,
       });
     }
 
-    return result.slice(0, 3); // Max 3 insights
-  }, [vitals, deepPsychology, hasData]);
+    // Positive: Mood improving
+    if (vitals?.mood && vitals.mood >= 8) {
+      result.push({
+        id: 'mood-high',
+        type: 'positive',
+        icon: <Sparkles className="w-4 h-4" />,
+        title: 'Umore positivo',
+        message: 'Il tuo stato d\'animo è buono! Cosa sta funzionando per te?',
+        color: 'text-emerald-600',
+        bgColor: 'bg-emerald-50',
+        priority: 55,
+      });
+    }
 
-  // Also add insights based on critical metrics history
-  const criticalInsights = useMemo<Insight[]>(() => {
-    if (criticalMetrics.length === 0) return [];
+    // Energy low correlation
+    if (vitals?.energy && vitals.energy <= 3 && psych?.burnout_level && psych.burnout_level >= 6) {
+      result.push({
+        id: 'energy-burnout',
+        type: 'correlation',
+        icon: <TrendingDown className="w-4 h-4" />,
+        title: 'Energia e burnout',
+        message: 'Energia bassa e burnout alto sono collegati. Prenditi momenti di recupero.',
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50',
+        priority: 78,
+      });
+    }
 
-    return criticalMetrics.slice(0, 2).map(metric => ({
-      id: `critical-${metric.key}`,
-      type: 'alert' as const,
-      icon: <AlertTriangle className="w-4 h-4" />,
-      title: `${metric.label} richiede attenzione`,
-      message: `Questo parametro è stato critico negli ultimi giorni. Rispondi al check-in per monitorarlo.`,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-    }));
-  }, [criticalMetrics]);
+    // Sort by priority and return top insights
+    return result.sort((a, b) => b.priority - a.priority).slice(0, 3);
+  }, [vitals, deepPsychology, emotions, lifeAreas, hasData, userGoals, completedToday]);
 
-  const allInsights = [...insights, ...criticalInsights].slice(0, 3);
-
-  if (allInsights.length === 0) return null;
+  if (insights.length === 0) return null;
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
         <Lightbulb className="w-4 h-4 text-amber-500" />
         Flash Insights
       </h3>
       
       <div className="space-y-2">
-        {allInsights.map(insight => (
+        {insights.map(insight => (
           <div
             key={insight.id}
             className={cn(
