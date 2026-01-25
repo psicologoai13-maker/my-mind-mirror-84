@@ -1,10 +1,8 @@
 import React from 'react';
-import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
-import { useProfile } from '@/hooks/useProfile';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { cn } from '@/lib/utils';
 
-type LifeAreaKey = 'love' | 'work' | 'social' | 'health';
+type LifeAreaKey = 'love' | 'work' | 'social' | 'health' | 'growth';
 
 interface LifeArea {
   key: LifeAreaKey;
@@ -16,42 +14,24 @@ interface LifeArea {
 const lifeAreas: LifeArea[] = [
   { key: 'love', icon: '❤️', label: 'Amore', colorClass: 'bg-rose-500' },
   { key: 'work', icon: '💼', label: 'Lavoro', colorClass: 'bg-amber-500' },
-  { key: 'social', icon: '🤝', label: 'Amicizia', colorClass: 'bg-sky-500' },
-  { key: 'health', icon: '🧘', label: 'Benessere', colorClass: 'bg-emerald-500' },
+  { key: 'social', icon: '🤝', label: 'Socialità', colorClass: 'bg-sky-500' },
+  { key: 'health', icon: '🧘', label: 'Salute', colorClass: 'bg-emerald-500' },
+  { key: 'growth', icon: '🌱', label: 'Crescita', colorClass: 'bg-purple-500' },
 ];
 
 const LifeAreasGrid: React.FC = () => {
-  const { latestLifeAreas } = useDailyLifeAreas();
-  const { profile } = useProfile();
+  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
+  const { lifeAreas: scores, hasData, daysWithData } = useTimeWeightedMetrics(30, 7);
   
-  // Use daily_life_areas as primary source, fallback to profile
-  const currentScores = React.useMemo(() => {
-    if (latestLifeAreas) {
-      return {
-        love: latestLifeAreas.love ?? 5,
-        work: latestLifeAreas.work ?? 5,
-        social: latestLifeAreas.social ?? 5,
-        health: latestLifeAreas.health ?? 5,
-      };
-    }
-    
-    // Fallback to profile (legacy)
-    const profileScores = profile?.life_areas_scores as Record<string, number | null> | undefined;
-    return {
-      love: profileScores?.love ?? 5,
-      work: profileScores?.work ?? 5,
-      social: profileScores?.friendship ?? 5,
-      health: profileScores?.wellness ?? profileScores?.energy ?? 5,
-    };
-  }, [latestLifeAreas, profile]);
-
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number | null) => {
+    if (score === null) return 'text-muted-foreground';
     if (score >= 7) return 'text-emerald-500';
     if (score >= 4) return 'text-amber-500';
     return 'text-destructive';
   };
 
-  const getBarColor = (score: number, baseColor: string) => {
+  const getBarColor = (score: number | null, baseColor: string) => {
+    if (score === null) return 'bg-muted';
     if (score >= 7) return baseColor;
     if (score >= 4) return 'bg-amber-500';
     return 'bg-destructive';
@@ -63,15 +43,22 @@ const LifeAreasGrid: React.FC = () => {
       <div className="absolute -top-16 -left-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
       
       <div className="relative z-10">
-        <h3 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2">
-          <span className="text-lg">⚖️</span>
-          Bilanciamento Vita
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-semibold text-foreground flex items-center gap-2">
+            <span className="text-lg">⚖️</span>
+            Bilanciamento Vita
+          </h3>
+          {daysWithData > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Media ponderata
+            </span>
+          )}
+        </div>
         
         <div className="space-y-4">
           {lifeAreas.map((area) => {
-            const score = currentScores[area.key] ?? 5;
-            const percentage = (score / 10) * 100;
+            const score = scores[area.key];
+            const percentage = score !== null ? (score / 10) * 100 : 0;
             
             return (
               <div key={area.key} className="space-y-1.5">
@@ -82,7 +69,7 @@ const LifeAreasGrid: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className={cn("text-sm font-bold", getScoreColor(score))}>
-                      {score}/10
+                      {score !== null ? `${score}/10` : '—'}
                     </span>
                   </div>
                 </div>
