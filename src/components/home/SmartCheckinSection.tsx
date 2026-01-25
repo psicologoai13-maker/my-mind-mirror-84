@@ -49,9 +49,8 @@ const SmartCheckinSection: React.FC = () => {
     setSelectedValue(value);
     setIsSubmitting(true);
     
-    // For yesno/intensity, reverse the scale (first option = highest intensity = 10)
-    const isReversedScale = activeItem.responseType === 'yesno' || activeItem.responseType === 'intensity';
-    const scaledValue = isReversedScale ? 5 - value : value + 1; // 1-5 scale
+    // All scales now go left=negative, right=positive (no reversal needed)
+    const scaledValue = value + 1; // 1-5 scale
     const scaledTo10 = scaledValue * 2; // 2-10 scale
 
     try {
@@ -262,21 +261,17 @@ const SmartCheckinSection: React.FC = () => {
             })}
           </div>
 
-          {/* Labels for emoji type */}
-          {activeItem.responseType === 'emoji' && (
-            <div className="flex justify-between mt-3 px-1">
-              <span className="text-xs text-muted-foreground">Peggio</span>
-              <span className="text-xs text-muted-foreground">Meglio</span>
-            </div>
-          )}
-          
-          {/* Labels for reversed types */}
-          {(activeItem.responseType === 'yesno' || activeItem.responseType === 'intensity') && (
-            <div className="flex justify-between mt-3 px-1">
-              <span className="text-xs text-muted-foreground">Più intenso</span>
-              <span className="text-xs text-muted-foreground">Meno intenso</span>
-            </div>
-          )}
+          {/* Labels - always left=negative, right=positive */}
+          <div className="flex justify-between mt-3 px-1">
+            <span className="text-xs text-muted-foreground">
+              {activeItem.responseType === 'emoji' ? 'Peggio' : 
+               activeItem.responseType === 'slider' ? 'Minimo' : 'Meno'}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {activeItem.responseType === 'emoji' ? 'Meglio' : 
+               activeItem.responseType === 'slider' ? 'Massimo' : 'Più'}
+            </span>
+          </div>
         </div>
       )}
 
