@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.ai-dashboard]
 verify_jwt = false
+
+[functions.ai-analysis]
+verify_jwt = false
