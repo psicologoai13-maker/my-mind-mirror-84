@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDailyMetrics } from '@/hooks/useDailyMetrics';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Sparkles, MessageCircle } from 'lucide-react';
 
 const EMOTION_CONFIG = {
@@ -13,25 +13,25 @@ const EMOTION_CONFIG = {
 type EmotionKey = keyof typeof EMOTION_CONFIG;
 
 const EmotionalMixBar: React.FC = () => {
-  // Use unified daily metrics as single source of truth
-  const { emotions, hasData } = useDailyMetrics();
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
+  const { emotions, hasData } = useTimeWeightedMetrics(30, 7);
 
-  // Filter out emotions with 0 value - don't show them
+  // Filter out emotions with 0 or null value - don't show them
   const segments = React.useMemo(() => {
     if (!emotions) return [];
     
-    const emotionEntries = Object.entries(emotions) as [EmotionKey, number][];
-    const nonZero = emotionEntries.filter(([_, value]) => value > 0);
+    const emotionEntries = Object.entries(emotions) as [EmotionKey, number | null][];
+    const nonZero = emotionEntries.filter(([_, value]) => value !== null && value > 0);
     
     if (nonZero.length === 0) return [];
     
-    const total = nonZero.reduce((sum, [_, value]) => sum + value, 0);
+    const total = nonZero.reduce((sum, [_, value]) => sum + (value || 0), 0);
     
     return nonZero
       .map(([key, value]) => ({
         key,
-        value,
-        percentage: total > 0 ? (value / total) * 100 : 0,
+        value: value || 0,
+        percentage: total > 0 ? ((value || 0) / total) * 100 : 0,
       }))
       .sort((a, b) => b.value - a.value);
   }, [emotions]);
