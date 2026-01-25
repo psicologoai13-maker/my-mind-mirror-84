@@ -1,26 +1,58 @@
 import React from 'react';
-import { useSessions } from '@/hooks/useSessions';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Hash, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface Topic {
+  tag: string;
+  intensity: number;
+}
+
 const FocusTopics: React.FC = () => {
-  const { journalSessions } = useSessions();
+  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
+  const { emotions, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
 
-  // Extract emotion tags from recent sessions
-  const topics = React.useMemo(() => {
-    const tagCounts: Record<string, number> = {};
+  // Generate topics from time-weighted emotional data
+  const topics = React.useMemo<Topic[]>(() => {
+    if (!hasData) return [];
     
-    journalSessions?.slice(0, 10).forEach(session => {
-      session.emotion_tags?.forEach(tag => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      });
-    });
+    const topicList: Topic[] = [];
 
-    return Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([tag, count]) => ({ tag, count }));
-  }, [journalSessions]);
+    // Add emotions as topics
+    if (emotions.joy !== null && emotions.joy > 0) {
+      topicList.push({ tag: 'gioia', intensity: emotions.joy });
+    }
+    if (emotions.sadness !== null && emotions.sadness > 0) {
+      topicList.push({ tag: 'tristezza', intensity: emotions.sadness });
+    }
+    if (emotions.anger !== null && emotions.anger > 0) {
+      topicList.push({ tag: 'rabbia', intensity: emotions.anger });
+    }
+    if (emotions.fear !== null && emotions.fear > 0) {
+      topicList.push({ tag: 'paura', intensity: emotions.fear });
+    }
+    if (emotions.apathy !== null && emotions.apathy > 0) {
+      topicList.push({ tag: 'apatia', intensity: emotions.apathy });
+    }
+
+    // Add psychology topics
+    if (deepPsychology.rumination !== null && deepPsychology.rumination >= 5) {
+      topicList.push({ tag: 'ruminazione', intensity: deepPsychology.rumination });
+    }
+    if (deepPsychology.burnout_level !== null && deepPsychology.burnout_level >= 5) {
+      topicList.push({ tag: 'stress', intensity: deepPsychology.burnout_level });
+    }
+    if (deepPsychology.gratitude !== null && deepPsychology.gratitude >= 5) {
+      topicList.push({ tag: 'gratitudine', intensity: deepPsychology.gratitude });
+    }
+    if (deepPsychology.loneliness_perceived !== null && deepPsychology.loneliness_perceived >= 5) {
+      topicList.push({ tag: 'solitudine', intensity: deepPsychology.loneliness_perceived });
+    }
+
+    return topicList
+      .sort((a, b) => b.intensity - a.intensity)
+      .slice(0, 4);
+  }, [emotions, deepPsychology, hasData]);
 
   const topicColors = [
     'bg-primary/15 text-primary border-primary/20',
@@ -53,9 +85,9 @@ const FocusTopics: React.FC = () => {
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <span className="capitalize">{topic.tag}</span>
-              {topic.count > 1 && (
-                <span className="ml-1 text-xs opacity-70">×{topic.count}</span>
-              )}
+              <span className="ml-1 text-xs opacity-70">
+                {Math.round(topic.intensity)}/10
+              </span>
             </div>
           ))}
         </div>

@@ -10,8 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useProfile } from '@/hooks/useProfile';
-import { useSessions } from '@/hooks/useSessions';
-import { useCheckins } from '@/hooks/useCheckins';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -81,8 +80,8 @@ const goalConfigs: GoalConfig[] = [
 
 const GoalsWidget: React.FC = () => {
   const { profile, updateProfile } = useProfile();
-  const { sessions } = useSessions();
-  const { weeklyCheckins } = useCheckins();
+  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
+  const { vitals, lifeAreas, hasData, daysWithData } = useTimeWeightedMetrics(30, 7);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGoalsLocal, setSelectedGoalsLocal] = useState<string[]>([]);
 
@@ -119,61 +118,39 @@ const GoalsWidget: React.FC = () => {
     setIsDialogOpen(true);
   };
 
-  // Calculate weekly average based on metric for a specific goal
+  // Calculate progress using unified time-weighted metrics
   const calculateProgress = (goalConfig: GoalConfig): { average: number; progress: number; isOnTrack: boolean } => {
-    let values: number[] = [];
-    const lastWeekSessions = sessions?.filter(s => {
-      const sessionDate = new Date(s.start_time);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return sessionDate >= weekAgo && s.status === 'completed';
-    }) || [];
+    if (!hasData) {
+      return { average: 0, progress: 0, isOnTrack: false };
+    }
+
+    let value: number | null = null;
 
     switch (goalConfig.metric) {
       case 'anxiety':
-        values = lastWeekSessions
-          .map(s => s.anxiety_score_detected)
-          .filter((v): v is number => v !== null && v !== undefined);
+        value = vitals.anxiety;
         break;
       case 'sleep':
-        values = lastWeekSessions
-          .map(s => (s as any).sleep_quality)
-          .filter((v): v is number => v !== null && v !== undefined);
+        value = vitals.sleep;
         break;
       case 'mood':
-        values = weeklyCheckins
-          ?.map(c => c.mood_value * 2)
-          .filter((v): v is number => v !== null && v !== undefined) || [];
-        const sessionMoods = lastWeekSessions
-          .map(s => s.mood_score_detected)
-          .filter((v): v is number => v !== null && v !== undefined);
-        values = [...values, ...sessionMoods];
+        value = vitals.mood;
         break;
       case 'energy':
-        values = lastWeekSessions
-          .map(s => {
-            const lifeScores = s.life_balance_scores as unknown as Record<string, number> | null;
-            return lifeScores?.energy;
-          })
-          .filter((v): v is number => v !== null && v !== undefined);
+        value = vitals.energy;
         break;
       case 'love':
-        values = lastWeekSessions
-          .map(s => {
-            const lifeScores = s.life_balance_scores as unknown as Record<string, number> | null;
-            return lifeScores?.love;
-          })
-          .filter((v): v is number => v !== null && v !== undefined);
+        value = lifeAreas.love;
         break;
       default:
         break;
     }
 
-    if (values.length === 0) {
+    if (value === null || value === 0) {
       return { average: 0, progress: 0, isOnTrack: false };
     }
 
-    const average = values.reduce((a, b) => a + b, 0) / values.length;
+    const average = value;
     
     let progress: number;
     let isOnTrack: boolean;

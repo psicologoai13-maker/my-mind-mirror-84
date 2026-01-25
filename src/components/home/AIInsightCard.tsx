@@ -1,31 +1,51 @@
 import React from 'react';
-import { useSessions } from '@/hooks/useSessions';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Lightbulb, Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const AIInsightCard: React.FC = () => {
-  const { journalSessions } = useSessions();
+  const { vitals, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
   const navigate = useNavigate();
 
-  // Get latest insight from completed sessions
-  const latestInsight = React.useMemo(() => {
-    const sessionWithInsight = journalSessions?.find(s => s.insights);
-    return sessionWithInsight?.insights || null;
-  }, [journalSessions]);
+  // Generate AI insight based on time-weighted metrics
+  const insightText = React.useMemo(() => {
+    if (!hasData) return null;
 
-  // Get latest AI summary if no insight
-  const latestSummary = React.useMemo(() => {
-    if (latestInsight) return null;
-    const sessionWithSummary = journalSessions?.find(s => s.ai_summary);
-    if (sessionWithSummary?.ai_summary) {
-      // Take first 2 sentences
-      const sentences = sessionWithSummary.ai_summary.split(/[.!?]+/).filter(Boolean);
-      return sentences.slice(0, 2).join('. ') + '.';
+    const insights: string[] = [];
+
+    // Analyze vitals
+    if (vitals.mood !== null && vitals.mood >= 7) {
+      insights.push("Il tuo umore è stato positivo ultimamente, continua così!");
+    } else if (vitals.mood !== null && vitals.mood <= 4) {
+      insights.push("Ho notato che il tuo umore è basso. Vuoi parlarne?");
     }
-    return null;
-  }, [journalSessions, latestInsight]);
 
-  const displayText = latestInsight || latestSummary;
+    if (vitals.anxiety !== null && vitals.anxiety >= 7) {
+      insights.push("L'ansia sembra alta. Prova tecniche di respirazione profonda.");
+    } else if (vitals.anxiety !== null && vitals.anxiety <= 3) {
+      insights.push("I tuoi livelli di ansia sono bassi, ottimo lavoro!");
+    }
+
+    if (vitals.sleep !== null && vitals.sleep <= 4) {
+      insights.push("La qualità del sonno potrebbe migliorare. Considera una routine serale.");
+    }
+
+    // Analyze deep psychology
+    if (deepPsychology.rumination !== null && deepPsychology.rumination >= 7) {
+      insights.push("Stai ruminando molto. Prova a scrivere i tuoi pensieri per liberartene.");
+    }
+
+    if (deepPsychology.gratitude !== null && deepPsychology.gratitude >= 7) {
+      insights.push("La tua gratitudine è alta - questo protegge la salute mentale!");
+    }
+
+    if (deepPsychology.burnout_level !== null && deepPsychology.burnout_level >= 7) {
+      insights.push("Attenzione al burnout. Prenditi del tempo per te stesso.");
+    }
+
+    // Return most relevant insight
+    return insights.length > 0 ? insights[0] : "Parla con me per ricevere insight personalizzati.";
+  }, [vitals, deepPsychology, hasData]);
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
@@ -38,10 +58,10 @@ const AIInsightCard: React.FC = () => {
         </h3>
       </div>
 
-      {displayText ? (
+      {insightText ? (
         <>
           <p className="text-gray-600 text-sm leading-relaxed mb-4">
-            "{displayText}"
+            "{insightText}"
           </p>
           <button 
             onClick={() => navigate('/sessions')}

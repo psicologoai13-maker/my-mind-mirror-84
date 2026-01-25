@@ -89,10 +89,62 @@ const DoctorPatientView: React.FC = () => {
           .eq('user_id', patientId)
           .single();
 
-        // Fetch sessions (last 30 days)
+        // 🎯 USE UNIFIED RPC: Get daily metrics for the last 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+        const metricsPromises = [];
+        const current = new Date(thirtyDaysAgo);
+        const today = new Date();
+        
+        while (current <= today) {
+          const dateStr = format(current, 'yyyy-MM-dd');
+          metricsPromises.push(
+            supabase.rpc('get_daily_metrics', {
+              p_user_id: patientId,
+              p_date: dateStr,
+            }).then(res => ({ date: dateStr, ...res }))
+          );
+          current.setDate(current.getDate() + 1);
+        }
+
+        const metricsResults = await Promise.all(metricsPromises);
+        const dailyMetrics = metricsResults
+          .filter(r => r.data && (r.data.has_checkin || r.data.has_sessions))
+          .map(r => r.data);
+
+        // Calculate averages from unified metrics
+        const moodScores = dailyMetrics.filter(m => m.vitals?.mood > 0).map(m => m.vitals.mood);
+        const anxietyScores = dailyMetrics.filter(m => m.vitals?.anxiety > 0).map(m => m.vitals.anxiety);
+        const sleepScores = dailyMetrics.filter(m => m.vitals?.sleep > 0).map(m => m.vitals.sleep);
+
+        const avgMood = moodScores.length > 0 
+          ? (moodScores.reduce((a, b) => a + b, 0) / moodScores.length).toFixed(1)
+          : null;
+        const avgAnxiety = anxietyScores.length > 0 
+          ? (anxietyScores.reduce((a, b) => a + b, 0) / anxietyScores.length).toFixed(1)
+          : null;
+        const avgSleep = sleepScores.length > 0
+          ? (sleepScores.reduce((a, b) => a + b, 0) / sleepScores.length).toFixed(1)
+          : null;
+        const peakAnxiety = anxietyScores.length > 0 ? Math.max(...anxietyScores) : null;
+
+        // Sleep quality from actual data
+        let estimatedSleepQuality: string | null = null;
+        if (avgSleep) {
+          const sleepVal = parseFloat(avgSleep);
+          if (sleepVal >= 7) estimatedSleepQuality = 'Buona';
+          else if (sleepVal >= 5) estimatedSleepQuality = 'Moderata';
+          else estimatedSleepQuality = 'Scarsa';
+        } else if (avgMood && avgAnxiety) {
+          const moodVal = parseFloat(avgMood);
+          const anxietyVal = parseFloat(avgAnxiety);
+          if (moodVal >= 7 && anxietyVal <= 3) estimatedSleepQuality = 'Buona';
+          else if (moodVal >= 5 && anxietyVal <= 5) estimatedSleepQuality = 'Moderata';
+          else if (moodVal < 5 || anxietyVal > 6) estimatedSleepQuality = 'Scarsa';
+        }
+
+        // Fetch sessions for themes, events, and crisis detection
         const { data: sessions } = await supabase
           .from('sessions')
           .select('start_time, mood_score_detected, anxiety_score_detected, emotion_tags, ai_summary, key_events, crisis_alert')
@@ -108,28 +160,8 @@ const DoctorPatientView: React.FC = () => {
           .gte('created_at', thirtyDaysAgo.toISOString());
 
         const completedSessions = sessions || [];
-        const moodScores = completedSessions.filter(s => s.mood_score_detected).map(s => s.mood_score_detected as number);
-        const anxietyScores = completedSessions.filter(s => s.anxiety_score_detected).map(s => s.anxiety_score_detected as number);
 
-        const avgMood = moodScores.length > 0 
-          ? (moodScores.reduce((a, b) => a + b, 0) / moodScores.length).toFixed(1)
-          : null;
-        const avgAnxiety = anxietyScores.length > 0 
-          ? (anxietyScores.reduce((a, b) => a + b, 0) / anxietyScores.length).toFixed(1)
-          : null;
-        const peakAnxiety = anxietyScores.length > 0 ? Math.max(...anxietyScores) : null;
-
-        // Estimate sleep quality
-        let estimatedSleepQuality: string | null = null;
-        if (avgMood && avgAnxiety) {
-          const moodVal = parseFloat(avgMood);
-          const anxietyVal = parseFloat(avgAnxiety);
-          if (moodVal >= 7 && anxietyVal <= 3) estimatedSleepQuality = 'Buona';
-          else if (moodVal >= 5 && anxietyVal <= 5) estimatedSleepQuality = 'Moderata';
-          else if (moodVal < 5 || anxietyVal > 6) estimatedSleepQuality = 'Scarsa';
-        }
-
-        // Risk status
+        // Risk status based on unified metrics
         let riskStatus: 'stable' | 'attention' | 'critical' = 'stable';
         const hasCrisis = completedSessions.some(s => s.crisis_alert);
         if (hasCrisis || (peakAnxiety && peakAnxiety >= 9)) {
@@ -163,15 +195,14 @@ const DoctorPatientView: React.FC = () => {
           }
         });
 
-        // Mood trend
-        const moodTrend = completedSessions
-          .filter(s => s.mood_score_detected && s.anxiety_score_detected)
-          .slice(0, 14)
-          .reverse()
-          .map(s => ({
-            date: format(new Date(s.start_time), 'dd MMM', { locale: it }),
-            mood: s.mood_score_detected as number,
-            anxiety: s.anxiety_score_detected as number,
+        // Mood trend from unified daily metrics
+        const moodTrend = dailyMetrics
+          .filter(m => m.vitals?.mood > 0 && m.vitals?.anxiety > 0)
+          .slice(-14)
+          .map(m => ({
+            date: format(new Date(m.date), 'dd MMM', { locale: it }),
+            mood: m.vitals.mood as number,
+            anxiety: m.vitals.anxiety as number,
           }));
 
         // Clinical summary from AI summaries
