@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, Mic, Volume2 } from "lucide-react";
-import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
+import { useGeminiVoice } from "@/hooks/useGeminiVoice";
 import { cn } from "@/lib/utils";
 
 interface RealtimeVoiceModalProps {
@@ -10,6 +10,7 @@ interface RealtimeVoiceModalProps {
 }
 
 export const RealtimeVoiceModal = ({ isOpen, onClose }: RealtimeVoiceModalProps) => {
+  // Using Gemini 2.5 Flash Native Audio for cost-effective real-time voice
   const {
     isActive,
     isConnecting,
@@ -18,7 +19,7 @@ export const RealtimeVoiceModal = ({ isOpen, onClose }: RealtimeVoiceModalProps)
     audioLevel,
     start,
     stop
-  } = useRealtimeVoice();
+  } = useGeminiVoice();
 
   const handleStart = async () => {
     await start();
