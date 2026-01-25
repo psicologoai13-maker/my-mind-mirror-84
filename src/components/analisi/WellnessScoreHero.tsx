@@ -10,14 +10,23 @@ interface WellnessScoreHeroProps {
 }
 
 const WellnessScoreHero: React.FC<WellnessScoreHeroProps> = ({ metrics, timeRangeLabel }) => {
-  // Calculate global wellness score (average of all vital metrics)
+  // Calculate global wellness score from vital metrics
+  // Metrics are already in 1-10 scale, with anxiety inverted for scoring
   const vitalMetrics = metrics.filter(m => m.category === 'vitali');
   const validScores = vitalMetrics
-    .map(m => m.average)
+    .map(m => {
+      if (m.average === null) return null;
+      // For anxiety, invert the score (10 = calm = good, 1 = anxious = bad)
+      if (m.key === 'anxiety') {
+        return 10 - m.average;
+      }
+      return m.average;
+    })
     .filter((v): v is number => v !== null);
   
+  // Calculate average of valid scores (already in 1-10 scale)
   const globalScore = validScores.length > 0 
-    ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length / 10)
+    ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
     : null;
 
   // Find concerning and improving metrics

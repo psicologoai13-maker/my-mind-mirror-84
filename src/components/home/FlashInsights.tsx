@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useDailyMetrics } from '@/hooks/useDailyMetrics';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { useCriticalPsychologyMetrics } from '@/hooks/useCriticalPsychologyMetrics';
 import { Lightbulb, TrendingDown, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,8 @@ interface Insight {
 }
 
 const FlashInsights: React.FC = () => {
-  const { metrics, deepPsychology, hasData } = useDailyMetrics();
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
+  const { vitals, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
   const { criticalMetrics } = useCriticalPsychologyMetrics();
 
   const insights = useMemo<Insight[]>(() => {
@@ -23,7 +24,6 @@ const FlashInsights: React.FC = () => {
 
     if (!hasData) return result;
 
-    const vitals = metrics?.vitals;
     const psych = deepPsychology;
 
     // 1. Rumination -> Sleep correlation
@@ -157,7 +157,7 @@ const FlashInsights: React.FC = () => {
     }
 
     return result.slice(0, 3); // Max 3 insights
-  }, [metrics, deepPsychology, hasData]);
+  }, [vitals, deepPsychology, hasData]);
 
   // Also add insights based on critical metrics history
   const criticalInsights = useMemo<Insight[]>(() => {
