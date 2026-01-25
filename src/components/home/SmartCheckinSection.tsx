@@ -2,40 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Check, X, ChevronRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePersonalizedCheckins, CheckinItem } from '@/hooks/usePersonalizedCheckins';
+import { usePersonalizedCheckins, CheckinItem, responseTypeConfig } from '@/hooks/usePersonalizedCheckins';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useDailyMetrics } from '@/hooks/useDailyMetrics';
 import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 
 const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 
 const SmartCheckinSection: React.FC = () => {
-  const { dailyCheckins, completedToday, completedCount } = usePersonalizedCheckins();
+  const queryClient = useQueryClient();
+  const { dailyCheckins, completedToday, completedCount, refetchTodayData } = usePersonalizedCheckins();
   const { saveCheckin, todayCheckin } = useCheckins();
   const { invalidateMetrics } = useDailyMetrics();
   const { invalidateLifeAreas } = useDailyLifeAreas();
   const { profile } = useProfile();
+  const today = format(new Date(), 'yyyy-MM-dd');
   
   const [activeItem, setActiveItem] = useState<CheckinItem | null>(null);
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  const [locallyCompleted, setLocallyCompleted] = useState<Record<string, number>>({});
 
-  // Auto-close after animation
-  useEffect(() => {
-    if (justCompleted) {
-      const timer = setTimeout(() => {
-        setJustCompleted(null);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [justCompleted]);
+  // Merge server completed with locally completed
+  const allCompleted = { ...completedToday, ...locallyCompleted };
 
   const handleItemClick = (item: CheckinItem) => {
     // Don't allow clicking if already completed
-    if (item.key in completedToday) return;
+    if (item.key in allCompleted) return;
     
     if (activeItem?.key === item.key) {
       setActiveItem(null);
@@ -52,14 +49,14 @@ const SmartCheckinSection: React.FC = () => {
     setSelectedValue(value);
     setIsSubmitting(true);
     
-    const scaledValue = value + 1; // 1-5 scale
-    const scaledTo10 = scaledValue * 2; // 1-10 scale
+    // For yesno/intensity, reverse the scale (first option = highest intensity = 10)
+    const isReversedScale = activeItem.responseType === 'yesno' || activeItem.responseType === 'intensity';
+    const scaledValue = isReversedScale ? 5 - value : value + 1; // 1-5 scale
+    const scaledTo10 = scaledValue * 2; // 2-10 scale
 
     try {
       if (activeItem.type === 'life_area') {
         // Save to daily_life_areas
-        const today = new Date().toISOString().split('T')[0];
-        
         const { error } = await supabase
           .from('daily_life_areas')
           .upsert({
@@ -74,8 +71,6 @@ const SmartCheckinSection: React.FC = () => {
         
       } else if (activeItem.type === 'psychology') {
         // Save to daily_psychology
-        const today = new Date().toISOString().split('T')[0];
-        
         const { error } = await supabase
           .from('daily_psychology')
           .upsert({
@@ -89,8 +84,6 @@ const SmartCheckinSection: React.FC = () => {
         
       } else if (activeItem.type === 'emotion') {
         // Save to daily_emotions
-        const today = new Date().toISOString().split('T')[0];
-        
         const { error } = await supabase
           .from('daily_emotions')
           .upsert({
@@ -131,16 +124,20 @@ const SmartCheckinSection: React.FC = () => {
         }
       }
 
+      // Mark as locally completed immediately
+      setLocallyCompleted(prev => ({ ...prev, [activeItem.key]: scaledValue }));
+      
+      // Invalidate all queries
       invalidateMetrics();
-      setJustCompleted(activeItem.key);
+      queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
+      refetchTodayData();
+      
       toast.success(`${activeItem.label} registrato!`);
       
       // Close and reset
-      setTimeout(() => {
-        setActiveItem(null);
-        setSelectedValue(null);
-        setIsSubmitting(false);
-      }, 500);
+      setActiveItem(null);
+      setSelectedValue(null);
+      setIsSubmitting(false);
       
     } catch (error) {
       console.error('Error saving check-in:', error);
@@ -154,21 +151,40 @@ const SmartCheckinSection: React.FC = () => {
     setSelectedValue(null);
   };
 
+  // Get response options based on type
+  const getResponseOptions = (item: CheckinItem) => {
+    const config = responseTypeConfig[item.responseType];
+    return config.options;
+  };
+
+  const getResponseLabels = (item: CheckinItem) => {
+    const config = responseTypeConfig[item.responseType];
+    return config.labels;
+  };
+
+  // Filter out already completed items
+  const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted));
+
   // If no items to show (all completed)
-  if (dailyCheckins.length === 0 && completedCount > 0) {
+  if (visibleCheckins.length === 0 && completedCount > 0) {
     return (
-      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl p-6 border border-emerald-100">
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-3xl p-6 border border-emerald-100 dark:border-emerald-900/50">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
-            <Check className="w-6 h-6 text-emerald-600" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+            <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-emerald-900">Check-in completato!</h3>
-            <p className="text-sm text-emerald-600">Hai registrato {completedCount} parametri oggi</p>
+            <h3 className="font-semibold text-emerald-900 dark:text-emerald-100">Check-in completato!</h3>
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">Hai registrato {completedCount + Object.keys(locallyCompleted).length} parametri oggi</p>
           </div>
         </div>
       </div>
     );
+  }
+
+  // If no checkins available at all
+  if (visibleCheckins.length === 0 && completedCount === 0) {
+    return null;
   }
 
   return (
@@ -179,9 +195,9 @@ const SmartCheckinSection: React.FC = () => {
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-muted-foreground">Check-in personalizzato</span>
         </div>
-        {completedCount > 0 && (
+        {(completedCount + Object.keys(locallyCompleted).length) > 0 && (
           <span className="text-xs text-emerald-600 font-medium">
-            {completedCount} completati
+            {completedCount + Object.keys(locallyCompleted).length} completati
           </span>
         )}
       </div>
@@ -209,96 +225,98 @@ const SmartCheckinSection: React.FC = () => {
             </button>
           </div>
 
-          {/* Emoji/Value Selection */}
+          {/* Response Selection based on type */}
           <div className="grid grid-cols-5 gap-2">
-            {moodEmojis.map((emoji, index) => (
-              <button
-                key={index}
-                onClick={() => handleSelectValue(index)}
-                disabled={isSubmitting}
-                className={cn(
-                  "h-14 rounded-2xl text-2xl flex items-center justify-center transition-all duration-300",
-                  "hover:scale-105 active:scale-95",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  selectedValue === index 
-                    ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
-                    : "bg-muted/60 hover:bg-muted"
-                )}
-              >
-                {selectedValue === index ? (
-                  <Check className="w-6 h-6" />
-                ) : (
-                  emoji
-                )}
-              </button>
-            ))}
+            {getResponseOptions(activeItem).map((option, index) => {
+              const isEmoji = activeItem.responseType === 'emoji';
+              const labels = getResponseLabels(activeItem);
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleSelectValue(index)}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-300",
+                    "hover:scale-105 active:scale-95",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    selectedValue === index 
+                      ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
+                      : "bg-muted/60 hover:bg-muted"
+                  )}
+                >
+                  {selectedValue === index ? (
+                    <Check className="w-5 h-5" />
+                  ) : isEmoji ? (
+                    <span className="text-2xl">{option}</span>
+                  ) : (
+                    <span className={cn(
+                      "text-xs font-medium text-center px-1 leading-tight",
+                      selectedValue === index ? "text-primary-foreground" : "text-foreground"
+                    )}>
+                      {option}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex justify-between mt-3 px-1">
-            <span className="text-xs text-muted-foreground">Peggio</span>
-            <span className="text-xs text-muted-foreground">Meglio</span>
-          </div>
+          {/* Labels for emoji type */}
+          {activeItem.responseType === 'emoji' && (
+            <div className="flex justify-between mt-3 px-1">
+              <span className="text-xs text-muted-foreground">Peggio</span>
+              <span className="text-xs text-muted-foreground">Meglio</span>
+            </div>
+          )}
+          
+          {/* Labels for reversed types */}
+          {(activeItem.responseType === 'yesno' || activeItem.responseType === 'intensity') && (
+            <div className="flex justify-between mt-3 px-1">
+              <span className="text-xs text-muted-foreground">Più intenso</span>
+              <span className="text-xs text-muted-foreground">Meno intenso</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Check-in Items Grid */}
       {!activeItem && (
         <div className="grid grid-cols-2 gap-3">
-          {dailyCheckins.map((item, index) => {
-            const isCompleted = item.key in completedToday;
-            const wasJustCompleted = justCompleted === item.key;
-            const completedValue = completedToday[item.key];
-
+          {visibleCheckins.map((item, index) => {
             return (
               <button
                 key={item.key}
                 onClick={() => handleItemClick(item)}
-                disabled={isCompleted}
                 className={cn(
                   "relative flex items-center gap-3 p-4 rounded-2xl transition-all duration-300",
-                  "animate-slide-up",
-                  isCompleted
-                    ? "bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 cursor-default"
-                    : "bg-card shadow-premium hover:shadow-elevated hover:scale-[1.02] active:scale-[0.98] border border-transparent",
-                  wasJustCompleted && "animate-pulse"
+                  "bg-card shadow-premium hover:shadow-elevated hover:scale-[1.02] active:scale-[0.98] border border-transparent",
+                  "animate-slide-up"
                 )}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 {/* Icon */}
                 <div className={cn(
                   "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
-                  isCompleted ? "bg-emerald-100" : item.bgColor
+                  item.bgColor
                 )}>
-                  {isCompleted ? (
-                    <Check className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <item.icon className={cn("w-5 h-5", item.color)} />
-                  )}
+                  <item.icon className={cn("w-5 h-5", item.color)} />
                 </div>
 
                 {/* Text */}
                 <div className="flex-1 text-left min-w-0">
-                  <span className={cn(
-                    "font-medium text-sm block truncate",
-                    isCompleted ? "text-emerald-700" : "text-foreground"
-                  )}>
+                  <span className="font-medium text-sm block truncate text-foreground">
                     {item.label}
                   </span>
-                  {isCompleted ? (
-                    <span className="text-xs text-emerald-600">
-                      {completedValue}/5 ✓
-                    </span>
-                  ) : item.reason ? (
+                  {item.reason && (
                     <span className="text-xs text-muted-foreground truncate block">
                       {item.reason}
                     </span>
-                  ) : null}
+                  )}
                 </div>
 
-                {/* Arrow indicator for non-completed */}
-                {!isCompleted && (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
-                )}
+                {/* Arrow indicator */}
+                <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
               </button>
             );
           })}
