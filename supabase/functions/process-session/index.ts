@@ -487,12 +487,14 @@ ${JSON.stringify(currentLifeScores)}
     console.log('[process-session] Updating session in database...');
     
     // Map new life_areas to old life_balance_scores for backwards compatibility
-    const lifeBalanceScores: LifeBalanceScores = {
+    // Also store health and energy separately for clarity
+    const lifeBalanceScores: LifeBalanceScores & { health?: number | null } = {
       love: analysis.life_areas.love,
       work: analysis.life_areas.work,
       friendship: analysis.life_areas.social,
-      energy: analysis.life_areas.health,
-      growth: analysis.life_areas.growth
+      energy: analysis.vitals.energy, // Energy comes from vitals, not life_areas
+      growth: analysis.life_areas.growth,
+      health: analysis.life_areas.health, // Store health separately
     };
 
     const { error: sessionError } = await supabase
