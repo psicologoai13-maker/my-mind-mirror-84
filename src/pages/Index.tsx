@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
+import FlashInsights from '@/components/home/FlashInsights';
 import GoalsWidget from '@/components/home/GoalsWidget';
 import { Bell, Smile, Brain, Zap, Moon, X, Check, CheckCircle2, Heart, Briefcase, Users, Sprout, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -354,8 +355,13 @@ const Index: React.FC = () => {
           <GoalsWidget />
         </div>
 
-        {/* Block 3: Life Radar */}
+        {/* Block 3: Flash Insights */}
         <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <FlashInsights />
+        </div>
+
+        {/* Block 4: Life Radar */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.35s' }}>
           <LifeBalanceRadar />
         </div>
       </div>

@@ -27,9 +27,23 @@ interface OnboardingAnswers {
   sleepIssues?: string;
 }
 
+interface PsychologyData {
+  rumination: number | null;
+  self_efficacy: number | null;
+  mental_clarity: number | null;
+  burnout_level: number | null;
+  coping_ability: number | null;
+  loneliness_perceived: number | null;
+  somatic_tension: number | null;
+  appetite_changes: number | null;
+  sunlight_exposure: number | null;
+  guilt: number | null;
+  gratitude: number | null;
+  irritability: number | null;
+}
+
 // Map goals to AI persona style
 const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers | null): string => {
-  // Priority check: explicit goals first
   if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety') {
     return `STILE: CALMO & RASSICURANTE
 - Usa un tono lento, validante, rassicurante.
@@ -65,7 +79,6 @@ const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers |
 - Esplora fattori che influenzano il sonno (stress, pensieri, abitudini).`;
   }
   
-  // Default balanced style
   return `STILE: BILANCIATO
 - Tono caldo, professionale, empatico.
 - Alterna ascolto attivo e domande esplorative.
@@ -93,6 +106,121 @@ const getPriorityFocus = (config: DashboardConfig | null): string => {
   
   const labels = metrics.slice(0, 4).map(m => metricLabels[m] || m).join(', ');
   return labels;
+};
+
+// Build investigative prompts based on missing/critical psychology data
+const buildInvestigativePrompt = (psychologyData: PsychologyData | null): string => {
+  if (!psychologyData) return '';
+
+  const criticalMetrics: string[] = [];
+  const missingMetrics: string[] = [];
+
+  // Define thresholds
+  const highThreshold = 7;
+  const lowThreshold = 4;
+
+  // Check each metric
+  if (psychologyData.rumination === null) {
+    missingMetrics.push('ruminazione (pensieri ricorrenti)');
+  } else if (psychologyData.rumination >= highThreshold) {
+    criticalMetrics.push('ruminazione ALTA - l\'utente ha pensieri ossessivi');
+  }
+
+  if (psychologyData.burnout_level === null) {
+    missingMetrics.push('burnout (esaurimento)');
+  } else if (psychologyData.burnout_level >= highThreshold) {
+    criticalMetrics.push('burnout ALTO - l\'utente è molto esaurito');
+  }
+
+  if (psychologyData.loneliness_perceived === null) {
+    missingMetrics.push('solitudine percepita');
+  } else if (psychologyData.loneliness_perceived >= highThreshold) {
+    criticalMetrics.push('solitudine ALTA - l\'utente si sente molto solo');
+  }
+
+  if (psychologyData.somatic_tension === null) {
+    missingMetrics.push('tensione fisica (dolori da stress)');
+  } else if (psychologyData.somatic_tension >= highThreshold) {
+    criticalMetrics.push('tensione somatica ALTA - dolori fisici da stress');
+  }
+
+  if (psychologyData.guilt === null) {
+    missingMetrics.push('senso di colpa');
+  } else if (psychologyData.guilt >= highThreshold) {
+    criticalMetrics.push('senso di colpa ALTO');
+  }
+
+  if (psychologyData.gratitude === null) {
+    missingMetrics.push('gratitudine');
+  } else if (psychologyData.gratitude <= lowThreshold) {
+    criticalMetrics.push('gratitudine BASSA - l\'utente non esprime apprezzamento');
+  }
+
+  if (psychologyData.self_efficacy === null) {
+    missingMetrics.push('autoefficacia (fiducia in sé)');
+  } else if (psychologyData.self_efficacy <= lowThreshold) {
+    criticalMetrics.push('autoefficacia BASSA - l\'utente non crede in sé stesso');
+  }
+
+  if (psychologyData.sunlight_exposure === null) {
+    missingMetrics.push('esposizione alla luce/uscite');
+  } else if (psychologyData.sunlight_exposure <= lowThreshold) {
+    criticalMetrics.push('poca luce solare - l\'utente sta molto in casa');
+  }
+
+  if (psychologyData.irritability === null) {
+    missingMetrics.push('irritabilità');
+  } else if (psychologyData.irritability >= highThreshold) {
+    criticalMetrics.push('irritabilità ALTA');
+  }
+
+  if (psychologyData.appetite_changes === null) {
+    missingMetrics.push('cambiamenti appetito');
+  } else if (psychologyData.appetite_changes >= highThreshold) {
+    criticalMetrics.push('appetito alterato (troppo o troppo poco)');
+  }
+
+  if (criticalMetrics.length === 0 && missingMetrics.length === 0) {
+    return '';
+  }
+
+  let prompt = `
+═══════════════════════════════════════════════
+🔬 INVESTIGAZIONE PSICOLOGICA PROFONDA
+═══════════════════════════════════════════════`;
+
+  if (criticalMetrics.length > 0) {
+    prompt += `
+
+⚠️ METRICHE CRITICHE RILEVATE:
+${criticalMetrics.map(m => `- ${m}`).join('\n')}
+
+ISTRUZIONE: Approfondisci CON DELICATEZZA questi temi nella conversazione.
+Esempi di domande esplorative:
+- Ruminazione: "Noto che a volte i pensieri tornano... C'è qualcosa che ti gira in testa in questi giorni?"
+- Burnout: "Come ti stai prendendo cura di te stesso in questo periodo intenso?"
+- Solitudine: "A volte anche in mezzo agli altri ci si può sentire soli. Ti è capitato?"
+- Tensione fisica: "Mentre parli, noti qualche tensione nel corpo? Spalle, stomaco, collo?"
+- Senso di colpa: "Sento che forse porti un peso con te. Vuoi parlarne?"`;
+  }
+
+  if (missingMetrics.length > 0) {
+    prompt += `
+
+📊 DATI MANCANTI DA ESPLORARE:
+${missingMetrics.slice(0, 4).map(m => `- ${m}`).join('\n')}
+
+ISTRUZIONE: Se la conversazione lo permette naturalmente, inserisci UNA domanda su questi temi.
+Esempi:
+- Gratitudine: "C'è qualcosa per cui ti senti grato oggi, anche piccola?"
+- Luce solare: "Sei riuscito a uscire un po' all'aria aperta di recente?"
+- Autoefficacia: "Come ti senti rispetto alle sfide di questo periodo?"
+- Appetito: "Come è stato il tuo appetito ultimamente?"
+
+NON fare interrogatori. UNA domanda alla volta, solo se naturale nel contesto.`;
+  }
+
+  return prompt;
 };
 
 serve(async (req) => {
@@ -128,6 +256,15 @@ serve(async (req) => {
       .select('name, long_term_memory, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
       .eq('user_id', user.id)
       .single();
+
+    // Get recent psychology data for investigative prompts
+    const today = new Date().toISOString().split('T')[0];
+    const { data: psychologyData } = await supabase
+      .from('daily_psychology')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('date', today)
+      .maybeSingle();
 
     const firstName = profile?.name?.split(' ')[0] || 'Amico';
     const longTermMemory = profile?.long_term_memory || [];
@@ -187,7 +324,7 @@ serve(async (req) => {
       health: 'Salute (fisica, mentale)',
     };
     
-    // Check which areas are missing or stale
+    // Check which areas are missing
     const missingAreas = lifeAreasKeys.filter(key => {
       const score = currentLifeScores[key];
       return score === null || score === undefined || score === 0;
@@ -196,20 +333,16 @@ serve(async (req) => {
     const dataHunterInstructions = missingAreas.length > 0 
       ? `
 ═══════════════════════════════════════════════
-🎯 DATA HUNTER - AREE MANCANTI
+🎯 DATA HUNTER - AREE VITA MANCANTI
 ═══════════════════════════════════════════════
 Le seguenti aree della vita NON hanno dati nel radar dell'utente:
 ${missingAreas.map(k => `- ${lifeAreasLabels[k]}`).join('\n')}
 
-ISTRUZIONE CRITICA: Se la conversazione lo permette naturalmente, inserisci UNA domanda casuale su una di queste aree.
-Esempi:
-- "A proposito, come vanno le cose sul lavoro ultimamente?"
-- "Hai avuto modo di vedere gli amici di recente?"
-- "Come ti senti fisicamente in questo periodo?"
-
-NON fare un interrogatorio. Sii naturale. Una domanda alla volta, solo se ha senso nel contesto.
-L'obiettivo è aiutare ${firstName} a completare il suo radar delle aree di vita.`
+ISTRUZIONE: Se la conversazione lo permette naturalmente, inserisci UNA domanda su una di queste aree.`
       : '';
+
+    // Build investigative prompt for deep psychology
+    const investigativePrompt = buildInvestigativePrompt(psychologyData as PsychologyData | null);
 
     // Build PERSONALIZED system prompt
     const systemPrompt = `SEI UNA MEMORIA VIVENTE - DIARIO "${themeLabel.toUpperCase()}"
@@ -224,6 +357,7 @@ L'obiettivo è aiutare ${firstName} a completare il suo radar delle aree di vita
 
 ${personaStyle}
 ${dataHunterInstructions}
+${investigativePrompt}
 
 ═══════════════════════════════════════════════
 🧠 MEMORIA CENTRALE
@@ -345,7 +479,6 @@ SICUREZZA:
             user_id: user.id,
             transcript: fullTranscript,
             is_voice: false,
-            // Pass user context for personalized analysis
             user_context: {
               selected_goals: selectedGoals,
               priority_metrics: dashboardConfig?.priority_metrics || [],
