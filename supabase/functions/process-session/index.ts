@@ -42,6 +42,26 @@ interface VoiceAnalysis {
   confidence: number;
 }
 
+// NEW: Deep Psychology Metrics Interface
+interface DeepPsychology {
+  // Cognitive
+  rumination: number | null;
+  self_efficacy: number | null;
+  mental_clarity: number | null;
+  // Stress & Coping
+  burnout_level: number | null;
+  coping_ability: number | null;
+  loneliness_perceived: number | null;
+  // Physiological
+  somatic_tension: number | null;
+  appetite_changes: number | null;
+  sunlight_exposure: number | null;
+  // Complex Emotional
+  guilt: number | null;
+  gratitude: number | null;
+  irritability: number | null;
+}
+
 interface UserContext {
   selected_goals?: string[];
   priority_metrics?: string[];
@@ -57,6 +77,7 @@ interface OmniscientAnalysis {
   };
   emotions: SpecificEmotions;
   life_areas: LifeAreas;
+  deep_psychology: DeepPsychology;
   voice_analysis: VoiceAnalysis | null;
   emotion_tags: string[];
   key_facts: string[];
@@ -73,7 +94,10 @@ const ALL_AVAILABLE_METRICS = [
   'mood', 'anxiety', 'energy', 'sleep',
   'joy', 'sadness', 'anger', 'fear', 'apathy',
   'love', 'work', 'friendship', 'growth', 'health',
-  'stress', 'calmness', 'social', 'loneliness', 'emotional_clarity'
+  'stress', 'calmness', 'social', 'loneliness', 'emotional_clarity',
+  // New deep psychology metrics
+  'rumination', 'self_efficacy', 'mental_clarity', 'burnout_level',
+  'coping_ability', 'somatic_tension', 'guilt', 'gratitude', 'irritability'
 ];
 
 // Build priority analysis instructions based on user goals
@@ -230,10 +254,50 @@ PRESTA ATTENZIONE EXTRA a qualsiasi indizio su queste aree nella conversazione.
 Se trovi anche un minimo riferimento, ESTRAI un punteggio.`
       : '';
 
+    // NEW: Deep Psychology semantic extraction rules
+    const deepPsychologyPrompt = `
+═══════════════════════════════════════════════
+🧠 DEEP PSYCHOLOGY - ANALISI MECCANISMI SOTTOSTANTI
+═══════════════════════════════════════════════
+Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
+
+📌 REGOLE DI ESTRAZIONE SEMANTICA:
+
+**COGNITIVI:**
+- rumination (pensieri ossessivi): "Non riesco a smettere di pensare a...", "mi tormento", "continuo a rimuginare" → 7-10
+  - Ripetizione dello stesso tema nella conversazione → segnale di ruminazione
+- self_efficacy (fiducia in sé): "ce la posso fare", "sono capace" → 8-10 | "non ne sono capace", "fallirò" → 1-4
+- mental_clarity: "ho le idee chiare", "so cosa fare" → 8-10 | "confuso", "non so", "nebbia mentale" → 1-4
+
+**STRESS & COPING:**
+- burnout_level: "sono esausto", "non ce la faccio più", "svuotato", "logorato" → 8-10
+  - Menzione di lavoro eccessivo + stanchezza cronica = burnout
+- coping_ability (resilienza): "riesco a gestire", "ce la faccio" → 8-10 | "mi sento sopraffatto" → 1-4
+- loneliness_perceived: "mi sento solo anche tra la gente", "nessuno mi capisce", "isolato" → 7-10
+  - ATTENZIONE: Diversa dalla socialità bassa! Uno può avere amici ma sentirsi solo.
+
+**FISIOLOGICI:**
+- somatic_tension: "peso sul petto", "nodo allo stomaco", "tensione muscolare", "mal di testa da stress" → 7-10
+  - Qualsiasi sintomo fisico correlato a stress emotivo
+- appetite_changes: "non mangio", "mangio troppo per il nervoso", "fame nervosa" → 7-10
+  - Sia troppo che troppo poco indicano cambiamenti significativi
+- sunlight_exposure: "sempre in casa", "non esco mai", "lavoro al buio" → 1-4 | "esco, cammino" → 7-10
+  - Inferisci anche da abitudini descritte (es. "lavoro da remoto tutto il giorno")
+
+**EMOTIVI COMPLESSI:**
+- guilt (senso di colpa): "è colpa mia", "avrei dovuto", "mi sento in colpa", "ho deluso" → 7-10
+- gratitude: "sono grato", "apprezzo", "fortunato" → 7-10 | assenza di gratitudine in contesti positivi → 1-4
+- irritability: "mi dà fastidio", "sono irascibile", "mi innervosisco facilmente" → 7-10
+
+⚠️ ANTI-HALLUCINATION: Se NON ci sono indizi, il valore DEVE essere null.
+Solo valori ESPLICITI o FORTEMENTE INFERIBILI → assegna punteggio.
+`;
+
     // Build the OMNISCIENT analysis prompt with personalization
     const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE. Analizza la conversazione e restituisci SEMPRE un JSON valido.
 ${personalizedInstructions}
 ${dataHunterLifeAreas}
+${deepPsychologyPrompt}
 
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
@@ -267,6 +331,20 @@ ${dataHunterLifeAreas}
     "health": <1-10 o null>,
     "social": <1-10 o null>,
     "growth": <1-10 o null>
+  },
+  "deep_psychology": {
+    "rumination": <1-10 o null, pensieri ossessivi ricorrenti>,
+    "self_efficacy": <1-10 o null, fiducia nelle proprie capacità>,
+    "mental_clarity": <1-10 o null, chiarezza mentale>,
+    "burnout_level": <1-10 o null, esaurimento professionale/emotivo>,
+    "coping_ability": <1-10 o null, capacità di gestire lo stress>,
+    "loneliness_perceived": <1-10 o null, solitudine percepita anche in compagnia>,
+    "somatic_tension": <1-10 o null, tensione fisica da stress>,
+    "appetite_changes": <1-10 o null, alterazioni appetito>,
+    "sunlight_exposure": <1-10 o null, esposizione alla luce/uscite>,
+    "guilt": <1-10 o null, senso di colpa>,
+    "gratitude": <1-10 o null, gratitudine espressa>,
+    "irritability": <1-10 o null, irritabilità>
   },
   "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
   "emotion_tags": ["#Tag1", "#Tag2"],
@@ -306,7 +384,7 @@ ${voiceHeuristicsPrompt}
 ═══════════════════════════════════════════════
 📝 METRICHE DASHBOARD
 ═══════════════════════════════════════════════
-- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, social, growth, health, stress, calmness
+- Scegli 4 tra: mood, anxiety, energy, sleep, joy, sadness, anger, fear, apathy, love, work, social, growth, health, stress, calmness, rumination, burnout_level, guilt, irritability
 - Basati sui temi REALI della conversazione E sulle priorità utente: ${priorityMetrics.join(', ') || 'nessuna specificata'}
 - Default se conversazione neutra: ["mood", "anxiety", "energy", "sleep"]
 
@@ -347,6 +425,24 @@ ${JSON.stringify(currentLifeScores)}
     try {
       const cleanedText = analysisText.replace(/```json\n?|\n?```/g, '').trim();
       analysis = JSON.parse(cleanedText);
+      
+      // Ensure deep_psychology exists
+      if (!analysis.deep_psychology) {
+        analysis.deep_psychology = {
+          rumination: null,
+          self_efficacy: null,
+          mental_clarity: null,
+          burnout_level: null,
+          coping_ability: null,
+          loneliness_perceived: null,
+          somatic_tension: null,
+          appetite_changes: null,
+          sunlight_exposure: null,
+          guilt: null,
+          gratitude: null,
+          irritability: null
+        };
+      }
     } catch (parseError) {
       console.error('[process-session] Failed to parse analysis:', parseError);
       // Fallback with priority metrics preserved
@@ -354,6 +450,20 @@ ${JSON.stringify(currentLifeScores)}
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
         emotions: { joy: 0, sadness: 0, anger: 0, fear: 0, apathy: 0 },
         life_areas: { work: null, love: null, health: null, social: null, growth: null },
+        deep_psychology: {
+          rumination: null,
+          self_efficacy: null,
+          mental_clarity: null,
+          burnout_level: null,
+          coping_ability: null,
+          loneliness_perceived: null,
+          somatic_tension: null,
+          appetite_changes: null,
+          sunlight_exposure: null,
+          guilt: null,
+          gratitude: null,
+          irritability: null
+        },
         voice_analysis: null,
         emotion_tags: [],
         key_facts: [],
@@ -373,7 +483,7 @@ ${JSON.stringify(currentLifeScores)}
     const isCrisisAlert = analysis.crisis_risk === 'high';
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Update the SESSION with all analysis results
+    // 1. Update the SESSION with all analysis results (including deep_psychology)
     console.log('[process-session] Updating session in database...');
     
     // Map new life_areas to old life_balance_scores for backwards compatibility
@@ -401,7 +511,8 @@ ${JSON.stringify(currentLifeScores)}
         status: 'completed',
         specific_emotions: analysis.emotions,
         clinical_indices: analysis.clinical_indices,
-        sleep_quality: analysis.vitals.sleep
+        sleep_quality: analysis.vitals.sleep,
+        deep_psychology: analysis.deep_psychology // NEW: Store deep psychology in session
       })
       .eq('id', session_id);
 
@@ -453,7 +564,44 @@ ${JSON.stringify(currentLifeScores)}
       }
     }
 
-    // 4. Update user's profile
+    // 4. NEW: SAVE TO daily_psychology (upsert) - only if any deep psychology metric was detected
+    const hasDeepPsychology = Object.values(analysis.deep_psychology).some(v => v !== null);
+    if (hasDeepPsychology) {
+      console.log('[process-session] Saving to daily_psychology...');
+      const { error: psychologyError } = await supabase
+        .from('daily_psychology')
+        .upsert({
+          user_id: user_id,
+          date: today,
+          // Cognitive
+          rumination: analysis.deep_psychology.rumination,
+          self_efficacy: analysis.deep_psychology.self_efficacy,
+          mental_clarity: analysis.deep_psychology.mental_clarity,
+          // Stress & Coping
+          burnout_level: analysis.deep_psychology.burnout_level,
+          coping_ability: analysis.deep_psychology.coping_ability,
+          loneliness_perceived: analysis.deep_psychology.loneliness_perceived,
+          // Physiological
+          somatic_tension: analysis.deep_psychology.somatic_tension,
+          appetite_changes: analysis.deep_psychology.appetite_changes,
+          sunlight_exposure: analysis.deep_psychology.sunlight_exposure,
+          // Complex Emotional
+          guilt: analysis.deep_psychology.guilt,
+          gratitude: analysis.deep_psychology.gratitude,
+          irritability: analysis.deep_psychology.irritability,
+          // Metadata
+          source: 'session',
+          session_id: session_id
+        }, { onConflict: 'user_id,date,source' });
+
+      if (psychologyError) {
+        console.error('[process-session] Error saving daily_psychology:', psychologyError);
+      } else {
+        console.log('[process-session] Deep psychology metrics saved successfully');
+      }
+    }
+
+    // 5. Update user's profile
     console.log('[process-session] Updating user profile...');
     
     // Merge life balance scores
@@ -505,6 +653,7 @@ ${JSON.stringify(currentLifeScores)}
         vitals: analysis.vitals,
         emotions: analysis.emotions,
         life_areas: analysis.life_areas,
+        deep_psychology: analysis.deep_psychology, // NEW: Include in response
         voice_analysis: analysis.voice_analysis,
         summary: analysis.summary,
         emotion_tags: analysis.emotion_tags,

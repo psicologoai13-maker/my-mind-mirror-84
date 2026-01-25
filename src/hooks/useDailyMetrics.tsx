@@ -3,6 +3,26 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { format, subDays } from 'date-fns';
 
+// Deep Psychology metrics interface
+export interface DeepPsychology {
+  // Cognitive
+  rumination: number | null;
+  self_efficacy: number | null;
+  mental_clarity: number | null;
+  // Stress & Coping
+  burnout_level: number | null;
+  coping_ability: number | null;
+  loneliness_perceived: number | null;
+  // Physiological
+  somatic_tension: number | null;
+  appetite_changes: number | null;
+  sunlight_exposure: number | null;
+  // Complex Emotional
+  guilt: number | null;
+  gratitude: number | null;
+  irritability: number | null;
+}
+
 export interface DailyMetrics {
   date: string;
   vitals: {
@@ -25,10 +45,12 @@ export interface DailyMetrics {
     social: number | null;
     growth: number | null;
   };
+  deep_psychology: DeepPsychology;
   has_checkin: boolean;
   has_sessions: boolean;
   has_emotions: boolean;
   has_life_areas: boolean;
+  has_psychology: boolean;
   checkin_priority: boolean;
 }
 
@@ -92,13 +114,31 @@ export const useDailyMetrics = (date?: Date) => {
     sleep: toPercentage(data.vitals.sleep),
   } : null;
 
+  // Default deep psychology object
+  const defaultDeepPsychology: DeepPsychology = {
+    rumination: null,
+    self_efficacy: null,
+    mental_clarity: null,
+    burnout_level: null,
+    coping_ability: null,
+    loneliness_perceived: null,
+    somatic_tension: null,
+    appetite_changes: null,
+    sunlight_exposure: null,
+    guilt: null,
+    gratitude: null,
+    irritability: null,
+  };
+
   return {
     metrics: data,
     vitals: data?.vitals || null,
     vitalsPercentage,
     emotions: data?.emotions || null,
     lifeAreas: data?.life_areas || null,
-    hasData: data?.has_checkin || data?.has_sessions || data?.has_emotions || data?.has_life_areas || false,
+    deepPsychology: data?.deep_psychology || defaultDeepPsychology,
+    hasData: data?.has_checkin || data?.has_sessions || data?.has_emotions || data?.has_life_areas || data?.has_psychology || false,
+    hasPsychology: data?.has_psychology || false,
     isLoading,
     error,
     refetch,
