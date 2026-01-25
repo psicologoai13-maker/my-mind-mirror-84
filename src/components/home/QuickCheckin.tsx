@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useCheckins } from '@/hooks/useCheckins';
 import { useProfile } from '@/hooks/useProfile';
+import { useCriticalPsychologyMetrics, CriticalMetric } from '@/hooks/useCriticalPsychologyMetrics';
 import { toast } from 'sonner';
-import { Check, RefreshCw, Wind, Heart, Sparkles, Moon, Zap, Brain } from 'lucide-react';
+import { Check, RefreshCw, Wind, Heart, Sparkles, Moon, Zap, Brain, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const moods = [
   { emoji: '😢', label: 'Triste', value: 1 },
@@ -39,6 +42,15 @@ const sleepLevels = [
   { icon: '⭐', label: 'Ottimo', value: 5 },
 ];
 
+// Generic 1-10 scale for psychology metrics
+const genericScale = [
+  { icon: '1', label: 'Min', value: 1 },
+  { icon: '3', label: 'Basso', value: 3 },
+  { icon: '5', label: 'Medio', value: 5 },
+  { icon: '7', label: 'Alto', value: 7 },
+  { icon: '10', label: 'Max', value: 10 },
+];
+
 const motivationalPhrases = [
   "Ogni giorno è un nuovo inizio.",
   "Piccoli passi portano a grandi cambiamenti.",
@@ -54,17 +66,17 @@ const motivationalPhrases = [
   "Sei sulla strada giusta.",
 ];
 
-type CheckinStep = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'complete';
+type CheckinStep = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'psychology' | 'complete';
 
-const stepLabels: Record<Exclude<CheckinStep, 'complete'>, string> = {
+const stepLabels: Record<string, string> = {
   mood: 'Come ti senti?',
   anxiety: 'Livello di ansia?',
   energy: 'Quanta energia hai?',
   sleep: 'Come hai dormito?',
 };
 
-// Premium minimal quick action button config
-const QUICK_ACTIONS = [
+// Base quick actions
+const BASE_QUICK_ACTIONS = [
   { key: 'mood', icon: Heart, label: 'Umore', color: 'text-rose-500', bgCompleted: 'bg-rose-50' },
   { key: 'anxiety', icon: Brain, label: 'Ansia', color: 'text-violet-500', bgCompleted: 'bg-violet-50' },
   { key: 'energy', icon: Zap, label: 'Energia', color: 'text-amber-500', bgCompleted: 'bg-amber-50' },
@@ -77,8 +89,10 @@ interface QuickCheckinProps {
 }
 
 const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect }) => {
+  const { user } = useAuth();
   const { todayCheckin, weeklyCheckins, saveCheckin } = useCheckins();
   const { profile } = useProfile();
+  const { prioritizedSlots, criticalMetrics } = useCriticalPsychologyMetrics();
   
   const [currentStep, setCurrentStep] = useState<CheckinStep>('mood');
   const [moodValue, setMoodValue] = useState<number | null>(null);
@@ -87,6 +101,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   const [sleepValue, setSleepValue] = useState<number | null>(null);
   const [isCheckinComplete, setIsCheckinComplete] = useState(false);
   const [showQuickButtons, setShowQuickButtons] = useState(true);
+  const [currentPsychMetric, setCurrentPsychMetric] = useState<CriticalMetric | null>(null);
 
   // Get personalized greeting
   const getGreeting = () => {
@@ -112,7 +127,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
   // Weekly sparkline data
   const sparklineData = useMemo(() => {
     if (!weeklyCheckins || weeklyCheckins.length === 0) return [];
-    return weeklyCheckins.map(c => ({ value: c.mood_value * 2 })); // Scale to 1-10
+    return weeklyCheckins.map(c => ({ value: c.mood_value * 2 }));
   }, [weeklyCheckins]);
 
   // Check completed status for each metric
@@ -137,7 +152,54 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     return completed;
   }, [todayCheckin]);
 
-  const allCompleted = Object.values(completedMetrics).every(Boolean);
+  const allBaseCompleted = Object.values(completedMetrics).every(Boolean);
+
+  // BUILD DYNAMIC QUICK ACTIONS based on completion status
+  const dynamicQuickActions = useMemo(() => {
+    type QuickAction = {
+      key: string;
+      icon: typeof Heart;
+      label: string;
+      color: string;
+      bgCompleted: string;
+      isPsychology: boolean;
+      psychMetric: CriticalMetric | null;
+      emoji?: string;
+    };
+
+    // If base metrics not complete, show them
+    if (!allBaseCompleted) {
+      return BASE_QUICK_ACTIONS.map(action => ({
+        ...action,
+        isPsychology: false,
+        psychMetric: null as CriticalMetric | null,
+      })) as QuickAction[];
+    }
+
+    // All base complete: show psychology metrics with priority
+    const slots: QuickAction[] = prioritizedSlots.slice(0, 4).map(metric => ({
+      key: metric.key,
+      icon: AlertTriangle,
+      label: metric.label,
+      color: metric.isCritical ? 'text-orange-500' : 'text-blue-500',
+      bgCompleted: metric.isCritical ? 'bg-orange-50' : 'bg-blue-50',
+      isPsychology: true,
+      psychMetric: metric,
+      emoji: metric.icon,
+    }));
+
+    // If less than 4 psychology slots, pad with base (already completed)
+    while (slots.length < 4) {
+      const baseAction = BASE_QUICK_ACTIONS[slots.length];
+      slots.push({
+        ...baseAction,
+        isPsychology: false,
+        psychMetric: null,
+      });
+    }
+
+    return slots;
+  }, [allBaseCompleted, prioritizedSlots]);
 
   // Check if already completed today
   useEffect(() => {
@@ -152,20 +214,45 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           if (notes.energy) setEnergyValue(Math.ceil(notes.energy / 2));
           if (notes.sleep) setSleepValue(Math.ceil(notes.sleep / 2));
           
-          // If all parameters are filled, show summary
           if (notes.anxiety && notes.energy && notes.sleep) {
             setIsCheckinComplete(true);
             setCurrentStep('complete');
             setShowQuickButtons(false);
           }
-        } catch (e) {
-          // Notes not in JSON format
-        }
+        } catch (e) {}
       }
     }
   }, [todayCheckin, onMoodSelect]);
 
-  // Save all parameters and complete
+  // Save psychology metric
+  const savePsychologyMetric = useCallback(async (metricKey: string, value: number) => {
+    if (!user) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    try {
+      // Upsert to daily_psychology
+      const { error } = await supabase
+        .from('daily_psychology')
+        .upsert({
+          user_id: user.id,
+          date: today,
+          [metricKey]: value,
+          source: 'checkin',
+        }, { onConflict: 'user_id,date,source' });
+
+      if (error) throw error;
+      
+      toast.success('Dato salvato!', { duration: 1500 });
+      setShowQuickButtons(true);
+      setCurrentPsychMetric(null);
+    } catch (error) {
+      console.error('Error saving psychology metric:', error);
+      toast.error('Errore nel salvare');
+    }
+  }, [user]);
+
+  // Save all base parameters
   const saveAllParameters = useCallback(async (
     mood: number,
     anxiety: number,
@@ -224,10 +311,23 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     );
   };
 
+  // Handle psychology metric selection
+  const handlePsychologySelect = async (value: number) => {
+    if (currentPsychMetric) {
+      await savePsychologyMetric(currentPsychMetric.key, value);
+    }
+  };
+
   // Start check-in flow from quick button
-  const handleQuickButtonClick = (step: CheckinStep) => {
-    setShowQuickButtons(false);
-    setCurrentStep(step);
+  const handleQuickButtonClick = (action: typeof dynamicQuickActions[0]) => {
+    if (action.isPsychology && action.psychMetric) {
+      setCurrentPsychMetric(action.psychMetric);
+      setCurrentStep('psychology');
+      setShowQuickButtons(false);
+    } else {
+      setShowQuickButtons(false);
+      setCurrentStep(action.key as CheckinStep);
+    }
   };
 
   // Reset check-in to edit
@@ -235,15 +335,39 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
     setIsCheckinComplete(false);
     setShowQuickButtons(true);
     setCurrentStep('mood');
+    setCurrentPsychMetric(null);
   };
 
-  // Get personalized suggestion based on values
+  // Get personalized suggestion
   const getSuggestion = useMemo(() => {
     if (!isCheckinComplete) return null;
     
     const anxiety = anxietyValue || 3;
     const energy = energyValue || 3;
     const mood = moodValue || 3;
+    
+    // Check critical psychology metrics for deeper suggestions
+    if (criticalMetrics.length > 0) {
+      const topCritical = criticalMetrics[0];
+      if (topCritical.key === 'rumination') {
+        return {
+          icon: <Brain className="w-5 h-5" />,
+          title: 'Pensieri ricorrenti',
+          message: 'Prova a scrivere i tuoi pensieri per liberare la mente.',
+          color: 'text-violet-500',
+          bgColor: 'bg-violet-50',
+        };
+      }
+      if (topCritical.key === 'burnout_level') {
+        return {
+          icon: <Wind className="w-5 h-5" />,
+          title: 'Segnali di esaurimento',
+          message: 'Concediti una pausa. Il riposo è produttivo.',
+          color: 'text-orange-500',
+          bgColor: 'bg-orange-50',
+        };
+      }
+    }
     
     if (anxiety >= 4) {
       return {
@@ -282,37 +406,50 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-50',
     };
-  }, [isCheckinComplete, anxietyValue, energyValue, moodValue]);
+  }, [isCheckinComplete, anxietyValue, energyValue, moodValue, criticalMetrics]);
 
-  // Render Premium Quick Buttons
+  // Render Dynamic Quick Buttons
   const renderQuickButtons = () => (
     <div className="grid grid-cols-4 gap-3">
-      {QUICK_ACTIONS.map((action) => {
+      {dynamicQuickActions.map((action) => {
+        const isCompleted = action.isPsychology 
+          ? false // Psychology metrics show even if completed (user can update)
+          : completedMetrics[action.key as keyof typeof completedMetrics];
+        
         const Icon = action.icon;
-        const isCompleted = completedMetrics[action.key as keyof typeof completedMetrics];
+        const showCriticalBadge = action.isPsychology && action.psychMetric?.isCritical;
         
         return (
           <button
             key={action.key}
-            onClick={() => handleQuickButtonClick(action.key as CheckinStep)}
+            onClick={() => handleQuickButtonClick(action)}
             className={cn(
-              "flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200",
+              "relative flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200",
               "active:scale-95",
               isCompleted
                 ? cn(action.bgCompleted, "border border-emerald-200")
+                : showCriticalBadge
+                ? "bg-orange-50 border border-orange-200 shadow-sm"
                 : "bg-white shadow-sm hover:shadow-md"
             )}
           >
+            {/* Critical badge */}
+            {showCriticalBadge && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-pulse" />
+            )}
+            
             {isCompleted ? (
               <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
                 <Check className="w-4 h-4 text-emerald-600" />
               </div>
+            ) : action.isPsychology ? (
+              <span className="text-2xl">{(action as any).emoji}</span>
             ) : (
               <Icon className={cn("w-6 h-6", action.color)} />
             )}
             <span className={cn(
-              "text-xs font-medium",
-              isCompleted ? "text-emerald-700" : "text-gray-600"
+              "text-xs font-medium text-center leading-tight",
+              isCompleted ? "text-emerald-700" : showCriticalBadge ? "text-orange-700" : "text-gray-600"
             )}>
               {action.label}
             </span>
@@ -321,6 +458,36 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
       })}
     </div>
   );
+
+  // Render psychology metric step
+  const renderPsychologyStep = () => {
+    if (!currentPsychMetric) return null;
+    
+    return (
+      <div className="animate-fade-in">
+        <div className="text-center mb-4">
+          <span className="text-4xl mb-2 block">{currentPsychMetric.icon}</span>
+          <p className="text-sm text-gray-700 font-medium">{currentPsychMetric.question}</p>
+        </div>
+        
+        <div className="flex justify-between gap-2">
+          {genericScale.map((level) => (
+            <button
+              key={level.value}
+              onClick={() => handlePsychologySelect(level.value)}
+              className={cn(
+                "flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all duration-200",
+                "active:scale-95 bg-gray-50 hover:bg-primary/10"
+              )}
+            >
+              <span className="text-lg font-bold text-gray-700">{level.icon}</span>
+              <span className="text-[9px] font-medium text-gray-500">{level.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // Render step content
   const renderStepContent = () => {
@@ -432,6 +599,9 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           </div>
         );
       
+      case 'psychology':
+        return renderPsychologyStep();
+      
       default:
         return null;
     }
@@ -439,7 +609,7 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
 
   // Progress dots
   const steps: CheckinStep[] = ['mood', 'anxiety', 'energy', 'sleep'];
-  const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete'>);
+  const currentStepIndex = steps.indexOf(currentStep as Exclude<CheckinStep, 'complete' | 'psychology'>);
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-premium">
@@ -456,18 +626,24 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           <div className="animate-fade-in">
             {renderQuickButtons()}
             
+            {/* All base complete + psychology available */}
+            {allBaseCompleted && prioritizedSlots.length > 0 && (
+              <p className="text-xs text-center text-gray-500 mt-3">
+                ✨ Check-in base completato! Esplora le altre aree
+              </p>
+            )}
+            
             {/* All complete indicator */}
-            {allCompleted && (
+            {allBaseCompleted && prioritizedSlots.length === 0 && (
               <div className="mt-4 flex items-center justify-center gap-2 text-emerald-600">
                 <Check className="w-4 h-4" />
-                <span className="text-sm font-medium">Check-in completato oggi!</span>
+                <span className="text-sm font-medium">Tutto aggiornato!</span>
               </div>
             )}
           </div>
         ) : isCheckinComplete ? (
           // Summary Card
           <div className="animate-fade-in">
-            {/* Suggestion Card */}
             {getSuggestion && (
               <div className={cn("p-4 rounded-2xl mb-4", getSuggestion.bgColor)}>
                 <div className="flex items-start gap-3">
@@ -551,14 +727,17 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
           <div className="animate-fade-in">
             {/* Back button */}
             <button 
-              onClick={() => setShowQuickButtons(true)}
+              onClick={() => {
+                setShowQuickButtons(true);
+                setCurrentPsychMetric(null);
+              }}
               className="text-sm text-gray-500 mb-3 hover:text-gray-700"
             >
               ← Indietro
             </button>
             
             {/* Step label */}
-            {currentStep !== 'complete' && (
+            {currentStep !== 'complete' && currentStep !== 'psychology' && (
               <p className="text-sm text-gray-700 font-medium mb-3">
                 {stepLabels[currentStep]}
               </p>
@@ -567,22 +746,24 @@ const QuickCheckin: React.FC<QuickCheckinProps> = ({ selectedMood, onMoodSelect 
             {/* Step content */}
             {renderStepContent()}
             
-            {/* Progress dots */}
-            <div className="flex justify-center gap-2 mt-4">
-              {steps.map((step, index) => (
-                <div
-                  key={step}
-                  className={cn(
-                    "w-2 h-2 rounded-full transition-all duration-300",
-                    index < currentStepIndex
-                      ? "bg-primary"
-                      : index === currentStepIndex
-                      ? "bg-primary/60 w-4"
-                      : "bg-gray-200"
-                  )}
-                />
-              ))}
-            </div>
+            {/* Progress dots (only for base flow) */}
+            {currentStep !== 'psychology' && (
+              <div className="flex justify-center gap-2 mt-4">
+                {steps.map((step, index) => (
+                  <div
+                    key={step}
+                    className={cn(
+                      "w-2 h-2 rounded-full transition-all duration-300",
+                      index < currentStepIndex
+                        ? "bg-primary"
+                        : index === currentStepIndex
+                        ? "bg-primary/60 w-4"
+                        : "bg-gray-200"
+                    )}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
