@@ -9,10 +9,26 @@ export interface LifeBalanceScores {
   friendship: number | null;
   energy: number | null;
   growth: number | null;
+  health?: number | null;
 }
 
 export interface EmotionBreakdown {
   [emotion: string]: number;
+}
+
+export interface DeepPsychology {
+  rumination: number | null;
+  self_efficacy: number | null;
+  mental_clarity: number | null;
+  burnout_level: number | null;
+  coping_ability: number | null;
+  loneliness_perceived: number | null;
+  somatic_tension: number | null;
+  appetite_changes: number | null;
+  sunlight_exposure: number | null;
+  guilt: number | null;
+  gratitude: number | null;
+  irritability: number | null;
 }
 
 export interface Session {
@@ -26,12 +42,14 @@ export interface Session {
   ai_summary: string | null;
   mood_score_detected: number | null;
   anxiety_score_detected: number | null;
+  sleep_quality: number | null;
   emotion_tags: string[];
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   life_balance_scores: LifeBalanceScores | null;
   emotion_breakdown: EmotionBreakdown | null;
   key_events: string[];
   insights: string | null;
+  deep_psychology: DeepPsychology | null;
 }
 
 // Helper to transform DB row to Session type
@@ -39,6 +57,8 @@ const transformSession = (row: any): Session => ({
   ...row,
   life_balance_scores: row.life_balance_scores as LifeBalanceScores | null,
   emotion_breakdown: row.emotion_breakdown as EmotionBreakdown | null,
+  deep_psychology: row.deep_psychology as DeepPsychology | null,
+  sleep_quality: row.sleep_quality ?? null,
   key_events: row.key_events || [],
   emotion_tags: row.emotion_tags || [],
 });
@@ -76,20 +96,21 @@ export const useSessions = () => {
   const inProgressSession = sessions?.find(s => s.status === 'in_progress');
 
   const createSession = useMutation({
-    mutationFn: async (sessionData: Partial<Omit<Session, 'life_balance_scores' | 'emotion_breakdown'>> & { 
+    mutationFn: async (sessionData: Partial<Omit<Session, 'life_balance_scores' | 'emotion_breakdown' | 'deep_psychology'>> & { 
       life_balance_scores?: Json;
       emotion_breakdown?: Json;
+      deep_psychology?: Json;
     }) => {
       if (!user) throw new Error('Not authenticated');
       
       const { data, error } = await supabase
         .from('sessions')
-        .insert({ 
+        .insert([{ 
           user_id: user.id,
           type: 'chat',
           status: 'scheduled',
           ...sessionData 
-        })
+        }])
         .select()
         .single();
       
