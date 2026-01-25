@@ -1,92 +1,139 @@
-import React from 'react';
-import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
-import { Lightbulb, Sparkles, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Sparkles, Lightbulb, ChevronDown, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAIDashboard } from '@/hooks/useAIDashboard';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const AIInsightCard: React.FC = () => {
-  const { vitals, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
-  const navigate = useNavigate();
+  const { layout, isLoading, error } = useAIDashboard();
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Generate AI insight based on time-weighted metrics
-  const insightText = React.useMemo(() => {
-    if (!hasData) return null;
+  // Extract AI message and focus areas from dashboard layout
+  const aiSummary = layout.ai_message || '';
+  const focusAreas = layout.focus_areas || [];
 
-    const insights: string[] = [];
+  // Generate a short preview (first sentence or max 80 chars)
+  const getPreview = (text: string) => {
+    if (!text) return 'Tocca per vedere i tuoi insight AI';
+    const firstSentence = text.split(/[.!?]/)[0];
+    if (firstSentence.length <= 80) return firstSentence + '.';
+    return text.substring(0, 77) + '...';
+  };
 
-    // Analyze vitals
-    if (vitals.mood !== null && vitals.mood >= 7) {
-      insights.push("Il tuo umore è stato positivo ultimamente, continua così!");
-    } else if (vitals.mood !== null && vitals.mood <= 4) {
-      insights.push("Ho notato che il tuo umore è basso. Vuoi parlarne?");
-    }
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-3xl p-5 shadow-premium border border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
+            <p className="text-xs text-muted-foreground">Analizzando i tuoi dati...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    if (vitals.anxiety !== null && vitals.anxiety >= 7) {
-      insights.push("L'ansia sembra alta. Prova tecniche di respirazione profonda.");
-    } else if (vitals.anxiety !== null && vitals.anxiety <= 3) {
-      insights.push("I tuoi livelli di ansia sono bassi, ottimo lavoro!");
-    }
-
-    if (vitals.sleep !== null && vitals.sleep <= 4) {
-      insights.push("La qualità del sonno potrebbe migliorare. Considera una routine serale.");
-    }
-
-    // Analyze deep psychology
-    if (deepPsychology.rumination !== null && deepPsychology.rumination >= 7) {
-      insights.push("Stai ruminando molto. Prova a scrivere i tuoi pensieri per liberartene.");
-    }
-
-    if (deepPsychology.gratitude !== null && deepPsychology.gratitude >= 7) {
-      insights.push("La tua gratitudine è alta - questo protegge la salute mentale!");
-    }
-
-    if (deepPsychology.burnout_level !== null && deepPsychology.burnout_level >= 7) {
-      insights.push("Attenzione al burnout. Prenditi del tempo per te stesso.");
-    }
-
-    // Return most relevant insight
-    return insights.length > 0 ? insights[0] : "Parla con me per ricevere insight personalizzati.";
-  }, [vitals, deepPsychology, hasData]);
+  // Error or empty state
+  if (error || !aiSummary) {
+    return (
+      <div className="bg-card rounded-3xl p-5 shadow-premium border border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
+            <p className="text-xs text-muted-foreground">
+              {error || 'Interagisci con l\'app per sbloccare insight personalizzati'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 rounded-xl bg-primary/10">
-          <Lightbulb className="w-4 h-4 text-primary" />
-        </div>
-        <h3 className="font-semibold text-gray-900">
-          Il consiglio dell'AI
-        </h3>
-      </div>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="bg-card rounded-3xl shadow-premium border border-border/50 overflow-hidden transition-all duration-300">
+        <CollapsibleTrigger className="w-full p-5 text-left">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "w-10 h-10 rounded-2xl flex items-center justify-center transition-colors",
+              isOpen ? "bg-primary" : "bg-primary/10"
+            )}>
+              <Sparkles className={cn(
+                "w-5 h-5 transition-colors",
+                isOpen ? "text-primary-foreground" : "text-primary"
+              )} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                  Personalizzato
+                </span>
+              </div>
+              {!isOpen && (
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {getPreview(aiSummary)}
+                </p>
+              )}
+            </div>
+            <ChevronDown className={cn(
+              "w-5 h-5 text-muted-foreground transition-transform duration-300",
+              isOpen && "rotate-180"
+            )} />
+          </div>
+        </CollapsibleTrigger>
 
-      {insightText ? (
-        <>
-          <p className="text-gray-600 text-sm leading-relaxed mb-4">
-            "{insightText}"
-          </p>
-          <button 
-            onClick={() => navigate('/sessions')}
-            className="flex items-center gap-1 text-xs text-primary font-medium hover:gap-2 transition-all"
-          >
-            Vedi tutti i tuoi insight
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </>
-      ) : (
-        <div className="flex items-center gap-3 py-2">
-          <div className="p-3 rounded-full bg-gray-50">
-            <Sparkles className="w-5 h-5 text-primary animate-pulse-soft" />
+        <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+          <div className="px-5 pb-5 space-y-4">
+            {/* Sintesi AI */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10">
+              <div className="flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wide mb-1.5">
+                    Sintesi AI
+                  </h4>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {aiSummary}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Insight Focale - if we have focus areas */}
+            {focusAreas.length > 0 && (
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100/50">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1.5">
+                      Insight Focale
+                    </h4>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {focusAreas.length === 1 
+                        ? `Oggi concentrati su: ${focusAreas[0]}`
+                        : `Le aree su cui concentrarti oggi sono: ${focusAreas.join(', ')}.`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div>
-            <p className="text-sm text-gray-900 font-medium">
-              Pronto ad ascoltarti
-            </p>
-            <p className="text-xs text-gray-500">
-              Dopo una sessione, riceverai un consiglio personalizzato
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 };
 

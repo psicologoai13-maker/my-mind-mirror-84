@@ -2,11 +2,11 @@ import React, { useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
-import FlashInsights from '@/components/home/FlashInsights';
+import AIInsightCard from '@/components/home/AIInsightCard';
 import GoalsWidget from '@/components/home/GoalsWidget';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
-import { Bell, Sparkles } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
 import { useAIDashboard } from '@/hooks/useAIDashboard';
@@ -105,13 +105,13 @@ const Index: React.FC = () => {
 
       {/* Content Blocks - AI Driven Order */}
       <div className="px-6 pb-8 space-y-5">
+        {/* AI Insight Card - Expandable Summary + Focus */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <AIInsightCard />
+        </div>
+
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
-
-        {/* Flash Insights - Always at the end as AI-generated content */}
-        <div className="animate-slide-up" style={{ animationDelay: `${0.1 + sortedWidgets.length * 0.05}s` }}>
-          <FlashInsights />
-        </div>
       </div>
     </MobileLayout>
   );
