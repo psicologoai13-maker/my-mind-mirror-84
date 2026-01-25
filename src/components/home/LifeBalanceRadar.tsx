@@ -1,9 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
-import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Compass, MessageCircle, Heart, Briefcase, Users, Sprout, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { subDays } from 'date-fns';
 
 const LIFE_AREAS = [
   { key: 'love', label: 'Amore', icon: Heart, color: 'hsl(340, 70%, 60%)' },
@@ -14,37 +13,17 @@ const LIFE_AREAS = [
 ];
 
 const LifeBalanceRadar: React.FC = () => {
-  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook (same as Analisi page)
-  const today = new Date();
-  const thirtyDaysAgo = subDays(today, 30);
-  const { metricsRange, isLoading } = useDailyMetricsRange(thirtyDaysAgo, today);
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
+  const { lifeAreas, hasData: hasWeightedData, isLoading } = useTimeWeightedMetrics(30, 7);
 
-  // Get the LATEST life areas data from the unified source
-  const lifeAreasScores = useMemo(() => {
-    // Filter days that have life_areas data
-    const daysWithLifeAreas = metricsRange.filter(m => m.has_life_areas);
-    
-    // Get the most recent day with data
-    const latest = daysWithLifeAreas[daysWithLifeAreas.length - 1];
-    
-    if (!latest) {
-      return {
-        love: null,
-        work: null,
-        social: null,
-        growth: null,
-        health: null,
-      };
-    }
-    
-    return {
-      love: latest.life_areas?.love ?? null,
-      work: latest.life_areas?.work ?? null,
-      social: latest.life_areas?.social ?? null,
-      growth: latest.life_areas?.growth ?? null,
-      health: latest.life_areas?.health ?? null,
-    };
-  }, [metricsRange]);
+  // Use time-weighted life areas scores
+  const lifeAreasScores = {
+    love: lifeAreas.love,
+    work: lifeAreas.work,
+    social: lifeAreas.social,
+    growth: lifeAreas.growth,
+    health: lifeAreas.health,
+  };
 
   const radarData = LIFE_AREAS.map(area => ({
     subject: area.label,

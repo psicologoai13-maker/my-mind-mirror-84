@@ -1,7 +1,6 @@
 import React from 'react';
-import { useWeeklyAverages } from '@/hooks/useDailyMetrics';
+import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { useProfile } from '@/hooks/useProfile';
-import { useDailyLifeAreas } from '@/hooks/useDailyLifeAreas';
 import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,9 +23,9 @@ interface DashboardConfig {
 }
 
 const AdaptiveVitalsSection: React.FC = () => {
-  const { averages, isLoading: isLoadingAverages } = useWeeklyAverages();
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
+  const { vitals, emotions, lifeAreas, hasData, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 7);
   const { profile, isLoading: isLoadingProfile } = useProfile();
-  const { latestLifeAreas } = useDailyLifeAreas();
   const [showSecondary, setShowSecondary] = React.useState(false);
 
   // Parse dashboard_config from profile
@@ -58,57 +57,40 @@ const AdaptiveVitalsSection: React.FC = () => {
     ).slice(0, 4);
   }, [dashboardConfig, priorityMetrics]);
 
-  // Build metric values from multiple sources
+  // Build metric values from time-weighted source
   const metricValues = React.useMemo((): Partial<Record<MetricKey, number>> => {
     // Convert 1-10 scale to 0-100 for display
     const toPercentage = (val: number | null | undefined) => 
       val ? Math.min(100, Math.max(0, val * 10)) : 0;
 
-    // Type-safe access to life areas data
-    const lifeAreasData = latestLifeAreas as {
-      love?: number | null;
-      work?: number | null;
-      social?: number | null;
-      growth?: number | null;
-      health?: number | null;
-    } | null;
-    
-    const profileLifeAreas = (profile?.life_areas_scores as Record<string, number>) || {};
-
-    const loveVal = lifeAreasData?.love ?? profileLifeAreas.love;
-    const workVal = lifeAreasData?.work ?? profileLifeAreas.work;
-    const socialVal = lifeAreasData?.social ?? profileLifeAreas.friendship;
-    const growthVal = lifeAreasData?.growth ?? profileLifeAreas.growth;
-    const healthVal = lifeAreasData?.health ?? profileLifeAreas.wellness;
-
     return {
-      // Vitals from weekly averages
-      mood: toPercentage(averages.mood),
-      anxiety: toPercentage(averages.anxiety),
-      energy: toPercentage(averages.energy),
-      sleep: toPercentage(averages.sleep),
-      // Emotions (placeholder)
-      joy: 0,
-      sadness: 0,
-      anger: 0,
-      fear: 0,
-      apathy: 0,
-      // Life Areas
-      love: toPercentage(loveVal),
-      work: toPercentage(workVal),
-      friendship: toPercentage(socialVal),
-      social: toPercentage(socialVal),
-      growth: toPercentage(growthVal),
-      health: toPercentage(healthVal),
-      // Extended metrics (derived)
-      stress: toPercentage(averages.anxiety),
-      calmness: toPercentage(10 - averages.anxiety),
-      loneliness: toPercentage(10 - (socialVal ?? 5)),
-      emotional_clarity: toPercentage(averages.mood),
+      // Vitals from time-weighted averages
+      mood: toPercentage(vitals.mood),
+      anxiety: toPercentage(vitals.anxiety),
+      energy: toPercentage(vitals.energy),
+      sleep: toPercentage(vitals.sleep),
+      // Emotions from time-weighted averages
+      joy: toPercentage(emotions.joy),
+      sadness: toPercentage(emotions.sadness),
+      anger: toPercentage(emotions.anger),
+      fear: toPercentage(emotions.fear),
+      apathy: toPercentage(emotions.apathy),
+      // Life Areas from time-weighted averages
+      love: toPercentage(lifeAreas.love),
+      work: toPercentage(lifeAreas.work),
+      friendship: toPercentage(lifeAreas.social),
+      social: toPercentage(lifeAreas.social),
+      growth: toPercentage(lifeAreas.growth),
+      health: toPercentage(lifeAreas.health),
+      // Derived metrics
+      stress: toPercentage(vitals.anxiety),
+      calmness: toPercentage(vitals.anxiety ? 10 - vitals.anxiety : null),
+      loneliness: toPercentage(lifeAreas.social ? 10 - lifeAreas.social : null),
+      emotional_clarity: toPercentage(vitals.mood),
     };
-  }, [averages, latestLifeAreas, profile]);
+  }, [vitals, emotions, lifeAreas]);
 
-  const isLoading = isLoadingAverages || isLoadingProfile;
+  const isLoading = isLoadingMetrics || isLoadingProfile;
 
   if (isLoading) {
     return (
@@ -131,7 +113,7 @@ const AdaptiveVitalsSection: React.FC = () => {
           I Tuoi Focus
         </h3>
         <span className="text-xs text-muted-foreground">
-          Media 7gg {averages.daysWithData > 0 && `(${averages.daysWithData} giorni)`}
+          Media ponderata {daysWithData > 0 && `(${daysWithData} giorni)`}
         </span>
       </div>
       
