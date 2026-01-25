@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Check, X, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,16 +10,22 @@ import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 
 const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 
-const SmartCheckinSection: React.FC = () => {
+interface SmartCheckinSectionProps {
+  onStartCheckin?: () => void;
+}
+
+const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartCheckin }) => {
   const queryClient = useQueryClient();
   const { dailyCheckins, completedToday, completedCount, refetchTodayData, isLoading, aiGenerated, allCompleted } = usePersonalizedCheckins();
   const { saveCheckin, todayCheckin } = useCheckins();
   const { invalidateMetrics } = useDailyMetrics();
   const { invalidateLifeAreas } = useDailyLifeAreas();
   const { profile } = useProfile();
+  const { startCheckinTimer } = useCheckinTimer();
   const today = format(new Date(), 'yyyy-MM-dd');
   
   const [activeItem, setActiveItem] = useState<CheckinItem | null>(null);
@@ -31,6 +37,10 @@ const SmartCheckinSection: React.FC = () => {
 
   const handleItemClick = (item: CheckinItem) => {
     if (item.key in allCompleted_) return;
+    
+    // Start 24h timer when user clicks on first check-in item
+    startCheckinTimer();
+    onStartCheckin?.();
     
     if (activeItem?.key === item.key) {
       setActiveItem(null);
@@ -164,23 +174,9 @@ const SmartCheckinSection: React.FC = () => {
     );
   }
 
-  // All completed state
+  // All completed state - return null, the header icon will show summary modal
   if (visibleCheckins.length === 0 && (completedCount > 0 || allCompleted)) {
-    return (
-      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-3xl p-6 border border-emerald-100 dark:border-emerald-900/50">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-            <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-emerald-900 dark:text-emerald-100">Check-in completato!</h3>
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
-              Hai registrato {completedCount + Object.keys(locallyCompleted).length} parametri oggi
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (visibleCheckins.length === 0) {
