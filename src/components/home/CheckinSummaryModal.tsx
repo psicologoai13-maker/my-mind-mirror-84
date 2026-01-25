@@ -1,40 +1,27 @@
 import React, { useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Clock, Check, ClipboardList, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
-import { differenceInSeconds, addHours } from 'date-fns';
+import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { Button } from '@/components/ui/button';
 
 interface CheckinSummaryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  checkinStartedAt: string | null;
 }
 
 const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
   open,
   onOpenChange,
-  checkinStartedAt,
 }) => {
   const { completedToday, dailyCheckins } = usePersonalizedCheckins();
+  const { getTimeUntilMidnight } = useCheckinTimer();
 
-  // Calculate countdown to next check-in (24h from start)
+  // Calculate countdown to midnight Rome
   const countdown = useMemo(() => {
-    if (!checkinStartedAt) return null;
-    
-    const startTime = new Date(checkinStartedAt);
-    const nextCheckinTime = addHours(startTime, 24);
-    const now = new Date();
-    const diffSeconds = differenceInSeconds(nextCheckinTime, now);
-    
-    if (diffSeconds <= 0) return null;
-    
-    const hours = Math.floor(diffSeconds / 3600);
-    const minutes = Math.floor((diffSeconds % 3600) / 60);
-    
-    return { hours, minutes, nextCheckinTime };
-  }, [checkinStartedAt]);
+    return getTimeUntilMidnight();
+  }, [getTimeUntilMidnight]);
 
   // Build list of completed items with their values
   const completedItems = useMemo(() => {
@@ -47,7 +34,7 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
 
   const pendingCount = dailyCheckins.length;
   const completedCount = completedItems.length;
-  const hasStarted = completedCount > 0 || checkinStartedAt;
+  const hasAnyData = completedCount > 0;
   const isAllDone = pendingCount === 0 && completedCount > 0;
 
   return (
@@ -55,11 +42,14 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
       <DialogContent className="max-w-sm mx-auto rounded-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-center">Riepilogo Check-in</DialogTitle>
+          <DialogDescription className="text-center text-sm">
+            Il tuo progresso di oggi
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Case 1: No check-ins done yet - Prompt to start */}
-          {!hasStarted && (
+          {!hasAnyData && (
             <div className="text-center py-6 space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
                 <ClipboardList className="w-8 h-8 text-primary" />
@@ -67,7 +57,7 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
               <div>
                 <h3 className="font-semibold text-lg text-foreground">Nessun check-in oggi</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Inizia il tuo check-in giornaliero per monitorare il tuo benessere
+                  Rispondi alle domande nella home per registrare il tuo stato
                 </p>
               </div>
               <Button 
@@ -75,30 +65,28 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
                 className="rounded-xl"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                Inizia Check-in
+                Vai al Check-in
               </Button>
             </div>
           )}
 
           {/* Case 2: Some or all check-ins done - Show list */}
-          {hasStarted && (
+          {hasAnyData && (
             <>
-              {/* Countdown section */}
-              {countdown && (
-                <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Prossimo check-in tra</p>
-                      <p className="font-semibold text-lg text-foreground">
-                        {countdown.hours}h {countdown.minutes}m
-                      </p>
-                    </div>
+              {/* Countdown to midnight section */}
+              <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nuovi check-in tra</p>
+                    <p className="font-semibold text-lg text-foreground">
+                      {countdown.hours}h {countdown.minutes}m
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Status summary */}
               <div className="flex items-center justify-between px-2">
@@ -118,34 +106,23 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
               </div>
 
               {/* Completed items list */}
-              {completedItems.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground px-2">Parametri registrati oggi</p>
-                  <div className="space-y-1.5">
-                    {completedItems.map((item) => (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between px-4 py-3 bg-muted/50 rounded-xl"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-emerald-500" />
-                          <span className="text-sm font-medium">{item.label}</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">{item.displayValue}</span>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground px-2">Parametri registrati oggi</p>
+                <div className="space-y-1.5">
+                  {completedItems.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between px-4 py-3 bg-muted/50 rounded-xl"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-500" />
+                        <span className="text-sm font-medium">{item.label}</span>
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-sm text-muted-foreground">{item.displayValue}</span>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground">
-                    Nessun parametro registrato ancora
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Rispondi alle domande nella dashboard per registrare i tuoi dati
-                  </p>
-                </div>
-              )}
+              </div>
 
               {/* Pending items hint */}
               {pendingCount > 0 && (

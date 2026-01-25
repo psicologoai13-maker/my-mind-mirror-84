@@ -145,7 +145,6 @@ const Index: React.FC = () => {
       <CheckinSummaryModal
         open={showSummaryModal}
         onOpenChange={setShowSummaryModal}
-        checkinStartedAt={checkinStartedAt}
       />
     </MobileLayout>
   );

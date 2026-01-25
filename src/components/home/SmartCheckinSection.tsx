@@ -271,39 +271,29 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
         </div>
       )}
 
-      {/* Check-in grid */}
+      {/* Check-in grid - compact 4 per row, show up to 8 */}
       {!activeItem && (
-        <div className="grid grid-cols-2 gap-3">
-          {visibleCheckins.map((item, index) => (
+        <div className="grid grid-cols-4 gap-2">
+          {visibleCheckins.slice(0, 8).map((item, index) => (
             <button
               key={item.key}
               onClick={() => handleItemClick(item)}
               className={cn(
-                "relative flex items-center gap-3 p-4 rounded-2xl transition-all duration-300",
-                "bg-card shadow-premium hover:shadow-elevated hover:scale-[1.02] active:scale-[0.98] border border-transparent",
+                "relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all duration-300",
+                "bg-card shadow-sm hover:shadow-md hover:scale-[1.03] active:scale-[0.97] border border-border/30",
                 "animate-slide-up"
               )}
-              style={{ animationDelay: `${index * 0.05}s` }}
+              style={{ animationDelay: `${index * 0.03}s` }}
             >
               <div className={cn(
-                "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+                "w-9 h-9 rounded-lg flex items-center justify-center",
                 item.bgColor
               )}>
-                <item.icon className={cn("w-5 h-5", item.color)} />
+                <item.icon className={cn("w-4 h-4", item.color)} />
               </div>
-
-              <div className="flex-1 text-left min-w-0">
-                <span className="font-medium text-sm block truncate text-foreground">
-                  {item.label}
-                </span>
-                {item.reason && (
-                  <span className="text-xs text-primary truncate block">
-                    ✨ {item.reason}
-                  </span>
-                )}
-              </div>
-
-              <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+              <span className="font-medium text-[10px] text-center leading-tight text-foreground line-clamp-2">
+                {item.label}
+              </span>
             </button>
           ))}
         </div>
