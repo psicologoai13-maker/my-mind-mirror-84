@@ -25,6 +25,11 @@ const FlashInsights: React.FC = () => {
     if (!hasData) return result;
 
     const psych = deepPsychology;
+    
+    // 🔄 L'ansia usa logica inversa: nel DB alto = bene, nella UI basso = bene
+    // Per i controlli degli insight, dobbiamo usare il valore come "intensità dell'ansia"
+    // Se vitals.anxiety dal DB è 8 (bene), l'ansia effettiva è 10-8=2 (bassa)
+    const actualAnxiety = vitals?.anxiety !== null ? 10 - vitals.anxiety : null;
 
     // 1. Rumination -> Sleep correlation
     if (psych?.rumination && psych.rumination >= 7 && vitals?.sleep && vitals.sleep <= 4) {
@@ -78,8 +83,8 @@ const FlashInsights: React.FC = () => {
       });
     }
 
-    // 5. Somatic tension -> anxiety correlation
-    if (psych?.somatic_tension && psych.somatic_tension >= 6 && vitals?.anxiety && vitals.anxiety >= 6) {
+    // 5. Somatic tension -> anxiety correlation (usa actualAnxiety per logica inversa)
+    if (psych?.somatic_tension && psych.somatic_tension >= 6 && actualAnxiety !== null && actualAnxiety >= 6) {
       result.push({
         id: 'somatic-anxiety',
         type: 'correlation',
@@ -143,8 +148,8 @@ const FlashInsights: React.FC = () => {
       });
     }
 
-    // 10. Positive: High coping + low anxiety
-    if (psych?.coping_ability && psych.coping_ability >= 7 && vitals?.anxiety && vitals.anxiety <= 4) {
+    // 10. Positive: High coping + low anxiety (usa actualAnxiety per logica inversa)
+    if (psych?.coping_ability && psych.coping_ability >= 7 && actualAnxiety !== null && actualAnxiety <= 4) {
       result.push({
         id: 'coping-resilience',
         type: 'positive',
