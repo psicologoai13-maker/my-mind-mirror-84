@@ -8,6 +8,10 @@ interface OnboardingAnswers {
   primaryGoals?: string[];
   mood?: number;
   sleepIssues?: string;
+  mainChallenge?: string;
+  lifeSituation?: string;
+  supportType?: string;
+  anxietyLevel?: number;
 }
 
 interface ResultScreenProps {
@@ -50,20 +54,68 @@ const primaryGoalLabels: Record<string, { title: string; icon: React.ReactNode; 
   },
 };
 
+// Challenge labels for display
+const challengeLabels: Record<string, { title: string; icon: React.ReactNode; color: string }> = {
+  work_stress: { 
+    title: 'Stress Lavorativo', 
+    icon: <Zap className="w-5 h-5" />,
+    color: 'text-orange-500 bg-orange-50',
+  },
+  relationships: { 
+    title: 'Relazioni', 
+    icon: <Heart className="w-5 h-5" />,
+    color: 'text-rose-500 bg-rose-50',
+  },
+  self_esteem: { 
+    title: 'Autostima', 
+    icon: <Sparkles className="w-5 h-5" />,
+    color: 'text-purple-500 bg-purple-50',
+  },
+  loneliness: { 
+    title: 'Solitudine', 
+    icon: <Heart className="w-5 h-5" />,
+    color: 'text-blue-500 bg-blue-50',
+  },
+  general_anxiety: { 
+    title: 'Ansia', 
+    icon: <Brain className="w-5 h-5" />,
+    color: 'text-violet-500 bg-violet-50',
+  },
+  life_transition: { 
+    title: 'Cambiamenti di Vita', 
+    icon: <BookOpen className="w-5 h-5" />,
+    color: 'text-teal-500 bg-teal-50',
+  },
+};
+
 const moodLabels = ['Molto difficile', 'Difficile', 'Nella media', 'Abbastanza bene', 'Molto bene'];
 
 const ResultScreen: React.FC<ResultScreenProps> = ({ answers, onComplete }) => {
   const hasSleepIssues = answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes';
   const moodLevel = answers.mood ?? 2;
+  const anxietyLevel = answers.anxietyLevel ?? 2;
 
   // Build focus areas from primary goals
   const focusAreas = (answers.primaryGoals || [])
     .map(goalId => primaryGoalLabels[goalId])
     .filter(Boolean);
 
+  // Add main challenge if present
+  if (answers.mainChallenge && challengeLabels[answers.mainChallenge]) {
+    const challenge = challengeLabels[answers.mainChallenge];
+    if (!focusAreas.some(a => a.title === challenge.title)) {
+      focusAreas.push(challenge);
+    }
+  }
+
   // Add sleep if user has sleep issues and didn't select it
   if (hasSleepIssues && !answers.primaryGoals?.includes('improve_sleep')) {
     focusAreas.push(primaryGoalLabels.improve_sleep);
+  }
+
+  // Add anxiety support if high anxiety reported
+  if (anxietyLevel >= 3 && !answers.primaryGoals?.includes('reduce_anxiety')) {
+    focusAreas.push(primaryGoalLabels.reduce_anxiety);
   }
 
   // Add mood support if user is struggling
@@ -74,6 +126,9 @@ const ResultScreen: React.FC<ResultScreenProps> = ({ answers, onComplete }) => {
       color: 'text-rose-500 bg-rose-50',
     });
   }
+
+  // Limit to 4 focus areas
+  const displayAreas = focusAreas.slice(0, 4);
 
   return (
     <div className="min-h-dvh bg-background flex flex-col px-6 py-8">
@@ -93,7 +148,7 @@ const ResultScreen: React.FC<ResultScreenProps> = ({ answers, onComplete }) => {
 
         {/* Focus Areas - Premium Cards */}
         <div className="w-full max-w-sm space-y-3 mb-10">
-          {focusAreas.map((area, index) => (
+          {displayAreas.map((area, index) => (
             <div
               key={index}
               className={cn(

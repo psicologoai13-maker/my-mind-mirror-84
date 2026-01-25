@@ -15,6 +15,11 @@ interface OnboardingAnswers {
   primaryGoals: string[];
   mood: number;
   sleepIssues: string | null;
+  // NEW: Deep questions for personalization
+  mainChallenge: string | null;
+  lifeSituation: string | null;
+  supportType: string | null;
+  anxietyLevel: number;
 }
 
 interface DashboardConfig {
@@ -46,7 +51,33 @@ const sleepOptions = [
   { id: 'no', label: 'No, dormo bene', emoji: '😊' },
 ];
 
-type Step = 'goal' | 'primaryGoal' | 'mood' | 'sleep' | 'analyzing' | 'result';
+// NEW: Main challenge options
+const mainChallengeOptions = [
+  { id: 'work_stress', label: 'Stress lavorativo', emoji: '💼', description: 'Pressione, burnout, problemi con colleghi' },
+  { id: 'relationships', label: 'Difficoltà relazionali', emoji: '💔', description: 'Partner, famiglia, amicizie' },
+  { id: 'self_esteem', label: 'Autostima bassa', emoji: '🪞', description: 'Insicurezze, autocritica, senso di inadeguatezza' },
+  { id: 'life_transition', label: 'Cambiamenti di vita', emoji: '🔄', description: 'Trasferimenti, cambi lavoro, separazioni' },
+  { id: 'general_anxiety', label: 'Ansia generalizzata', emoji: '😰', description: 'Preoccupazioni costanti, difficoltà a rilassarsi' },
+  { id: 'loneliness', label: 'Solitudine', emoji: '🏝️', description: 'Isolamento, mancanza di connessioni' },
+];
+
+// NEW: Life situation options
+const lifeSituationOptions = [
+  { id: 'stable', label: 'Stabile ma insoddisfatto', emoji: '😐', description: 'Le cose vanno, ma sento che manca qualcosa' },
+  { id: 'crisis', label: 'Momento difficile', emoji: '🌪️', description: 'Sto attraversando una crisi o periodo duro' },
+  { id: 'recovery', label: 'In ripresa', emoji: '🌅', description: 'Sto uscendo da un periodo buio' },
+  { id: 'growth_seeking', label: 'Voglio crescere', emoji: '🚀', description: 'Sto bene ma voglio migliorarmi' },
+];
+
+// NEW: Support type preference
+const supportTypeOptions = [
+  { id: 'listener', label: 'Qualcuno che ascolti', emoji: '👂', description: 'Ho bisogno di sfogarmi senza giudizio' },
+  { id: 'advisor', label: 'Consigli pratici', emoji: '💡', description: 'Voglio suggerimenti concreti su cosa fare' },
+  { id: 'challenger', label: 'Sfidami a crescere', emoji: '🏋️', description: 'Ho bisogno di essere spinto fuori dalla zona comfort' },
+  { id: 'comforter', label: 'Supporto emotivo', emoji: '🤗', description: 'Ho bisogno di sentirmi compreso e validato' },
+];
+
+type Step = 'goal' | 'primaryGoal' | 'mainChallenge' | 'lifeSituation' | 'supportType' | 'mood' | 'anxietyLevel' | 'sleep' | 'analyzing' | 'result';
 
 // ============================================
 // CORE MAPPING LOGIC: Goals -> Dashboard Config
@@ -82,6 +113,32 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
     }
   });
 
+  // Add based on main challenge
+  if (answers.mainChallenge) {
+    switch (answers.mainChallenge) {
+      case 'work_stress':
+        if (!priorityMetrics.includes('work')) priorityMetrics.push('work');
+        if (!priorityMetrics.includes('stress')) priorityMetrics.push('stress');
+        secondaryMetrics.push('burnout_level');
+        break;
+      case 'relationships':
+        if (!priorityMetrics.includes('love')) priorityMetrics.push('love');
+        if (!priorityMetrics.includes('social')) priorityMetrics.push('social');
+        break;
+      case 'self_esteem':
+        secondaryMetrics.push('self_efficacy');
+        break;
+      case 'loneliness':
+        if (!priorityMetrics.includes('social')) priorityMetrics.push('social');
+        secondaryMetrics.push('loneliness');
+        break;
+      case 'general_anxiety':
+        if (!priorityMetrics.includes('anxiety')) priorityMetrics.push('anxiety');
+        secondaryMetrics.push('rumination');
+        break;
+    }
+  }
+
   // Add based on single goal selection (backup)
   if (answers.goal && priorityMetrics.length === 0) {
     switch (answers.goal) {
@@ -104,6 +161,11 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
   if ((answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes') && 
       !priorityMetrics.includes('sleep')) {
     priorityMetrics.push('sleep');
+  }
+
+  // Add anxiety if high anxiety level reported
+  if (answers.anxietyLevel >= 3 && !priorityMetrics.includes('anxiety')) {
+    priorityMetrics.push('anxiety');
   }
 
   // Add mood-related metrics based on current mood
@@ -150,11 +212,26 @@ const Onboarding: React.FC = () => {
     primaryGoals: [],
     mood: 2,
     sleepIssues: null,
+    mainChallenge: null,
+    lifeSituation: null,
+    supportType: null,
+    anxietyLevel: 2,
   });
 
-  const stepOrder: Step[] = ['goal', 'primaryGoal', 'mood', 'sleep', 'analyzing', 'result'];
+  const stepOrder: Step[] = [
+    'goal', 
+    'primaryGoal', 
+    'mainChallenge',
+    'lifeSituation',
+    'supportType',
+    'mood', 
+    'anxietyLevel',
+    'sleep', 
+    'analyzing', 
+    'result'
+  ];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 4;
+  const quizSteps = 8; // Updated step count
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -176,7 +253,15 @@ const Onboarding: React.FC = () => {
         return answers.goal !== null;
       case 'primaryGoal':
         return answers.primaryGoals.length > 0;
+      case 'mainChallenge':
+        return answers.mainChallenge !== null;
+      case 'lifeSituation':
+        return answers.lifeSituation !== null;
+      case 'supportType':
+        return answers.supportType !== null;
       case 'mood':
+        return true;
+      case 'anxietyLevel':
         return true;
       case 'sleep':
         return answers.sleepIssues !== null;
@@ -191,7 +276,7 @@ const Onboarding: React.FC = () => {
       const dashboardConfig = buildDashboardConfig(answers);
       const personalizedMetrics = getPersonalizedMetrics(answers);
       
-      console.log('[Onboarding] Saving config:', { dashboardConfig, personalizedMetrics });
+      console.log('[Onboarding] Saving config:', { dashboardConfig, personalizedMetrics, answers });
       
       await updateProfile.mutateAsync({
         onboarding_completed: true,
@@ -223,6 +308,10 @@ const Onboarding: React.FC = () => {
           primaryGoals: answers.primaryGoals,
           mood: answers.mood,
           sleepIssues: answers.sleepIssues ?? undefined,
+          mainChallenge: answers.mainChallenge ?? undefined,
+          lifeSituation: answers.lifeSituation ?? undefined,
+          supportType: answers.supportType ?? undefined,
+          anxietyLevel: answers.anxietyLevel,
         }}
         onComplete={handleComplete}
       />
@@ -258,12 +347,52 @@ const Onboarding: React.FC = () => {
         />
       )}
 
+      {currentStep === 'mainChallenge' && (
+        <QuizStep
+          title="Qual è la tua sfida principale?"
+          subtitle="Cosa ti pesa di più in questo momento"
+          options={mainChallengeOptions}
+          selectedValue={answers.mainChallenge}
+          onSelect={(value) => setAnswers(prev => ({ ...prev, mainChallenge: value }))}
+        />
+      )}
+
+      {currentStep === 'lifeSituation' && (
+        <QuizStep
+          title="Come descriveresti la tua situazione attuale?"
+          subtitle="Non ci sono risposte giuste o sbagliate"
+          options={lifeSituationOptions}
+          selectedValue={answers.lifeSituation}
+          onSelect={(value) => setAnswers(prev => ({ ...prev, lifeSituation: value }))}
+        />
+      )}
+
+      {currentStep === 'supportType' && (
+        <QuizStep
+          title="Di che tipo di supporto hai bisogno?"
+          subtitle="Questo ci aiuterà a personalizzare l'esperienza"
+          options={supportTypeOptions}
+          selectedValue={answers.supportType}
+          onSelect={(value) => setAnswers(prev => ({ ...prev, supportType: value }))}
+        />
+      )}
+
       {currentStep === 'mood' && (
         <EmojiSlider
           title="Come ti senti ultimamente?"
           subtitle="Seleziona l'emoji che meglio rappresenta il tuo stato"
           value={answers.mood}
           onChange={(value) => setAnswers(prev => ({ ...prev, mood: value }))}
+        />
+      )}
+
+      {currentStep === 'anxietyLevel' && (
+        <EmojiSlider
+          title="Quanto ti senti ansioso/a ultimamente?"
+          subtitle="0 = Per niente, 4 = Molto ansioso/a"
+          value={answers.anxietyLevel}
+          onChange={(value) => setAnswers(prev => ({ ...prev, anxietyLevel: value }))}
+          emojis={['😌', '🙂', '😐', '😟', '😰']}
         />
       )}
 

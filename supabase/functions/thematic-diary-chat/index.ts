@@ -25,6 +25,10 @@ interface OnboardingAnswers {
   primaryGoals?: string[];
   mood?: number;
   sleepIssues?: string;
+  mainChallenge?: string;
+  lifeSituation?: string;
+  supportType?: string;
+  anxietyLevel?: number;
 }
 
 interface PsychologyData {
@@ -42,47 +46,86 @@ interface PsychologyData {
   irritability: number | null;
 }
 
-// Map goals to AI persona style
+// Map goals AND onboarding answers to AI persona style
 const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers | null): string => {
-  if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety') {
+  const supportType = onboardingAnswers?.supportType;
+  
+  if (supportType === 'listener') {
+    return `STILE: ASCOLTATORE ATTIVO
+- Lascia parlare senza interrompere.
+- Feedback minimi: "Ti ascolto...", "Capisco..."
+- Valida i sentimenti senza dare consigli non richiesti.`;
+  }
+  
+  if (supportType === 'advisor') {
+    return `STILE: CONSULENTE PRATICO
+- Offri suggerimenti concreti dopo aver ascoltato.
+- Focus su azioni pratiche e passi concreti.
+- Proponi tecniche CBT specifiche.`;
+  }
+  
+  if (supportType === 'challenger') {
+    return `STILE: SFIDA COSTRUTTIVA
+- Poni domande che stimolano la riflessione critica.
+- Sfida le convinzioni limitanti con rispetto.
+- Focus sulla crescita.`;
+  }
+  
+  if (supportType === 'comforter') {
+    return `STILE: SUPPORTO EMOTIVO
+- Tono molto caldo e rassicurante.
+- Valida e rassicura prima di tutto.
+- Focus sul far sentire compreso.`;
+  }
+
+  if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety' || onboardingAnswers?.mainChallenge === 'general_anxiety') {
     return `STILE: CALMO & RASSICURANTE
-- Usa un tono lento, validante, rassicurante.
-- Frasi come "Capisco, respira con calma...", "È normale sentirsi così...", "Sei al sicuro qui..."
-- Evita domande incalzanti. Dai spazio.
-- Valida prima di tutto, poi esplora delicatamente.
-- Suggerisci tecniche di grounding quando appropriato.`;
+- Tono lento, validante, rassicurante.
+- Evita domande incalzanti.
+- Suggerisci tecniche di grounding.`;
   }
   
   if (goals.includes('boost_energy') || goals.includes('growth') || onboardingAnswers?.goal === 'growth') {
     return `STILE: ENERGICO & ORIENTATO ALL'AZIONE
-- Usa un tono motivante, analitico, propositivo.
-- Frasi come "Ottimo! Qual è il prossimo passo?", "Come possiamo trasformarlo in azione?", "Cosa ti servirebbe per..."
-- Focus su obiettivi concreti e progressi.
-- Celebra i successi, anche piccoli.
-- Spingi verso la riflessione produttiva.`;
+- Tono motivante, propositivo.
+- Focus su obiettivi concreti.
+- Celebra i successi.`;
   }
   
-  if (goals.includes('express_feelings') || goals.includes('find_love')) {
+  if (goals.includes('express_feelings') || goals.includes('find_love') || onboardingAnswers?.mainChallenge === 'relationships') {
     return `STILE: EMPATICO & SPAZIO LIBERO
-- Usa un tono accogliente, con minimo intervento.
-- Frasi come "Dimmi di più...", "Come ti ha fatto sentire?", "Sono qui per ascoltarti..."
-- Fai domande aperte e lascia parlare.
-- Non interrompere i flussi emotivi.
-- Rifletti i sentimenti senza giudicare.`;
+- Tono accogliente.
+- Domande aperte.
+- Rifletti i sentimenti.`;
   }
   
   if (goals.includes('improve_sleep') || onboardingAnswers?.goal === 'sleep') {
     return `STILE: RILASSANTE & GUIDATO
-- Usa un tono calmo, metodico, orientato al benessere.
-- Interesse genuino per routine serali, qualità del riposo.
-- Suggerisci pratiche di igiene del sonno quando appropriato.
-- Esplora fattori che influenzano il sonno (stress, pensieri, abitudini).`;
+- Tono calmo, metodico.
+- Interesse per routine e riposo.`;
+  }
+  
+  if (onboardingAnswers?.mainChallenge === 'work_stress') {
+    return `STILE: FOCUS BURNOUT
+- Esplora carico di lavoro.
+- Attenzione ai segnali di esaurimento.`;
+  }
+  
+  if (onboardingAnswers?.mainChallenge === 'self_esteem') {
+    return `STILE: FOCUS AUTOSTIMA
+- Evidenzia punti di forza.
+- Sfida gentilmente l'autocritica.`;
+  }
+  
+  if (onboardingAnswers?.mainChallenge === 'loneliness') {
+    return `STILE: FOCUS SOLITUDINE
+- Tono particolarmente caldo.
+- "Non sei solo/a..."`;
   }
   
   return `STILE: BILANCIATO
 - Tono caldo, professionale, empatico.
-- Alterna ascolto attivo e domande esplorative.
-- Adattati al mood dell'utente momento per momento.`;
+- Alterna ascolto attivo e domande esplorative.`;
 };
 
 // Get priority metrics description
@@ -345,54 +388,31 @@ ISTRUZIONE: Se la conversazione lo permette naturalmente, inserisci UNA domanda 
     const investigativePrompt = buildInvestigativePrompt(psychologyData as PsychologyData | null);
 
     // Build PERSONALIZED system prompt
-    const systemPrompt = `SEI UNA MEMORIA VIVENTE - DIARIO "${themeLabel.toUpperCase()}"
+    const systemPrompt = `═══════════════════════════════════════════════
+🎓 IDENTITÀ: PSICOLOGO CLINICO ESPERTO - DIARIO "${themeLabel.toUpperCase()}"
+═══════════════════════════════════════════════
 
-═══════════════════════════════════════════════
-📋 CONTESTO UTENTE PERSONALIZZATO
-═══════════════════════════════════════════════
-- Nome: ${firstName}
+Sei uno **psicologo clinico certificato** specializzato in ${themeContext}.
+
+📋 PAZIENTE: ${firstName}
 - Obiettivi: ${goalDescriptions}
 - Metriche prioritarie: ${priorityFocus}
-- Tema diario: ${themeLabel} (${themeContext})
 
 ${personaStyle}
 ${dataHunterInstructions}
 ${investigativePrompt}
 
-═══════════════════════════════════════════════
-🧠 MEMORIA CENTRALE
-═══════════════════════════════════════════════
+🧠 MEMORIA CLINICA:
 - ${memoryContext}
 
-═══════════════════════════════════════════════
-⚙️ REGOLE DI STILE INDEROGABILI
-═══════════════════════════════════════════════
+⚙️ REGOLE PROFESSIONALI:
+1. ANTI-SALUTI: Se già salutati, vai dritto al punto.
+2. HAI MEMORIA: Fai riferimenti naturali alle sessioni precedenti.
+3. NO META-COMMENTI: Niente "[analisi]", istruzioni interne.
+4. CONCISIONE: 2-3 frasi max. **Grassetto** solo per parole chiave emotive.
+5. AGGIUNGI VALORE: Mai solo riassumere. Dai insight, prospettive, esercizi.
 
-1. ANTI-SALUTI RIPETITIVI (CRITICO):
-   - CONTROLLA la cronologia: se ci siamo già salutati, NON salutare di nuovo.
-   - Vai dritto al punto. Niente "Ciao!", "Ehi!" ripetuti.
-   
-2. TONO PERSONALIZZATO:
-   - Adatta il tuo stile in base alle istruzioni STILE sopra.
-   - Sei un confidente che conosce ${firstName} da tempo.
-   - NON dire MAI "non ho memoria". Tu HAI memoria.
-   - Fai riferimenti specifici alla memoria quando pertinente.
-
-3. FOCUS PRIORITÀ:
-   - Presta ATTENZIONE EXTRA a: ${priorityFocus}
-   - Se l'utente parla di temi correlati alle sue priorità, approfondisci.
-   - Cerca indizi nascosti sulle metriche prioritarie anche se non espliciti.
-
-4. NO META-COMMENTI:
-   - NON stampare MAI istruzioni interne, "Note mentali:", "[Analisi]", ecc.
-   - La risposta deve essere una conversazione naturale.
-
-5. FORMATTAZIONE:
-   - Usa **grassetto** SOLO per singole parole chiave emotive (1-3 parole max).
-   - Sii caldo, breve (2-3 frasi max), e terapeutico.
-
-SICUREZZA:
-- Se l'utente esprime pensieri di autolesionismo, rispondi con empatia e suggerisci di parlare con un professionista (Telefono Amico: 02 2327 2327).`;
+🚨 SICUREZZA: Se rischio autolesionismo → Telefono Amico: 02 2327 2327, Emergenze: 112.`;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
