@@ -162,26 +162,32 @@ const Chat: React.FC = () => {
 
   // Initialize session - ULTRA FAST: use ref to prevent double init, show greeting immediately
   useEffect(() => {
-    // CRITICAL: Only run once per mount
-    if (initCalledRef.current || !user?.id) return;
+    // CRITICAL: Only run once per mount - check ref FIRST
+    if (initCalledRef.current) return;
+    if (!user?.id) return;
+    
+    // Mark as called IMMEDIATELY before any async work
     initCalledRef.current = true;
     
     const initChat = async () => {
       try {
         // Create greeting immediately (use cached profile name if available)
-        const userName = profile?.name?.split(' ')[0];
-        const greeting = userName 
-          ? `Ciao ${userName}! 💚 Come stai oggi? Sono qui per ascoltarti.`
+        const cachedName = profile?.name?.split(' ')[0];
+        const greeting = cachedName 
+          ? `Ciao ${cachedName}! 💚 Come stai oggi? Sono qui per ascoltarti.`
           : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
         
         // Show greeting IMMEDIATELY in UI (optimistic)
         setInitialGreeting(greeting);
         setIsSessionReady(true);
         
-        // Create session in background (non-blocking)
+        // Create session - this MUST succeed for chat to work
         const newSession = await startSession.mutateAsync('chat');
         
-        // Persist greeting to DB in background
+        // Set sessionId IMMEDIATELY so messages can be sent
+        setSessionId(newSession.id);
+        
+        // Persist greeting to DB in background (non-blocking)
         supabase
           .from('chat_messages')
           .insert({
@@ -191,20 +197,21 @@ const Chat: React.FC = () => {
             content: greeting,
           })
           .then(() => {
-            // After DB insert, set sessionId to trigger message load
-            setSessionId(newSession.id);
-            setInitialGreeting(null); // Clear optimistic greeting
+            // Clear optimistic greeting after DB insert
+            setInitialGreeting(null);
           });
           
       } catch (error) {
         console.error('Failed to start session:', error);
         toast.error('Errore nell\'avvio della chat');
-        initCalledRef.current = false; // Allow retry on error
+        // DON'T reset initCalledRef - prevent infinite retry loops
       }
     };
     
     initChat();
-  }, [user?.id, profile?.name, startSession]);
+    // CRITICAL: Only depend on user.id - profile.name is optional enhancement
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -412,7 +419,8 @@ const Chat: React.FC = () => {
 
   // Handle back navigation with session finalization
   const handleBack = async () => {
-    if (messages.length >= 2 && !isClosingSession) {
+    // Finalize if there's at least 1 user message (assistant greeting + user reply)
+    if (messages.length >= 1 && !isClosingSession) {
       await finalizeSession(true);
     }
     navigate('/');
