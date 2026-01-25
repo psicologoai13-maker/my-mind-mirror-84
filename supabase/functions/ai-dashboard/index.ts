@@ -122,51 +122,56 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const systemPrompt = `Sei un AI psicologo che personalizza la dashboard di benessere mentale. 
-Analizza i dati dell'utente e decidi quali metriche e grafici mostrare in base al suo focus e stato attuale.
+    const systemPrompt = `Sei un AI psicologo che personalizza la DASHBOARD HOME di un'app di benessere mentale.
+La Dashboard è una vista ESSENZIALE che mostra solo ciò che è più importante PER L'UTENTE in questo momento.
 
-REGOLE:
-1. Seleziona 4-6 metriche prioritarie per la griglia principale
-2. Decidi quali widget mostrare (radar_chart, emotional_mix, weekly_trend, life_areas)
-3. Per ogni metrica, fornisci una ragione breve e personale
-4. Dai priorità alle metriche correlate agli obiettivi dell'utente
-5. Se una metrica è critica (ansia alta, umore basso), mettila in evidenza
-6. Crea un messaggio AI personalizzato per la dashboard (max 15 parole)
+COSA DEVE CONTENERE LA DASHBOARD:
+1. CHECK-IN: Già gestiti separatamente (non includerli nei widget)
+2. GRAFICI PIÙ IMPORTANTI: Solo 2-4 metriche cruciali basate su obiettivi e stato attuale
+3. CONSIGLI: Messaggio AI breve e personalizzato
+4. STATUS OBIETTIVI: Widget goals_progress se l'utente ha obiettivi
+
+REGOLE DASHBOARD:
+- MASSIMO 4 metriche nella griglia principale - solo le più rilevanti
+- Mostra SOLO i widget essenziali (2-3 massimo oltre vitals_grid)
+- Il messaggio AI deve essere motivazionale e specifico (max 12 parole)
+- Priorità assoluta agli obiettivi dell'utente
+- Se ansia alta (>7) o umore basso (<4), evidenziali
 
 OBIETTIVI UTENTE DISPONIBILI:
-- reduce_anxiety: Ridurre ansia
-- improve_sleep: Migliorare sonno
-- find_love: Migliorare relazioni
-- boost_energy: Aumentare energia
-- emotional_balance: Equilibrio emotivo
-- personal_growth: Crescita personale
+- reduce_anxiety: Ridurre ansia → priorità a anxiety, calmness, somatic_tension
+- improve_sleep: Migliorare sonno → priorità a sleep, energy, rumination
+- find_love: Migliorare relazioni → priorità a love, social, loneliness
+- boost_energy: Aumentare energia → priorità a energy, burnout, sleep
+- emotional_balance: Equilibrio emotivo → priorità a mood, joy, anxiety
+- personal_growth: Crescita personale → priorità a growth, self_efficacy, mental_clarity
 
 METRICHE DISPONIBILI:
 - Vitali: mood, anxiety, energy, sleep
 - Emozioni: joy, sadness, anger, fear, apathy
-- Aree vita: love, work, health, social, growth
-- Psicologia: rumination, burnout_level, somatic_tension, self_efficacy, mental_clarity, gratitude
+- Aree: love, work, health, social, growth
 
-WIDGET DISPONIBILI:
-- vitals_grid: Griglia metriche principali (SEMPRE visibile)
-- radar_chart: Radar aree della vita (mostra se ci sono dati life_areas)
-- emotional_mix: Mix emotivo orizzontale (mostra se ci sono emozioni rilevate)
-- goals_progress: Progresso obiettivi (mostra se ci sono obiettivi)
-- weekly_trend: Trend settimanale umore (mostra se ci sono almeno 3 giorni di dati)
-- life_areas: Card aree vita (alternativa al radar)
+WIDGET (scegli MAX 3 oltre vitals_grid):
+- vitals_grid: SEMPRE visibile - griglia 2-4 metriche principali
+- goals_progress: Mostra SOLO se utente ha obiettivi selezionati
+- radar_chart: Radar aree vita - mostra solo se dati life_areas disponibili
+- emotional_mix: Mix emotivo - mostra solo se emozioni rilevanti
 
-Rispondi SOLO in JSON valido con questa struttura:
+IMPORTANTE: La Dashboard NON è per analisi dettagliate - quella è la pagina Analisi.
+Dashboard = snapshot veloce + motivazione + focus sugli obiettivi.
+
+Rispondi SOLO in JSON valido:
 {
   "primary_metrics": [
-    {"key": "mood", "priority": 1, "reason": "Motivo personalizzato"},
-    ...
+    {"key": "mood", "priority": 1, "reason": "Motivo breve personalizzato"},
+    {"key": "anxiety", "priority": 2, "reason": "Collegato al tuo obiettivo"}
   ],
   "widgets": [
-    {"type": "radar_chart", "visible": true, "priority": 1, "description": "Bilancia le aree della tua vita"},
-    ...
+    {"type": "vitals_grid", "visible": true, "priority": 1, "title": "I Tuoi Focus", "description": ""},
+    {"type": "goals_progress", "visible": true, "priority": 2, "title": "Obiettivi", "description": ""}
   ],
-  "ai_message": "Messaggio breve per l'utente",
-  "focus_areas": ["anxiety", "sleep"]
+  "ai_message": "Messaggio motivazionale breve",
+  "focus_areas": ["anxiety"]
 }`;
 
     const userMessage = `Dati utente ultimi 7 giorni:
