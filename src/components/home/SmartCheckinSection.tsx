@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, Sparkles } from 'lucide-react';
+import { Check, X, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePersonalizedCheckins, CheckinItem, responseTypeConfig } from '@/hooks/usePersonalizedCheckins';
 import { useCheckins } from '@/hooks/useCheckins';
@@ -15,7 +15,7 @@ const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 
 const SmartCheckinSection: React.FC = () => {
   const queryClient = useQueryClient();
-  const { dailyCheckins, completedToday, completedCount, refetchTodayData } = usePersonalizedCheckins();
+  const { dailyCheckins, completedToday, completedCount, refetchTodayData, isLoading, aiGenerated, allCompleted } = usePersonalizedCheckins();
   const { saveCheckin, todayCheckin } = useCheckins();
   const { invalidateMetrics } = useDailyMetrics();
   const { invalidateLifeAreas } = useDailyLifeAreas();
@@ -27,12 +27,10 @@ const SmartCheckinSection: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locallyCompleted, setLocallyCompleted] = useState<Record<string, number>>({});
 
-  // Merge server completed with locally completed
-  const allCompleted = { ...completedToday, ...locallyCompleted };
+  const allCompleted_ = { ...completedToday, ...locallyCompleted };
 
   const handleItemClick = (item: CheckinItem) => {
-    // Don't allow clicking if already completed
-    if (item.key in allCompleted) return;
+    if (item.key in allCompleted_) return;
     
     if (activeItem?.key === item.key) {
       setActiveItem(null);
@@ -49,13 +47,11 @@ const SmartCheckinSection: React.FC = () => {
     setSelectedValue(value);
     setIsSubmitting(true);
     
-    // All scales now go left=negative, right=positive (no reversal needed)
-    const scaledValue = value + 1; // 1-5 scale
-    const scaledTo10 = scaledValue * 2; // 2-10 scale
+    const scaledValue = value + 1;
+    const scaledTo10 = scaledValue * 2;
 
     try {
       if (activeItem.type === 'life_area') {
-        // Save to daily_life_areas
         const { error } = await supabase
           .from('daily_life_areas')
           .upsert({
@@ -69,7 +65,6 @@ const SmartCheckinSection: React.FC = () => {
         invalidateLifeAreas();
         
       } else if (activeItem.type === 'psychology') {
-        // Save to daily_psychology
         const { error } = await supabase
           .from('daily_psychology')
           .upsert({
@@ -82,7 +77,6 @@ const SmartCheckinSection: React.FC = () => {
         if (error) throw error;
         
       } else if (activeItem.type === 'emotion') {
-        // Save to daily_emotions
         const { error } = await supabase
           .from('daily_emotions')
           .upsert({
@@ -95,7 +89,6 @@ const SmartCheckinSection: React.FC = () => {
         if (error) throw error;
         
       } else {
-        // Handle vitals (existing logic via daily_checkins)
         let existingNotes: Record<string, number> = {};
         if (todayCheckin?.notes) {
           try {
@@ -123,17 +116,14 @@ const SmartCheckinSection: React.FC = () => {
         }
       }
 
-      // Mark as locally completed immediately
       setLocallyCompleted(prev => ({ ...prev, [activeItem.key]: scaledValue }));
       
-      // Invalidate all queries
       invalidateMetrics();
       queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
       refetchTodayData();
       
       toast.success(`${activeItem.label} registrato!`);
       
-      // Close and reset
       setActiveItem(null);
       setSelectedValue(null);
       setIsSubmitting(false);
@@ -150,22 +140,32 @@ const SmartCheckinSection: React.FC = () => {
     setSelectedValue(null);
   };
 
-  // Get response options based on type
   const getResponseOptions = (item: CheckinItem) => {
-    const config = responseTypeConfig[item.responseType];
-    return config.options;
+    return responseTypeConfig[item.responseType].options;
   };
 
-  const getResponseLabels = (item: CheckinItem) => {
-    const config = responseTypeConfig[item.responseType];
-    return config.labels;
-  };
+  const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted_));
 
-  // Filter out already completed items
-  const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted));
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-muted-foreground">Check-in personalizzato</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          <span className="text-sm">AI sta preparando le domande...</span>
+        </div>
+      </div>
+    );
+  }
 
-  // If no items to show (all completed)
-  if (visibleCheckins.length === 0 && completedCount > 0) {
+  // All completed state
+  if (visibleCheckins.length === 0 && (completedCount > 0 || allCompleted)) {
     return (
       <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-3xl p-6 border border-emerald-100 dark:border-emerald-900/50">
         <div className="flex items-center gap-3">
@@ -174,25 +174,28 @@ const SmartCheckinSection: React.FC = () => {
           </div>
           <div>
             <h3 className="font-semibold text-emerald-900 dark:text-emerald-100">Check-in completato!</h3>
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">Hai registrato {completedCount + Object.keys(locallyCompleted).length} parametri oggi</p>
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+              Hai registrato {completedCount + Object.keys(locallyCompleted).length} parametri oggi
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  // If no checkins available at all
-  if (visibleCheckins.length === 0 && completedCount === 0) {
+  if (visibleCheckins.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-3">
-      {/* Header with personalization indicator */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-muted-foreground">Check-in personalizzato</span>
+          {aiGenerated && (
+            <span className="text-xs text-primary/60">✨ AI</span>
+          )}
         </div>
         {(completedCount + Object.keys(locallyCompleted).length) > 0 && (
           <span className="text-xs text-emerald-600 font-medium">
@@ -201,7 +204,7 @@ const SmartCheckinSection: React.FC = () => {
         )}
       </div>
 
-      {/* Active check-in expanded view */}
+      {/* Active check-in */}
       {activeItem && (
         <div className="bg-card rounded-3xl shadow-elevated p-5 animate-scale-in border border-border/50">
           <div className="flex items-center justify-between mb-4">
@@ -212,7 +215,7 @@ const SmartCheckinSection: React.FC = () => {
               <div>
                 <span className="font-semibold text-foreground">{activeItem.question}</span>
                 {activeItem.reason && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{activeItem.reason}</p>
+                  <p className="text-xs text-primary mt-0.5">✨ {activeItem.reason}</p>
                 )}
               </div>
             </div>
@@ -224,11 +227,9 @@ const SmartCheckinSection: React.FC = () => {
             </button>
           </div>
 
-          {/* Response Selection based on type */}
           <div className="grid grid-cols-5 gap-2">
             {getResponseOptions(activeItem).map((option, index) => {
               const isEmoji = activeItem.responseType === 'emoji';
-              const labels = getResponseLabels(activeItem);
               
               return (
                 <button
@@ -261,7 +262,6 @@ const SmartCheckinSection: React.FC = () => {
             })}
           </div>
 
-          {/* Labels - always left=negative, right=positive */}
           <div className="flex justify-between mt-3 px-1">
             <span className="text-xs text-muted-foreground">
               {activeItem.responseType === 'emoji' ? 'Peggio' : 
@@ -275,46 +275,41 @@ const SmartCheckinSection: React.FC = () => {
         </div>
       )}
 
-      {/* Check-in Items Grid */}
+      {/* Check-in grid */}
       {!activeItem && (
         <div className="grid grid-cols-2 gap-3">
-          {visibleCheckins.map((item, index) => {
-            return (
-              <button
-                key={item.key}
-                onClick={() => handleItemClick(item)}
-                className={cn(
-                  "relative flex items-center gap-3 p-4 rounded-2xl transition-all duration-300",
-                  "bg-card shadow-premium hover:shadow-elevated hover:scale-[1.02] active:scale-[0.98] border border-transparent",
-                  "animate-slide-up"
-                )}
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                {/* Icon */}
-                <div className={cn(
-                  "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
-                  item.bgColor
-                )}>
-                  <item.icon className={cn("w-5 h-5", item.color)} />
-                </div>
+          {visibleCheckins.map((item, index) => (
+            <button
+              key={item.key}
+              onClick={() => handleItemClick(item)}
+              className={cn(
+                "relative flex items-center gap-3 p-4 rounded-2xl transition-all duration-300",
+                "bg-card shadow-premium hover:shadow-elevated hover:scale-[1.02] active:scale-[0.98] border border-transparent",
+                "animate-slide-up"
+              )}
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <div className={cn(
+                "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+                item.bgColor
+              )}>
+                <item.icon className={cn("w-5 h-5", item.color)} />
+              </div>
 
-                {/* Text */}
-                <div className="flex-1 text-left min-w-0">
-                  <span className="font-medium text-sm block truncate text-foreground">
-                    {item.label}
+              <div className="flex-1 text-left min-w-0">
+                <span className="font-medium text-sm block truncate text-foreground">
+                  {item.label}
+                </span>
+                {item.reason && (
+                  <span className="text-xs text-primary truncate block">
+                    ✨ {item.reason}
                   </span>
-                  {item.reason && (
-                    <span className="text-xs text-muted-foreground truncate block">
-                      {item.reason}
-                    </span>
-                  )}
-                </div>
+                )}
+              </div>
 
-                {/* Arrow indicator */}
-                <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
-              </button>
-            );
-          })}
+              <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+            </button>
+          ))}
         </div>
       )}
     </div>
