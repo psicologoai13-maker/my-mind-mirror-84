@@ -10,7 +10,7 @@ import LifeAreasCard from '@/components/analisi/LifeAreasCard';
 import DeepPsychologyCard from '@/components/analisi/DeepPsychologyCard';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
-import { Sparkles, Loader2, Lightbulb, Target } from 'lucide-react';
+import { Loader2, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
@@ -249,46 +249,23 @@ const Analisi: React.FC = () => {
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
-      {/* AI Summary & Insight */}
-      {aiLayout.ai_summary && !isLoadingAI && (
-        <div className="px-4 mb-5 space-y-3">
-          {/* AI Summary */}
-          <div className="px-4 py-3 bg-primary/5 rounded-2xl border border-primary/10">
-            <p className="text-sm text-foreground/80 flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-              <span>{aiLayout.ai_summary}</span>
-            </p>
-          </div>
-
-          {/* Focus Insight */}
-          {aiLayout.focus_insight && (
-            <div className="px-4 py-3 bg-accent/30 rounded-2xl">
-              <p className="text-sm text-foreground/80 flex items-start gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <span>{aiLayout.focus_insight}</span>
-              </p>
-            </div>
-          )}
-
-          {/* Deep Dive Recommendations */}
-          {aiLayout.recommended_deep_dive.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Target className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Approfondisci:</span>
-              {aiLayout.recommended_deep_dive.map(key => {
-                const metric = metrics.find(m => m.key === key);
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedMetric(key as MetricType)}
-                    className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
-                  >
-                    {metric?.label || key}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {/* Deep Dive Recommendations */}
+      {aiLayout.recommended_deep_dive.length > 0 && !isLoadingAI && (
+        <div className="px-4 mb-5 flex items-center gap-2 flex-wrap">
+          <Target className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Approfondisci:</span>
+          {aiLayout.recommended_deep_dive.map(key => {
+            const metric = metrics.find(m => m.key === key);
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedMetric(key as MetricType)}
+                className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+              >
+                {metric?.label || key}
+              </button>
+            );
+          })}
         </div>
       )}
 

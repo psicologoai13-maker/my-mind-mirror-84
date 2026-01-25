@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Sparkles, Lightbulb, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAIDashboard } from '@/hooks/useAIDashboard';
+import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const AIInsightCard: React.FC = () => {
-  const { layout, isLoading, error } = useAIDashboard();
+  const { layout, isLoading, error } = useAIAnalysis('week');
   const [isOpen, setIsOpen] = useState(false);
 
-  // Extract AI message and focus areas from dashboard layout
-  const aiSummary = layout.ai_message || '';
-  const focusAreas = layout.focus_areas || [];
+  // Extract AI summary and focus insight from analysis layout
+  const aiSummary = layout.ai_summary || '';
+  const focusInsight = layout.focus_insight || '';
+
+  // Check if we have real content
+  const hasContent = aiSummary && !aiSummary.includes('Caricamento') && !aiSummary.includes('Benvenuto');
 
   // Generate a short preview (first sentence or max 80 chars)
   const getPreview = (text: string) => {
@@ -29,7 +32,6 @@ const AIInsightCard: React.FC = () => {
             <Loader2 className="w-5 h-5 text-primary animate-spin" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
             <p className="text-xs text-muted-foreground">Analizzando i tuoi dati...</p>
           </div>
         </div>
@@ -38,7 +40,7 @@ const AIInsightCard: React.FC = () => {
   }
 
   // Error or empty state
-  if (error || !aiSummary) {
+  if (error || !hasContent) {
     return (
       <div className="bg-card rounded-3xl p-5 shadow-premium border border-border/50">
         <div className="flex items-center gap-3">
@@ -46,7 +48,6 @@ const AIInsightCard: React.FC = () => {
             <Sparkles className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
             <p className="text-xs text-muted-foreground">
               {error || 'Interagisci con l\'app per sbloccare insight personalizzati'}
             </p>
@@ -71,63 +72,36 @@ const AIInsightCard: React.FC = () => {
               )} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-foreground">AI Insight</h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                  Personalizzato
-                </span>
-              </div>
               {!isOpen && (
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                <p className="text-sm text-muted-foreground line-clamp-2">
                   {getPreview(aiSummary)}
                 </p>
               )}
             </div>
             <ChevronDown className={cn(
-              "w-5 h-5 text-muted-foreground transition-transform duration-300",
+              "w-5 h-5 text-muted-foreground transition-transform duration-300 flex-shrink-0",
               isOpen && "rotate-180"
             )} />
           </div>
         </CollapsibleTrigger>
 
         <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-          <div className="px-5 pb-5 space-y-4">
-            {/* Sintesi AI */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10">
-              <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wide mb-1.5">
-                    Sintesi AI
-                  </h4>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {aiSummary}
-                  </p>
-                </div>
-              </div>
+          <div className="px-5 pb-5 space-y-3">
+            {/* AI Summary - solo icona */}
+            <div className="px-4 py-3 bg-primary/5 rounded-2xl border border-primary/10">
+              <p className="text-sm text-foreground/90 flex items-start gap-2.5 leading-relaxed">
+                <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                <span>{aiSummary}</span>
+              </p>
             </div>
 
-            {/* Insight Focale - if we have focus areas */}
-            {focusAreas.length > 0 && (
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100/50">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1.5">
-                      Insight Focale
-                    </h4>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {focusAreas.length === 1 
-                        ? `Oggi concentrati su: ${focusAreas[0]}`
-                        : `Le aree su cui concentrarti oggi sono: ${focusAreas.join(', ')}.`
-                      }
-                    </p>
-                  </div>
-                </div>
+            {/* Focus Insight - solo icona */}
+            {focusInsight && (
+              <div className="px-4 py-3 bg-amber-50/80 rounded-2xl border border-amber-100/50">
+                <p className="text-sm text-foreground/90 flex items-start gap-2.5 leading-relaxed">
+                  <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <span>{focusInsight}</span>
+                </p>
               </div>
             )}
           </div>
