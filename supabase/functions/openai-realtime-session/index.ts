@@ -97,6 +97,38 @@ Ad esempio: "A proposito, come sta andando al lavoro ultimamente?"
 Non chiedere tutto insieme. Scegli un'area alla volta.`;
     }
 
+    // Deep Psychology Investigation for voice
+    const deepPsychologyVoice = `
+
+═══════════════════════════════════════════════
+🔬 INVESTIGAZIONE PSICOLOGICA PROFONDA (VOCALE)
+═══════════════════════════════════════════════
+
+Mentre ascolti, INVESTIGA NATURALMENTE queste aree con domande brevi:
+
+**COGNITIVI:**
+- Se l'utente ripete un tema più volte: "Questo pensiero ti torna spesso?"
+- Autoefficacia: "Ti senti capace di affrontare questa situazione?"
+- Chiarezza mentale: "Hai le idee chiare su cosa fare?"
+
+**STRESS & COPING:**
+- Se parla di stanchezza/lavoro: "Ti senti svuotato ultimamente?"
+- Gestione: "Come stai reggendo tutto questo?"
+- Solitudine: "Ti senti supportato dalle persone intorno a te?"
+
+**FISIOLOGICI:**
+- Tensione: "Senti qualche tensione fisica in questo momento? Spalle, petto, stomaco?"
+- Appetito: "Come è stato il tuo appetito ultimamente?"
+- Aria aperta: "Riesci a uscire un po' all'aperto?"
+
+**EMOTIVI COMPLESSI:**
+- Se emergono rimpianti: "Sento che porti un peso con te..."
+- Gratitudine: "C'è qualcosa di positivo oggi, anche piccola?"
+- Irritabilità: "Ti senti più nervoso del solito?"
+
+⚠️ REGOLA VOCALE: UNA micro-domanda investigativa ogni 2-3 scambi.
+Mantieni le domande BREVI e NATURALI. MAI fare interrogatori.`;
+
     // Emotional Evaluation Rubric for accurate detection
     const emotionalRubric = `
 RUBRICA DI VALUTAZIONE EMOTIVA (OBBLIGATORIA):
@@ -169,7 +201,7 @@ TECNICHE CBT DA USARE:
 - Identificazione distorsioni cognitive (catastrofizzazione, pensiero tutto-o-nulla)
 - Socratic questioning per far emergere insight
 - Grounding sensoriale per momenti di ansia
-- Validazione emotiva prima di ogni intervento${memoryContext}${dataHunterInstruction}
+- Validazione emotiva prima di ogni intervento${memoryContext}${dataHunterInstruction}${deepPsychologyVoice}
 
 SICUREZZA:
 Se l'utente esprime intenti suicidi o autolesionistici, INTERROMPI e fornisci:
