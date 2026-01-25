@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface MetricConfig {
   key: string;
@@ -48,7 +49,7 @@ export function useAIDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLayout = useCallback(async () => {
+  const fetchLayout = useCallback(async (forceRefresh = false) => {
     if (!user || !session?.access_token) {
       setIsLoading(false);
       return;
@@ -57,6 +58,33 @@ export function useAIDashboard() {
     try {
       setIsLoading(true);
       setError(null);
+
+      // First check if we have cached data and if it's still valid
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('ai_dashboard_cache, ai_cache_updated_at, last_data_change_at')
+        .eq('user_id', user.id)
+        .single();
+
+      const cacheUpdatedAt = profile?.ai_cache_updated_at ? new Date(profile.ai_cache_updated_at as string) : null;
+      const lastDataChange = profile?.last_data_change_at ? new Date(profile.last_data_change_at as string) : null;
+      const cachedLayout = profile?.ai_dashboard_cache as unknown as DashboardLayout | null;
+
+      // Use cache if: has cache, not forcing refresh, and no new data since last cache
+      const shouldUseCache = !forceRefresh && 
+        cachedLayout && 
+        cacheUpdatedAt && 
+        lastDataChange && 
+        cacheUpdatedAt >= lastDataChange;
+
+      if (shouldUseCache && cachedLayout) {
+        console.log('[useAIDashboard] Using cached layout');
+        setLayout(cachedLayout);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('[useAIDashboard] Fetching fresh AI layout');
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-dashboard`,
@@ -73,10 +101,13 @@ export function useAIDashboard() {
       if (!response.ok) {
         if (response.status === 429) {
           setError('Limite richieste raggiunto');
+          // Use cache as fallback
+          if (cachedLayout) setLayout(cachedLayout);
           return;
         }
         if (response.status === 402) {
           setError('Crediti AI esauriti');
+          if (cachedLayout) setLayout(cachedLayout);
           return;
         }
         throw new Error(`HTTP ${response.status}`);
@@ -86,12 +117,23 @@ export function useAIDashboard() {
       
       // Validate and use data
       if (data.primary_metrics && Array.isArray(data.primary_metrics)) {
-        setLayout({
+        const newLayout: DashboardLayout = {
           primary_metrics: data.primary_metrics,
           widgets: data.widgets || DEFAULT_LAYOUT.widgets,
           ai_message: data.ai_message || DEFAULT_LAYOUT.ai_message,
           focus_areas: data.focus_areas || [],
-        });
+        };
+        
+        setLayout(newLayout);
+
+        // Save to cache
+        await supabase
+          .from('user_profiles')
+          .update({
+            ai_dashboard_cache: newLayout as unknown as null,
+            ai_cache_updated_at: new Date().toISOString(),
+          } as Record<string, unknown>)
+          .eq('user_id', user.id);
       }
     } catch (err) {
       console.error('useAIDashboard error:', err);
@@ -109,6 +151,6 @@ export function useAIDashboard() {
     layout,
     isLoading,
     error,
-    refetch: fetchLayout,
+    refetch: () => fetchLayout(true), // Force refresh when manually called
   };
 }

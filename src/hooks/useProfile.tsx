@@ -14,8 +14,14 @@ export interface UserProfile {
   connection_code?: string | null;
   active_dashboard_metrics?: string[] | null;
   onboarding_completed?: boolean;
-  onboarding_answers?: Record<string, any> | null;
+  onboarding_answers?: Record<string, unknown> | null;
   selected_goals?: string[] | null;
+  // AI cache fields
+  ai_dashboard_cache?: Record<string, unknown> | null;
+  ai_analysis_cache?: Record<string, unknown> | null;
+  ai_insights_cache?: Record<string, unknown> | null;
+  ai_cache_updated_at?: string | null;
+  last_data_change_at?: string | null;
 }
 
 export const useProfile = () => {

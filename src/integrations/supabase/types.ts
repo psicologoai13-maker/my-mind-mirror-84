@@ -445,11 +445,16 @@ export type Database = {
       user_profiles: {
         Row: {
           active_dashboard_metrics: string[] | null
+          ai_analysis_cache: Json | null
+          ai_cache_updated_at: string | null
+          ai_dashboard_cache: Json | null
+          ai_insights_cache: Json | null
           connection_code: string | null
           created_at: string
           dashboard_config: Json | null
           email: string | null
           id: string
+          last_data_change_at: string | null
           life_areas_scores: Json | null
           long_term_memory: string[] | null
           name: string | null
@@ -461,11 +466,16 @@ export type Database = {
         }
         Insert: {
           active_dashboard_metrics?: string[] | null
+          ai_analysis_cache?: Json | null
+          ai_cache_updated_at?: string | null
+          ai_dashboard_cache?: Json | null
+          ai_insights_cache?: Json | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
           email?: string | null
           id?: string
+          last_data_change_at?: string | null
           life_areas_scores?: Json | null
           long_term_memory?: string[] | null
           name?: string | null
@@ -477,11 +487,16 @@ export type Database = {
         }
         Update: {
           active_dashboard_metrics?: string[] | null
+          ai_analysis_cache?: Json | null
+          ai_cache_updated_at?: string | null
+          ai_dashboard_cache?: Json | null
+          ai_insights_cache?: Json | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
           email?: string | null
           id?: string
+          last_data_change_at?: string | null
           life_areas_scores?: Json | null
           long_term_memory?: string[] | null
           name?: string | null
