@@ -149,21 +149,27 @@ serve(async (req) => {
     const sessionContext = recentSessions?.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
     const emotionTags = recentSessions?.flatMap((s: any) => s.emotion_tags || []) || [];
 
-    const systemPrompt = `Sei uno psicologo clinico che sceglie quali domande fare a un utente per il suo check-in giornaliero.
+    const systemPrompt = `Sei uno psicologo clinico esperto che sceglie quali domande fare a un utente per il suo check-in giornaliero.
 
-Obiettivo: Scegli le 4 domande PIÙ RILEVANTI da porre oggi, basandoti su:
+Obiettivo: Scegli le 8 domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza, basandoti su:
 1. Gli obiettivi dell'utente (priorità massima)
-2. I temi emersi nelle sessioni recenti
+2. I temi emersi nelle sessioni recenti e pattern emotivi
 3. Le emozioni rilevate di recente
-4. La varietà (non chiedere solo parametri simili)
+4. La varietà (mescola vitali, aree vita, emozioni e psicologia profonda)
+5. L'urgenza clinica (es. ansia alta o burnout vanno chiesti prima)
 
 REGOLE:
-- Scegli ESATTAMENTE 4 domande dalla lista disponibile
+- Scegli ESATTAMENTE 8 domande dalla lista disponibile
+- ORDINA per importanza: le prime 4 sono le più urgenti/rilevanti
 - Fornisci una breve motivazione (max 5 parole) per ogni scelta
 - Rispondi SOLO con JSON valido, senza markdown
 
 Formato risposta:
 [
+  {"key": "...", "reason": "..."},
+  {"key": "...", "reason": "..."},
+  {"key": "...", "reason": "..."},
+  {"key": "...", "reason": "..."},
   {"key": "...", "reason": "..."},
   {"key": "...", "reason": "..."},
   {"key": "...", "reason": "..."},
@@ -181,7 +187,7 @@ Emozioni recenti: ${emotionTags.length > 0 ? emotionTags.join(", ") : "Non rilev
 Domande disponibili (non ancora risposte oggi):
 ${availableItemsText}
 
-Scegli le 4 domande più rilevanti:`;
+Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
 
     // Call Lovable AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -218,8 +224,8 @@ Scegli le 4 domande più rilevanti:`;
         });
       }
       
-      // Fallback to first 4 available items
-      const fallbackCheckins = availableItems.slice(0, 4).map(item => ({
+      // Fallback to first 8 available items
+      const fallbackCheckins = availableItems.slice(0, 8).map(item => ({
         ...item,
         reason: "Suggerimento automatico",
       }));
@@ -239,13 +245,13 @@ Scegli le 4 domande più rilevanti:`;
       aiSelection = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error("[ai-checkins] Failed to parse AI response:", content);
-      // Fallback
-      aiSelection = availableItems.slice(0, 4).map(item => ({ key: item.key, reason: "Suggerimento" }));
+      // Fallback - return first 8 available items
+      aiSelection = availableItems.slice(0, 8).map(item => ({ key: item.key, reason: "Suggerimento" }));
     }
 
-    // Build final checkins with full item data
+    // Build final checkins with full item data - now up to 8 items
     const selectedCheckins = aiSelection
-      .slice(0, 4)
+      .slice(0, 8)
       .map(sel => {
         const item = availableItems.find(i => i.key === sel.key);
         if (!item) return null;
@@ -256,8 +262,8 @@ Scegli le 4 domande più rilevanti:`;
       })
       .filter(Boolean);
 
-    // If AI didn't return enough, fill with remaining items
-    while (selectedCheckins.length < 4 && availableItems.length > selectedCheckins.length) {
+    // If AI didn't return enough, fill with remaining items up to 8
+    while (selectedCheckins.length < 8 && availableItems.length > selectedCheckins.length) {
       const nextItem = availableItems.find(i => !selectedCheckins.some((s: any) => s.key === i.key));
       if (nextItem) {
         selectedCheckins.push({ ...nextItem, reason: "Suggerimento" });

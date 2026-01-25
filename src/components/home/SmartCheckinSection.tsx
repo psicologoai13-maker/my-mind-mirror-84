@@ -281,10 +281,10 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
         </div>
       )}
 
-      {/* Check-in grid - compact 4 per row, show up to 8 */}
+      {/* Check-in grid - always show exactly 4 boxes in a row */}
       {!activeItem && (
         <div className="grid grid-cols-4 gap-2">
-          {visibleCheckins.slice(0, 8).map((item, index) => (
+          {visibleCheckins.slice(0, 4).map((item, index) => (
             <button
               key={item.key}
               onClick={() => handleItemClick(item)}
