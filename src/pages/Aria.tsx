@@ -83,18 +83,28 @@ const Aria: React.FC = () => {
   return (
     <MobileLayout>
       <div className="p-4 pb-28 space-y-6">
-        {/* Single Session Button */}
-        <button
-          onClick={handleStartChat}
-          className="w-full flex items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-primary/10 via-purple-50 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all shadow-card"
-        >
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-primary" />
-            <span className="text-muted-foreground">/</span>
-            <Mic className="w-5 h-5 text-purple-600" />
-          </div>
-          <span className="font-semibold text-foreground">Scrivi o parla con Aria</span>
-        </button>
+        {/* Session Type Selector - Two Boxes */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={handleStartChat}
+            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all"
+          >
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+              <MessageCircle className="w-6 h-6 text-primary" />
+            </div>
+            <span className="font-medium text-foreground text-sm">Scrivi con Aria</span>
+          </button>
+
+          <button
+            onClick={() => setShowVoiceModal(true)}
+            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-purple-100/50 to-primary/5 border border-purple-200/50 hover:border-purple-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+              <Mic className="w-6 h-6 text-purple-600" />
+            </div>
+            <span className="font-medium text-foreground text-sm">Parla con Aria</span>
+          </button>
+        </div>
 
         {/* Thematic Diaries */}
         <section>
