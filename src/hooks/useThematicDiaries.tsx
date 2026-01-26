@@ -176,6 +176,9 @@ export const useThematicDiaries = () => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['daily-life-areas', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['daily-emotions', user?.id] });
+      // CRITICAL: Invalidate the time-weighted life areas for instant dashboard update
+      queryClient.invalidateQueries({ queryKey: ['life-areas-weighted', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['daily-metrics-range', user?.id] });
     },
   });
 
