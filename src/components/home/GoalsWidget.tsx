@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, Moon, Heart, Zap, Brain, Check, TrendingUp, Settings2 } from 'lucide-react';
+import { Target, Moon, Heart, Zap, Brain, Check, TrendingUp, Settings2, Award, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useProfile } from '@/hooks/useProfile';
-import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
+import { useAIDashboard, GoalEvaluation } from '@/hooks/useAIDashboard';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -80,8 +80,9 @@ const goalConfigs: GoalConfig[] = [
 
 const GoalsWidget: React.FC = () => {
   const { profile, updateProfile } = useProfile();
-  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
-  const { vitals, lifeAreas, hasData, daysWithData } = useTimeWeightedMetrics(30, 7);
+  // 🎯 AI-DRIVEN: Use AI evaluation for goals
+  const { layout } = useAIDashboard();
+  const goalsEvaluation = layout.goals_evaluation || [];
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGoalsLocal, setSelectedGoalsLocal] = useState<string[]>([]);
 
@@ -118,52 +119,26 @@ const GoalsWidget: React.FC = () => {
     setIsDialogOpen(true);
   };
 
-  // Calculate progress using unified time-weighted metrics
-  const calculateProgress = (goalConfig: GoalConfig): { average: number; progress: number; isOnTrack: boolean } => {
-    if (!hasData) {
-      return { average: 0, progress: 0, isOnTrack: false };
+  // Get AI evaluation for a specific goal
+  const getGoalEvaluation = (goalId: string): GoalEvaluation | null => {
+    return goalsEvaluation.find(e => e.goal_id === goalId) || null;
+  };
+
+  // Get status icon and color based on AI evaluation
+  const getStatusDisplay = (evaluation: GoalEvaluation | null) => {
+    if (!evaluation) {
+      return { icon: TrendingUp, color: 'text-muted-foreground', bgColor: 'bg-muted', label: 'In corso' };
     }
-
-    let value: number | null = null;
-
-    switch (goalConfig.metric) {
-      case 'anxiety':
-        value = vitals.anxiety;
-        break;
-      case 'sleep':
-        value = vitals.sleep;
-        break;
-      case 'mood':
-        value = vitals.mood;
-        break;
-      case 'energy':
-        value = vitals.energy;
-        break;
-      case 'love':
-        value = lifeAreas.love;
-        break;
-      default:
-        break;
-    }
-
-    if (value === null || value === 0) {
-      return { average: 0, progress: 0, isOnTrack: false };
-    }
-
-    const average = value;
     
-    let progress: number;
-    let isOnTrack: boolean;
-
-    if (goalConfig.targetCondition === 'below') {
-      isOnTrack = average <= goalConfig.targetValue;
-      progress = Math.max(0, Math.min(100, ((10 - average) / (10 - goalConfig.targetValue)) * 100));
-    } else {
-      isOnTrack = average >= goalConfig.targetValue;
-      progress = Math.max(0, Math.min(100, (average / goalConfig.targetValue) * 100));
+    switch (evaluation.status) {
+      case 'achieved':
+        return { icon: Award, color: 'text-emerald-600', bgColor: 'bg-emerald-100', label: 'Raggiunto!' };
+      case 'struggling':
+        return { icon: AlertTriangle, color: 'text-amber-600', bgColor: 'bg-amber-100', label: 'Da migliorare' };
+      case 'in_progress':
+      default:
+        return { icon: TrendingUp, color: 'text-primary', bgColor: 'bg-primary/10', label: 'In corso' };
     }
-
-    return { average: Math.round(average * 10) / 10, progress: Math.round(progress), isOnTrack };
   };
 
   // Goal Selection Dialog with multi-select
@@ -257,23 +232,22 @@ const GoalsWidget: React.FC = () => {
   if (activeGoalConfigs.length === 1) {
     const goalConfig = activeGoalConfigs[0];
     const Icon = goalConfig.icon;
-    const { average, progress, isOnTrack } = calculateProgress(goalConfig);
+    const evaluation = getGoalEvaluation(goalConfig.id);
+    const statusDisplay = getStatusDisplay(evaluation);
+    const StatusIcon = statusDisplay.icon;
+    const progress = evaluation?.progress ?? 0;
 
     return (
       <>
         {GoalSelectionDialog}
-        <div className="bg-card rounded-3xl p-6 shadow-premium">
+        <div className="space-y-3">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className={cn(
-              "w-11 h-11 rounded-2xl flex items-center justify-center",
-              goalConfig.bgColor
-            )}>
-              <Icon className={cn("w-5 h-5", goalConfig.color)} />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground font-medium">Il tuo obiettivo</p>
-              <h3 className="text-base font-semibold text-foreground">{goalConfig.label}</h3>
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Target className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground">I tuoi obiettivi</h3>
             </div>
             <button 
               onClick={openDialog}
@@ -283,52 +257,47 @@ const GoalsWidget: React.FC = () => {
             </button>
           </div>
 
-          {/* Status Badge */}
-          {average > 0 && (
-            <div className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 mb-3",
-              isOnTrack 
-                ? "bg-emerald-100 text-emerald-700" 
-                : "bg-amber-100 text-amber-700"
-            )}>
-              {isOnTrack ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  In linea con l'obiettivo
-                </>
-              ) : (
-                <>
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  Continua così
-                </>
-              )}
+          <div className="bg-card rounded-3xl p-6 shadow-premium">
+            {/* Card Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className={cn(
+                "w-11 h-11 rounded-2xl flex items-center justify-center",
+                goalConfig.bgColor
+              )}>
+                <Icon className={cn("w-5 h-5", goalConfig.color)} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-foreground">{goalConfig.label}</h3>
+              </div>
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                statusDisplay.bgColor
+              )}>
+                <StatusIcon className={cn("w-4 h-4", statusDisplay.color)} />
+              </div>
             </div>
-          )}
 
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progresso settimanale</span>
-              <span className="font-medium text-foreground">{progress}%</span>
+            {/* AI Feedback */}
+            {evaluation?.ai_feedback && (
+              <div className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 mb-3",
+                statusDisplay.bgColor, statusDisplay.color
+              )}>
+                {evaluation.ai_feedback}
+              </div>
+            )}
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Progresso</span>
+                <span className="font-medium text-foreground">{progress}%</span>
+              </div>
+              <Progress 
+                value={progress} 
+                className="h-3 bg-muted"
+              />
             </div>
-            <Progress 
-              value={progress} 
-              className="h-3 bg-muted"
-            />
-            {average > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Media ultimi 7 giorni: <span className="font-medium text-foreground">{average}/10</span>
-                {goalConfig.targetCondition === 'below' 
-                  ? ` (obiettivo: < ${goalConfig.targetValue})`
-                  : ` (obiettivo: > ${goalConfig.targetValue})`
-                }
-              </p>
-            )}
-            {average === 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Inizia a registrare i tuoi dati per vedere i progressi 💪
-              </p>
-            )}
           </div>
         </div>
       </>
@@ -341,7 +310,13 @@ const GoalsWidget: React.FC = () => {
       {GoalSelectionDialog}
       <div className="space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-end px-1">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <Target className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">I tuoi obiettivi</h3>
+          </div>
           <button 
             onClick={openDialog}
             className="p-2 rounded-xl hover:bg-muted transition-colors"
@@ -354,7 +329,10 @@ const GoalsWidget: React.FC = () => {
         <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-6 px-6">
           {activeGoalConfigs.map((goalConfig) => {
             const Icon = goalConfig.icon;
-            const { average, progress, isOnTrack } = calculateProgress(goalConfig);
+            const evaluation = getGoalEvaluation(goalConfig.id);
+            const statusDisplay = getStatusDisplay(evaluation);
+            const StatusIcon = statusDisplay.icon;
+            const progress = evaluation?.progress ?? 0;
 
             return (
               <div 
@@ -371,25 +349,18 @@ const GoalsWidget: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold text-foreground truncate">{goalConfig.label}</h4>
-                    <p className="text-xs text-muted-foreground">
-                      {goalConfig.targetCondition === 'below' 
-                        ? `< ${goalConfig.targetValue}/10`
-                        : `> ${goalConfig.targetValue}/10`
-                      }
-                    </p>
+                    {evaluation?.ai_feedback && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {evaluation.ai_feedback}
+                      </p>
+                    )}
                   </div>
-                  {average > 0 && (
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center",
-                      isOnTrack ? "bg-emerald-100" : "bg-amber-100"
-                    )}>
-                      {isOnTrack ? (
-                        <Check className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <TrendingUp className="w-4 h-4 text-amber-600" />
-                      )}
-                    </div>
-                  )}
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center",
+                    statusDisplay.bgColor
+                  )}>
+                    <StatusIcon className={cn("w-4 h-4", statusDisplay.color)} />
+                  </div>
                 </div>
 
                 {/* Progress */}
@@ -402,15 +373,6 @@ const GoalsWidget: React.FC = () => {
                     value={progress} 
                     className="h-2.5 bg-muted"
                   />
-                  {average > 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Media: <span className="font-medium text-foreground">{average}/10</span>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Registra dati per vedere i progressi
-                    </p>
-                  )}
                 </div>
               </div>
             );

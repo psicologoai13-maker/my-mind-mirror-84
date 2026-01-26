@@ -68,6 +68,13 @@ interface UserContext {
   primary_life_area?: string;
 }
 
+interface GoalUpdate {
+  goal_id: string;
+  action: 'keep' | 'suggest_add' | 'suggest_remove' | 'achieved';
+  reason: string;
+  progress_score?: number; // 0-100
+}
+
 interface OmniscientAnalysis {
   vitals: {
     mood: number | null;
@@ -87,6 +94,8 @@ interface OmniscientAnalysis {
   crisis_risk: 'low' | 'medium' | 'high';
   clinical_indices: ClinicalIndices;
   recommended_dashboard_metrics: string[];
+  goal_updates?: GoalUpdate[];
+  suggested_new_goals?: string[];
 }
 
 // All available metrics for the adaptive dashboard
@@ -160,6 +169,32 @@ const buildPriorityAnalysisInstructions = (
     instructions.push(`🎯 AREA VITA PRIMARIA: ${areaLabels[primaryLifeArea] || primaryLifeArea}
     - Questa è l'area PIÙ IMPORTANTE per l'utente.
     - DEVI estrarre un punteggio per questa area se c'è qualsiasi indizio.`);
+  }
+
+  // Goal progress analysis
+  if (goals.length > 0) {
+    const goalsListText = goals.map(g => {
+      const goalLabels: Record<string, string> = {
+        reduce_anxiety: 'Ridurre Ansia',
+        improve_sleep: 'Dormire Meglio',
+        find_love: 'Migliorare Relazioni',
+        boost_energy: 'Aumentare Energia',
+        express_feelings: 'Sfogarmi/Esprimere Emozioni',
+        emotional_stability: 'Stabilità Emotiva',
+      };
+      return `- ${g}: ${goalLabels[g] || g}`;
+    }).join('\n');
+    
+    instructions.push(`🎯 VALUTAZIONE OBIETTIVI UTENTE:
+Gli obiettivi attivi sono:
+${goalsListText}
+
+Per OGNI obiettivo, valuta:
+1. PROGRESSO (0-100%): Quanto l'utente sta facendo progressi?
+2. STATO: "keep" (continua), "achieved" (raggiunto!), "suggest_remove" (non più rilevante)
+3. Se l'utente menziona NUOVI focus che potrebbero diventare obiettivi, suggeriscili.
+
+IDs validi per nuovi obiettivi: reduce_anxiety, improve_sleep, find_love, boost_energy, express_feelings, emotional_stability`);
   }
 
   return instructions.length > 0 
@@ -358,7 +393,11 @@ ${deepPsychologyPrompt}
     "emotional_openness": <1-10 o null>,
     "perceived_stress": <1-10 o null>
   },
-  "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"]
+  "recommended_dashboard_metrics": ["metric1", "metric2", "metric3", "metric4"],
+  "goal_updates": [
+    {"goal_id": "reduce_anxiety", "action": "keep|achieved|suggest_remove", "reason": "Spiegazione breve", "progress_score": 75}
+  ],
+  "suggested_new_goals": ["goal_id se emerge un nuovo focus dalla conversazione"]
 }
 
 ═══════════════════════════════════════════════
