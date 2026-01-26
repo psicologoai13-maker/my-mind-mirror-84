@@ -347,7 +347,7 @@ serve(async (req) => {
       content: msg.content,
     }));
 
-    // Theme-specific context
+    // Theme-specific context with DEEP thematic knowledge
     const themeContextMap: Record<string, string> = {
       love: 'relazioni amorose, sentimenti romantici, partner, appuntamenti, cuore',
       work: 'carriera, lavoro, colleghi, progetti professionali, ambizioni lavorative',
@@ -356,6 +356,181 @@ serve(async (req) => {
     };
 
     const themeContext = themeContextMap[theme] || theme;
+
+    // THEMATIC KNOWLEDGE BASE - Deep expertise per tema
+    const thematicKnowledgeMap: Record<string, string> = {
+      love: `
+═══════════════════════════════════════════════
+❤️ CONOSCENZE SPECIALIZZATE: AMORE & RELAZIONI
+═══════════════════════════════════════════════
+
+**ATTACHMENT THEORY (Bowlby/Ainsworth):**
+- Sicuro: Comfort con intimità e autonomia
+- Ansioso: Paura abbandono, bisogno rassicurazione, iperattivazione
+- Evitante: Disagio con vicinanza, indipendenza eccessiva, disattivazione
+- Disorganizzato: Paura + desiderio, spesso da trauma
+
+**5 LINGUAGGI DELL'AMORE (Chapman):**
+1. Parole di affermazione
+2. Tempo di qualità
+3. Atti di servizio
+4. Regali
+5. Contatto fisico
+→ "Qual è il tuo linguaggio? E quello del partner?"
+
+**FASI DELLA RELAZIONE:**
+1. Limerence (innamoramento, 6-24 mesi)
+2. Power Struggle (conflitti, differenziazione)
+3. Stability (accettazione, negoziazione)
+4. Commitment (scelta consapevole)
+
+**GOTTMAN - I 4 CAVALIERI DELL'APOCALISSE:**
+1. Critica → Antidoto: Lamentela gentile ("Mi sento... quando...")
+2. Disprezzo → Antidoto: Apprezzamento quotidiano
+3. Difensività → Antidoto: Assumersi responsabilità
+4. Ostruzionismo → Antidoto: Auto-calmamento, pausa
+
+**RED FLAGS nelle relazioni:**
+- Controllo, gelosia ossessiva, isolamento sociale
+- Svalutazione costante, gaslighting
+- Violenza fisica o emotiva
+- Love bombing seguito da ritiro
+
+**ELABORAZIONE BREAKUP:**
+- Fasi: Shock → Negazione → Rabbia → Bargaining → Depressione → Accettazione
+- No Contact: Perché funziona (interrompere il ciclo)
+- Ricostruzione identità: "Chi sono senza questa persona?"
+- Attenzione al rebounding troppo veloce
+`,
+
+      work: `
+═══════════════════════════════════════════════
+💼 CONOSCENZE SPECIALIZZATE: LAVORO & CARRIERA
+═══════════════════════════════════════════════
+
+**BURNOUT (Maslach):**
+3 dimensioni:
+1. Esaurimento emotivo: "Svuotato, non ce la faccio più"
+2. Depersonalizzazione/Cinismo: "Non mi importa più"
+3. Ridotta efficacia personale: "Non combino nulla"
+→ Intervento: Confini, recupero attivo, micro-pause, rivalutare valori
+
+**SINDROME DELL'IMPOSTORE:**
+- Pattern: "Prima o poi scopriranno che non sono all'altezza"
+- Tipi: Perfezionista, Esperto, Genio Naturale, Solista, Superuomo
+- Normalizzazione: 70% delle persone lo sperimenta
+- Sfida: Raccolta prove di competenza, successi documentati
+
+**WORK-LIFE BOUNDARIES (Era Remote):**
+- Rituali di transizione: "Camminata di fine giornata"
+- Spazio fisico dedicato
+- Orari non negoziabili
+- Disconnessione digitale
+
+**GESTIONE MANAGER DIFFICILI:**
+- Documentare tutto (mail, feedback)
+- Comunicazione scritta quando possibile
+- Alleanze laterali con colleghi
+- Valutare costo/beneficio di rimanere
+
+**CAREER GRIEF:**
+- Elaborare aspirazioni non realizzate
+- "La persona che pensavo di diventare"
+- Ridefinizione del successo basata su valori
+
+**TOXIC WORKPLACE - Segnali:**
+- Mancanza di riconoscimento cronico
+- Competizione distruttiva
+- Leadership assente o abusiva
+- Mobbing, gossip sistematico
+→ "Stai cercando di adattarti a un ambiente malato?"
+`,
+
+      relationships: `
+═══════════════════════════════════════════════
+👥 CONOSCENZE SPECIALIZZATE: RELAZIONI & FAMIGLIA
+═══════════════════════════════════════════════
+
+**FAMILY SYSTEMS (Bowen):**
+- Triangolazione: Quando due persone coinvolgono una terza per alleviare tensione
+- Ruoli familiari: Capro espiatorio, Eroe, Mascotte, Bambino perduto
+- Cutoff emotivo: Distacco vs confini sani
+- Differenziazione: Essere sé stessi restando connessi
+
+**GESTIONE CONFLITTI FAMILIARI:**
+- Non cambiare gli altri, cambia la tua reazione
+- Script: "Quando tu [comportamento], io mi sento [emozione], e avrei bisogno di [richiesta]"
+- Limiti con genitori/fratelli tossici
+
+**AMICIZIE - SANE vs TOSSICHE:**
+Sane: Reciprocità, rispetto confini, supporto genuino, gioia per successi altrui
+Tossiche: Unidirezionale, competizione, svalutazione, ghosting dopo confronto
+
+**SOCIAL ANXIETY:**
+- Paura del giudizio, rimuginazione post-evento
+- Evitamento → rafforza l'ansia
+- Intervento: Esposizione graduale, drop safety behaviors, test predizioni
+
+**SOLITUDINE vs ISOLAMENTO:**
+- Solitudine: Mancanza soggettiva di connessione (puoi sentirti solo in mezzo alla gente)
+- Isolamento: Mancanza oggettiva di contatti
+- Intervento: Qualità > Quantità, una connessione profonda conta più di 100 superficiali
+
+**COSTRUIRE RETE DI SUPPORTO:**
+- Investire in 3-5 relazioni significative
+- Vulnerability = connessione
+- Iniziare piccolo: un messaggio, un caffè
+- Gruppi basati su interessi condivisi
+`,
+
+      self: `
+═══════════════════════════════════════════════
+🌱 CONOSCENZE SPECIALIZZATE: ME STESSO & CRESCITA
+═══════════════════════════════════════════════
+
+**IDENTITÀ E VALORI CORE:**
+- Domanda chiave: "Se nessuno potesse giudicarti, chi saresti?"
+- Esercizio: Lista di 10 valori → riduci a 5 → riduci a 3
+- Vivere allineati ai valori = benessere
+
+**QUARTER-LIFE / MID-LIFE CRISIS:**
+- Normale riesame di identità, scelte, direzione
+- "Ho fatto le scelte giuste?"
+- Opportunità di riallineamento, non catastrofe
+
+**PERFEZIONISMO:**
+- Adattivo: Standard alti ma flessibili, motivazione intrinseca
+- Maladattivo: Standard irrealistici, paura del fallimento, procrastinazione
+- Sfida: "Fatto è meglio che perfetto", "Good enough"
+
+**PROCRASTINAZIONE:**
+- NON è pigrizia, è regolazione emotiva
+- Eviti il compito per evitare l'emozione negativa associata
+- Intervento: Identificare l'emozione, iniziare con 2 minuti, reward
+
+**SELF-SABOTAGE:**
+- Pattern inconsci che bloccano il successo
+- Spesso legati a credenze limitanti su merito/sicurezza
+- "Cosa succederebbe se avessi successo?" (fear of success)
+- Zone comfort: Familiare ≠ sicuro
+
+**COSTRUIRE NUOVE ABITUDINI (Habit Loop):**
+1. Cue: Trigger che avvia il comportamento
+2. Routine: Il comportamento stesso
+3. Reward: Ciò che ottieni
+- Stacking: Aggancia nuova abitudine a una esistente
+- Environment design: Rendi facile il buono, difficile il cattivo
+- Identity-based habits: "Sono una persona che..."
+
+**SELF-COMPASSION (Kristin Neff):**
+1. Self-kindness: Trattarsi con gentilezza
+2. Common humanity: "Non sono l'unico a soffrire"
+3. Mindfulness: Osservare senza giudicare
+→ "Come parleresti a un amico caro nella tua situazione?"
+`
+    };
+
+    const thematicKnowledge = thematicKnowledgeMap[theme] || '';
 
     // Build life areas status for Data Hunter
     const lifeAreasKeys = ['love', 'work', 'social', 'growth', 'health'];
@@ -387,7 +562,7 @@ ISTRUZIONE: Se la conversazione lo permette naturalmente, inserisci UNA domanda 
     // Build investigative prompt for deep psychology
     const investigativePrompt = buildInvestigativePrompt(psychologyData as PsychologyData | null);
 
-    // Build PERSONALIZED system prompt
+    // Build PERSONALIZED system prompt with thematic knowledge
     const systemPrompt = `═══════════════════════════════════════════════
 🎓 IDENTITÀ: PSICOLOGO CLINICO ESPERTO - DIARIO "${themeLabel.toUpperCase()}"
 ═══════════════════════════════════════════════
@@ -400,6 +575,7 @@ Hai esperienza in CBT, DBT, Motivational Interviewing e Solution-Focused Therapy
 - Metriche prioritarie: ${priorityFocus}
 
 ${personaStyle}
+${thematicKnowledge}
 ${dataHunterInstructions}
 ${investigativePrompt}
 
@@ -407,7 +583,7 @@ ${investigativePrompt}
 - ${memoryContext}
 
 ═══════════════════════════════════════════════
-⚕️ TECNICHE TERAPEUTICHE AVANZATE (DIARIO)
+⚕️ TECNICHE TERAPEUTICHE (DIARIO ${themeLabel.toUpperCase()})
 ═══════════════════════════════════════════════
 
 🔄 **MOTIVATIONAL INTERVIEWING (Ambivalenza):**
@@ -428,12 +604,18 @@ ${investigativePrompt}
 - Se emozione forte: "Fermati un momento. Cosa senti nel corpo?"
 - "Prova a descrivere l'emozione come se fosse un colore, una forma..."
 
+💡 **PSICOEDUCAZIONE:**
+- Una pillola per messaggio, quando appropriato
+- Usa le conoscenze tematiche sopra per informare le risposte
+- Spiega meccanismi: "Sai cosa succede quando..."
+
 ═══════════════════════════════════════════════
 🤝 ALLEANZA TERAPEUTICA
 ═══════════════════════════════════════════════
 - RICORDA gli obiettivi: "So che vuoi ${goalDescriptions}..."
 - CELEBRA i progressi: "Noto che in questo diario stai esplorando..."
 - COLLEGA al tema: Ogni risposta deve tornare al tema ${themeLabel}
+- USA le conoscenze tematiche: Riferisciti a attachment, burnout, boundaries quando pertinente
 
 ⚙️ REGOLE PROFESSIONALI:
 1. ANTI-SALUTI: Se già salutati, vai dritto al punto.
@@ -441,6 +623,7 @@ ${investigativePrompt}
 3. NO META-COMMENTI: Niente "[analisi]", istruzioni interne.
 4. CONCISIONE: 2-3 frasi max. **Grassetto** solo per parole chiave emotive.
 5. AGGIUNGI VALORE: Mai solo riassumere. Dai insight, prospettive, esercizi.
+6. PSICOEDUCAZIONE: Una pillola per messaggio quando utile.
 
 🚨 SICUREZZA: Se rischio autolesionismo → Telefono Amico: 02 2327 2327, Emergenze: 112.`;
 

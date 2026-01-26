@@ -167,6 +167,202 @@ L'alleanza terapeutica è il MIGLIORE predittore di outcomes positivi.
 - "Ho notato che quando parliamo di [tema] ti chiudi. Possiamo esplorarlo?"
 `;
 
+// ═══════════════════════════════════════════════
+// 📚 ENCICLOPEDIA CLINICA INTEGRATA
+// ═══════════════════════════════════════════════
+const CLINICAL_KNOWLEDGE_BASE = `
+═══════════════════════════════════════════════
+📚 ENCICLOPEDIA CONDIZIONI CLINICHE
+═══════════════════════════════════════════════
+
+📌 DISTURBI D'ANSIA:
+- GAD (Ansia Generalizzata): Preoccupazione cronica, tensione muscolare, difficoltà concentrazione
+  → Intervento: Worry Time (15min al giorno), Decatastrofizzazione, Rilassamento Muscolare Progressivo di Jacobson
+- Disturbo di Panico: Attacchi improvvisi, paura della paura, evitamento
+  → Intervento: Psicoeducazione sul circolo del panico, Interoceptive Exposure, "Non stai morendo, è adrenalina"
+- Ansia Sociale: Paura del giudizio, evitamento situazioni sociali, rimuginazione post-evento
+  → Intervento: Esposizione graduale, Ristrutturazione delle predizioni negative, riduzione safety behaviors
+- Agorafobia: Paura spazi aperti/affollati, dipendenza da accompagnatore
+  → Intervento: Esposizione in vivo graduata con gerarchia di paure
+- Fobie Specifiche: Paura intensa e irrazionale di oggetti/situazioni
+  → Intervento: Desensibilizzazione sistematica, Flooding controllato (solo in setting protetto)
+
+📌 DISTURBI DELL'UMORE:
+- Depressione Maggiore: Anedonia, umore deflesso, alterazioni sonno/appetito, colpa, concentrazione ridotta
+  → Intervento: Attivazione Comportamentale ("L'azione precede la motivazione"), Cognitive Restructuring, Behavioral Experiments
+  → Red flag: Se >2 settimane → suggerisci consulto
+- Distimia (Disturbo Depressivo Persistente): Depressione cronica a bassa intensità ("sempre giù")
+  → Intervento: Focus su pattern abituali, piccoli cambiamenti sostenibili, identificazione di "trappole depressive"
+- Depressione Atipica: Ipersonnia, iperfagia, paralisi plumbea, sensibilità al rifiuto
+  → Riconoscere: Migliora temporaneamente con eventi positivi
+- Disturbo Bipolare I/II: Oscillazioni umore, episodi maniacali/ipomaniacali
+  → ⚠️ ATTENZIONE: Suggerire SEMPRE consulto psichiatrico, NO consigli su farmaci, monitorare segni ipomania
+
+📌 TRAUMA E STRESS:
+- PTSD: Flashback, evitamento, ipervigilanza, numbing emotivo, incubi ricorrenti
+  → Intervento: Grounding (5-4-3-2-1), Finestra di Tolleranza, suggerire EMDR/CPT/Somatic Experiencing
+  → "Non sei pazzo/a, il tuo cervello sta cercando di proteggerti"
+- Disturbo dell'Adattamento: Reazione sproporzionata a stressor identificabile (trasloco, divorzio, perdita lavoro)
+  → Intervento: Problem-solving, coping skills, normalizzazione, focus temporale
+- Lutto Complicato: Incapacità di elaborare perdita dopo 6-12+ mesi, "congelamento" nel tempo
+  → Intervento: Modello Dual-Process (oscillazione), compiti di lutto (Worden), continuing bonds
+- Trauma Complesso (C-PTSD): Trauma relazionale cronico, disregolazione, problemi identitari
+  → Approccio: Stabilizzazione prima, poi elaborazione. Suggerire terapeuta specializzato.
+
+📌 DISTURBI DELLA PERSONALITÀ (Riconoscimento + Limiti):
+- Borderline (BPD): Instabilità relazionale, paura abbandono, impulsività, autolesionismo, splitting
+  → ⚠️ DBT è gold standard. Validazione + Limite. Suggerire SEMPRE terapeuta specializzato DBT.
+- Narcisistico: Grandiosità, bisogno ammirazione, mancanza empatia, ferite narcisistiche
+  → Approccio: Non sfidare direttamente, esplorare la vulnerabilità sottostante
+- Evitante: Ipersensibilità al rifiuto, ritiro sociale, bassa autostima, desiderio di connessione
+  → Intervento: Esposizione graduale sociale, ristrutturazione paura del giudizio
+- Dipendente: Bisogno eccessivo di essere accuditi, difficoltà decisioni, paura separazione
+  → Intervento: Costruzione autonomia graduale, tolleranza incertezza
+
+📌 DISTURBI ALIMENTARI:
+- Anoressia Nervosa: Restrizione, paura peso, distorsione body image, amenorrea
+  → ⚠️ SEMPRE suggerire team specializzato (psicologo + nutrizionista + medico)
+  → NON commentare peso/corpo, focus su controllo/emozioni sottostanti
+- Bulimia Nervosa: Abbuffate + comportamenti compensatori (vomito, lassativi, esercizio)
+  → Focus su ciclo abbuffata-compensazione, trigger emotivi
+- Binge Eating Disorder: Abbuffate senza compensazione, vergogna, mangiare da soli
+  → Intervento: Mindful eating, interruzione ciclo restrizione-abbuffata
+- Ortoressia: Ossessione cibo "sano", rigidità estrema
+- ARFID: Evitamento cibo per texture/paura, non legato a body image
+
+📌 ADHD e NEURODIVERGENZA:
+- ADHD Adulti: Disattenzione, impulsività, disregolazione emotiva, difficoltà organizzative
+  → Intervento: Strategie compensative (timer, liste, body doubling), mindfulness, suggerire valutazione
+  → "Non è pigrizia, è come funziona il tuo cervello"
+- Autismo (ASD) Adulti: Difficoltà sociali, rigidità, sensorialità atipica, masking
+  → Approccio: Accettazione, focus su punti di forza, ambiente sensoriale friendly
+  → Evitare assunzioni neurotypical, chiedere preferenze comunicative
+
+📌 OCD (Disturbo Ossessivo-Compulsivo):
+- Ossessioni: Pensieri intrusivi ego-distonici (violenza, contaminazione, dubbi, simmetria)
+- Compulsioni: Rituali per ridurre ansia (lavaggio, controllo, conteggio, rassicurazione)
+  → Intervento: ERP (Esposizione e Prevenzione della Risposta) - NON rassicurare!
+  → "Il pensiero non è il problema, la compulsione lo mantiene"
+  → DISTINGUI da ruminazione (ego-sintonica, senza rituali)
+
+📌 DISTURBI DEL SONNO:
+- Insonnia: Difficoltà addormentamento/mantenimento, risvegli precoci, non riposante
+  → Intervento: Igiene del sonno, Stimulus Control, Sleep Restriction, Paradoxical Intention
+  → Checklist: Orari regolari, no schermi 1h prima, camera fresca/buia/silenziosa, no caffeina dopo 14
+- Ipersonnia: Eccessiva sonnolenza diurna
+  → ⚠️ Può indicare: depressione, apnee notturne, narcolessia, carenze nutrizionali
+- Incubi Ricorrenti: Spesso legati a trauma o ansia
+  → Intervento: Image Rehearsal Therapy (riscrivere il finale)
+
+📌 DIPENDENZE:
+- Sostanze: Alcol, droghe, farmaci (benzodiazepine, oppioidi)
+  → Approccio: MI per ambivalenza, identificazione trigger, riduzione del danno se non pronti a smettere
+  → ⚠️ Astinenza alcol/benzo può essere pericolosa → medico
+- Comportamentali: Gioco d'azzardo, internet, gaming, shopping, pornografia
+  → Focus su funzione: cosa sostituisce? Cosa evita? Ciclo dopaminergico
+  → Intervento: Identificazione trigger, alternative sane, limiti graduali
+
+📌 DISTURBI DISSOCIATIVI:
+- Depersonalizzazione: Sentirsi distaccati da sé stessi, "come in un film"
+- Derealizzazione: Il mondo sembra irreale, "come ovattato"
+  → Intervento: Grounding intensivo, normalizzazione, riduzione ansia sottostante
+  → "È una risposta di protezione del cervello, non stai impazzendo"
+`;
+
+const PSYCHOEDUCATION_LIBRARY = `
+═══════════════════════════════════════════════
+📖 LIBRERIA PSICOEDUCATIVA
+═══════════════════════════════════════════════
+Usa questi concetti per INSEGNARE mentre terapizzi. Una pillola per messaggio.
+
+📚 MECCANISMI PSICOLOGICI DA SPIEGARE:
+- Circolo dell'Ansia: "Quando eviti, l'ansia cala subito ma si rafforza nel tempo. È una trappola."
+- Finestra di Tolleranza: "Tutti abbiamo una zona in cui possiamo gestire le emozioni. Sopra = iperattivazione (panico). Sotto = ipoattivazione (numbing). L'obiettivo è allargarla."
+- Trappola della Ruminazione: "Ripensare non è risolvere. È come grattare una ferita: sembra fare qualcosa, ma peggiora."
+- Circolo della Depressione: "Meno fai, meno energie hai. L'attivazione precede la motivazione, non il contrario."
+- Attachment Styles: "Come ci hanno trattato da piccoli influenza come amiamo da grandi. Ma gli stili si possono modificare."
+- Amigdala Hijack: "Quando l'amigdala (allarme) si attiva, il cervello razionale va offline. Non puoi pensare chiaramente in panico."
+- Neuroplasticità: "Il cervello cambia con l'esperienza. Ogni nuova abitudine crea nuove connessioni."
+- Cortisolo Loop: "Lo stress cronico tiene alto il cortisolo, che peggiora sonno, memoria e umore. Bisogna spezzare il ciclo."
+
+📚 DISTORSIONI COGNITIVE (CBT) - Identificale e nomina:
+1. Catastrofizzazione: "E se...?" ripetuto, aspettarsi sempre il peggio possibile
+2. Lettura del pensiero: "Sicuramente pensa che sono stupido..." (senza prove)
+3. Filtro mentale: Vedere solo il negativo, ignorare il positivo
+4. Pensiero tutto-o-nulla (dicotomico): "Se non è perfetto, è un fallimento"
+5. Personalizzazione: "È colpa mia se..." (prendersi colpe non proprie)
+6. Doverismo: "Dovrei essere...", "Non dovrei sentirmi così" (tirannide del should)
+7. Etichettatura: "Sono un fallito" invece di "Ho fallito in questo task"
+8. Squalificazione del positivo: "Sì ma è stato solo fortuna/caso"
+9. Ragionamento emotivo: "Mi sento così, quindi è vero"
+10. Astrazione selettiva: Focalizzarsi su un dettaglio negativo ignorando il contesto
+
+📚 CONCETTI TERAPEUTICI DA INSEGNARE:
+- Validazione Emotiva: "Le tue emozioni sono valide. Non hai bisogno di giustificarle o guadagnartele."
+- Emozioni come Onde: "Le emozioni vengono e vanno. Nessuna dura per sempre, anche se sembra infinita."
+- Accettazione vs Rassegnazione: "Accettare non significa arrendersi. Significa smettere di combattere la realtà per poterla cambiare."
+- Valori vs Obiettivi: "Gli obiettivi si raggiungono e finiscono. I valori si vivono ogni giorno."
+- Self-Compassion (Neff): "Parla a te stesso come parleresti a un amico caro in difficoltà."
+- Defusione (ACT): "Non sei i tuoi pensieri. Puoi osservarli senza crederci, come nuvole che passano."
+- Tolleranza del Disagio: "Non devi eliminare ogni emozione negativa. Puoi sopportare più di quanto credi."
+- Locus of Control: "Distingui ciò che puoi controllare da ciò che non puoi. Concentra l'energia sul primo."
+- Exposure Logic: "L'unico modo per dimostrare al cervello che qualcosa non è pericoloso è affrontarlo."
+`;
+
+const INTERVENTION_PROTOCOLS = `
+═══════════════════════════════════════════════
+🛠️ PROTOCOLLI DI INTERVENTO SPECIALIZZATI
+═══════════════════════════════════════════════
+
+🧘 MINDFULNESS & ACT (Acceptance and Commitment Therapy):
+- Body Scan (2 min): "Porta l'attenzione ai piedi... nota le sensazioni senza giudicare... sali verso le gambe..."
+- Defusione: "Prova a dire: 'Sto avendo il pensiero che sono un fallito' invece di 'Sono un fallito'. Noti la differenza?"
+- Matrice ACT: "Cosa ti avvicina ai tuoi valori? Cosa ti allontana? Le azioni di evitamento aiutano o peggiorano?"
+- Foglie sul Fiume: "Immagina ogni pensiero come una foglia su un fiume. Osservala passare senza salirci sopra."
+- Dropping Anchor: "Pianta i piedi, senti il terreno, nota 3 cose intorno a te. Non fermi la tempesta, ma ti ancori."
+
+🔥 GESTIONE RABBIA:
+- Early Warning Signs: "Quali sono i primi segnali nel tuo corpo che ti dicono che stai per arrabbiarti?"
+- Time-Out Strutturato: "Quando senti la rabbia salire, esci fisicamente dalla situazione per 20 minuti. Poi torna."
+- Assertività vs Aggressività: "Assertivo = esprimere bisogni rispettando l'altro. Aggressivo = imporsi. Passivo = subire."
+- Lettera Mai Spedita: "Scrivi tutto quello che vorresti dire a quella persona, senza filtri. Poi bruciala o eliminala."
+- Iceberg della Rabbia: "La rabbia è spesso la punta dell'iceberg. Sotto ci sono: paura, dolore, vergogna, impotenza."
+
+💔 ELABORAZIONE LUTTO/PERDITA:
+- Modello Dual-Process (Stroebe): "È normale oscillare tra momenti di dolore per la perdita e momenti di focus sulla vita. Non significa che non ami abbastanza."
+- Continuing Bonds: "Non devi 'dimenticare' o 'andare avanti'. Puoi mantenere un legame simbolico mentre costruisci nuova vita."
+- Compiti del Lutto (Worden):
+  1. Accettare la realtà della perdita
+  2. Elaborare il dolore
+  3. Adattarsi a un ambiente senza la persona
+  4. Trovare un modo di ricordare mentre si va avanti
+- Anniversari e Trigger: "È normale stare peggio in date significative. Preparati, pianifica qualcosa di supportivo."
+
+👫 DINAMICHE RELAZIONALI:
+- Comunicazione Non Violenta (CNV/Rosenberg):
+  1. Osservazione (fatti): "Quando..."
+  2. Sentimento: "...mi sento..."
+  3. Bisogno: "...perché ho bisogno di..."
+  4. Richiesta: "...potresti...?"
+- Ciclo Demand-Withdraw (Gottman): "Uno insegue, l'altro si ritira. Più insegui, più fugge. Interrompi il pattern."
+- I Quattro Cavalieri (Gottman): Critica, Disprezzo, Difensività, Ostruzionismo → Antidoti: Lamentela gentile, Apprezzamento, Responsabilità, Auto-calmamento
+- Attachment Repair: "Identifica il tuo stile (ansioso, evitante, sicuro). Poi lavora sulle rotture e riparazioni."
+- Confini Sani: "I confini non sono muri, sono porte con serrature. Tu decidi chi entra e quando."
+
+🎭 AUTOSTIMA E IDENTITÀ:
+- Diario dei Successi: "Ogni sera, 3 cose che hai fatto bene oggi. Non importa quanto piccole."
+- Sfida all'Inner Critic: "Cosa direbbe un amico caro se sentisse come ti parli? Parleresti così a qualcuno che ami?"
+- Identificazione Valori Core: "Se nessuno potesse giudicarti, cosa faresti? Cosa è davvero importante per TE?"
+- Decostruzione Etichette: "Questo è un comportamento, non la tua identità. 'Ho fallito' ≠ 'Sono un fallito'."
+- Self-Compassion Break (Neff): "Questo è un momento di sofferenza. La sofferenza fa parte della vita. Che io possa essere gentile con me stesso."
+
+📝 JOURNALING TERAPEUTICO:
+- Expressive Writing (Pennebaker): "Scrivi per 15-20 min sui tuoi pensieri e sentimenti più profondi. Non censurare."
+- Gratitude Journal: "3 cose per cui sei grato oggi. Diverse ogni giorno."
+- Letter to Future Self: "Scrivi al te stesso di tra 1 anno. Cosa vorresti dirti?"
+- Worry Postponement: "Scrivi la preoccupazione su un foglio. Dedica 15 min al giorno (Worry Time) per tutte le preoccupazioni."
+`;
+
 // Psychiatric Triage Protocol
 const PSYCHIATRIC_TRIAGE = `
 ═══════════════════════════════════════════════
@@ -174,31 +370,37 @@ const PSYCHIATRIC_TRIAGE = `
 ═══════════════════════════════════════════════
 
 **LIVELLO 1 - CRITICO (Intervento Immediato):**
-- Ideazione suicidaria attiva
+- Ideazione suicidaria attiva con piano
 - Autolesionismo attivo o recente
-- Psicosi (allucinazioni, deliri)
-- Dissociazione grave
-→ AZIONE: Attiva PROTOCOLLO SICUREZZA + 112
+- Psicosi (allucinazioni, deliri, disorganizzazione)
+- Dissociazione grave (fuga, perdita di tempo significativa)
+- Intossicazione acuta pericolosa
+→ AZIONE: Attiva PROTOCOLLO SICUREZZA + suggerisci 112/PS
 
 **LIVELLO 2 - URGENTE (Monitoraggio Intensivo):**
-- Anedonia grave (>7/10 persistente)
-- Panico incontrollabile
-- Flashback PTSD frequenti
+- Anedonia grave (>7/10 persistente per >2 settimane)
+- Panico incontrollabile che impedisce funzionamento
+- Flashback PTSD frequenti che destabilizzano
 - Pensieri ossessivi debilitanti
-→ AZIONE: Tecniche DBT immediate + "Ti consiglio fortemente di parlare con uno specialista"
+- Ideazione suicidaria passiva ("sarebbe meglio non esserci")
+- Segni ipomania (energia eccessiva + impulsività + poco sonno)
+→ AZIONE: Tecniche DBT immediate + "Ti consiglio fortemente di parlare con uno specialista questa settimana"
 
 **LIVELLO 3 - ATTENZIONE (Tracking Aumentato):**
-- Insonnia cronica (>2 settimane)
+- Insonnia cronica (>2-3 settimane)
 - Isolamento sociale crescente
 - Catastrofizzazione persistente
 - Perdita di interesse progressiva
-→ AZIONE: Monitoraggio + Obiettivi specifici + Suggerisci supporto
+- Burnout in peggioramento
+- Conflitti relazionali significativi
+→ AZIONE: Monitoraggio + Obiettivi specifici + Suggerisci supporto professionale
 
 **LIVELLO 4 - STANDARD:**
-- Stress quotidiano
-- Difficoltà relazionali
-- Obiettivi di crescita
-→ AZIONE: Approccio terapeutico normale
+- Stress quotidiano gestibile
+- Difficoltà relazionali moderate
+- Obiettivi di crescita personale
+- Ansia situazionale
+→ AZIONE: Approccio terapeutico normale, tecniche preventive
 `;
 
 // Map goals AND onboarding answers to AI persona style
@@ -445,6 +647,12 @@ ${deepPsychologyInvestigation}
 📊 RUBRICA VALUTAZIONE EMOTIVA
 ═══════════════════════════════════════════════
 ${EMOTIONAL_RUBRIC}
+
+${CLINICAL_KNOWLEDGE_BASE}
+
+${PSYCHOEDUCATION_LIBRARY}
+
+${INTERVENTION_PROTOCOLS}
 
 ${ADVANCED_CLINICAL_TECHNIQUES}
 
