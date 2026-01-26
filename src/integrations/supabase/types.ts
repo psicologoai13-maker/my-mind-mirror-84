@@ -442,6 +442,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_objectives: {
+        Row: {
+          ai_feedback: string | null
+          category: string
+          created_at: string | null
+          current_value: number | null
+          deadline: string | null
+          description: string | null
+          id: string
+          progress_history: Json | null
+          status: string | null
+          target_value: number | null
+          title: string
+          unit: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_feedback?: string | null
+          category: string
+          created_at?: string | null
+          current_value?: number | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          progress_history?: Json | null
+          status?: string | null
+          target_value?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_feedback?: string | null
+          category?: string
+          created_at?: string | null
+          current_value?: number | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          progress_history?: Json | null
+          status?: string | null
+          target_value?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           active_dashboard_metrics: string[] | null
