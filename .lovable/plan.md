@@ -1,130 +1,215 @@
 
 
-# Piano: Rimozione Filtri - Aria come Vera Migliore Amica Senza Tabù
+# Piano: Ristrutturazione Navigazione + Sistema Obiettivi Espanso
 
-## Obiettivo
-Aggiungere istruzioni esplicite affinché Aria possa parlare liberamente di QUALSIASI argomento, inclusi quelli intimi e sessuali, esattamente come farebbe un vero migliore amico. Zero filtri, zero imbarazzo, totale apertura.
+## Panoramica
 
-## Perché è Importante
+Trasformare l'app da "strumento di salute mentale" a **"compagno di vita completo"** con:
+1. Sezione **Obiettivi** dedicata nella bottom nav (al posto di Diario)
+2. Hub centrale **Aria** (chat/voce/diari unificati) con icona differenziata
+3. Obiettivi espansi oltre la salute mentale (fitness, studio, lavoro, relazioni)
 
-Tra migliori amici si parla di:
-- Vita sessuale (problemi, desideri, esperienze)
-- Relazioni intime nei dettagli
-- Fantasie e curiosità
-- Frustrazioni sessuali o di coppia
-- Domande "imbarazzanti" che non si farebbero ad altri
-- Insicurezze sul proprio corpo
-- Orientamento sessuale, identità di genere
-- Qualsiasi altro argomento "tabù" per la società
+## Nuova Struttura Navigazione
 
-Un AI che si blocca o diventa clinico su questi temi tradisce l'idea di "migliore amico".
-
-## Implementazione: Nuovo Blocco "ZERO_FILTER_FRIEND"
-
-Aggiungerò una nuova sezione ai system prompt che esplicita questa apertura totale:
-
-```text
-═══════════════════════════════════════════════
-🔓 APERTURA TOTALE - ZERO FILTRI
-═══════════════════════════════════════════════
-
-Sei la MIGLIORE AMICA dell'utente. Tra migliori amici si parla di TUTTO:
-
-**ARGOMENTI SEMPRE BENVENUTI:**
-- Vita sessuale (problemi, esperienze, desideri, fantasie)
-- Relazioni intime nei dettagli
-- Frustrazioni sessuali o di coppia
-- Domande "imbarazzanti" che non farebbero ad altri
-- Insicurezze sul corpo, aspetto fisico
-- Orientamento sessuale, identità di genere
-- Fetish, kink, curiosità sessuali
-- Tradimenti, tentazioni, dubbi relazionali
-- Qualsiasi argomento "tabù" sociale
-
-**COME RISPONDERE:**
-- MAI mostrarti imbarazzata o giudicante
-- Rispondi con naturalezza, come un'amica
-- "Ah sì? Racconta!" / "E come ti sei sentito/a?"
-- Fai domande di approfondimento genuine
-- Condividi opinioni se te le chiedono
-- Usa linguaggio naturale, non clinico
-- Se serve info pratica, dalla senza giri di parole
-
-**COSA NON FARE:**
-- NON redirigere a "professionisti" per domande sulla sessualità
-- NON usare toni clinici ("salute sessuale", "comportamento intimo")
-- NON mostrare esitazione o cambio di registro
-- NON censurare, filtrare o ammorbidire
-- NON trasformare discorsi sexy in "analisi psicologica"
-
-**REGOLA D'ORO:**
-Se l'utente vuole parlare di sesso, parli di sesso.
-Se vuole raccontare un'esperienza intima, ascolti con interesse.
-Se ha una domanda "spinta", rispondi come un'amica che non si fa problemi.
-
-L'unico limite è il benessere dell'utente stesso.
-Se emergono segnali di abuso, trauma, o sofferenza, 
-ALLORA puoi passare in modalità supportiva.
-Ma il sesso in sé NON è un problema da risolvere.
+```
+┌─────────────────────────────────────────────────────────┐
+│                    NUOVA BOTTOM NAV                      │
+├─────────┬─────────┬─────────────┬─────────┬─────────────┤
+│  Home   │ Analisi │    ARIA     │Obiettivi│   Profilo   │
+│   🏠    │   📊    │  ✨ (orb)   │   🎯    │     👤      │
+│    /    │/analisi │   /aria     │/obiettivi│  /profile  │
+└─────────┴─────────┴─────────────┴─────────┴─────────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │    HUB ARIA (nuovo)   │
+              ├───────────────────────┤
+              │ • Chat testuale       │
+              │ • Voce (Zen Modal)    │
+              │ • Diari tematici      │
+              │ • Cronologia sessioni │
+              └───────────────────────┘
 ```
 
-## Integrazione per il Tema "Amore" nei Diari
+## Design del Pulsante Centrale "Aria"
 
-Nel diario tematico "Amore", aggiungerò conoscenze specifiche su intimità:
+Al posto dell'icona `MessageCircle`, useremo un **orb luminoso stilizzato** che richiama il design della voce:
+- Icona custom: cerchio con gradiente sottile + sparkle
+- Colore: gradiente sage-to-lavender (coerente con ZenVoiceModal)
+- Effetto: leggero glow animato (non aggressivo)
+- Al tap: apre la nuova pagina `/aria` (non più popup scelta)
 
-```text
-**INTIMITÀ & SESSUALITÀ (Diario Amore):**
-- Sessualità sana: comunicazione, consenso, esplorazione
-- Discrepanza di desiderio: normale, negoziabile
-- Routine sessuale: come mantenerla viva
-- Fantasie: normali, da condividere con fiducia
-- Disfunzioni: stress, performance anxiety, soluzioni
-- Comunicare bisogni sessuali al partner
-- Gestire rifiuto, incompatibilità
-- Sesso e autostima: connessione profonda
+## Nuove Categorie Obiettivi
+
+### Categorie Espanse
+
+| Categoria | Icona | Obiettivi Esempio |
+|-----------|-------|-------------------|
+| **Mente** | 🧠 | Ridurre ansia, Dormire meglio, Stabilità emotiva |
+| **Corpo** | 💪 | Perdere peso, Allenarsi regolarmente, Mangiare sano |
+| **Studio** | 📚 | Superare esami, Concentrazione, Imparare lingua |
+| **Lavoro** | 💼 | Promozione, Nuove skill, Work-life balance |
+| **Relazioni** | 💕 | Migliorare comunicazione, Trovare partner, Amicizie |
+| **Crescita** | 🌱 | Meditazione quotidiana, Leggere di più, Hobby nuovo |
+| **Finanze** | 💰 | Risparmiare, Budget, Investire |
+
+### Schema Dati per Obiettivi Custom
+
+```sql
+-- Nuova tabella per obiettivi personalizzati
+CREATE TABLE user_objectives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  category TEXT NOT NULL, -- 'mind', 'body', 'study', 'work', 'relationships', 'growth', 'finance'
+  title TEXT NOT NULL,
+  description TEXT,
+  target_value NUMERIC, -- Es: 70 (kg), 10 (libri), 5 (esami)
+  current_value NUMERIC,
+  unit TEXT, -- 'kg', 'books', 'exams', 'hours', etc.
+  deadline DATE,
+  status TEXT DEFAULT 'active', -- 'active', 'achieved', 'paused', 'abandoned'
+  ai_feedback TEXT, -- Feedback AI periodico
+  progress_history JSONB DEFAULT '[]', -- [{date, value, note}]
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 ```
 
-## File da Modificare
+## Nuova Pagina: Aria Hub (`/aria`)
 
-| File | Modifica |
-|------|----------|
-| `ai-chat/index.ts` | +ZERO_FILTER_FRIEND block nel `BEST_FRIEND_PERSONALITY` |
-| `gemini-voice/index.ts` | +ZERO_FILTER_VOICE block nel `BEST_FRIEND_VOICE` |
-| `thematic-diary-chat/index.ts` | +Sezione intimità nel tema "love" + ZERO_FILTER |
+### Layout
 
-## Esempi di Conversazione Post-Implementazione
+```
+┌─────────────────────────────────────────┐
+│ ← Indietro        Aria           ⚙️    │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │        INIZIA SESSIONE           │  │
+│  │  ┌─────────┐    ┌─────────┐      │  │
+│  │  │  Chat   │    │  Voce   │      │  │
+│  │  │   💬    │    │   🎙️    │      │  │
+│  │  └─────────┘    └─────────┘      │  │
+│  └───────────────────────────────────┘  │
+│                                         │
+│  ─── I Tuoi Quaderni ───────────────   │
+│  ┌────────┐ ┌────────┐                 │
+│  │ Amore  │ │Lavoro  │ ← Scroll H     │
+│  │   ❤️   │ │   💼   │                 │
+│  └────────┘ └────────┘                 │
+│                                         │
+│  ─── Cronologia ────────────────────   │
+│  ┌─────────────────────────────────┐   │
+│  │ 📅 Oggi, 14:30 • Chat • 15min   │   │
+│  │ 📅 Ieri, 20:00 • Voce • 8min    │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+└─────────────────────────────────────────┘
+```
 
-**Utente**: "Ho un problema a letto con il mio ragazzo..."
-**Prima (filtrato)**: "Capisco, le dinamiche di coppia possono essere complesse. Hai provato a parlarne?"
-**Dopo (naturale)**: "Oh no, che succede? Racconta, cosa sta andando storto?"
+## Nuova Pagina: Obiettivi (`/obiettivi`)
 
-**Utente**: "Ho una fantasia che mi imbarazza..."
-**Prima**: "Le fantasie sono normali. Vuoi esplorare cosa significa per te?"
-**Dopo**: "Dai, spilla! Non ti giudico, siamo amiche. Che fantasia è?"
+### Layout
 
-**Utente**: "Non ho più desiderio per il mio partner"
-**Prima**: "La variazione del desiderio è comune. Potresti considerare..."
-**Dopo**: "Uff, capisco... è una cosa recente o va avanti da un po'? Cosa pensi sia cambiato?"
+```
+┌─────────────────────────────────────────┐
+│        I Tuoi Obiettivi           ➕    │
+├─────────────────────────────────────────┤
+│                                         │
+│  ── Obiettivi Attivi ───────────────   │
+│  ┌─────────────────────────────────┐   │
+│  │ 🎯 Perdere 5kg                  │   │
+│  │ ████████░░░░░░░░ 60% • -3kg     │   │
+│  │ "Stai andando alla grande!"     │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 📚 Superare esame Statistica    │   │
+│  │ ██████░░░░░░░░░░ 40% • 15gg     │   │
+│  │ "Aumenta le sessioni studio"    │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ── Categorie ──────────────────────   │
+│  [🧠 Mente] [💪 Corpo] [📚 Studio]     │
+│  [💼 Lavoro] [💕 Relazioni] [🌱 ...]   │
+│                                         │
+│  ── Traguardi Raggiunti ────────────   │
+│  ✅ Dormire 7h/notte (15 Gen)          │
+│  ✅ Meditare 30 giorni (2 Gen)         │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Funzionalità Obiettivi
+
+1. **Creazione Custom**: L'utente può aggiungere obiettivi con titolo, target, deadline
+2. **Tracking Automatico**: L'AI rileva progressi dalle conversazioni
+3. **Feedback AI Periodico**: Ogni settimana Aria commenta i progressi
+4. **Milestone**: Sub-obiettivi per obiettivi grandi
+5. **Storico**: Visualizzazione traguardi raggiunti
+
+## File da Creare/Modificare
+
+### Nuovi File
+
+| File | Descrizione |
+|------|-------------|
+| `src/pages/Aria.tsx` | Hub centrale per chat, voce, diari |
+| `src/pages/Objectives.tsx` | Pagina obiettivi dedicata |
+| `src/components/objectives/ObjectiveCard.tsx` | Card singolo obiettivo |
+| `src/components/objectives/NewObjectiveModal.tsx` | Modal creazione obiettivo |
+| `src/components/objectives/CategoryChips.tsx` | Filtri per categoria |
+| `src/components/aria/SessionTypeSelector.tsx` | Selettore chat/voce |
+| `src/hooks/useObjectives.tsx` | Hook per gestione obiettivi |
+
+### File da Modificare
+
+| File | Modifiche |
+|------|-----------|
+| `src/components/layout/BottomNav.tsx` | Nuova struttura nav, icona Aria, path /obiettivi |
+| `src/App.tsx` | Nuove routes /aria e /obiettivi |
+| `src/pages/Onboarding.tsx` | Aggiunta categorie obiettivi espanse |
+| `supabase/functions/process-session/index.ts` | Rilevamento progressi obiettivi non-mentali |
+| `supabase/functions/ai-chat/index.ts` | Conoscenza obiettivi utente per coaching |
+
+### Migrazione Database
+
+```sql
+-- Nuova tabella obiettivi
+CREATE TABLE user_objectives (...);
+
+-- Espansione goal configs per nuove categorie
+-- Trigger per aggiornamento automatico progressi
+```
+
+## Integrazione AI con Obiettivi
+
+L'AI (Aria) verrà aggiornata per:
+1. **Riconoscere** quando l'utente parla di obiettivi non-mentali
+2. **Tracciare** progressi automaticamente ("Ho perso 2kg!" → aggiorna obiettivo)
+3. **Motivare** con coaching specifico per categoria
+4. **Celebrare** traguardi raggiunti
+5. **Adattare** domande check-in in base agli obiettivi attivi
+
+## Riepilogo Visivo Cambiamenti
+
+```
+PRIMA:
+[Home] [Analisi] [💬 Sessione] [Diario] [Profilo]
+                      ↓
+              popup: Chat/Voce
+
+DOPO:
+[Home] [Analisi] [✨ Aria] [Obiettivi] [Profilo]
+                     ↓
+           pagina: Chat/Voce/Diari/Cronologia
+```
 
 ## Benefici
 
-1. **Autenticità totale**: L'utente si sente veramente a proprio agio
-2. **Nessun imbarazzo**: L'AI non crea disagio cambiando registro
-3. **Fiducia**: Se non giudichi sul sesso, non giudicherai su nulla
-4. **Dati più ricchi**: Le conversazioni intime rivelano molto sulla persona
-5. **Esperienza completa**: Un'amica vera, non un chatbot con censure
-
-## Note di Sicurezza
-
-L'apertura totale NON significa:
-- Incoraggiare comportamenti a rischio
-- Ignorare segnali di abuso o trauma
-- Perdere la capacità di supporto clinico quando serve
-
-Se emergono:
-- Violenza sessuale subita → Supporto + risorse
-- Comportamenti compulsivi dannosi → Esplorazione gentile
-- Disagio reale → Switch a modalità clinica
-
-Ma il sesso consensuale, le fantasie, le domande intime sono NORMALI e vanno trattate come tali.
+1. **Obiettivi in primo piano**: Visibilità costante nella nav principale
+2. **Hub unificato Aria**: Tutto in un posto, meno confusione
+3. **Espansione use case**: Non solo salute mentale, ma life coaching completo
+4. **Engagement**: Gli utenti tornano per tracciare obiettivi diversi
+5. **Retention**: Obiettivi a lungo termine creano abitudine
 
