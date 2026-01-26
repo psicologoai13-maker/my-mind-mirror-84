@@ -256,21 +256,6 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
             </div>
           </div>
         </div>
-        
-        {/* Status label */}
-        <div className="mt-3 text-center">
-          <span className={cn(
-            "inline-flex items-center px-2 py-0.5 rounded-full font-medium",
-            status.bgColor.replace('bg-', 'bg-') + '/10',
-            status.color,
-            isSecondary ? "text-[10px]" : "text-xs"
-          )}>
-            {status.label}
-          </span>
-          {isWeeklyAverage && !isSecondary && (
-            <p className="text-[10px] text-muted-foreground mt-1">Media 7gg</p>
-          )}
-        </div>
       </div>
     </div>
   );

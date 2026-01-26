@@ -341,11 +341,7 @@ const GoalsWidget: React.FC = () => {
       {GoalSelectionDialog}
       <div className="space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">I tuoi traguardi</p>
-            <h3 className="text-base font-semibold text-foreground">{activeGoalConfigs.length} obiettivi attivi</h3>
-          </div>
+        <div className="flex items-center justify-end px-1">
           <button 
             onClick={openDialog}
             className="p-2 rounded-xl hover:bg-muted transition-colors"
