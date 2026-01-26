@@ -3,12 +3,16 @@ import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WellnessScoreBoxProps {
-  score: number;
-  message: string;
+  score?: number;
+  message?: string;
   isLoading?: boolean;
 }
 
 const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ score, message, isLoading }) => {
+  // Default values if undefined
+  const safeScore = score ?? 5;
+  const safeMessage = message || 'Parla con me per iniziare a monitorare il tuo benessere.';
+
   // Color based on score
   const getScoreColor = (value: number) => {
     if (value >= 7) return 'text-emerald-600 dark:text-emerald-400';
@@ -42,10 +46,10 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ score, message, isL
         {/* Score Circle */}
         <div className={cn(
           "w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0",
-          getScoreBg(score)
+          getScoreBg(safeScore)
         )}>
-          <span className={cn("text-3xl font-bold leading-none", getScoreColor(score))}>
-            {score.toFixed(1)}
+          <span className={cn("text-3xl font-bold leading-none", getScoreColor(safeScore))}>
+            {safeScore.toFixed(1)}
           </span>
           <span className="text-[10px] text-muted-foreground font-medium">/10</span>
         </div>
@@ -57,7 +61,7 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ score, message, isL
             <span className="text-xs font-medium text-primary">Il tuo stato</span>
           </div>
           <p className="text-sm text-foreground leading-snug line-clamp-2">
-            {message}
+            {safeMessage}
           </p>
         </div>
       </div>
