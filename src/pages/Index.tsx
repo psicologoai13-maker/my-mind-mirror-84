@@ -52,11 +52,8 @@ const Index: React.FC = () => {
           </div>
         );
       case 'goals_progress':
-        return (
-          <div {...baseProps}>
-            <GoalsWidget />
-          </div>
-        );
+        // Goals widget removed per user request
+        return null;
       case 'radar_chart':
         return (
           <div {...baseProps}>
@@ -116,6 +113,11 @@ const Index: React.FC = () => {
           </p>
         )}
 
+        {/* AI Insight Card - Above Focus */}
+        <div className="animate-slide-up mb-4" style={{ animationDelay: '0.05s' }}>
+          <AIInsightCard />
+        </div>
+
         {/* Smart Personalized Check-in with Focus title */}
         <SmartCheckinSection onStartCheckin={startCheckinTimer} showFocusTitle />
       </header>
@@ -124,11 +126,6 @@ const Index: React.FC = () => {
       <div className="px-6 pb-8 space-y-5">
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
-
-        {/* AI Insight Card - Moved below Focus */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <AIInsightCard />
-        </div>
       </div>
 
       {/* Check-in Summary Modal */}
