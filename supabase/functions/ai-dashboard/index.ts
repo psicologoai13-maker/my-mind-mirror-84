@@ -29,6 +29,8 @@ interface DashboardLayout {
   widgets: WidgetConfig[];
   ai_message: string;
   focus_areas: string[];
+  wellness_score: number;
+  wellness_message: string;
 }
 
 serve(async (req) => {
@@ -126,15 +128,21 @@ serve(async (req) => {
 La Dashboard è una vista ESSENZIALE che mostra solo ciò che è più importante PER L'UTENTE in questo momento.
 
 COSA DEVE CONTENERE LA DASHBOARD:
-1. CHECK-IN: Già gestiti separatamente (non includerli nei widget)
-2. GRAFICI PIÙ IMPORTANTI: Solo 2-4 metriche cruciali basate su obiettivi e stato attuale
-3. CONSIGLI: Messaggio AI breve e personalizzato
-4. STATUS OBIETTIVI: Widget goals_progress se l'utente ha obiettivi
+1. WELLNESS SCORE: Un punteggio generale 1-10 che rappresenta lo stato complessivo dell'utente
+2. MESSAGGIO WELLNESS: Breve frase personalizzata (max 15 parole) accanto al punteggio
+3. CHECK-IN: Già gestiti separatamente (non includerli nei widget)
+4. GRAFICI PIÙ IMPORTANTI: Solo 2-4 metriche cruciali basate su obiettivi e stato attuale
+
+REGOLE WELLNESS SCORE:
+- Valuta lo stato ATTUALE dell'utente, non la media storica
+- Se l'utente sta vivendo un evento negativo grave (rottura, lutto, licenziamento), il punteggio deve essere BASSO (1-3)
+- Se l'utente sta bene, il punteggio deve essere ALTO (7-10)
+- Il messaggio deve essere empatico, motivazionale o di supporto in base alla situazione
+- Esempi messaggi: "Stai affrontando un momento difficile, sono qui per te", "Ottima energia questa settimana!", "Piccoli passi portano lontano"
 
 REGOLE DASHBOARD:
 - MASSIMO 4 metriche nella griglia principale - solo le più rilevanti
 - Mostra SOLO i widget essenziali (2-3 massimo oltre vitals_grid)
-- Il messaggio AI deve essere motivazionale e specifico (max 12 parole)
 - Priorità assoluta agli obiettivi dell'utente
 - Se ansia alta (>7) o umore basso (<4), evidenziali
 
@@ -157,11 +165,10 @@ WIDGET (scegli MAX 3 oltre vitals_grid):
 - radar_chart: Radar aree vita - mostra solo se dati life_areas disponibili
 - emotional_mix: Mix emotivo - mostra solo se emozioni rilevanti
 
-IMPORTANTE: La Dashboard NON è per analisi dettagliate - quella è la pagina Analisi.
-Dashboard = snapshot veloce + motivazione + focus sugli obiettivi.
-
 Rispondi SOLO in JSON valido:
 {
+  "wellness_score": 7.5,
+  "wellness_message": "Messaggio personalizzato breve per l'utente",
   "primary_metrics": [
     {"key": "mood", "priority": 1, "reason": "Motivo breve personalizzato"},
     {"key": "anxiety", "priority": 2, "reason": "Collegato al tuo obiettivo"}
@@ -170,7 +177,7 @@ Rispondi SOLO in JSON valido:
     {"type": "vitals_grid", "visible": true, "priority": 1, "title": "I Tuoi Focus", "description": ""},
     {"type": "goals_progress", "visible": true, "priority": 2, "title": "Obiettivi", "description": ""}
   ],
-  "ai_message": "Messaggio motivazionale breve",
+  "ai_message": "",
   "focus_areas": ["anxiety"]
 }`;
 
@@ -271,8 +278,10 @@ Genera la configurazione dashboard personalizzata.`;
           { type: 'radar_chart', title: 'Aree della Vita', description: '', priority: 3, visible: lifeAreas.length > 0 },
           { type: 'emotional_mix', title: 'Mix Emotivo', description: '', priority: 4, visible: emotions.length > 0 },
         ],
-        ai_message: 'Benvenuto! Inizia a interagire per personalizzare la dashboard.',
+        ai_message: '',
         focus_areas: userGoals.slice(0, 2),
+        wellness_score: 5,
+        wellness_message: 'Inizia a interagire per personalizzare la dashboard.',
       };
     }
 
