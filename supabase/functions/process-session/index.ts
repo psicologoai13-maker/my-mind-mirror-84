@@ -371,25 +371,52 @@ ${deepPsychologyPrompt}
 Durante l'analisi, cerca PATTERN per questi disturbi:
 
 **DEPRESSIONE MAGGIORE:**
-- Anedonia + umore deflesso + fatica per almeno 2 settimane
-- Se tutti presenti → crisis_risk: "medium"
+- Criteri: Anedonia + umore deflesso + fatica + alterazioni sonno/appetito + colpa per almeno 2 settimane
+- Se criteri presenti → crisis_risk: "medium"
 - Se ideazione suicidaria → crisis_risk: "high"
+- Nota in insights se pattern rilevato
 
 **DISTURBO BIPOLARE (Segnali Ipomania):**
-- Energia eccessiva + poco bisogno di sonno + grandiosità
-- Se presenti → aggiungere nota a insights
+- Energia eccessiva + ridotto bisogno di sonno + grandiosità + impulsività
+- Parla veloce, idee accelerate, progetti grandiosi
+- Se presenti → aggiungere nota a insights: "Pattern compatibile con ipomania"
 
 **PTSD/TRAUMA:**
-- Flashback, evitamento, ipervigilanza
-- Menzioni di traumi passati
-- Se presenti → nota clinica
+- Flashback, evitamento di trigger, ipervigilanza, numbing emotivo
+- Menzioni di traumi passati, incubi ricorrenti
+- Se presenti → nota clinica + suggerire EMDR/specialista
 
 **OCD:**
-- Pensieri intrusivi ego-distonici + rituali
-- DISTINGUI da ruminazione (ego-sintonica)
+- Pensieri intrusivi ego-distonici + rituali/compulsioni
+- DISTINGUI da ruminazione (ego-sintonica, senza rituali)
+- OCD: "Non voglio pensarlo ma non riesco a fermarlo"
+- Ruminazione: "Continuo a pensarci perché è importante"
 
 **DISTURBI ALIMENTARI:**
 - Alterazioni appetito + body image issues + colpa post-pasto
+- Restrizione, abbuffate, comportamenti compensatori
+- Se presenti → nota critica, suggerire team specializzato
+
+**GAD (Ansia Generalizzata):**
+- Preoccupazione cronica su molteplici aree
+- Difficoltà a controllare la preoccupazione
+- Tensione muscolare, irritabilità, disturbi sonno
+
+**DISTURBO DI PANICO:**
+- Attacchi improvvisi, paura della paura
+- Evitamento agorafobico
+
+**ANSIA SOCIALE:**
+- Paura del giudizio, evitamento situazioni sociali
+- Rimuginazione post-evento
+
+**BURNOUT:**
+- Esaurimento + Cinismo + Inefficacia professionale
+- Spesso confuso con depressione ma legato specificamente al lavoro
+
+**DISTURBI DELLA PERSONALITÀ (Solo riconoscimento):**
+- Borderline: Instabilità, paura abbandono, splitting, impulsività
+- Se pattern rilevato → nota: "Tratti borderline possibili, valutare DBT"
 
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
@@ -399,6 +426,7 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
   Stanchezza fisica o noia NON sono apatia → apathy = 0.
 - SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
 - ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
+- BURNOUT: Assegna SOLO se esplicitamente legato a lavoro/doveri. Stanchezza generica ≠ burnout.
 
 ═══════════════════════════════════════════════
 📊 STRUTTURA JSON RICHIESTA
