@@ -6,6 +6,7 @@ import AIInsightCard from '@/components/home/AIInsightCard';
 import GoalsWidget from '@/components/home/GoalsWidget';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
+import FlashInsights from '@/components/home/FlashInsights';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -126,6 +127,11 @@ const Index: React.FC = () => {
       <div className="px-6 pb-8 space-y-5">
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
+
+        {/* Flash Insights at bottom */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <FlashInsights />
+        </div>
       </div>
 
       {/* Check-in Summary Modal */}
