@@ -3,7 +3,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import AIInsightCard from '@/components/home/AIInsightCard';
-import GoalsWidget from '@/components/home/GoalsWidget';
+// GoalsWidget removed - objectives now live in /objectives page
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
@@ -52,12 +52,9 @@ const Index: React.FC = () => {
             <AdaptiveVitalsSection />
           </div>
         );
+      // goals_progress removed - objectives now live in /objectives page
       case 'goals_progress':
-        return (
-          <div {...baseProps}>
-            <GoalsWidget />
-          </div>
-        );
+        return null;
       case 'radar_chart':
         return (
           <div {...baseProps}>

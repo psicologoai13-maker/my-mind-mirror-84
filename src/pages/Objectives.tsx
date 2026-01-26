@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { Plus, Target, Trophy, Loader2 } from 'lucide-react';
+import { Plus, Target, Trophy, Loader2, AlertTriangle } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { ObjectiveCard } from '@/components/objectives/ObjectiveCard';
 import { NewObjectiveModal } from '@/components/objectives/NewObjectiveModal';
-import { CategoryChips } from '@/components/objectives/CategoryChips';
-import { useObjectives, ObjectiveCategory, CATEGORY_CONFIG } from '@/hooks/useObjectives';
+import { useObjectives, CATEGORY_CONFIG } from '@/hooks/useObjectives';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { Card } from '@/components/ui/card';
 
 const Objectives: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<ObjectiveCategory | 'all'>('all');
   
   const {
     activeObjectives,
@@ -23,25 +22,8 @@ const Objectives: React.FC = () => {
     deleteObjective,
   } = useObjectives();
 
-  const filteredActive = selectedCategory === 'all'
-    ? activeObjectives
-    : activeObjectives.filter(o => o.category === selectedCategory);
-
-  const filteredAchieved = selectedCategory === 'all'
-    ? achievedObjectives
-    : achievedObjectives.filter(o => o.category === selectedCategory);
-
-  // Count objectives per category
-  const counts: Record<ObjectiveCategory | 'all', number> = {
-    all: activeObjectives.length,
-    mind: activeObjectives.filter(o => o.category === 'mind').length,
-    body: activeObjectives.filter(o => o.category === 'body').length,
-    study: activeObjectives.filter(o => o.category === 'study').length,
-    work: activeObjectives.filter(o => o.category === 'work').length,
-    relationships: activeObjectives.filter(o => o.category === 'relationships').length,
-    growth: activeObjectives.filter(o => o.category === 'growth').length,
-    finance: activeObjectives.filter(o => o.category === 'finance').length,
-  };
+  // Count objectives with missing target
+  const objectivesWithMissingTarget = activeObjectives.filter(o => o.target_value === null || o.target_value === undefined);
 
   if (isLoading) {
     return (
@@ -73,12 +55,22 @@ const Objectives: React.FC = () => {
           </Button>
         </div>
 
-        {/* Category Filters */}
-        <CategoryChips
-          selected={selectedCategory}
-          onSelect={setSelectedCategory}
-          counts={counts}
-        />
+        {/* Warning for objectives with missing target */}
+        {objectivesWithMissingTarget.length > 0 && (
+          <Card className="p-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-200">
+                  {objectivesWithMissingTarget.length} obiettiv{objectivesWithMissingTarget.length === 1 ? 'o' : 'i'} senza target
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Parla con Aria per definire i tuoi traguardi!
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Active Objectives */}
         <section>
@@ -87,14 +79,14 @@ const Objectives: React.FC = () => {
             <h2 className="font-semibold text-foreground">Obiettivi Attivi</h2>
           </div>
 
-          {filteredActive.length === 0 ? (
+          {activeObjectives.length === 0 ? (
             <div className="bg-muted/50 rounded-2xl p-6 text-center">
               <div className="text-4xl mb-2">🎯</div>
               <p className="text-muted-foreground text-sm">
-                {selectedCategory === 'all' 
-                  ? 'Nessun obiettivo attivo. Creane uno!'
-                  : `Nessun obiettivo in "${CATEGORY_CONFIG[selectedCategory].label}"`
-                }
+                Nessun obiettivo attivo. Creane uno!
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Puoi anche parlare con Aria e lei rileverà automaticamente i tuoi obiettivi
               </p>
               <Button
                 variant="outline"
@@ -108,7 +100,7 @@ const Objectives: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredActive.map(objective => (
+              {activeObjectives.map(objective => (
                 <ObjectiveCard
                   key={objective.id}
                   objective={objective}
@@ -121,7 +113,7 @@ const Objectives: React.FC = () => {
         </section>
 
         {/* Achieved Objectives */}
-        {filteredAchieved.length > 0 && (
+        {achievedObjectives.length > 0 && (
           <section>
             <Separator className="mb-4" />
             <div className="flex items-center gap-2 mb-3">
@@ -130,7 +122,7 @@ const Objectives: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              {filteredAchieved.map(objective => (
+              {achievedObjectives.map(objective => (
                 <div
                   key={objective.id}
                   className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl"
