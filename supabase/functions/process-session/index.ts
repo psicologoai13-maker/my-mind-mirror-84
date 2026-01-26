@@ -469,6 +469,14 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
   "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
   "emotion_tags": ["#Tag1", "#Tag2"],
   "key_facts": ["fatto concreto da ricordare"],
+  "personal_details": {
+    "mentioned_names": ["nomi di persone care menzionate: partner, amici, familiari"],
+    "hobbies_interests": ["hobby, passioni, interessi emersi"],
+    "likes": ["cose che piacciono all'utente: film, serie, musica, cibo"],
+    "dislikes": ["cose che non piacciono o infastidiscono"],
+    "life_events": ["eventi di vita importanti: lavoro, relazioni, salute"],
+    "preferences": ["preferenze personali: come gli piace essere trattato, supportato"]
+  },
   "summary": "<riassunto 1-2 frasi>",
   "key_events": ["evento chiave"],
   "insights": "<osservazione clinica breve>",
@@ -484,6 +492,35 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
   ],
   "suggested_new_goals": ["goal_id se emerge un nuovo focus dalla conversazione"]
 }
+
+═══════════════════════════════════════════════
+👯 ESTRAZIONE DETTAGLI PERSONALI (MEMORIA AMICO)
+═══════════════════════════════════════════════
+Un buon amico ricorda i dettagli della vita dell'utente.
+Estrai TUTTO ciò che potrebbe servire per future conversazioni amichevoli:
+
+**NOMI DA RICORDARE (mentioned_names):**
+- Partner: "Marco mi ha detto..." → "Partner: Marco"
+- Amici: "La mia amica Sara..." → "Amica: Sara"
+- Familiari: "Mia madre..." → "Madre menzionata"
+- Colleghi: "Il mio capo Giovanni..." → "Capo: Giovanni"
+
+**HOBBY E INTERESSI (hobbies_interests):**
+- Sport: "Gioco a calcetto" → "Calcetto"
+- Creativi: "Sto imparando a suonare la chitarra" → "Chitarra"
+- Altri: "Mi piace cucinare" → "Cucina"
+
+**PREFERENZE (likes/dislikes):**
+- Film/Serie: "Ho visto quella nuova serie su Netflix" → "Guarda serie Netflix"
+- Musica: "Amo i Coldplay" → "Fan Coldplay"
+- Cibo: "Adoro la pizza" → "Ama la pizza"
+
+**EVENTI DI VITA (life_events):**
+- "Ho iniziato un nuovo lavoro" → "Nuovo lavoro"
+- "Mi sono trasferito" → "Trasferimento recente"
+- "Sto cercando casa" → "In cerca di casa"
+
+⚠️ Estrai SOLO ciò che è esplicito. NON inventare.
 
 ═══════════════════════════════════════════════
 🎯 REGOLE LIFE_AREAS - VALUTAZIONE STATO ATTUALE (CRUCIALI!)
@@ -765,9 +802,52 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     if (analysis.life_areas.health !== null) mergedLifeScores.wellness = analysis.life_areas.health;
     if (analysis.life_areas.growth !== null) mergedLifeScores.growth = analysis.life_areas.growth;
 
-    // Update long-term memory
+    // Update long-term memory - include personal details for "friend memory"
     const existingMemory = profileData?.long_term_memory || [];
-    const updatedMemory = [...existingMemory, ...analysis.key_facts].slice(-50);
+    
+    // Extract personal details from analysis if present
+    const personalDetails = (analysis as any).personal_details || {};
+    const personalMemoryItems: string[] = [];
+    
+    // Add mentioned names
+    if (personalDetails.mentioned_names?.length > 0) {
+      personalDetails.mentioned_names.forEach((name: string) => {
+        if (name && !existingMemory.includes(name)) {
+          personalMemoryItems.push(`[PERSONA] ${name}`);
+        }
+      });
+    }
+    
+    // Add hobbies/interests
+    if (personalDetails.hobbies_interests?.length > 0) {
+      personalDetails.hobbies_interests.forEach((hobby: string) => {
+        if (hobby && !existingMemory.some((m: string) => m.includes(hobby))) {
+          personalMemoryItems.push(`[HOBBY] ${hobby}`);
+        }
+      });
+    }
+    
+    // Add likes
+    if (personalDetails.likes?.length > 0) {
+      personalDetails.likes.forEach((like: string) => {
+        if (like && !existingMemory.some((m: string) => m.includes(like))) {
+          personalMemoryItems.push(`[PIACE] ${like}`);
+        }
+      });
+    }
+    
+    // Add life events
+    if (personalDetails.life_events?.length > 0) {
+      personalDetails.life_events.forEach((event: string) => {
+        if (event && !existingMemory.some((m: string) => m.includes(event))) {
+          personalMemoryItems.push(`[EVENTO] ${event}`);
+        }
+      });
+    }
+    
+    // Combine key_facts with personal memory items
+    const newMemoryItems = [...analysis.key_facts, ...personalMemoryItems];
+    const updatedMemory = [...existingMemory, ...newMemoryItems].slice(-60); // Increased to 60 for richer memory
 
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
