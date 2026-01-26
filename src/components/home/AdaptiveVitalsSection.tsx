@@ -108,20 +108,6 @@ const AdaptiveVitalsSection: React.FC = () => {
           );
         })}
       </div>
-
-      {/* Focus Areas Tags */}
-      {layout.focus_areas && layout.focus_areas.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {layout.focus_areas.map((area) => (
-            <span 
-              key={area}
-              className="px-2 py-1 text-xs font-medium bg-accent/50 text-accent-foreground rounded-full"
-            >
-              #{area}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
