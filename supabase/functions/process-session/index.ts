@@ -362,22 +362,49 @@ ${deepPsychologyPrompt}
 }
 
 ═══════════════════════════════════════════════
-🎯 REGOLE LIFE_AREAS (CRUCIALI)
+🎯 REGOLE LIFE_AREAS - VALUTAZIONE STATO ATTUALE (CRUCIALI!)
 ═══════════════════════════════════════════════
-- Se l'utente PARLA di un'area, DEVI stimare un punteggio:
-  - "Il lavoro va bene" → work: 7-8
-  - "Il lavoro va benissimo/fantastico" → work: 9-10
-  - "Il lavoro va male/stressante" → work: 3-4
-  - "Sono innamorato/felice in amore" → love: 8-9
+⚠️ IMPORTANTE: Stai valutando lo STATO ATTUALE dell'utente, NON una variazione incrementale.
+Il punteggio che assegni È IL VOTO FINALE che verrà mostrato in Dashboard.
+DEVI considerare la GRAVITÀ degli eventi, non fare medie con il passato.
+
+📌 SCALA DI GRAVITÀ (eventi determinano punteggio assoluto):
+- EVENTI DEVASTANTI → 1-2:
+  - "Mi sono lasciato/a" → love: 1-2 (anche se ieri era 10!)
+  - "Ho perso il lavoro" → work: 1-2
+  - "È morto qualcuno che amavo" → mood: 1-2
+  - "Sono crollato, non ce la faccio più" → qualsiasi area coinvolta: 1-2
+
+- EVENTI MOLTO NEGATIVI → 3-4:
+  - "Ho litigato gravemente col partner" → love: 3-4
+  - "Sono stato licenziato/demansionato" → work: 3-4
+  - "Ho avuto una brutta diagnosi" → health: 3
+  - "I miei amici mi hanno tradito" → social: 3
+
+- DIFFICOLTÀ MODERATE → 4-5:
+  - "Il lavoro è stressante" → work: 4-5
+  - "Problemi col partner ma ci parliamo" → love: 5
+  - "Mi sento giù ultimamente" → mood: 4-5
+
+- SITUAZIONE NEUTRA/OK → 6:
   - "Sono single ma sto bene" → love: 6
-  - "Ho litigato col partner" → love: 4
-  - "Mi alleno regolarmente" → health: 8
-  - "Mi sento in salute" → health: 7
-  - "Sono malato/stanco fisicamente" → health: 3-4
-  - "Ho visto gli amici" → social: 7
-  - "Mi sento solo" → social: 3
-  - "Sto imparando cose nuove" → growth: 7-8
-- Se NON menzionata → null (NON inventare)
+  - "Il lavoro è normale, routine" → work: 6
+
+- BUONA SITUAZIONE → 7-8:
+  - "Il lavoro va bene" → work: 7
+  - "Sono felice con il mio partner" → love: 7-8
+  - "Ho visto gli amici, bello" → social: 7
+
+- OTTIMA SITUAZIONE → 9-10:
+  - "Sono innamoratissimo/a!" → love: 9
+  - "Promozione! Fantastico!" → work: 9
+  - "Mi sento al top della forma" → health: 9
+
+🚨 REGOLA D'ORO: Se l'utente racconta un EVENTO SIGNIFICATIVO (rottura, lutto, licenziamento),
+il punteggio DEVE riflettere la gravità attuale, INDIPENDENTEMENTE dai valori passati.
+Sei uno psicologo: se qualcuno ti dice "mi sono lasciato e sto male", non gli dici "beh, la media è 7.1".
+
+- Se NON menzionata l'area → null (NON inventare)
 
 ${voiceHeuristicsPrompt}
 
@@ -388,8 +415,8 @@ ${voiceHeuristicsPrompt}
 - Basati sui temi REALI della conversazione E sulle priorità utente: ${priorityMetrics.join(', ') || 'nessuna specificata'}
 - Default se conversazione neutra: ["mood", "anxiety", "energy", "sleep"]
 
-🔒 Valori ATTUALI aree di vita (aggiorna SOLO se menzionate con nuovi dati):
-${JSON.stringify(currentLifeScores)}
+⚡ I valori che restituisci SOVRASCRIVERANNO quelli precedenti (non viene fatta media).
+Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflettere il cambiamento.
 
 ⚡ Rispondi SOLO con JSON valido, SENZA markdown code blocks.`;
 
