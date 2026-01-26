@@ -15,28 +15,14 @@ import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { cn } from '@/lib/utils';
 
-const motivationalPhrases = [
-  "Ogni giorno è un nuovo inizio.",
-  "Piccoli passi portano a grandi cambiamenti.",
-  "Sei più forte di quanto pensi.",
-  "Prenditi cura di te stesso oggi.",
-  "Respira, sei nel posto giusto.",
-];
-
 const Index: React.FC = () => {
   const { profile, isLoading } = useProfile();
-  const { layout } = useAIDashboard();
+  const { layout, isLoading: isLoadingAI } = useAIDashboard();
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
-
-  const motivationalPhrase = useMemo(() => {
-    const today = new Date();
-    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    return motivationalPhrases[dayOfYear % motivationalPhrases.length];
-  }, []);
 
   // Sort widgets by priority from AI
   const sortedWidgets = useMemo(() => {
@@ -92,14 +78,11 @@ const Index: React.FC = () => {
     <MobileLayout>
       {/* Premium Hero Header */}
       <header className="px-6 pt-8 pb-4">
-        <div className="flex items-start justify-between mb-5">
+        <div className="flex items-start justify-between mb-3">
           <div>
             <h1 className="text-3xl font-semibold text-foreground tracking-tight">
               {isLoading ? '...' : `Ciao ${userName}`}
             </h1>
-            <p className="text-base text-muted-foreground mt-1">
-              {motivationalPhrase}
-            </p>
           </div>
           <Button 
             variant="ghost" 
@@ -126,8 +109,15 @@ const Index: React.FC = () => {
           </Button>
         </div>
 
-        {/* Smart Personalized Check-in */}
-        <SmartCheckinSection onStartCheckin={startCheckinTimer} />
+        {/* AI-Generated Personal Message - Single prominent message */}
+        {!isLoadingAI && layout.ai_message && (
+          <p className="text-base text-muted-foreground leading-relaxed mb-5">
+            {layout.ai_message}
+          </p>
+        )}
+
+        {/* Smart Personalized Check-in with Focus title */}
+        <SmartCheckinSection onStartCheckin={startCheckinTimer} showFocusTitle />
       </header>
 
       {/* Content Blocks - AI Driven Order */}

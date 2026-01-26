@@ -74,33 +74,7 @@ const AdaptiveVitalsSection: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header with AI badge */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            I Tuoi Focus
-          </h3>
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
-            AI
-          </span>
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {daysWithData > 0 && `Media ${daysWithData}gg`}
-        </span>
-      </div>
-
-      {/* AI Message */}
-      {layout.ai_message && (
-        <div className="px-3 py-2 bg-primary/5 rounded-2xl border border-primary/10">
-          <p className="text-sm text-foreground/80 flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            {layout.ai_message}
-          </p>
-        </div>
-      )}
-      
-      {/* Priority Metrics Grid - AI Driven */}
+      {/* Priority Metrics Grid - AI Driven (no separate header, title is in SmartCheckinSection) */}
       <div className={cn(
         "grid gap-4",
         primaryMetrics.length <= 2 ? "grid-cols-2" : 
