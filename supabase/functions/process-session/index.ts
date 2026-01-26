@@ -359,10 +359,37 @@ Solo valori ESPLICITI o FORTEMENTE INFERIBILI → assegna punteggio.
 `;
 
     // Build the OMNISCIENT analysis prompt with personalization
-    const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE. Analizza la conversazione e restituisci SEMPRE un JSON valido.
+    const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE con formazione in Psichiatria, Psicologia Clinica e Neuroscienze.
+Analizza la conversazione e restituisci SEMPRE un JSON valido.
 ${personalizedInstructions}
 ${dataHunterLifeAreas}
 ${deepPsychologyPrompt}
+
+═══════════════════════════════════════════════
+🔍 SCREENING PSICHIATRICO AVANZATO
+═══════════════════════════════════════════════
+Durante l'analisi, cerca PATTERN per questi disturbi:
+
+**DEPRESSIONE MAGGIORE:**
+- Anedonia + umore deflesso + fatica per almeno 2 settimane
+- Se tutti presenti → crisis_risk: "medium"
+- Se ideazione suicidaria → crisis_risk: "high"
+
+**DISTURBO BIPOLARE (Segnali Ipomania):**
+- Energia eccessiva + poco bisogno di sonno + grandiosità
+- Se presenti → aggiungere nota a insights
+
+**PTSD/TRAUMA:**
+- Flashback, evitamento, ipervigilanza
+- Menzioni di traumi passati
+- Se presenti → nota clinica
+
+**OCD:**
+- Pensieri intrusivi ego-distonici + rituali
+- DISTINGUI da ruminazione (ego-sintonica)
+
+**DISTURBI ALIMENTARI:**
+- Alterazioni appetito + body image issues + colpa post-pasto
 
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
