@@ -7,6 +7,7 @@ import GoalsWidget from '@/components/home/GoalsWidget';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
+import WellnessScoreBox from '@/components/home/WellnessScoreBox';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -78,7 +79,7 @@ const Index: React.FC = () => {
     <MobileLayout>
       {/* Premium Hero Header */}
       <header className="px-6 pt-8 pb-4">
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-3xl font-semibold text-foreground tracking-tight">
               {isLoading ? '...' : `Ciao ${userName}`}
@@ -109,12 +110,14 @@ const Index: React.FC = () => {
           </Button>
         </div>
 
-        {/* AI-Generated Personal Message - Single prominent message */}
-        {!isLoadingAI && layout.ai_message && (
-          <p className="text-base text-muted-foreground leading-relaxed mb-5">
-            {layout.ai_message}
-          </p>
-        )}
+        {/* Wellness Score Box - NEW */}
+        <div className="mb-5">
+          <WellnessScoreBox 
+            score={layout.wellness_score} 
+            message={layout.wellness_message}
+            isLoading={isLoadingAI}
+          />
+        </div>
 
         {/* Smart Personalized Check-in with Focus title */}
         <SmartCheckinSection onStartCheckin={startCheckinTimer} showFocusTitle />

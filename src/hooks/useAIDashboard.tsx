@@ -25,6 +25,8 @@ export interface DashboardLayout {
   widgets: WidgetConfig[];
   ai_message: string;
   focus_areas: string[];
+  wellness_score: number;
+  wellness_message: string;
 }
 
 const DEFAULT_LAYOUT: DashboardLayout = {
@@ -39,8 +41,10 @@ const DEFAULT_LAYOUT: DashboardLayout = {
     { type: 'goals_progress', title: 'Obiettivi', description: '', priority: 2, visible: true },
     { type: 'radar_chart', title: 'Aree della Vita', description: '', priority: 3, visible: true },
   ],
-  ai_message: 'Benvenuto! Parla con me per personalizzare la dashboard.',
+  ai_message: '',
   focus_areas: [],
+  wellness_score: 5,
+  wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
 };
 
 export function useAIDashboard() {
@@ -122,6 +126,8 @@ export function useAIDashboard() {
           widgets: data.widgets || DEFAULT_LAYOUT.widgets,
           ai_message: data.ai_message || DEFAULT_LAYOUT.ai_message,
           focus_areas: data.focus_areas || [],
+          wellness_score: data.wellness_score ?? DEFAULT_LAYOUT.wellness_score,
+          wellness_message: data.wellness_message || DEFAULT_LAYOUT.wellness_message,
         };
         
         setLayout(newLayout);
