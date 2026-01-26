@@ -1,215 +1,236 @@
 
-
-# Piano: Ristrutturazione Navigazione + Sistema Obiettivi Espanso
+# Piano: Rivoluzione Sistema Obiettivi - Dal Tema all'Obiettivo Reale
 
 ## Panoramica
 
-Trasformare l'app da "strumento di salute mentale" a **"compagno di vita completo"** con:
-1. Sezione **Obiettivi** dedicata nella bottom nav (al posto di Diario)
-2. Hub centrale **Aria** (chat/voce/diari unificati) con icona differenziata
-3. Obiettivi espansi oltre la salute mentale (fitness, studio, lavoro, relazioni)
+Trasformare il sistema obiettivi da **temi generici** (es. "Mente", "Corpo") a **obiettivi REALI dell'utente** con target misurabili e tracking AI automatico.
 
-## Nuova Struttura Navigazione
+## Cambiamenti Richiesti
+
+### 1. Rimuovere dalla Home "I tuoi obiettivi"
+
+**File:** `src/pages/Index.tsx`
+
+Rimuovere completamente il widget `GoalsWidget` dalla Home, poiché ora gli obiettivi vivono nella sezione dedicata `/objectives`.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    NUOVA BOTTOM NAV                      │
-├─────────┬─────────┬─────────────┬─────────┬─────────────┤
-│  Home   │ Analisi │    ARIA     │Obiettivi│   Profilo   │
-│   🏠    │   📊    │  ✨ (orb)   │   🎯    │     👤      │
-│    /    │/analisi │   /aria     │/obiettivi│  /profile  │
-└─────────┴─────────┴─────────────┴─────────┴─────────────┘
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │    HUB ARIA (nuovo)   │
-              ├───────────────────────┤
-              │ • Chat testuale       │
-              │ • Voce (Zen Modal)    │
-              │ • Diari tematici      │
-              │ • Cronologia sessioni │
-              └───────────────────────┘
+// RIMUOVERE dal switch dei widget:
+case 'goals_progress':
+  return (
+    <div {...baseProps}>
+      <GoalsWidget />
+    </div>
+  );
 ```
 
-## Design del Pulsante Centrale "Aria"
+### 2. Ristrutturare la Pagina Obiettivi
 
-Al posto dell'icona `MessageCircle`, useremo un **orb luminoso stilizzato** che richiama il design della voce:
-- Icona custom: cerchio con gradiente sottile + sparkle
-- Colore: gradiente sage-to-lavender (coerente con ZenVoiceModal)
-- Effetto: leggero glow animato (non aggressivo)
-- Al tap: apre la nuova pagina `/aria` (non più popup scelta)
+**File:** `src/pages/Objectives.tsx`
 
-## Nuove Categorie Obiettivi
-
-### Categorie Espanse
-
-| Categoria | Icona | Obiettivi Esempio |
-|-----------|-------|-------------------|
-| **Mente** | 🧠 | Ridurre ansia, Dormire meglio, Stabilità emotiva |
-| **Corpo** | 💪 | Perdere peso, Allenarsi regolarmente, Mangiare sano |
-| **Studio** | 📚 | Superare esami, Concentrazione, Imparare lingua |
-| **Lavoro** | 💼 | Promozione, Nuove skill, Work-life balance |
-| **Relazioni** | 💕 | Migliorare comunicazione, Trovare partner, Amicizie |
-| **Crescita** | 🌱 | Meditazione quotidiana, Leggere di più, Hobby nuovo |
-| **Finanze** | 💰 | Risparmiare, Budget, Investire |
-
-### Schema Dati per Obiettivi Custom
-
-```sql
--- Nuova tabella per obiettivi personalizzati
-CREATE TABLE user_objectives (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  category TEXT NOT NULL, -- 'mind', 'body', 'study', 'work', 'relationships', 'growth', 'finance'
-  title TEXT NOT NULL,
-  description TEXT,
-  target_value NUMERIC, -- Es: 70 (kg), 10 (libri), 5 (esami)
-  current_value NUMERIC,
-  unit TEXT, -- 'kg', 'books', 'exams', 'hours', etc.
-  deadline DATE,
-  status TEXT DEFAULT 'active', -- 'active', 'achieved', 'paused', 'abandoned'
-  ai_feedback TEXT, -- Feedback AI periodico
-  progress_history JSONB DEFAULT '[]', -- [{date, value, note}]
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-## Nuova Pagina: Aria Hub (`/aria`)
-
-### Layout
-
+**PRIMA (attuale):**
 ```
 ┌─────────────────────────────────────────┐
-│ ← Indietro        Aria           ⚙️    │
-├─────────────────────────────────────────┤
+│  I Tuoi Obiettivi                   ➕  │
+│  [🧠 Mente] [💪 Corpo] [📚 Studio] ...  │  ← CHIPS TEMI
 │                                         │
-│  ┌───────────────────────────────────┐  │
-│  │        INIZIA SESSIONE           │  │
-│  │  ┌─────────┐    ┌─────────┐      │  │
-│  │  │  Chat   │    │  Voce   │      │  │
-│  │  │   💬    │    │   🎙️    │      │  │
-│  │  └─────────┘    └─────────┘      │  │
-│  └───────────────────────────────────┘  │
-│                                         │
-│  ─── I Tuoi Quaderni ───────────────   │
-│  ┌────────┐ ┌────────┐                 │
-│  │ Amore  │ │Lavoro  │ ← Scroll H     │
-│  │   ❤️   │ │   💼   │                 │
-│  └────────┘ └────────┘                 │
-│                                         │
-│  ─── Cronologia ────────────────────   │
+│  Obiettivi Attivi                       │
 │  ┌─────────────────────────────────┐   │
-│  │ 📅 Oggi, 14:30 • Chat • 15min   │   │
-│  │ 📅 Ieri, 20:00 • Voce • 8min    │   │
+│  │ Obiettivo card...               │   │
 │  └─────────────────────────────────┘   │
-│                                         │
 └─────────────────────────────────────────┘
 ```
 
-## Nuova Pagina: Obiettivi (`/obiettivi`)
-
-### Layout
-
+**DOPO (nuovo design):**
 ```
 ┌─────────────────────────────────────────┐
-│        I Tuoi Obiettivi           ➕    │
-├─────────────────────────────────────────┤
+│  I Tuoi Obiettivi                   ➕  │
 │                                         │
-│  ── Obiettivi Attivi ───────────────   │
-│  ┌─────────────────────────────────┐   │
+│  ┌─────────────────────────────────┐   │  ← BOX OBIETTIVO REALE
 │  │ 🎯 Perdere 5kg                  │   │
 │  │ ████████░░░░░░░░ 60% • -3kg     │   │
-│  │ "Stai andando alla grande!"     │   │
+│  │ "Continua così, stai andando    │   │
+│  │  alla grande!" - Aria           │   │
+│  │ ⏱ Scade: 15 Mar 2026           │   │
 │  └─────────────────────────────────┘   │
 │                                         │
 │  ┌─────────────────────────────────┐   │
 │  │ 📚 Superare esame Statistica    │   │
-│  │ ██████░░░░░░░░░░ 40% • 15gg     │   │
-│  │ "Aumenta le sessioni studio"    │   │
+│  │ ████░░░░░░░░░░░░ 30%            │   │
+│  │ "Hai detto che stai studiando   │   │
+│  │  di più, ottimo!" - Aria        │   │
+│  │ ⚠️ Obiettivo finale: non chiaro │   │  ← PROMPT AI
 │  └─────────────────────────────────┘   │
-│                                         │
-│  ── Categorie ──────────────────────   │
-│  [🧠 Mente] [💪 Corpo] [📚 Studio]     │
-│  [💼 Lavoro] [💕 Relazioni] [🌱 ...]   │
 │                                         │
 │  ── Traguardi Raggiunti ────────────   │
 │  ✅ Dormire 7h/notte (15 Gen)          │
-│  ✅ Meditare 30 giorni (2 Gen)         │
-│                                         │
 └─────────────────────────────────────────┘
 ```
 
-### Funzionalità Obiettivi
+**Modifiche:**
+- RIMUOVERE: `CategoryChips` (lista temi) 
+- AGGIUNGERE: Box obiettivi reali dalla tabella `user_objectives`
+- AGGIUNGERE: Indicatore "Obiettivo finale non chiaro" se `target_value` è null
+- MIGLIORARE: ObjectiveCard con design premium e AI feedback
 
-1. **Creazione Custom**: L'utente può aggiungere obiettivi con titolo, target, deadline
-2. **Tracking Automatico**: L'AI rileva progressi dalle conversazioni
-3. **Feedback AI Periodico**: Ogni settimana Aria commenta i progressi
-4. **Milestone**: Sub-obiettivi per obiettivi grandi
-5. **Storico**: Visualizzazione traguardi raggiunti
+### 3. Aggiornare l'Onboarding
 
-## File da Creare/Modificare
+**File:** `src/pages/Onboarding.tsx`
 
-### Nuovi File
+Aggiungere uno step dove l'utente può inserire obiettivi CONCRETI (non solo temi):
 
-| File | Descrizione |
-|------|-------------|
-| `src/pages/Aria.tsx` | Hub centrale per chat, voce, diari |
-| `src/pages/Objectives.tsx` | Pagina obiettivi dedicata |
-| `src/components/objectives/ObjectiveCard.tsx` | Card singolo obiettivo |
-| `src/components/objectives/NewObjectiveModal.tsx` | Modal creazione obiettivo |
-| `src/components/objectives/CategoryChips.tsx` | Filtri per categoria |
-| `src/components/aria/SessionTypeSelector.tsx` | Selettore chat/voce |
-| `src/hooks/useObjectives.tsx` | Hook per gestione obiettivi |
+```
+Step 6: Obiettivi Specifici (nuovo)
+┌─────────────────────────────────────────┐
+│  Hai obiettivi specifici che vuoi      │
+│  raggiungere?                          │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 💪 Voglio perdere peso          │   │
+│  │    Target: _______ kg           │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 📚 Devo superare un esame       │   │
+│  │    Quale: __________________    │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ + Aggiungi obiettivo custom     │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  [Salta per ora]  [Continua →]         │
+└─────────────────────────────────────────┘
+```
 
-### File da Modificare
+### 4. Espandere l'AI Goal Detection
+
+**File:** `supabase/functions/process-session/index.ts`
+
+Attualmente l'AI rileva solo obiettivi PREDEFINITI (reduce_anxiety, improve_sleep, ecc.).
+
+**Nuova logica:**
+```
+🎯 RILEVAMENTO OBIETTIVI CUSTOM (ESPANSO!)
+═══════════════════════════════════════════════
+
+OBIETTIVI NON-MENTALI DA RILEVARE:
+- "Voglio dimagrire" → Crea obiettivo category: 'body', title: 'Perdere peso'
+  - Se specifica "5kg" → target_value: 5, unit: 'kg'
+  - Se NON specifica quanto → target_value: null (trigger prompt)
+  
+- "Devo superare l'esame di matematica" → category: 'study', title: 'Esame matematica'
+  - target_value: null (esame è binario: passato/non passato)
+
+- "Voglio una promozione" → category: 'work', title: 'Ottenere promozione'
+
+- "Voglio risparmiare 5000€" → category: 'finance', target_value: 5000, unit: '€'
+
+QUANDO TARGET NON È CHIARO:
+Se AI rileva obiettivo ma NON il target finale, salvare con:
+  - target_value: null
+  - ai_feedback: "Qual è il tuo obiettivo finale? (es. quanti kg vuoi perdere?)"
+```
+
+### 5. Prompt AI per Obiettivi Incompleti
+
+**File:** `supabase/functions/ai-chat/index.ts` e `supabase/functions/thematic-diary-chat/index.ts`
+
+Aggiungere istruzioni per Aria di chiedere proattivamente:
+
+```
+═══════════════════════════════════════════════
+🎯 PROACTIVE GOAL CLARIFICATION
+═══════════════════════════════════════════════
+Se l'utente ha obiettivi con target_value = null, DEVI chiedere:
+
+Esempio 1: Obiettivo "Perdere peso" senza target
+Aria: "Mi hai detto che vuoi perdere peso. Di quanti kg vorresti dimagrire? Così posso aiutarti a tracciare i progressi!"
+
+Esempio 2: Obiettivo "Risparmiare" senza target  
+Aria: "Qual è la cifra che vorresti mettere da parte? Avere un numero preciso aiuta tantissimo!"
+
+NON essere invadente: chiedi UNA volta per sessione, massimo.
+```
+
+### 6. Aggiornare ObjectiveCard
+
+**File:** `src/components/objectives/ObjectiveCard.tsx`
+
+Aggiungere:
+- Indicatore visivo se `target_value` è null ("⚠️ Definisci obiettivo")
+- Pulsante per aggiornare progresso manualmente
+- Mostrare `ai_feedback` in modo prominente
+- Deadline countdown se presente
+
+### 7. Creare Endpoint per Creazione Obiettivi da AI
+
+Quando `process-session` rileva un nuovo obiettivo custom, deve:
+1. Creare record in `user_objectives`
+2. Impostare `ai_feedback` appropriato
+3. Se target non chiaro, lasciare `target_value: null`
+
+## Schema Database (già esistente, ma chiarimento)
+
+La tabella `user_objectives` supporta già tutto:
+```sql
+user_objectives:
+  - id, user_id
+  - category: 'mind' | 'body' | 'study' | 'work' | 'relationships' | 'growth' | 'finance'
+  - title: "Perdere 5kg"
+  - description: "Voglio tornare in forma"
+  - target_value: 70  -- Peso target
+  - current_value: 75 -- Peso attuale
+  - unit: "kg"
+  - deadline: 2026-03-15
+  - status: 'active' | 'achieved' | 'paused'
+  - ai_feedback: "Stai andando alla grande!"
+  - progress_history: [{date, value, note}]
+```
+
+## Flusso Completo Obiettivi
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   ONBOARDING    │───▶│    SESSIONE     │───▶│   DASHBOARD     │
+│  User aggiunge  │    │   AI rileva     │    │  Obiettivi      │
+│  obiettivi      │    │   "voglio       │    │  mostrati in    │
+│  durante quiz   │    │   dimagrire"    │    │  /objectives    │
+└─────────────────┘    └────────┬────────┘    └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │  process-session│
+                       │  Crea/Aggiorna  │
+                       │  user_objectives│
+                       └────────┬────────┘
+                                │
+         ┌──────────────────────┴──────────────────────┐
+         ▼                                              ▼
+┌─────────────────┐                           ┌─────────────────┐
+│  TARGET CHIARO  │                           │ TARGET NON CHIARO│
+│  Obiettivo      │                           │ target_value=null│
+│  completo       │                           │ Aria chiede:     │
+│                 │                           │ "Di quanto?"     │
+└─────────────────┘                           └─────────────────┘
+```
+
+## File da Modificare
 
 | File | Modifiche |
 |------|-----------|
-| `src/components/layout/BottomNav.tsx` | Nuova struttura nav, icona Aria, path /obiettivi |
-| `src/App.tsx` | Nuove routes /aria e /obiettivi |
-| `src/pages/Onboarding.tsx` | Aggiunta categorie obiettivi espanse |
-| `supabase/functions/process-session/index.ts` | Rilevamento progressi obiettivi non-mentali |
-| `supabase/functions/ai-chat/index.ts` | Conoscenza obiettivi utente per coaching |
-
-### Migrazione Database
-
-```sql
--- Nuova tabella obiettivi
-CREATE TABLE user_objectives (...);
-
--- Espansione goal configs per nuove categorie
--- Trigger per aggiornamento automatico progressi
-```
-
-## Integrazione AI con Obiettivi
-
-L'AI (Aria) verrà aggiornata per:
-1. **Riconoscere** quando l'utente parla di obiettivi non-mentali
-2. **Tracciare** progressi automaticamente ("Ho perso 2kg!" → aggiorna obiettivo)
-3. **Motivare** con coaching specifico per categoria
-4. **Celebrare** traguardi raggiunti
-5. **Adattare** domande check-in in base agli obiettivi attivi
-
-## Riepilogo Visivo Cambiamenti
-
-```
-PRIMA:
-[Home] [Analisi] [💬 Sessione] [Diario] [Profilo]
-                      ↓
-              popup: Chat/Voce
-
-DOPO:
-[Home] [Analisi] [✨ Aria] [Obiettivi] [Profilo]
-                     ↓
-           pagina: Chat/Voce/Diari/Cronologia
-```
+| `src/pages/Index.tsx` | Rimuovere GoalsWidget dalla renderWidget function |
+| `src/pages/Objectives.tsx` | Rimuovere CategoryChips, mostrare solo obiettivi reali |
+| `src/components/objectives/ObjectiveCard.tsx` | Design premium, indicator se target mancante |
+| `src/components/objectives/CategoryChips.tsx` | ELIMINARE (non più usato) |
+| `src/pages/Onboarding.tsx` | Aggiungere step per obiettivi specifici |
+| `supabase/functions/process-session/index.ts` | Logica per creare obiettivi custom in DB |
+| `supabase/functions/ai-chat/index.ts` | Prompt per chiedere target mancanti |
 
 ## Benefici
 
-1. **Obiettivi in primo piano**: Visibilità costante nella nav principale
-2. **Hub unificato Aria**: Tutto in un posto, meno confusione
-3. **Espansione use case**: Non solo salute mentale, ma life coaching completo
-4. **Engagement**: Gli utenti tornano per tracciare obiettivi diversi
-5. **Retention**: Obiettivi a lungo termine creano abitudine
+1. **Obiettivi REALI**: L'utente vede "Perdere 5kg" non "Categoria: Corpo"
+2. **AI proattiva**: Rileva obiettivi dalle conversazioni automaticamente
+3. **Target misurabili**: Se manca il target, Aria lo chiede
+4. **Tracking intelligente**: Progress bars basate su valori reali
+5. **Engagement**: Obiettivi concreti motivano di più
 
