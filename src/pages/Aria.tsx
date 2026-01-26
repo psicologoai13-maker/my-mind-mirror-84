@@ -1,27 +1,40 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Mic, Heart, Briefcase, Users, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { MessageCircle, Mic, Plus, ChevronRight, Loader2 } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Card } from '@/components/ui/card';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
-import { useThematicDiaries } from '@/hooks/useThematicDiaries';
+import { useThematicDiaries, DIARY_THEMES } from '@/hooks/useThematicDiaries';
 import { useSessions } from '@/hooks/useSessions';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import DiaryManagementModal from '@/components/diary/DiaryManagementModal';
 
-const DIARY_THEMES = [
-  { id: 'love', label: 'Amore', emoji: '❤️', icon: Heart, color: 'text-rose-500' },
-  { id: 'work', label: 'Lavoro', emoji: '💼', icon: Briefcase, color: 'text-amber-600' },
-  { id: 'relationships', label: 'Relazioni', emoji: '👥', icon: Users, color: 'text-blue-500' },
-  { id: 'self', label: 'Me Stesso', emoji: '✨', icon: Sparkles, color: 'text-purple-500' },
+// Extended diary themes including suggested ones
+const ALL_DIARY_THEMES = [
+  { id: 'love', label: 'Amore', emoji: '❤️' },
+  { id: 'work', label: 'Lavoro', emoji: '💼' },
+  { id: 'relationships', label: 'Relazioni', emoji: '👥' },
+  { id: 'self', label: 'Me Stesso', emoji: '✨' },
+  { id: 'health', label: 'Salute', emoji: '💪' },
+  { id: 'family', label: 'Famiglia', emoji: '👨‍👩‍👧' },
+  { id: 'dreams', label: 'Sogni', emoji: '🌙' },
+  { id: 'gratitude', label: 'Gratitudine', emoji: '🙏' },
 ];
 
 const Aria: React.FC = () => {
   const navigate = useNavigate();
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showDiaryModal, setShowDiaryModal] = useState(false);
   const { diaries, isLoading: diariesLoading } = useThematicDiaries();
   const { sessions, isLoading: sessionsLoading } = useSessions();
+
+  // Active diaries - default to first 4, stored in localStorage for persistence
+  const [activeDiaryIds, setActiveDiaryIds] = useState<string[]>(() => {
+    const stored = localStorage.getItem('activeDiaryIds');
+    return stored ? JSON.parse(stored) : ['love', 'work', 'relationships', 'self'];
+  });
 
   const recentSessions = sessions?.slice(0, 5) || [];
 
@@ -33,69 +46,83 @@ const Aria: React.FC = () => {
     navigate(`/sessions?diary=${theme}`);
   };
 
+  const handleAddDiary = (themeId: string, isCustom: boolean, customLabel?: string) => {
+    if (activeDiaryIds.length >= 6) return;
+    
+    const newIds = [...activeDiaryIds, themeId];
+    setActiveDiaryIds(newIds);
+    localStorage.setItem('activeDiaryIds', JSON.stringify(newIds));
+    
+    // If custom, store the custom label
+    if (isCustom && customLabel) {
+      const customDiaries = JSON.parse(localStorage.getItem('customDiaries') || '{}');
+      customDiaries[themeId] = customLabel;
+      localStorage.setItem('customDiaries', JSON.stringify(customDiaries));
+    }
+  };
+
+  const handleRemoveDiary = (themeId: string) => {
+    const newIds = activeDiaryIds.filter(id => id !== themeId);
+    setActiveDiaryIds(newIds);
+    localStorage.setItem('activeDiaryIds', JSON.stringify(newIds));
+  };
+
+  const getDiaryLabel = (id: string) => {
+    const suggested = ALL_DIARY_THEMES.find(d => d.id === id);
+    if (suggested) return { emoji: suggested.emoji, label: suggested.label };
+    
+    const customDiaries = JSON.parse(localStorage.getItem('customDiaries') || '{}');
+    if (customDiaries[id]) {
+      const parts = customDiaries[id].split(' ');
+      return { emoji: parts[0], label: parts.slice(1).join(' ') };
+    }
+    
+    return { emoji: '📝', label: id };
+  };
+
   return (
     <MobileLayout>
       <div className="p-4 pb-28 space-y-6">
-        {/* Header */}
-        <div className="text-center pt-2">
-          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-primary/20 via-purple-100 to-primary/30 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-primary" />
+        {/* Single Session Button */}
+        <button
+          onClick={handleStartChat}
+          className="w-full flex items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-primary/10 via-purple-50 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all shadow-card"
+        >
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-primary" />
+            <span className="text-muted-foreground">/</span>
+            <Mic className="w-5 h-5 text-purple-600" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Aria</h1>
-          <p className="text-sm text-muted-foreground">La tua compagna di vita</p>
-        </div>
-
-        {/* Session Type Selector */}
-        <Card className="p-4 bg-card border-border shadow-card">
-          <h2 className="font-semibold text-foreground mb-3">Inizia Sessione</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={handleStartChat}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                <MessageCircle className="w-6 h-6 text-primary" />
-              </div>
-              <span className="font-medium text-foreground">Chat</span>
-              <span className="text-xs text-muted-foreground">Scrivi con Aria</span>
-            </button>
-
-            <button
-              onClick={() => setShowVoiceModal(true)}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-purple-100/50 to-primary/5 border border-purple-200/50 hover:border-purple-300 transition-all"
-            >
-              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <Mic className="w-6 h-6 text-purple-600" />
-              </div>
-              <span className="font-medium text-foreground">Voce</span>
-              <span className="text-xs text-muted-foreground">Parla con Aria</span>
-            </button>
-          </div>
-        </Card>
+          <span className="font-semibold text-foreground">Scrivi o parla con Aria</span>
+        </button>
 
         {/* Thematic Diaries */}
         <section>
-          <h2 className="font-semibold text-foreground mb-3">I Tuoi Quaderni</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-foreground">I Tuoi Diari</h2>
+            <button
+              onClick={() => setShowDiaryModal(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          
           <div className="grid grid-cols-2 gap-3">
-            {DIARY_THEMES.map(theme => {
-              const diary = diaries?.find(d => d.theme === theme.id);
-              const Icon = theme.icon;
+            {activeDiaryIds.map(diaryId => {
+              const diary = diaries?.find(d => d.theme === diaryId);
+              const { emoji, label } = getDiaryLabel(diaryId);
               
               return (
                 <button
-                  key={theme.id}
-                  onClick={() => handleOpenDiary(theme.id)}
-                  className="flex flex-col items-start p-4 rounded-2xl bg-card border border-border shadow-card hover:shadow-md transition-all text-left"
+                  key={diaryId}
+                  onClick={() => handleOpenDiary(diaryId)}
+                  className="flex flex-col items-start p-4 rounded-2xl bg-card border border-border shadow-card hover:shadow-md transition-all text-left h-24"
                 >
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-2", 
-                    theme.id === 'love' && "bg-rose-100",
-                    theme.id === 'work' && "bg-amber-100",
-                    theme.id === 'relationships' && "bg-blue-100",
-                    theme.id === 'self' && "bg-purple-100"
-                  )}>
-                    <span className="text-xl">{theme.emoji}</span>
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mb-2">
+                    <span className="text-xl">{emoji}</span>
                   </div>
-                  <span className="font-medium text-foreground">{theme.label}</span>
+                  <span className="font-medium text-foreground text-sm">{label}</span>
                   {diary && (
                     <span className="text-xs text-muted-foreground mt-0.5">
                       {format(new Date(diary.last_updated_at), 'd MMM', { locale: it })}
@@ -164,6 +191,14 @@ const Aria: React.FC = () => {
       <ZenVoiceModal
         isOpen={showVoiceModal}
         onClose={() => setShowVoiceModal(false)}
+      />
+
+      <DiaryManagementModal
+        isOpen={showDiaryModal}
+        onClose={() => setShowDiaryModal(false)}
+        activeDiaries={activeDiaryIds}
+        onAddDiary={handleAddDiary}
+        onRemoveDiary={handleRemoveDiary}
       />
     </MobileLayout>
   );
