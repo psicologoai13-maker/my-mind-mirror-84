@@ -172,18 +172,18 @@ const buildPriorityAnalysisInstructions = (
   }
 
   // Goal progress analysis
+  // Goal detection instructions (always active, even if no goals are set yet)
+  const goalLabels: Record<string, string> = {
+    reduce_anxiety: 'Ridurre Ansia',
+    improve_sleep: 'Dormire Meglio',
+    find_love: 'Migliorare Relazioni',
+    boost_energy: 'Aumentare Energia',
+    express_feelings: 'Sfogarmi/Esprimere Emozioni',
+    emotional_stability: 'Stabilità Emotiva',
+  };
+
   if (goals.length > 0) {
-    const goalsListText = goals.map(g => {
-      const goalLabels: Record<string, string> = {
-        reduce_anxiety: 'Ridurre Ansia',
-        improve_sleep: 'Dormire Meglio',
-        find_love: 'Migliorare Relazioni',
-        boost_energy: 'Aumentare Energia',
-        express_feelings: 'Sfogarmi/Esprimere Emozioni',
-        emotional_stability: 'Stabilità Emotiva',
-      };
-      return `- ${g}: ${goalLabels[g] || g}`;
-    }).join('\n');
+    const goalsListText = goals.map(g => `- ${g}: ${goalLabels[g] || g}`).join('\n');
     
     instructions.push(`🎯 VALUTAZIONE OBIETTIVI UTENTE:
 Gli obiettivi attivi sono:
@@ -192,10 +192,40 @@ ${goalsListText}
 Per OGNI obiettivo, valuta:
 1. PROGRESSO (0-100%): Quanto l'utente sta facendo progressi?
 2. STATO: "keep" (continua), "achieved" (raggiunto!), "suggest_remove" (non più rilevante)
-3. Se l'utente menziona NUOVI focus che potrebbero diventare obiettivi, suggeriscili.
+3. Se l'utente menziona NUOVI focus che potrebbero diventare obiettivi, suggeriscili in "suggested_new_goals".
 
 IDs validi per nuovi obiettivi: reduce_anxiety, improve_sleep, find_love, boost_energy, express_feelings, emotional_stability`);
   }
+
+  // 🎯 AI GOAL DETECTION: Always look for new goals, even if user has none yet
+  instructions.push(`
+═══════════════════════════════════════════════
+🎯 RILEVAMENTO AUTOMATICO NUOVI OBIETTIVI (CRITICO!)
+═══════════════════════════════════════════════
+DEVI analizzare la conversazione per rilevare NUOVI OBIETTIVI che l'utente potrebbe avere.
+
+📌 QUANDO AGGIUNGERE UN OBIETTIVO A "suggested_new_goals":
+1. L'utente dice ESPLICITAMENTE che vuole qualcosa:
+   - "Vorrei dormire meglio" → improve_sleep
+   - "Devo gestire la mia ansia" → reduce_anxiety
+   - "Voglio migliorare le mie relazioni" → find_love
+   - "Ho bisogno di più energia" → boost_energy
+   - "Voglio stabilità emotiva" → emotional_stability
+   - "Ho bisogno di sfogarmi" → express_feelings
+
+2. L'utente mostra un PATTERN RIPETUTO di problema:
+   - Parla spesso di insonnia o stanchezza → improve_sleep
+   - Parla spesso di preoccupazioni → reduce_anxiety
+   - Parla spesso di solitudine o relazioni → find_love
+
+3. L'utente esprime un DESIDERIO implicito:
+   - "Spero di riuscire a calmarmi" → reduce_anxiety
+   - "Mi piacerebbe essere meno stanco" → boost_energy
+
+⚠️ NON aggiungere obiettivi già presenti in: [${goals.join(', ')}]
+⚠️ Aggiungi SOLO se c'è evidenza chiara, non inventare.
+
+IDs VALIDI: reduce_anxiety, improve_sleep, find_love, boost_energy, express_feelings, emotional_stability`);
 
   return instructions.length > 0 
     ? `\n═══════════════════════════════════════════════
@@ -697,12 +727,26 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       ? finalMetrics 
       : [...finalMetrics, ...['mood', 'anxiety', 'energy', 'sleep'].filter(m => !finalMetrics.includes(m))].slice(0, 4);
 
+    // 🎯 AI-DRIVEN GOAL MANAGEMENT: Add new goals suggested by AI
+    const validGoalIds = ['reduce_anxiety', 'improve_sleep', 'find_love', 'boost_energy', 'express_feelings', 'emotional_stability'];
+    const suggestedNewGoals = (analysis.suggested_new_goals || []).filter(g => validGoalIds.includes(g));
+    
+    // Merge existing goals with AI-suggested ones (no duplicates)
+    const updatedGoals = [...new Set([...selectedGoals, ...suggestedNewGoals])];
+    
+    // Log if new goals were added
+    if (suggestedNewGoals.length > 0) {
+      console.log('[process-session] AI suggested new goals:', suggestedNewGoals);
+      console.log('[process-session] Updated goals list:', updatedGoals);
+    }
+
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
         long_term_memory: updatedMemory,
         life_areas_scores: mergedLifeScores,
-        active_dashboard_metrics: validFinalMetrics
+        active_dashboard_metrics: validFinalMetrics,
+        selected_goals: updatedGoals // 🎯 Save AI-updated goals
       })
       .eq('user_id', user_id);
 
@@ -710,6 +754,9 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.error('[process-session] Error updating profile:', profileUpdateError);
     } else {
       console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts');
+      if (suggestedNewGoals.length > 0) {
+        console.log('[process-session] Added', suggestedNewGoals.length, 'new AI-detected goals');
+      }
     }
 
     console.log('[process-session] Session processing complete!');
