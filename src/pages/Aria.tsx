@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Mic, Plus, ChevronRight, Loader2 } from 'lucide-react';
+import { PenLine, AudioLines, Plus, ChevronRight, Loader2, Sparkles, MessageCircle, Mic } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Card } from '@/components/ui/card';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
@@ -83,26 +83,40 @@ const Aria: React.FC = () => {
   return (
     <MobileLayout>
       <div className="p-4 pb-28 space-y-6">
-        {/* Session Type Selector - Two Boxes */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Session Type Selector - Two Premium Boxes */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Chat Box */}
           <button
             onClick={handleStartChat}
-            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all"
+            className="group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200/60 hover:border-emerald-300 hover:shadow-lg transition-all duration-300"
           >
-            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-primary" />
+            {/* Decorative elements */}
+            <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-40 transition-opacity">
+              <Sparkles className="w-4 h-4 text-emerald-500" />
             </div>
-            <span className="font-medium text-foreground text-sm">Scrivi con Aria</span>
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-emerald-200/30 to-transparent rounded-full blur-xl" />
+            
+            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-200/50 group-hover:scale-105 transition-transform duration-300">
+              <PenLine className="w-7 h-7 text-white" />
+            </div>
+            <span className="font-semibold text-foreground">Scrivi con Aria</span>
           </button>
 
+          {/* Voice Box */}
           <button
             onClick={() => setShowVoiceModal(true)}
-            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-purple-100/50 to-primary/5 border border-purple-200/50 hover:border-purple-300 transition-all"
+            className="group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 border border-violet-200/60 hover:border-violet-300 hover:shadow-lg transition-all duration-300"
           >
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-              <Mic className="w-6 h-6 text-purple-600" />
+            {/* Decorative elements */}
+            <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-40 transition-opacity">
+              <Sparkles className="w-4 h-4 text-violet-500" />
             </div>
-            <span className="font-medium text-foreground text-sm">Parla con Aria</span>
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-violet-200/30 to-transparent rounded-full blur-xl" />
+            
+            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-200/50 group-hover:scale-105 transition-transform duration-300">
+              <AudioLines className="w-7 h-7 text-white" />
+            </div>
+            <span className="font-semibold text-foreground">Parla con Aria</span>
           </button>
         </div>
 
