@@ -170,94 +170,93 @@ export const useTimeWeightedMetrics = (
       };
     }
 
-    // Calculate weighted vitals
+    // 🎯 VITALS: Usa il PUNTEGGIO PIÙ RECENTE con dati validi
+    // L'AI valuta lo stato attuale - non facciamo media con il passato
+    const sortedByDate = [...daysWithData].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    const getMostRecentVital = (getter: (m: DailyMetrics) => number): number | null => {
+      for (const m of sortedByDate) {
+        const value = getter(m);
+        if (value > 0) return value;
+      }
+      return null;
+    };
+
     const vitals = {
-      mood: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.vitals.mood > 0 ? m.vitals.mood : null),
-        halfLifeDays
-      ),
-      anxiety: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.vitals.anxiety > 0 ? m.vitals.anxiety : null),
-        halfLifeDays
-      ),
-      energy: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.vitals.energy > 0 ? m.vitals.energy : null),
-        halfLifeDays
-      ),
-      sleep: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.vitals.sleep > 0 ? m.vitals.sleep : null),
-        halfLifeDays
-      ),
+      mood: getMostRecentVital(m => m.vitals.mood),
+      anxiety: getMostRecentVital(m => m.vitals.anxiety),
+      energy: getMostRecentVital(m => m.vitals.energy),
+      sleep: getMostRecentVital(m => m.vitals.sleep),
     };
 
-    // Calculate weighted emotions
+    // 🎯 EMOTIONS: Usa il punteggio più recente
+    const getMostRecentEmotion = (getter: (m: DailyMetrics) => number): number | null => {
+      for (const m of sortedByDate) {
+        const value = getter(m);
+        if (value > 0) return value;
+      }
+      return null;
+    };
+
     const emotions = {
-      joy: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.emotions.joy > 0 ? m.emotions.joy : null),
-        halfLifeDays
-      ),
-      sadness: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.emotions.sadness > 0 ? m.emotions.sadness : null),
-        halfLifeDays
-      ),
-      anger: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.emotions.anger > 0 ? m.emotions.anger : null),
-        halfLifeDays
-      ),
-      fear: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.emotions.fear > 0 ? m.emotions.fear : null),
-        halfLifeDays
-      ),
-      apathy: calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.emotions.apathy > 0 ? m.emotions.apathy : null),
-        halfLifeDays
-      ),
+      joy: getMostRecentEmotion(m => m.emotions.joy),
+      sadness: getMostRecentEmotion(m => m.emotions.sadness),
+      anger: getMostRecentEmotion(m => m.emotions.anger),
+      fear: getMostRecentEmotion(m => m.emotions.fear),
+      apathy: getMostRecentEmotion(m => m.emotions.apathy),
     };
 
-    // Calculate weighted life areas using ACTUAL updated_at timestamps
-    // This is the KEY FIX: ensures recent diary entries override old data properly
-    // A breakup entry from 5 minutes ago will heavily outweigh a positive entry from 2 days ago
-    const lifeAreasWithTimestamp = (lifeAreasData || []).map(record => ({
-      ...record,
-      timestamp: new Date(record.updated_at).getTime(),
-    }));
+    // 🎯 LIFE AREAS: Usa il PUNTEGGIO PIÙ RECENTE, non la media!
+    // L'AI è già istruita a valutare lo "stato attuale" considerando la gravità degli eventi.
+    // Se qualcuno dice "mi sono lasciato", l'AI dà love: 1-2, e quello DEVE essere il valore mostrato.
+    // NON facciamo media: un evento devastante oggi annulla il fatto che "ieri andava bene".
+    
+    // Sort by updated_at descending to get most recent first
+    const sortedLifeAreas = [...(lifeAreasData || [])].sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    // Helper to get the MOST RECENT non-null value for each life area
+    const getMostRecentValue = (key: keyof LifeAreaRecord): number | null => {
+      for (const record of sortedLifeAreas) {
+        const value = record[key];
+        if (typeof value === 'number' && value > 0) {
+          return value;
+        }
+      }
+      return null;
+    };
 
     const lifeAreas = {
-      love: calculateTimeWeightedAverage(
-        lifeAreasWithTimestamp.map(r => ({ value: r.love, timestamp: r.timestamp })),
-        halfLifeDays
-      ),
-      work: calculateTimeWeightedAverage(
-        lifeAreasWithTimestamp.map(r => ({ value: r.work, timestamp: r.timestamp })),
-        halfLifeDays
-      ),
-      health: calculateTimeWeightedAverage(
-        lifeAreasWithTimestamp.map(r => ({ value: r.health, timestamp: r.timestamp })),
-        halfLifeDays
-      ),
-      social: calculateTimeWeightedAverage(
-        lifeAreasWithTimestamp.map(r => ({ value: r.social, timestamp: r.timestamp })),
-        halfLifeDays
-      ),
-      growth: calculateTimeWeightedAverage(
-        lifeAreasWithTimestamp.map(r => ({ value: r.growth, timestamp: r.timestamp })),
-        halfLifeDays
-      ),
+      love: getMostRecentValue('love'),
+      work: getMostRecentValue('work'),
+      health: getMostRecentValue('health'),
+      social: getMostRecentValue('social'),
+      growth: getMostRecentValue('growth'),
     };
 
-    // Calculate weighted deep psychology
+    // 🎯 DEEP PSYCHOLOGY: Usa il punteggio più recente
     const psychologyKeys: (keyof DeepPsychology)[] = [
       'rumination', 'self_efficacy', 'mental_clarity', 'burnout_level',
       'coping_ability', 'loneliness_perceived', 'somatic_tension',
       'appetite_changes', 'sunlight_exposure', 'guilt', 'gratitude', 'irritability'
     ];
 
+    const getMostRecentPsychology = (key: keyof DeepPsychology): number | null => {
+      for (const m of sortedByDate) {
+        const value = m.deep_psychology?.[key];
+        if (value !== null && value !== undefined && value > 0) {
+          return value;
+        }
+      }
+      return null;
+    };
+
     const deepPsychology: DeepPsychology = {} as DeepPsychology;
     psychologyKeys.forEach(key => {
-      deepPsychology[key] = calculateTimeWeightedAverage(
-        extractWithTimestamp(daysWithData, m => m.deep_psychology?.[key] ?? null),
-        halfLifeDays
-      );
+      deepPsychology[key] = getMostRecentPsychology(key);
     });
 
     return {
