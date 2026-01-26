@@ -17,6 +17,8 @@ import Onboarding from "./pages/Onboarding";
 import DoctorView from "./pages/DoctorView";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorPatientView from "./pages/DoctorPatientView";
+import Aria from "./pages/Aria";
+import Objectives from "./pages/Objectives";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -117,6 +119,8 @@ const App = () => (
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/analisi" element={<ProtectedRoute><Analisi /></ProtectedRoute>} />
             <Route path="/progress" element={<Navigate to="/analisi" replace />} />
+            <Route path="/aria" element={<ProtectedRoute><Aria /></ProtectedRoute>} />
+            <Route path="/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
