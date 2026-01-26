@@ -204,28 +204,67 @@ IDs validi per nuovi obiettivi: reduce_anxiety, improve_sleep, find_love, boost_
 ═══════════════════════════════════════════════
 DEVI analizzare la conversazione per rilevare NUOVI OBIETTIVI che l'utente potrebbe avere.
 
-📌 QUANDO AGGIUNGERE UN OBIETTIVO A "suggested_new_goals":
-1. L'utente dice ESPLICITAMENTE che vuole qualcosa:
-   - "Vorrei dormire meglio" → improve_sleep
-   - "Devo gestire la mia ansia" → reduce_anxiety
-   - "Voglio migliorare le mie relazioni" → find_love
-   - "Ho bisogno di più energia" → boost_energy
-   - "Voglio stabilità emotiva" → emotional_stability
-   - "Ho bisogno di sfogarmi" → express_feelings
+📌 OBIETTIVI MENTALI (ID predefiniti):
+- "Vorrei dormire meglio" → improve_sleep
+- "Devo gestire la mia ansia" → reduce_anxiety
+- "Voglio migliorare le mie relazioni" → find_love
+- "Ho bisogno di più energia" → boost_energy
+- "Voglio stabilità emotiva" → emotional_stability
+- "Ho bisogno di sfogarmi" → express_feelings
 
-2. L'utente mostra un PATTERN RIPETUTO di problema:
-   - Parla spesso di insonnia o stanchezza → improve_sleep
-   - Parla spesso di preoccupazioni → reduce_anxiety
-   - Parla spesso di solitudine o relazioni → find_love
+📌 OBIETTIVI CUSTOM (NUOVA FEATURE!) - Aggiungi a "custom_objectives_detected":
+L'utente può avere obiettivi NON MENTALI. DEVI rilevarli e restituirli in un array dedicato.
 
-3. L'utente esprime un DESIDERIO implicito:
-   - "Spero di riuscire a calmarmi" → reduce_anxiety
-   - "Mi piacerebbe essere meno stanco" → boost_energy
+CATEGORIE CUSTOM:
+- BODY (corpo): "Voglio dimagrire", "Perdere peso", "Fare più sport", "Smettere di fumare"
+  - Se specifica "5kg" → target_value: 5, unit: "kg"
+  - Se NON specifica → target_value: null (Aria chiederà)
 
-⚠️ NON aggiungere obiettivi già presenti in: [${goals.join(', ')}]
-⚠️ Aggiungi SOLO se c'è evidenza chiara, non inventare.
+- STUDY (studio): "Devo superare l'esame", "Voglio laurearmi", "Studiare per..."
+  - Se specifica l'esame → title: "Superare esame [nome]"
 
-IDs VALIDI: reduce_anxiety, improve_sleep, find_love, boost_energy, express_feelings, emotional_stability`);
+- WORK (lavoro): "Voglio una promozione", "Cambiare lavoro", "Guadagnare di più"
+
+- FINANCE (finanze): "Risparmiare", "Mettere da parte soldi", "Comprare casa"
+  - Se specifica cifra "5000€" → target_value: 5000, unit: "€"
+
+- RELATIONSHIPS (relazioni): "Trovare partner", "Migliorare rapporto con..."
+
+- GROWTH (crescita): "Imparare a...", "Leggere di più", "Meditare ogni giorno"
+
+⚠️ FORMATO per custom_objectives_detected (array di oggetti):
+{
+  "category": "body|study|work|finance|relationships|growth",
+  "title": "Titolo breve dell'obiettivo",
+  "description": "Descrizione opzionale",
+  "target_value": <numero o null se non specificato>,
+  "unit": "kg|€|ore|libri|ecc o null",
+  "ai_feedback": "Messaggio di Aria (es: 'Di quanti kg vuoi dimagrire?')"
+}
+
+ESEMPIO:
+- Utente dice: "Vorrei perdere peso, sono ingrassato troppo"
+  → custom_objectives_detected: [{
+       "category": "body",
+       "title": "Perdere peso",
+       "description": null,
+       "target_value": null,
+       "unit": "kg",
+       "ai_feedback": "Di quanti kg vorresti dimagrire?"
+     }]
+
+- Utente dice: "Devo risparmiare 3000 euro per le vacanze"
+  → custom_objectives_detected: [{
+       "category": "finance",
+       "title": "Risparmiare per le vacanze",
+       "description": null,
+       "target_value": 3000,
+       "unit": "€",
+       "ai_feedback": null
+     }]
+
+⚠️ NON inventare obiettivi. Solo se ESPLICITAMENTE menzionati.
+`);
 
   return instructions.length > 0 
     ? `\n═══════════════════════════════════════════════
@@ -490,7 +529,10 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
   "goal_updates": [
     {"goal_id": "reduce_anxiety", "action": "keep|achieved|suggest_remove", "reason": "Spiegazione breve", "progress_score": 75}
   ],
-  "suggested_new_goals": ["goal_id se emerge un nuovo focus dalla conversazione"]
+  "suggested_new_goals": ["goal_id se emerge un nuovo focus dalla conversazione"],
+  "custom_objectives_detected": [
+    {"category": "body|study|work|finance|relationships|growth", "title": "Titolo obiettivo", "description": "Descrizione opzionale", "target_value": null, "unit": "kg|€|ore|null", "ai_feedback": "Messaggio se target mancante"}
+  ]
 }
 
 ═══════════════════════════════════════════════
@@ -875,6 +917,49 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.log('[process-session] Updated goals list:', updatedGoals);
     }
 
+    // 🎯 NEW: Save custom objectives detected by AI to user_objectives table
+    const customObjectives = (analysis as any).custom_objectives_detected || [];
+    if (customObjectives.length > 0) {
+      console.log('[process-session] AI detected custom objectives:', customObjectives);
+      
+      for (const obj of customObjectives) {
+        // Check if similar objective already exists
+        const { data: existingObj } = await supabase
+          .from('user_objectives')
+          .select('id')
+          .eq('user_id', user_id)
+          .ilike('title', `%${obj.title}%`)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (!existingObj) {
+          // Create new objective
+          const { error: objError } = await supabase
+            .from('user_objectives')
+            .insert({
+              user_id: user_id,
+              category: obj.category || 'growth',
+              title: obj.title,
+              description: obj.description || null,
+              target_value: obj.target_value || null,
+              unit: obj.unit || null,
+              current_value: 0,
+              status: 'active',
+              ai_feedback: obj.ai_feedback || null,
+              progress_history: []
+            });
+          
+          if (objError) {
+            console.error('[process-session] Error creating custom objective:', objError);
+          } else {
+            console.log('[process-session] Created custom objective:', obj.title);
+          }
+        } else {
+          console.log('[process-session] Objective already exists:', obj.title);
+        }
+      }
+    }
+
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
@@ -891,6 +976,9 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts');
       if (suggestedNewGoals.length > 0) {
         console.log('[process-session] Added', suggestedNewGoals.length, 'new AI-detected goals');
+      }
+      if (customObjectives.length > 0) {
+        console.log('[process-session] Created', customObjectives.length, 'custom objectives');
       }
     }
 

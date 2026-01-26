@@ -534,7 +534,8 @@ function buildPersonalizedSystemPrompt(
   missingLifeAreas: string[],
   selectedGoals: string[],
   onboardingAnswers: OnboardingAnswers | null,
-  priorityMetrics: string[]
+  priorityMetrics: string[],
+  objectivesWithMissingTarget: { title: string; category: string }[]
 ): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
@@ -565,6 +566,39 @@ function buildPersonalizedSystemPrompt(
     dataHunterInstruction = `
 MISSIONE CACCIATORE DI DATI:
 Non hai dati recenti su: ${missingLabels}. Inserisci NATURALMENTE una domanda su UNA di queste aree.`;
+  }
+
+  // 🎯 PROACTIVE GOAL CLARIFICATION - Ask for missing targets
+  let objectivesClarificationInstruction = '';
+  if (objectivesWithMissingTarget.length > 0) {
+    const categoryLabels: Record<string, string> = {
+      body: 'corpo/fitness',
+      study: 'studio',
+      work: 'lavoro',
+      finance: 'finanze',
+      relationships: 'relazioni',
+      growth: 'crescita personale',
+      mind: 'mente'
+    };
+    
+    const objectivesList = objectivesWithMissingTarget.map(o => 
+      `- "${o.title}" (${categoryLabels[o.category] || o.category})`
+    ).join('\n');
+    
+    objectivesClarificationInstruction = `
+═══════════════════════════════════════════════
+🎯 OBIETTIVI CON TARGET MANCANTE (CHIEDI!)
+═══════════════════════════════════════════════
+L'utente ha questi obiettivi SENZA un target misurabile:
+${objectivesList}
+
+DEVI chiedere NATURALMENTE il target per UNO di questi obiettivi.
+Esempi:
+- "Mi hai detto che vuoi perdere peso. Di quanti kg vorresti dimagrire? Così posso aiutarti a tracciare i progressi!"
+- "Qual è la cifra che vorresti risparmiare? Avere un numero preciso aiuta tantissimo!"
+- "Quante ore vorresti studiare a settimana per il tuo esame?"
+
+⚠️ REGOLA: Chiedi UNA sola volta per sessione. NON essere invadente.`;
   }
 
   // Priority metrics analysis focus
@@ -763,6 +797,7 @@ ${personaStyle}
 ═══════════════════════════════════════════════
 - ${memoryContent}
 ${dataHunterInstruction}
+${objectivesClarificationInstruction}
 ${priorityAnalysisFocus}
 ${deepPsychologyInvestigation}
 
@@ -834,6 +869,7 @@ interface UserProfile {
   selected_goals: string[];
   onboarding_answers: OnboardingAnswers | null;
   dashboard_config: DashboardConfig | null;
+  objectives_with_missing_target: { title: string; category: string }[];
 }
 
 // Helper to get user's profile and memory from database
@@ -845,6 +881,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     selected_goals: [],
     onboarding_answers: null,
     dashboard_config: null,
+    objectives_with_missing_target: [],
   };
   
   if (!authHeader) {
@@ -884,6 +921,19 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       return defaultProfile;
     }
     
+    // Fetch objectives with missing target
+    const { data: objectivesData } = await supabase
+      .from('user_objectives')
+      .select('title, category')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .is('target_value', null);
+    
+    const objectivesWithMissingTarget = (objectivesData || []).map((obj: any) => ({
+      title: obj.title,
+      category: obj.category
+    }));
+    
     const result: UserProfile = {
       name: profile?.name || null,
       long_term_memory: profile?.long_term_memory || [],
@@ -891,9 +941,10 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       selected_goals: (profile?.selected_goals as string[]) || [],
       onboarding_answers: profile?.onboarding_answers as OnboardingAnswers | null,
       dashboard_config: profile?.dashboard_config as DashboardConfig | null,
+      objectives_with_missing_target: objectivesWithMissingTarget,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, objectives_missing_target=${objectivesWithMissingTarget.length}`);
     
     return result;
   } catch (error) {
@@ -1007,7 +1058,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       missingLifeAreas,
       userProfile.selected_goals,
       userProfile.onboarding_answers,
-      priorityMetrics
+      priorityMetrics,
+      userProfile.objectives_with_missing_target
     );
     
     // Crisis override
