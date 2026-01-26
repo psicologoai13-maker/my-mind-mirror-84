@@ -132,6 +132,7 @@ COSA DEVE CONTENERE LA DASHBOARD:
 2. MESSAGGIO WELLNESS: Breve frase personalizzata (max 15 parole) accanto al punteggio
 3. CHECK-IN: Già gestiti separatamente (non includerli nei widget)
 4. GRAFICI PIÙ IMPORTANTI: Solo 2-4 metriche cruciali basate su obiettivi e stato attuale
+5. VALUTAZIONE OBIETTIVI: Per ogni obiettivo utente, calcola progresso e stato raggiungimento
 
 REGOLE WELLNESS SCORE:
 - Valuta lo stato ATTUALE dell'utente, non la media storica
@@ -145,6 +146,21 @@ REGOLE DASHBOARD:
 - Mostra SOLO i widget essenziali (2-3 massimo oltre vitals_grid)
 - Priorità assoluta agli obiettivi dell'utente
 - Se ansia alta (>7) o umore basso (<4), evidenziali
+
+═══════════════════════════════════════════════
+🎯 VALUTAZIONE OBIETTIVI (CRITICO!)
+═══════════════════════════════════════════════
+Per ogni obiettivo selezionato dall'utente, DEVI calcolare:
+1. progress (0-100): Quanto l'utente sta progredendo verso l'obiettivo
+2. status: "in_progress" | "achieved" | "struggling"
+3. ai_feedback: Breve frase personalizzata (max 10 parole)
+
+CRITERI DI VALUTAZIONE:
+- reduce_anxiety: RAGGIUNTO se ansia < 4 per almeno 5 giorni. Progress = (10 - ansia) * 10
+- improve_sleep: RAGGIUNTO se sonno > 7 per almeno 5 giorni. Progress = sonno * 10
+- find_love: RAGGIUNTO se love area > 7 e social > 6. Progress basato su love score
+- boost_energy: RAGGIUNTO se energy > 7. Progress = energy * 10
+- emotional_stability: RAGGIUNTO se varianza emotiva bassa e mood > 6. Progress basato su stabilità
 
 OBIETTIVI UTENTE DISPONIBILI:
 - reduce_anxiety: Ridurre ansia → priorità a anxiety, calmness, somatic_tension
@@ -178,7 +194,15 @@ Rispondi SOLO in JSON valido:
     {"type": "goals_progress", "visible": true, "priority": 2, "title": "Obiettivi", "description": ""}
   ],
   "ai_message": "",
-  "focus_areas": ["anxiety"]
+  "focus_areas": ["anxiety"],
+  "goals_evaluation": [
+    {
+      "goal_id": "reduce_anxiety",
+      "progress": 65,
+      "status": "in_progress",
+      "ai_feedback": "Stai migliorando, continua così!"
+    }
+  ]
 }`;
 
     const userMessage = `Dati utente ultimi 7 giorni:

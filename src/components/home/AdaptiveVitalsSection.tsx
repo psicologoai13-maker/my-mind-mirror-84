@@ -74,7 +74,15 @@ const AdaptiveVitalsSection: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Priority Metrics Grid - AI Driven (no separate header, title is in SmartCheckinSection) */}
+      {/* Section Title */}
+      <div className="flex items-center gap-2 px-1">
+        <div className="p-1.5 rounded-lg bg-primary/10">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
+      </div>
+
+      {/* Priority Metrics Grid - AI Driven */}
       <div className={cn(
         "grid gap-4",
         primaryMetrics.length <= 2 ? "grid-cols-2" : 

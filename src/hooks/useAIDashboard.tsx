@@ -20,6 +20,13 @@ export interface WidgetConfig {
   visible: boolean;
 }
 
+export interface GoalEvaluation {
+  goal_id: string;
+  progress: number;
+  status: 'in_progress' | 'achieved' | 'struggling';
+  ai_feedback: string;
+}
+
 export interface DashboardLayout {
   primary_metrics: MetricConfig[];
   widgets: WidgetConfig[];
@@ -27,6 +34,7 @@ export interface DashboardLayout {
   focus_areas: string[];
   wellness_score: number;
   wellness_message: string;
+  goals_evaluation?: GoalEvaluation[];
 }
 
 const DEFAULT_LAYOUT: DashboardLayout = {
@@ -45,6 +53,7 @@ const DEFAULT_LAYOUT: DashboardLayout = {
   focus_areas: [],
   wellness_score: 5,
   wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
+  goals_evaluation: [],
 };
 
 export function useAIDashboard() {
@@ -128,6 +137,7 @@ export function useAIDashboard() {
           focus_areas: data.focus_areas || [],
           wellness_score: data.wellness_score ?? DEFAULT_LAYOUT.wellness_score,
           wellness_message: data.wellness_message || DEFAULT_LAYOUT.wellness_message,
+          goals_evaluation: data.goals_evaluation || [],
         };
         
         setLayout(newLayout);
