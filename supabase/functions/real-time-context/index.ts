@@ -143,31 +143,32 @@ async function fetchWeather(lat: number, lon: number): Promise<RealTimeContext['
 }
 
 async function fetchNews(): Promise<RealTimeContext['news'] | null> {
-  const apiKey = Deno.env.get('NEWS_API_KEY');
+  const apiKey = Deno.env.get('WORLDNEWS_API_KEY');
   if (!apiKey) {
-    console.log('[real-time-context] No NEWS_API_KEY configured');
+    console.log('[real-time-context] No WORLDNEWS_API_KEY configured');
     return null;
   }
   
   try {
+    // WorldNewsAPI endpoint for top news
     const response = await fetch(
-      `https://newsapi.org/v2/top-headlines?country=it&pageSize=5&apiKey=${apiKey}`
+      `https://api.worldnewsapi.com/search-news?source-countries=it&language=it&number=5&api-key=${apiKey}`
     );
     
     if (!response.ok) {
-      console.error('[real-time-context] News API error:', response.status);
+      console.error('[real-time-context] WorldNews API error:', response.status);
       return null;
     }
     
     const data = await response.json();
     
-    const headlines = data.articles?.slice(0, 5).map((a: any) => a.title) || [];
+    const headlines = data.news?.slice(0, 5).map((a: any) => a.title) || [];
     
     return {
       headlines
     };
   } catch (error) {
-    console.error('[real-time-context] News fetch error:', error);
+    console.error('[real-time-context] WorldNews fetch error:', error);
     return null;
   }
 }
