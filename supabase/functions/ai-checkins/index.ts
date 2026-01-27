@@ -105,10 +105,18 @@ serve(async (req) => {
       let question = `Com'è andato il progresso su "${obj.title}"?`;
       let responseType = 'slider';
       
-      // Customize question based on category
-      if (obj.category === 'body' && obj.unit === 'Kg') {
-        question = `Quanto pesi oggi${unitLabel}?`;
-        responseType = 'slider'; // Will be interpreted as 1-5 progress scale
+      // 🎯 Use numeric input for objectives with units (weight, money, etc.)
+      if (obj.unit) {
+        responseType = 'numeric';
+        if (obj.category === 'body' && (obj.unit === 'Kg' || obj.unit === 'kg')) {
+          question = `Quanto pesi oggi${unitLabel}?`;
+        } else if (obj.category === 'finance') {
+          question = `Quanto hai risparmiato oggi${unitLabel}?`;
+        } else if (obj.category === 'study') {
+          question = `Quante ore hai studiato oggi${unitLabel}?`;
+        } else {
+          question = `Inserisci il valore per "${obj.title}"${unitLabel}`;
+        }
       } else if (obj.category === 'study') {
         question = `Quanto hai studiato oggi per "${obj.title}"?`;
       } else if (obj.category === 'finance') {
