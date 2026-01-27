@@ -3,7 +3,6 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import { subDays, startOfDay, format } from 'date-fns';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
-import WellnessScoreHero from '@/components/analisi/WellnessScoreHero';
 import VitalMetricCard from '@/components/analisi/VitalMetricCard';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import LifeAreasCard from '@/components/analisi/LifeAreasCard';
@@ -174,11 +173,7 @@ const Analisi: React.FC = () => {
 
     switch (sectionId) {
       case 'wellness_hero':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <WellnessScoreHero metrics={metrics} timeRangeLabel={timeRangeLabel} />
-          </section>
-        );
+        return null; // Removed - wellness score is shown on Home page
       case 'vitals_grid':
         return (
           <section key={sectionId} className="animate-fade-in" style={animationStyle}>
