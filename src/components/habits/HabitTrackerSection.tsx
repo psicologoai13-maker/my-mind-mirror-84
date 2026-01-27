@@ -87,11 +87,11 @@ const HabitTrackerSection: React.FC = () => {
               Aggiungi Habit
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl">
+          <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
             <SheetHeader>
               <SheetTitle>Gestisci Habits</SheetTitle>
             </SheetHeader>
-            <div className="mt-6 space-y-4">
+            <div className="mt-4 space-y-4 overflow-y-auto max-h-[calc(80vh-100px)] pb-8">
               {Object.entries(HABIT_TYPES).map(([key, meta]) => (
                 <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                   <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ const HabitTrackerSection: React.FC = () => {
                     <div>
                       <p className="font-medium">{meta.label}</p>
                       <p className="text-xs text-muted-foreground">
-                        Obiettivo: {meta.defaultTarget} {meta.unit}
+                        {meta.streakType === 'abstain' ? 'Obiettivo: 0' : `Obiettivo: ${meta.defaultTarget}`} {meta.unit}
                       </p>
                     </div>
                   </div>
@@ -128,11 +128,11 @@ const HabitTrackerSection: React.FC = () => {
                 <Settings className="w-4 h-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl">
+            <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
               <SheetHeader>
                 <SheetTitle>Gestisci Habits</SheetTitle>
               </SheetHeader>
-              <div className="mt-6 space-y-4 pb-8">
+              <div className="mt-4 space-y-4 overflow-y-auto max-h-[calc(80vh-100px)] pb-8">
                 {Object.entries(HABIT_TYPES).map(([key, meta]) => (
                   <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                     <div className="flex items-center gap-3">
