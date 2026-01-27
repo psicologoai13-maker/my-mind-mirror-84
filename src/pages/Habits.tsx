@@ -103,11 +103,11 @@ const Habits: React.FC = () => {
                   Gestisci
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl">
+              <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
                 <SheetHeader>
                   <SheetTitle>Gestisci Habits</SheetTitle>
                 </SheetHeader>
-                <div className="mt-6 space-y-4 pb-8 overflow-y-auto">
+                <div className="mt-4 space-y-4 pb-8 overflow-y-auto max-h-[calc(80vh-100px)]">
                   {Object.entries(HABIT_TYPES).map(([key, meta]) => (
                     <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                       <div className="flex items-center gap-3">

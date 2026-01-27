@@ -12,6 +12,7 @@ interface OnboardingAnswers {
   lifeSituation?: string;
   supportType?: string;
   anxietyLevel?: number;
+  selectedHabits?: string[];
 }
 
 interface ResultScreenProps {
