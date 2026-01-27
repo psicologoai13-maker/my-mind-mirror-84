@@ -202,14 +202,7 @@ const Analisi: React.FC = () => {
           </section>
         );
       case 'life_areas':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <LifeAreasCard 
-              areas={areaMetrics} 
-              onClick={(key) => setSelectedMetric(key as MetricType)} 
-            />
-          </section>
-        );
+        return null; // Removed - life areas shown on Home page
       case 'deep_psychology':
         return (
           <section key={sectionId} className="animate-fade-in" style={animationStyle}>
