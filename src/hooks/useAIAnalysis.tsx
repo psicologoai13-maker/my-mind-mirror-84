@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -39,7 +39,7 @@ const DEFAULT_LAYOUT: AnalysisLayout = {
     { id: 'life_areas', title: 'Aree della Vita', description: 'Bilancio vita personale', priority: 4, visible: true, metrics: ['love', 'work', 'health', 'social', 'growth'], chartType: 'radar' },
   ],
   highlighted_metrics: [],
-  ai_summary: 'Caricamento analisi...',
+  ai_summary: '',
   focus_insight: '',
   recommended_deep_dive: [],
 };
@@ -49,11 +49,16 @@ interface CacheData {
   timeRange: string;
 }
 
+// Global cache to persist across remounts
+let globalAnalysisCache: Record<string, AnalysisLayout> = {};
+let globalLastAnalysisFetch: Record<string, number> = {};
+
 export function useAIAnalysis(timeRange: string) {
   const { user, session } = useAuth();
-  const [layout, setLayout] = useState<AnalysisLayout>(DEFAULT_LAYOUT);
-  const [isLoading, setIsLoading] = useState(true);
+  const [layout, setLayout] = useState<AnalysisLayout>(globalAnalysisCache[timeRange] || DEFAULT_LAYOUT);
+  const [isLoading, setIsLoading] = useState(!globalAnalysisCache[timeRange]);
   const [error, setError] = useState<string | null>(null);
+  const fetchedRef = useRef(false);
 
   const fetchLayout = useCallback(async (forceRefresh = false) => {
     if (!user || !session?.access_token) {
@@ -61,11 +66,13 @@ export function useAIAnalysis(timeRange: string) {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setError(null);
+    // Prevent duplicate fetches
+    if (!forceRefresh && fetchedRef.current) {
+      return;
+    }
+    fetchedRef.current = true;
 
-      // First check if we have cached data and if it's still valid
+    try {
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('ai_analysis_cache, ai_cache_updated_at, last_data_change_at')
@@ -76,17 +83,29 @@ export function useAIAnalysis(timeRange: string) {
       const lastDataChange = profile?.last_data_change_at ? new Date(profile.last_data_change_at as string) : null;
       const cachedData = profile?.ai_analysis_cache as unknown as CacheData | null;
 
-      // Use cache if: has cache, not forcing refresh, same timeRange, and no new data since last cache
-      const shouldUseCache = !forceRefresh && 
-        cachedData?.layout && 
-        cachedData?.timeRange === timeRange &&
-        cacheUpdatedAt && 
-        lastDataChange &&
-        cacheUpdatedAt >= lastDataChange;
-
-      if (shouldUseCache && cachedData?.layout) {
-        console.log('[useAIAnalysis] Using cached layout');
+      // IMMEDIATELY show cached data if available
+      if (cachedData?.layout && cachedData?.timeRange === timeRange) {
         setLayout(cachedData.layout);
+        globalAnalysisCache[timeRange] = cachedData.layout;
+        setIsLoading(false);
+        
+        const cacheIsValid = cacheUpdatedAt && lastDataChange && cacheUpdatedAt >= lastDataChange;
+        if (!forceRefresh && cacheIsValid) {
+          console.log('[useAIAnalysis] Cache is valid, no refresh needed');
+          return;
+        }
+      } else if (globalAnalysisCache[timeRange]) {
+        // Use memory cache
+        setLayout(globalAnalysisCache[timeRange]);
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
+
+      // Skip if recently fetched
+      if (!forceRefresh && globalLastAnalysisFetch[timeRange] && 
+          Date.now() - globalLastAnalysisFetch[timeRange] < 60000) {
+        console.log('[useAIAnalysis] Skipping fetch - recently updated');
         setIsLoading(false);
         return;
       }
@@ -106,13 +125,7 @@ export function useAIAnalysis(timeRange: string) {
       );
 
       if (!response.ok) {
-        if (response.status === 429) {
-          setError('Limite richieste raggiunto');
-          if (cachedData?.layout) setLayout(cachedData.layout);
-          return;
-        }
-        if (response.status === 402) {
-          setError('Crediti AI esauriti');
+        if (response.status === 429 || response.status === 402) {
           if (cachedData?.layout) setLayout(cachedData.layout);
           return;
         }
@@ -120,19 +133,20 @@ export function useAIAnalysis(timeRange: string) {
       }
 
       const data = await response.json();
+      globalLastAnalysisFetch[timeRange] = Date.now();
       
       if (data.sections && Array.isArray(data.sections)) {
         const newLayout: AnalysisLayout = {
           sections: data.sections,
           highlighted_metrics: data.highlighted_metrics || [],
-          ai_summary: data.ai_summary || DEFAULT_LAYOUT.ai_summary,
+          ai_summary: data.ai_summary || '',
           focus_insight: data.focus_insight || '',
           recommended_deep_dive: data.recommended_deep_dive || [],
         };
         
         setLayout(newLayout);
+        globalAnalysisCache[timeRange] = newLayout;
 
-        // Save to cache with timeRange
         const cachePayload: CacheData = { layout: newLayout, timeRange };
         await supabase
           .from('user_profiles')
@@ -151,6 +165,7 @@ export function useAIAnalysis(timeRange: string) {
   }, [user, session, timeRange]);
 
   useEffect(() => {
+    fetchedRef.current = false;
     fetchLayout();
   }, [fetchLayout]);
 

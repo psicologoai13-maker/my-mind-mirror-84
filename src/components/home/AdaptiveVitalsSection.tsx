@@ -55,8 +55,10 @@ const AdaptiveVitalsSection: React.FC = () => {
   }, [layout]);
 
   const isLoading = isLoadingAI || isLoadingMetrics;
+  const hasCachedData = primaryMetrics.length > 0 && primaryMetrics[0].key !== 'mood' || layout.wellness_score !== 5;
 
-  if (isLoading) {
+  // Only show loading if we have NO data at all
+  if (isLoading && !hasCachedData) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-1">
