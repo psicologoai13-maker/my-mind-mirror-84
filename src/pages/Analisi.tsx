@@ -10,7 +10,7 @@ import LifeAreasCard from '@/components/analisi/LifeAreasCard';
 import DeepPsychologyCard from '@/components/analisi/DeepPsychologyCard';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
-import { Loader2, Target } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
@@ -249,25 +249,6 @@ const Analisi: React.FC = () => {
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
-      {/* Deep Dive Recommendations */}
-      {aiLayout.recommended_deep_dive.length > 0 && !isLoadingAI && (
-        <div className="px-4 mb-5 flex items-center gap-2 flex-wrap">
-          <Target className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Approfondisci:</span>
-          {aiLayout.recommended_deep_dive.map(key => {
-            const metric = metrics.find(m => m.key === key);
-            return (
-              <button
-                key={key}
-                onClick={() => setSelectedMetric(key as MetricType)}
-                className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
-              >
-                {metric?.label || key}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* AI-Ordered Sections */}
       <div className="px-4 space-y-5 pb-8">
