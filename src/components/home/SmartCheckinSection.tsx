@@ -323,40 +323,49 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
 
           {/* Numeric input for objectives with units */}
           {activeItem.responseType === 'numeric' ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={numericValue}
-                  onChange={(e) => setNumericValue(e.target.value)}
-                  placeholder={`Inserisci valore${activeItem.unit ? ` in ${activeItem.unit}` : ''}`}
-                  className="flex-1 text-lg font-semibold text-center h-14 rounded-2xl"
-                  disabled={isSubmitting}
-                  autoFocus
-                  step="0.1"
-                  min="0"
-                />
+            <div className="flex flex-col items-center gap-4">
+              {/* Compact numeric input with unit badge */}
+              <div className="flex items-center justify-center gap-3">
+                <div className="relative">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={numericValue}
+                    onChange={(e) => setNumericValue(e.target.value)}
+                    placeholder="0"
+                    className="w-28 h-16 text-2xl font-bold text-center rounded-2xl border-2 border-primary/20 focus:border-primary bg-muted/30"
+                    disabled={isSubmitting}
+                    autoFocus
+                    step="0.1"
+                    min="0"
+                  />
+                </div>
                 {activeItem.unit && (
-                  <span className="text-lg font-medium text-muted-foreground min-w-[40px]">
-                    {activeItem.unit}
-                  </span>
+                  <div className="px-4 py-2 bg-primary/10 rounded-xl">
+                    <span className="text-lg font-semibold text-primary">
+                      {activeItem.unit}
+                    </span>
+                  </div>
                 )}
               </div>
+              
+              {/* Confirm button */}
               <button
                 onClick={handleNumericSubmit}
                 disabled={isSubmitting || !numericValue}
                 className={cn(
-                  "w-full h-12 rounded-2xl flex items-center justify-center gap-2 transition-all duration-300",
-                  "bg-primary text-primary-foreground hover:bg-primary/90",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                  "px-8 h-12 rounded-2xl flex items-center justify-center gap-2 transition-all duration-300",
+                  "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl",
+                  "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
+                  numericValue && "animate-pulse-subtle"
                 )}
               >
                 {isSubmitting ? (
                   <span className="text-sm font-medium">Salvando...</span>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" />
-                    <span className="text-sm font-medium">Conferma</span>
+                    <Check className="w-5 h-5" />
+                    <span className="text-sm font-semibold">Salva</span>
                   </>
                 )}
               </button>
