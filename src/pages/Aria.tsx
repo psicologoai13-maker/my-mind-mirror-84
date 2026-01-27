@@ -105,6 +105,7 @@ const Aria: React.FC = () => {
         {/* Page Title */}
         <header>
           <h1 className="text-2xl font-semibold text-foreground">Aria</h1>
+          <p className="text-muted-foreground text-sm mt-1">La tua compagna di benessere mentale</p>
         </header>
 
         {/* Session Type Selector - Two Premium Boxes */}
@@ -220,11 +221,17 @@ const Aria: React.FC = () => {
                     onClick={() => setSelectedSessionId(session.id)}
                     className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted/30 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                      style={{
+                        background: session.type === 'voice' 
+                          ? 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' 
+                          : 'linear-gradient(135deg, #34d399 0%, #14b8a6 100%)'
+                      }}
+                    >
                       {session.type === 'voice' ? (
-                        <Mic className="w-5 h-5 text-muted-foreground" />
+                        <Mic className="w-5 h-5 text-white" />
                       ) : (
-                        <MessageCircle className="w-5 h-5 text-muted-foreground" />
+                        <MessageCircle className="w-5 h-5 text-white" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
