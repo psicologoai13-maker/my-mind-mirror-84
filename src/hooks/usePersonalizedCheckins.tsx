@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useCheckins } from './useCheckins';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -97,6 +97,14 @@ interface AICheckinResponse {
   objectiveId?: string;
 }
 
+interface CachedCheckinsData {
+  checkins: AICheckinResponse[];
+  allCompleted: boolean;
+  aiGenerated: boolean;
+  cachedAt: string;
+  cachedDate: string;
+}
+
 // Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
 function getRomeDateString(): string {
   const now = new Date();
@@ -113,16 +121,53 @@ export const usePersonalizedCheckins = () => {
   const { todayCheckin } = useCheckins();
   const queryClient = useQueryClient();
   const today = getRomeDateString();
+  const backgroundRefreshTriggered = useRef(false);
+  const [cachedData, setCachedData] = useState<CachedCheckinsData | null>(null);
 
-  // Fetch AI-selected checkins
-  const { data: aiData, isLoading: aiLoading, refetch: refetchAI, error: aiError } = useQuery({
-    queryKey: ['ai-checkins', user?.id, today],
+  // 🎯 STEP 1: Instantly load from profile cache (no loading state for user!)
+  const { data: profileCache, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile-checkins-cache', user?.id],
+    queryFn: async (): Promise<CachedCheckinsData | null> => {
+      if (!user) return null;
+      
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('ai_checkins_cache')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      const cache = data?.ai_checkins_cache as unknown as CachedCheckinsData | null;
+      
+      // Only return cache if it's from today (Rome timezone)
+      if (cache?.cachedDate === today) {
+        console.log('[usePersonalizedCheckins] Using cached checkins from profile');
+        return cache;
+      }
+      
+      return null;
+    },
+    enabled: !!user,
+    staleTime: Infinity, // Never auto-refetch - we control refresh
+    gcTime: 1000 * 60 * 30,
+  });
+
+  // Set cached data when profile cache loads
+  useEffect(() => {
+    if (profileCache) {
+      setCachedData(profileCache);
+    }
+  }, [profileCache]);
+
+  // 🎯 STEP 2: Background refresh - fetch fresh data from AI
+  const { data: freshAIData, isLoading: aiLoading, refetch: refetchAI } = useQuery({
+    queryKey: ['ai-checkins-fresh', user?.id, today],
     queryFn: async (): Promise<{ checkins: AICheckinResponse[]; allCompleted: boolean; aiGenerated: boolean }> => {
       if (!user || !session?.access_token) {
         return { checkins: [], allCompleted: false, aiGenerated: false };
       }
 
       try {
+        console.log('[usePersonalizedCheckins] Fetching fresh checkins from AI...');
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-checkins`,
           {
@@ -141,6 +186,26 @@ export const usePersonalizedCheckins = () => {
         }
 
         const data = await response.json();
+        
+        // 🎯 Save to profile cache for instant loading next time
+        const cachePayload: CachedCheckinsData = {
+          checkins: data.checkins || [],
+          allCompleted: data.allCompleted || false,
+          aiGenerated: data.aiGenerated || false,
+          cachedAt: new Date().toISOString(),
+          cachedDate: today,
+        };
+        
+        await supabase
+          .from('user_profiles')
+          .update({ ai_checkins_cache: cachePayload as unknown as null })
+          .eq('user_id', user.id);
+        
+        console.log('[usePersonalizedCheckins] Cached new checkins to profile');
+        
+        // Update local state immediately
+        setCachedData(cachePayload);
+        
         return {
           checkins: data.checkins || [],
           allCompleted: data.allCompleted || false,
@@ -151,10 +216,30 @@ export const usePersonalizedCheckins = () => {
         return { checkins: [], allCompleted: false, aiGenerated: false };
       }
     },
-    enabled: !!user && !!session?.access_token,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    enabled: false, // Manual trigger only
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
+
+  // 🎯 STEP 3: Trigger background refresh if no cache or cache is stale
+  useEffect(() => {
+    if (!user || !session?.access_token || backgroundRefreshTriggered.current) return;
+    
+    const hasValidCache = cachedData && cachedData.cachedDate === today;
+    
+    // If we have cache, use it immediately but still refresh in background
+    // If no cache, we need to fetch (but won't show loading to user)
+    if (!profileLoading) {
+      backgroundRefreshTriggered.current = true;
+      
+      // Small delay to not block initial render
+      const timer = setTimeout(() => {
+        refetchAI();
+      }, hasValidCache ? 2000 : 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user, session, profileLoading, cachedData, today, refetchAI]);
 
   // Fetch today's completed data for local tracking
   const { data: todayAllData, refetch: refetchTodayData } = useQuery({
@@ -232,6 +317,15 @@ export const usePersonalizedCheckins = () => {
     return completed;
   }, [todayCheckin, todayAllData]);
 
+  // 🎯 Use cached data OR fresh data (prefer cached for instant render)
+  const aiData = cachedData || (freshAIData ? {
+    checkins: freshAIData.checkins,
+    allCompleted: freshAIData.allCompleted,
+    aiGenerated: freshAIData.aiGenerated,
+    cachedAt: '',
+    cachedDate: today,
+  } : null);
+
   // Convert AI response to CheckinItem format
   const dailyCheckins = useMemo<CheckinItem[]>(() => {
     if (!aiData?.checkins) return [];
@@ -266,6 +360,9 @@ export const usePersonalizedCheckins = () => {
   const completedCount = Object.keys(completedToday).length;
   const allCompleted = aiData?.allCompleted || false;
   const aiGenerated = aiData?.aiGenerated || false;
+  
+  // 🎯 CRITICAL: isLoading is false if we have ANY cached data (instant render!)
+  const isLoading = !cachedData && profileLoading && !freshAIData;
 
   return {
     dailyCheckins,
@@ -274,13 +371,15 @@ export const usePersonalizedCheckins = () => {
     completedCount,
     allPrioritized: dailyCheckins,
     hasData: dailyCheckins.length > 0 || completedCount > 0,
-    isLoading: aiLoading,
+    isLoading,
     aiGenerated,
     allCompleted,
     refetchTodayData: useCallback(() => {
       refetchTodayData();
+      backgroundRefreshTriggered.current = false;
       refetchAI();
-      queryClient.invalidateQueries({ queryKey: ['ai-checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-checkins-fresh'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-checkins-cache'] });
     }, [refetchTodayData, refetchAI, queryClient]),
   };
 };
