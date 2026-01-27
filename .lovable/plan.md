@@ -1,6 +1,39 @@
 
 # Proposta Strategica: Evoluzione dell'App verso un Hub Completo di Wellness e Life Tracking
 
+---
+
+## 🎯 STRATEGIA PRINCIPALE (PRIORITÀ MASSIMA)
+
+### Fase A: Completare App al 100% (Web/PWA)
+Completare tutte le funzionalità dell'app prima della trasformazione nativa:
+- Habit tracking completo con 35+ abitudini
+- Body metrics con grafici e trend
+- Achievement system con celebrazioni
+- Correlazioni AI tra habits e stato mentale
+- Weekly/Monthly reports automatici
+- Aria coaching proattivo per habits
+
+### Fase B: Trasformazione App Nativa (Capacitor)
+Dopo il completamento, convertire in app nativa per:
+- **iOS**: Pubblicazione su App Store
+- **Android**: Pubblicazione su Play Store
+- Integrazioni con Apple Health e Google Fit/Health Connect
+
+### 🧠 OBIETTIVO STRATEGICO: Data Collection Hub
+L'app diventa un **nuovo canale di informazioni per l'AI** raccogliendo:
+
+| Canale Attuale | Nuovo Canale (Habits/Health) |
+|----------------|------------------------------|
+| Sessioni con Aria | Dati fitness (passi, sonno, FC) |
+| Diari tematici | Abitudini quotidiane (acqua, meditazione) |
+| Check-in giornalieri | Body metrics (peso, pressione) |
+| | Dati da wearables (Fitbit, Garmin, Oura) |
+
+**Risultato**: Aria avrà accesso a TUTTI i dati dell'utente (mentali + fisici + abitudini) per insight più profondi e correlazioni cross-categoria impossibili da ottenere altrimenti.
+
+---
+
 ## Panoramica della Situazione Attuale
 
 L'app è già un sistema sofisticato di monitoraggio del benessere mentale con:
