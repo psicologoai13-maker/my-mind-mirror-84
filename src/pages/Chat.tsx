@@ -426,13 +426,20 @@ const Chat: React.FC = () => {
     }
   };
 
-  // Handle back navigation with session finalization
-  const handleBack = async () => {
-    // Finalize if there's at least 1 user message (assistant greeting + user reply)
-    if (messages.length >= 1 && !isClosingSession) {
-      await finalizeSession(true);
-    }
+  // Handle back navigation - IMMEDIATE exit, save in background
+  const handleBack = () => {
+    // Navigate IMMEDIATELY - don't block user
     navigate('/');
+    
+    // Finalize session in background (fire and forget)
+    if (messages.length >= 1 && !isClosingSession) {
+      // Use setTimeout to ensure navigation happens first
+      setTimeout(() => {
+        finalizeSession(true).catch(err => {
+          console.error('Background session save failed:', err);
+        });
+      }, 0);
+    }
   };
 
   // Loading state - only show briefly while session is being created
