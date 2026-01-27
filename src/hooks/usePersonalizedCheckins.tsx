@@ -103,6 +103,8 @@ interface CachedCheckinsData {
   aiGenerated: boolean;
   cachedAt: string;
   cachedDate: string;
+  // The FIXED daily list that never changes throughout the day
+  fixedDailyList?: AICheckinResponse[];
 }
 
 // Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
@@ -318,19 +320,24 @@ export const usePersonalizedCheckins = () => {
   }, [todayCheckin, todayAllData]);
 
   // 🎯 Use cached data OR fresh data (prefer cached for instant render)
+  // Use fixedDailyList if available (the immutable daily list)
   const aiData = cachedData || (freshAIData ? {
     checkins: freshAIData.checkins,
     allCompleted: freshAIData.allCompleted,
     aiGenerated: freshAIData.aiGenerated,
     cachedAt: '',
     cachedDate: today,
+    fixedDailyList: freshAIData.checkins,
   } : null);
 
   // Convert AI response to CheckinItem format
+  // 🎯 Use the FIXED daily list and filter by completed items locally
   const dailyCheckins = useMemo<CheckinItem[]>(() => {
-    if (!aiData?.checkins) return [];
+    // Use fixedDailyList if available, otherwise fall back to checkins
+    const sourceList = aiData?.fixedDailyList || aiData?.checkins;
+    if (!sourceList) return [];
 
-    return aiData.checkins
+    return sourceList
       .filter(item => !(item.key in completedToday))
       .map((item, index) => {
         // Dynamic colors for objectives

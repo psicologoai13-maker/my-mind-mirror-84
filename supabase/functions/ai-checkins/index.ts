@@ -42,6 +42,27 @@ interface ObjectiveCheckin {
   unit?: string;
 }
 
+interface CachedCheckinsData {
+  checkins: any[];
+  allCompleted: boolean;
+  aiGenerated: boolean;
+  cachedAt: string;
+  cachedDate: string;
+  // 🎯 NEW: Store the FIXED daily list that never changes
+  fixedDailyList: any[];
+}
+
+// Get Rome date string
+function getRomeDateString(): string {
+  const now = new Date();
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -58,6 +79,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!lovableApiKey) {
@@ -67,6 +89,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
+
+    // Service client for updating profile (bypasses RLS for cache update)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify user
     const token = authHeader.replace("Bearer ", "");
@@ -79,20 +104,44 @@ serve(async (req) => {
     }
 
     const userId = claimsData.user.id;
-    
-    // Use Rome timezone (UTC+1 in winter, UTC+2 in summer)
-    const now = new Date();
-    const romeTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Rome" }));
-    const today = romeTime.toISOString().split("T")[0];
+    const today = getRomeDateString();
 
-    // Get user profile and goals
+    // 🎯 STEP 1: Check if we have a FIXED daily list already cached for today
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("selected_goals, onboarding_answers")
+      .select("ai_checkins_cache, selected_goals, onboarding_answers")
       .eq("user_id", userId)
       .maybeSingle();
 
-    // 🎯 NEW: Get active objectives for personalized check-ins
+    const existingCache = profile?.ai_checkins_cache as CachedCheckinsData | null;
+    
+    // 🎯 If we have a fixed list for today, use it - DON'T regenerate
+    if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
+      console.log("[ai-checkins] Using FIXED daily list from cache");
+      
+      // Get completed keys to filter out completed items from the fixed list
+      const completedKeys = await getCompletedKeys(supabase, userId, today);
+      
+      // Filter the FIXED list by what's been completed
+      const remainingCheckins = existingCache.fixedDailyList.filter(
+        (item: any) => !completedKeys.has(item.key)
+      );
+      
+      const allCompleted = remainingCheckins.length === 0;
+      
+      return new Response(JSON.stringify({ 
+        checkins: remainingCheckins, 
+        allCompleted,
+        aiGenerated: existingCache.aiGenerated || false 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 🎯 STEP 2: Generate a NEW fixed list for today (only runs once per day)
+    console.log("[ai-checkins] Generating NEW fixed daily list for", today);
+
+    // Get active objectives for personalized check-ins
     const { data: activeObjectives } = await supabase
       .from("user_objectives")
       .select("id, title, category, target_value, current_value, unit")
@@ -105,7 +154,6 @@ serve(async (req) => {
       let question = `Com'è andato il progresso su "${obj.title}"?`;
       let responseType = 'slider';
       
-      // 🎯 Use numeric input for objectives with units (weight, money, etc.)
       if (obj.unit) {
         responseType = 'numeric';
         if (obj.category === 'body' && (obj.unit === 'Kg' || obj.unit === 'kg')) {
@@ -135,71 +183,40 @@ serve(async (req) => {
       };
     });
 
-    // Get today's completed data from all sources
-    const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
-      supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
-      supabase.from("daily_emotions").select("*").eq("user_id", userId).eq("date", today),
-      supabase.from("daily_psychology").select("*").eq("user_id", userId).eq("date", today),
-      supabase.from("daily_checkins").select("*").eq("user_id", userId).gte("created_at", `${today}T00:00:00`),
-    ]);
+    // Get already completed keys (from earlier today, e.g. sessions/diaries)
+    const completedKeys = await getCompletedKeys(supabase, userId, today);
 
-    // Build set of completed keys
-    const completedKeys = new Set<string>();
-
-    // From checkins - also check for objective updates
-    if (checkinRes.data && checkinRes.data.length > 0) {
-      completedKeys.add("mood");
-      const notes = checkinRes.data[0]?.notes;
-      if (notes) {
-        try {
-          const parsed = JSON.parse(notes);
-          Object.keys(parsed).forEach(k => completedKeys.add(k));
-        } catch {}
-      }
-    }
-
-    // From life areas
-    lifeAreasRes.data?.forEach((record: any) => {
-      ["love", "work", "social", "growth", "health"].forEach(k => {
-        if (record[k]) completedKeys.add(k);
-      });
-    });
-
-    // From emotions
-    emotionsRes.data?.forEach((record: any) => {
-      ["joy", "sadness", "anger", "fear", "apathy"].forEach(k => {
-        if (record[k]) completedKeys.add(k);
-      });
-    });
-
-    // From psychology
-    psychologyRes.data?.forEach((record: any) => {
-      Object.keys(record).forEach(k => {
-        if (record[k] && !["id", "user_id", "date", "session_id", "source", "created_at", "updated_at"].includes(k)) {
-          completedKeys.add(k);
-        }
-      });
-    });
-
-    // Filter available items (standard + objectives)
+    // Filter available items
     const availableStandardItems = ALL_CHECKIN_ITEMS.filter(item => !completedKeys.has(item.key));
     const availableObjectiveItems = objectiveCheckins.filter(item => !completedKeys.has(item.key));
     
-    // 🎯 FORCE: Objectives are ALWAYS included first, then AI selects the rest
-    // This ensures user objectives like "Prendere kg" always appear
-    const forcedObjectives = availableObjectiveItems.slice(0, 4); // Max 4 objectives at top
+    // Objectives at top (max 4), then AI selects the rest
+    const forcedObjectives = availableObjectiveItems.slice(0, 4);
     const remainingSlots = 8 - forcedObjectives.length;
-    
-    // AI will only select from standard items (not objectives)
     const allAvailableItems = availableStandardItems;
 
     if (forcedObjectives.length === 0 && allAvailableItems.length === 0) {
+      // Save empty cache
+      await supabaseAdmin
+        .from("user_profiles")
+        .update({ 
+          ai_checkins_cache: {
+            checkins: [],
+            allCompleted: true,
+            aiGenerated: false,
+            cachedAt: new Date().toISOString(),
+            cachedDate: today,
+            fixedDailyList: [],
+          }
+        })
+        .eq("user_id", userId);
+
       return new Response(JSON.stringify({ checkins: [], allCompleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get recent sessions for context
+    // Get recent sessions for AI context
     const { data: recentSessions } = await supabase
       .from("sessions")
       .select("ai_summary, emotion_tags")
@@ -214,12 +231,7 @@ serve(async (req) => {
 
     const systemPrompt = `Sei uno psicologo clinico esperto che sceglie quali domande fare a un utente per il suo check-in giornaliero.
 
-Obiettivo: Scegli le ${remainingSlots} domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza, basandoti su:
-1. Gli obiettivi dell'utente (priorità massima)
-2. I temi emersi nelle sessioni recenti e pattern emotivi
-3. Le emozioni rilevate di recente
-4. La varietà (mescola vitali, aree vita, emozioni e psicologia profonda)
-5. L'urgenza clinica (es. ansia alta o burnout vanno chiesti prima)
+Obiettivo: Scegli le ${remainingSlots} domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza.
 
 REGOLE:
 - Scegli ESATTAMENTE ${remainingSlots} domande dalla lista disponibile
@@ -229,13 +241,6 @@ REGOLE:
 
 Formato risposta:
 [
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
-  {"key": "...", "reason": "..."},
   {"key": "...", "reason": "..."}
 ]`;
 
@@ -247,88 +252,60 @@ Contesto sessioni recenti: ${sessionContext || "Nessuna sessione recente"}
 
 Emozioni recenti: ${emotionTags.length > 0 ? emotionTags.join(", ") : "Non rilevate"}
 
-Domande disponibili (non ancora risposte oggi):
+Domande disponibili:
 ${availableItemsText}
 
 Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
 
     // Call Lovable AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 300,
-      }),
-    });
+    let aiSelectedCheckins: any[] = [];
+    let aiGenerated = false;
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("[ai-checkins] AI gateway error:", aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      // Fallback to first items
-      const fallbackCheckins = [
-        ...forcedObjectives.map((item: any) => ({ ...item, reason: "Obiettivo personale" })),
-        ...allAvailableItems.slice(0, remainingSlots).map((item: any) => ({
-          ...item,
-          reason: "Suggerimento automatico",
-        })),
-      ];
-      
-      return new Response(JSON.stringify({ checkins: fallbackCheckins, aiGenerated: false }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "[]";
-
-    // Parse AI response
-    let aiSelection: Array<{ key: string; reason: string }> = [];
     try {
-      const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      aiSelection = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("[ai-checkins] Failed to parse AI response:", content);
-      // Fallback - return first items
-      aiSelection = allAvailableItems.slice(0, remainingSlots).map((item: any) => ({ key: item.key, reason: "Suggerimento" }));
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.5,
+          max_tokens: 300,
+        }),
+      });
+
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        const content = aiData.choices?.[0]?.message?.content || "[]";
+
+        try {
+          const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+          const aiSelection = JSON.parse(cleanContent);
+          
+          aiSelectedCheckins = aiSelection
+            .slice(0, remainingSlots)
+            .map((sel: any) => {
+              const item = allAvailableItems.find((i: any) => i.key === sel.key);
+              if (!item) return null;
+              return { ...item, reason: sel.reason };
+            })
+            .filter(Boolean);
+          
+          aiGenerated = true;
+        } catch (parseError) {
+          console.error("[ai-checkins] Failed to parse AI response:", content);
+        }
+      }
+    } catch (aiError) {
+      console.error("[ai-checkins] AI call failed:", aiError);
     }
 
-    // Build final checkins: FORCED objectives first, then AI-selected standard items
-    const aiSelectedCheckins = aiSelection
-      .slice(0, remainingSlots)
-      .map(sel => {
-        const item = allAvailableItems.find((i: any) => i.key === sel.key);
-        if (!item) return null;
-        return {
-          ...item,
-          reason: sel.reason,
-        };
-      })
-      .filter(Boolean);
-
-    // Fill remaining slots if AI didn't return enough
+    // Fallback: fill remaining slots
     while (aiSelectedCheckins.length < remainingSlots && allAvailableItems.length > aiSelectedCheckins.length) {
       const nextItem = allAvailableItems.find((i: any) => !aiSelectedCheckins.some((s: any) => s.key === i.key));
       if (nextItem) {
@@ -338,13 +315,33 @@ Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
       }
     }
 
-    // 🎯 FINAL: Objectives FIRST, then AI-selected
-    const selectedCheckins = [
+    // 🎯 BUILD THE FIXED DAILY LIST - This list NEVER changes for the rest of the day
+    const fixedDailyList = [
       ...forcedObjectives.map((item: any) => ({ ...item, reason: "Obiettivo personale" })),
       ...aiSelectedCheckins,
     ];
 
-    return new Response(JSON.stringify({ checkins: selectedCheckins, aiGenerated: true }), {
+    console.log("[ai-checkins] Created FIXED daily list with", fixedDailyList.length, "items");
+
+    // 🎯 Save to cache with the FIXED list
+    await supabaseAdmin
+      .from("user_profiles")
+      .update({ 
+        ai_checkins_cache: {
+          checkins: fixedDailyList,
+          allCompleted: false,
+          aiGenerated,
+          cachedAt: new Date().toISOString(),
+          cachedDate: today,
+          fixedDailyList, // The immutable list for today
+        }
+      })
+      .eq("user_id", userId);
+
+    return new Response(JSON.stringify({ 
+      checkins: fixedDailyList, 
+      aiGenerated 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
@@ -356,3 +353,48 @@ Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
     );
   }
 });
+
+// Helper function to get completed keys
+async function getCompletedKeys(supabase: any, userId: string, today: string): Promise<Set<string>> {
+  const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
+    supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
+    supabase.from("daily_emotions").select("*").eq("user_id", userId).eq("date", today),
+    supabase.from("daily_psychology").select("*").eq("user_id", userId).eq("date", today),
+    supabase.from("daily_checkins").select("*").eq("user_id", userId).gte("created_at", `${today}T00:00:00`),
+  ]);
+
+  const completedKeys = new Set<string>();
+
+  if (checkinRes.data && checkinRes.data.length > 0) {
+    completedKeys.add("mood");
+    const notes = checkinRes.data[0]?.notes;
+    if (notes) {
+      try {
+        const parsed = JSON.parse(notes);
+        Object.keys(parsed).forEach(k => completedKeys.add(k));
+      } catch {}
+    }
+  }
+
+  lifeAreasRes.data?.forEach((record: any) => {
+    ["love", "work", "social", "growth", "health"].forEach(k => {
+      if (record[k]) completedKeys.add(k);
+    });
+  });
+
+  emotionsRes.data?.forEach((record: any) => {
+    ["joy", "sadness", "anger", "fear", "apathy"].forEach(k => {
+      if (record[k]) completedKeys.add(k);
+    });
+  });
+
+  psychologyRes.data?.forEach((record: any) => {
+    Object.keys(record).forEach(k => {
+      if (record[k] && !["id", "user_id", "date", "session_id", "source", "created_at", "updated_at"].includes(k)) {
+        completedKeys.add(k);
+      }
+    });
+  });
+
+  return completedKeys;
+}
