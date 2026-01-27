@@ -177,10 +177,15 @@ serve(async (req) => {
     const availableStandardItems = ALL_CHECKIN_ITEMS.filter(item => !completedKeys.has(item.key));
     const availableObjectiveItems = objectiveCheckins.filter(item => !completedKeys.has(item.key));
     
-    // Combine all available items - objectives get PRIORITY
-    const allAvailableItems = [...availableObjectiveItems, ...availableStandardItems];
+    // 🎯 FORCE: Objectives are ALWAYS included first, then AI selects the rest
+    // This ensures user objectives like "Prendere kg" always appear
+    const forcedObjectives = availableObjectiveItems.slice(0, 4); // Max 4 objectives at top
+    const remainingSlots = 8 - forcedObjectives.length;
+    
+    // AI will only select from standard items (not objectives)
+    const allAvailableItems = availableStandardItems;
 
-    if (allAvailableItems.length === 0) {
+    if (forcedObjectives.length === 0 && allAvailableItems.length === 0) {
       return new Response(JSON.stringify({ checkins: [], allCompleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -201,7 +206,7 @@ serve(async (req) => {
 
     const systemPrompt = `Sei uno psicologo clinico esperto che sceglie quali domande fare a un utente per il suo check-in giornaliero.
 
-Obiettivo: Scegli le 8 domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza, basandoti su:
+Obiettivo: Scegli le ${remainingSlots} domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza, basandoti su:
 1. Gli obiettivi dell'utente (priorità massima)
 2. I temi emersi nelle sessioni recenti e pattern emotivi
 3. Le emozioni rilevate di recente
@@ -209,8 +214,8 @@ Obiettivo: Scegli le 8 domande PIÙ RILEVANTI da porre oggi, ORDINATE per import
 5. L'urgenza clinica (es. ansia alta o burnout vanno chiesti prima)
 
 REGOLE:
-- Scegli ESATTAMENTE 8 domande dalla lista disponibile
-- ORDINA per importanza: le prime 4 sono le più urgenti/rilevanti
+- Scegli ESATTAMENTE ${remainingSlots} domande dalla lista disponibile
+- ORDINA per importanza: le prime sono le più urgenti/rilevanti
 - Fornisci una breve motivazione (max 5 parole) per ogni scelta
 - Rispondi SOLO con JSON valido, senza markdown
 
@@ -237,7 +242,7 @@ Emozioni recenti: ${emotionTags.length > 0 ? emotionTags.join(", ") : "Non rilev
 Domande disponibili (non ancora risposte oggi):
 ${availableItemsText}
 
-Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
+Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
 
     // Call Lovable AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -274,11 +279,14 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
         });
       }
       
-      // Fallback to first 8 available items
-      const fallbackCheckins = allAvailableItems.slice(0, 8).map((item: any) => ({
-        ...item,
-        reason: "Suggerimento automatico",
-      }));
+      // Fallback to first items
+      const fallbackCheckins = [
+        ...forcedObjectives.map((item: any) => ({ ...item, reason: "Obiettivo personale" })),
+        ...allAvailableItems.slice(0, remainingSlots).map((item: any) => ({
+          ...item,
+          reason: "Suggerimento automatico",
+        })),
+      ];
       
       return new Response(JSON.stringify({ checkins: fallbackCheckins, aiGenerated: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -295,13 +303,13 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
       aiSelection = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error("[ai-checkins] Failed to parse AI response:", content);
-      // Fallback - return first 8 available items
-      aiSelection = allAvailableItems.slice(0, 8).map((item: any) => ({ key: item.key, reason: "Suggerimento" }));
+      // Fallback - return first items
+      aiSelection = allAvailableItems.slice(0, remainingSlots).map((item: any) => ({ key: item.key, reason: "Suggerimento" }));
     }
 
-    // Build final checkins with full item data - now up to 8 items
-    const selectedCheckins = aiSelection
-      .slice(0, 8)
+    // Build final checkins: FORCED objectives first, then AI-selected standard items
+    const aiSelectedCheckins = aiSelection
+      .slice(0, remainingSlots)
       .map(sel => {
         const item = allAvailableItems.find((i: any) => i.key === sel.key);
         if (!item) return null;
@@ -312,15 +320,21 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
       })
       .filter(Boolean);
 
-    // If AI didn't return enough, fill with remaining items up to 8
-    while (selectedCheckins.length < 8 && allAvailableItems.length > selectedCheckins.length) {
-      const nextItem = allAvailableItems.find((i: any) => !selectedCheckins.some((s: any) => s.key === i.key));
+    // Fill remaining slots if AI didn't return enough
+    while (aiSelectedCheckins.length < remainingSlots && allAvailableItems.length > aiSelectedCheckins.length) {
+      const nextItem = allAvailableItems.find((i: any) => !aiSelectedCheckins.some((s: any) => s.key === i.key));
       if (nextItem) {
-        selectedCheckins.push({ ...nextItem, reason: "Suggerimento" });
+        aiSelectedCheckins.push({ ...nextItem, reason: "Suggerimento" });
       } else {
         break;
       }
     }
+
+    // 🎯 FINAL: Objectives FIRST, then AI-selected
+    const selectedCheckins = [
+      ...forcedObjectives.map((item: any) => ({ ...item, reason: "Obiettivo personale" })),
+      ...aiSelectedCheckins,
+    ];
 
     return new Response(JSON.stringify({ checkins: selectedCheckins, aiGenerated: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

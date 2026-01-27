@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology';
+export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology' | 'objective';
 export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider';
 
 export interface CheckinItem {
