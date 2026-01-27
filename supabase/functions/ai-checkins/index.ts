@@ -31,6 +31,17 @@ const ALL_CHECKIN_ITEMS = [
   { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno" },
 ];
 
+// Generate objective check-in items dynamically
+interface ObjectiveCheckin {
+  key: string;
+  label: string;
+  question: string;
+  type: string;
+  responseType: string;
+  objectiveId: string;
+  unit?: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -81,6 +92,41 @@ serve(async (req) => {
       .eq("user_id", userId)
       .maybeSingle();
 
+    // 🎯 NEW: Get active objectives for personalized check-ins
+    const { data: activeObjectives } = await supabase
+      .from("user_objectives")
+      .select("id, title, category, target_value, current_value, unit")
+      .eq("user_id", userId)
+      .eq("status", "active");
+
+    // Generate dynamic objective check-ins
+    const objectiveCheckins: ObjectiveCheckin[] = (activeObjectives || []).map((obj: any) => {
+      const unitLabel = obj.unit ? ` (${obj.unit})` : '';
+      let question = `Com'è andato il progresso su "${obj.title}"?`;
+      let responseType = 'slider';
+      
+      // Customize question based on category
+      if (obj.category === 'body' && obj.unit === 'Kg') {
+        question = `Quanto pesi oggi${unitLabel}?`;
+        responseType = 'slider'; // Will be interpreted as 1-5 progress scale
+      } else if (obj.category === 'study') {
+        question = `Quanto hai studiato oggi per "${obj.title}"?`;
+      } else if (obj.category === 'finance') {
+        question = `Hai risparmiato oggi per "${obj.title}"?`;
+        responseType = 'yesno';
+      }
+      
+      return {
+        key: `objective_${obj.id}`,
+        label: obj.title,
+        question,
+        type: 'objective',
+        responseType,
+        objectiveId: obj.id,
+        unit: obj.unit,
+      };
+    });
+
     // Get today's completed data from all sources
     const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
       supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
@@ -92,7 +138,7 @@ serve(async (req) => {
     // Build set of completed keys
     const completedKeys = new Set<string>();
 
-    // From checkins
+    // From checkins - also check for objective updates
     if (checkinRes.data && checkinRes.data.length > 0) {
       completedKeys.add("mood");
       const notes = checkinRes.data[0]?.notes;
@@ -127,10 +173,14 @@ serve(async (req) => {
       });
     });
 
-    // Filter available items
-    const availableItems = ALL_CHECKIN_ITEMS.filter(item => !completedKeys.has(item.key));
+    // Filter available items (standard + objectives)
+    const availableStandardItems = ALL_CHECKIN_ITEMS.filter(item => !completedKeys.has(item.key));
+    const availableObjectiveItems = objectiveCheckins.filter(item => !completedKeys.has(item.key));
+    
+    // Combine all available items - objectives get PRIORITY
+    const allAvailableItems = [...availableObjectiveItems, ...availableStandardItems];
 
-    if (availableItems.length === 0) {
+    if (allAvailableItems.length === 0) {
       return new Response(JSON.stringify({ checkins: [], allCompleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -176,7 +226,7 @@ Formato risposta:
   {"key": "...", "reason": "..."}
 ]`;
 
-    const availableItemsText = availableItems.map(i => `- ${i.key}: "${i.question}" (${i.type})`).join("\n");
+    const availableItemsText = allAvailableItems.map((i: any) => `- ${i.key}: "${i.question}" (${i.type})`).join("\n");
 
     const userPrompt = `Obiettivi utente: ${goals.length > 0 ? goals.join(", ") : "Non specificati"}
 
@@ -225,7 +275,7 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
       }
       
       // Fallback to first 8 available items
-      const fallbackCheckins = availableItems.slice(0, 8).map(item => ({
+      const fallbackCheckins = allAvailableItems.slice(0, 8).map((item: any) => ({
         ...item,
         reason: "Suggerimento automatico",
       }));
@@ -246,14 +296,14 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
     } catch (parseError) {
       console.error("[ai-checkins] Failed to parse AI response:", content);
       // Fallback - return first 8 available items
-      aiSelection = availableItems.slice(0, 8).map(item => ({ key: item.key, reason: "Suggerimento" }));
+      aiSelection = allAvailableItems.slice(0, 8).map((item: any) => ({ key: item.key, reason: "Suggerimento" }));
     }
 
     // Build final checkins with full item data - now up to 8 items
     const selectedCheckins = aiSelection
       .slice(0, 8)
       .map(sel => {
-        const item = availableItems.find(i => i.key === sel.key);
+        const item = allAvailableItems.find((i: any) => i.key === sel.key);
         if (!item) return null;
         return {
           ...item,
@@ -263,8 +313,8 @@ Scegli le 8 domande più rilevanti IN ORDINE DI IMPORTANZA:`;
       .filter(Boolean);
 
     // If AI didn't return enough, fill with remaining items up to 8
-    while (selectedCheckins.length < 8 && availableItems.length > selectedCheckins.length) {
-      const nextItem = availableItems.find(i => !selectedCheckins.some((s: any) => s.key === i.key));
+    while (selectedCheckins.length < 8 && allAvailableItems.length > selectedCheckins.length) {
+      const nextItem = allAvailableItems.find((i: any) => !selectedCheckins.some((s: any) => s.key === i.key));
       if (nextItem) {
         selectedCheckins.push({ ...nextItem, reason: "Suggerimento" });
       } else {
