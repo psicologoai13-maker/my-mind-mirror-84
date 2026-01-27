@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
-import { Objective, CATEGORY_CONFIG } from '@/hooks/useObjectives';
+import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -30,9 +30,10 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   const categoryConfig = CATEGORY_CONFIG[objective.category];
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
-  const progress = hasTarget && objective.current_value !== null && objective.current_value !== undefined
-    ? Math.min(100, (objective.current_value / objective.target_value!) * 100)
-    : 0;
+  const hasStartingValue = objective.starting_value !== null && objective.starting_value !== undefined;
+  
+  // Use new progress calculation that considers starting value
+  const progress = hasTarget ? calculateProgress(objective) : 0;
 
   const daysRemaining = objective.deadline
     ? differenceInDays(new Date(objective.deadline), new Date())
@@ -126,13 +127,13 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         </p>
       )}
 
-      {/* Missing target warning */}
-      {!hasTarget && (
+      {/* Missing target or starting value warning */}
+      {(!hasTarget || (hasTarget && !hasStartingValue && objective.unit)) && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              Obiettivo finale non definito
+              {!hasTarget ? 'Obiettivo finale non definito' : 'Punto di partenza non definito'}
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Parla con Aria per definirlo!
@@ -147,7 +148,8 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-muted-foreground">Progresso</span>
             <span className="font-semibold text-foreground">
-              {objective.current_value ?? 0} / {objective.target_value} {objective.unit}
+              {objective.current_value ?? objective.starting_value ?? 0}
+              {hasStartingValue ? ` (da ${objective.starting_value})` : ''} → {objective.target_value} {objective.unit}
             </span>
           </div>
           <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
