@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { MetricConfig } from '@/hooks/useAIAnalysis';
-import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 interface DeepPsychologyCardProps {
   metrics: MetricConfig[];
@@ -89,6 +89,8 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
   psychologyData, 
   onMetricClick 
 }) => {
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
   const getScoreColor = (score: number | null, isNegative: boolean) => {
     if (score === null) return 'text-muted-foreground';
     const effectiveScore = isNegative ? 10 - score : score;
@@ -97,19 +99,15 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
     return 'text-orange-500';
   };
 
-  const getScoreLabel = (score: number | null, isNegative: boolean) => {
-    if (score === null) return '';
-    const effectiveScore = isNegative ? 10 - score : score;
-    if (effectiveScore >= 7) return 'Ottimo';
-    if (effectiveScore >= 4) return 'Moderato';
-    return 'Da migliorare';
-  };
-
   // Get all available psychology metrics
   const displayMetrics = Object.keys(PSYCHOLOGY_META).filter(key => {
     const value = psychologyData[key];
     return value !== null && value !== undefined;
   });
+
+  const handleClick = (key: string) => {
+    setExpandedKey(prev => prev === key ? null : key);
+  };
 
   if (displayMetrics.length === 0) {
     return (
@@ -140,34 +138,45 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
           const meta = PSYCHOLOGY_META[key];
           const value = psychologyData[key];
           const highlighted = metrics.find(m => m.key === key);
+          const isExpanded = expandedKey === key;
           
           return (
             <button
               key={key}
-              onClick={() => onMetricClick(key)}
+              onClick={() => handleClick(key)}
               className={cn(
-                "w-full flex items-center justify-between p-3 rounded-2xl transition-all",
+                "w-full p-3 rounded-2xl transition-all text-left",
                 highlighted ? "bg-primary/5 border border-primary/20" : "bg-muted/50 hover:bg-muted"
               )}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">{meta.icon}</span>
-                <div className="text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{meta.icon}</span>
                   <span className="font-medium text-foreground text-sm">{meta.label}</span>
-                  <p className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]">
-                    {highlighted?.reason || meta.description}
-                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <span className={cn("font-bold", getScoreColor(value, meta.isNegative))}>
+                      {value !== null ? Math.round(value) : '—'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">/10</span>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform duration-200",
+                    isExpanded && "rotate-180"
+                  )} />
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <span className={cn("font-bold", getScoreColor(value, meta.isNegative))}>
-                    {value !== null ? Math.round(value) : '—'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">/10</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              {/* Expandable description */}
+              <div className={cn(
+                "overflow-hidden transition-all duration-200",
+                isExpanded ? "max-h-24 mt-3 opacity-100" : "max-h-0 opacity-0"
+              )}>
+                <p className="text-xs text-muted-foreground line-clamp-3 pl-8">
+                  {highlighted?.reason || meta.description}
+                </p>
               </div>
             </button>
           );
