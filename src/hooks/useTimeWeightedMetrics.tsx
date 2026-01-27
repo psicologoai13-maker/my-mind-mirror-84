@@ -107,8 +107,34 @@ export const useTimeWeightedMetrics = (
   const startDate = subDays(today, lookbackDays);
   const startDateStr = format(startDate, 'yyyy-MM-dd');
   
-  // Use the existing daily metrics range for vitals, emotions, psychology
+  // Use the existing daily metrics range for vitals, life areas, psychology
   const { metricsRange, isLoading: metricsLoading } = useDailyMetricsRange(startDate, today);
+
+  // 🎯 CRITICAL: Fetch emotions DIRECTLY from daily_emotions table
+  // The RPC only returns the latest record per day, but we need MAX of all values
+  const { data: rawEmotionsData, isLoading: emotionsLoading } = useQuery({
+    queryKey: ['emotions-weighted', user?.id, startDateStr, todayRome],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('daily_emotions')
+        .select('joy, sadness, anger, fear, apathy, updated_at')
+        .eq('user_id', user.id)
+        .gte('date', startDateStr)
+        .lte('date', todayRome)
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        console.error('[useTimeWeightedMetrics] Error fetching emotions:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  });
 
   // Fetch life areas directly with updated_at for proper time-weighting
   // CRITICAL: Use Rome date to include today's data correctly
@@ -136,7 +162,7 @@ export const useTimeWeightedMetrics = (
     staleTime: 30 * 1000, // 30 seconds - refresh often for recent changes
   });
 
-  const isLoading = metricsLoading || lifeAreasLoading;
+  const isLoading = metricsLoading || lifeAreasLoading || emotionsLoading;
 
   const weightedData = useMemo<TimeWeightedData>(() => {
     const daysWithData = metricsRange.filter(m => 
@@ -191,21 +217,29 @@ export const useTimeWeightedMetrics = (
       sleep: getMostRecentVital(m => m.vitals.sleep),
     };
 
-    // 🎯 EMOTIONS: Usa il punteggio più recente
-    const getMostRecentEmotion = (getter: (m: DailyMetrics) => number): number | null => {
-      for (const m of sortedByDate) {
-        const value = getter(m);
-        if (value > 0) return value;
+    // 🎯 EMOTIONS: Query diretta sulla tabella daily_emotions
+    // Questo bypassa la RPC che perde dati aggregando per data
+    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy';
+    
+    const getMostRecentEmotionDirect = (key: EmotionKey): number | null => {
+      if (!rawEmotionsData || rawEmotionsData.length === 0) return null;
+      
+      // rawEmotionsData è già ordinato per updated_at DESC
+      for (const record of rawEmotionsData) {
+        const value = record[key];
+        if (typeof value === 'number' && value > 0) {
+          return value;
+        }
       }
       return null;
     };
 
     const emotions = {
-      joy: getMostRecentEmotion(m => m.emotions.joy),
-      sadness: getMostRecentEmotion(m => m.emotions.sadness),
-      anger: getMostRecentEmotion(m => m.emotions.anger),
-      fear: getMostRecentEmotion(m => m.emotions.fear),
-      apathy: getMostRecentEmotion(m => m.emotions.apathy),
+      joy: getMostRecentEmotionDirect('joy'),
+      sadness: getMostRecentEmotionDirect('sadness'),
+      anger: getMostRecentEmotionDirect('anger'),
+      fear: getMostRecentEmotionDirect('fear'),
+      apathy: getMostRecentEmotionDirect('apathy'),
     };
 
     // 🎯 LIFE AREAS: Usa il PUNTEGGIO PIÙ RECENTE, non la media!
@@ -267,7 +301,7 @@ export const useTimeWeightedMetrics = (
       hasData: true,
       daysWithData: Math.max(daysWithData.length, lifeAreasData?.length || 0),
     };
-  }, [metricsRange, lifeAreasData, halfLifeDays]);
+  }, [metricsRange, lifeAreasData, rawEmotionsData, halfLifeDays]);
 
   return {
     ...weightedData,
