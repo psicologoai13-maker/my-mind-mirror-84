@@ -324,51 +324,50 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
           {/* Numeric input for objectives with units */}
           {activeItem.responseType === 'numeric' ? (
             <div className="flex flex-col items-center gap-4">
-              {/* Compact numeric input with unit badge */}
-              <div className="flex items-center justify-center gap-3">
-                <div className="relative">
+              {/* Unified input row with unit and confirm button */}
+              <div className="flex items-center justify-center gap-2 w-full max-w-xs">
+                <div className="flex items-center gap-0 flex-1">
                   <Input
                     type="number"
                     inputMode="decimal"
                     value={numericValue}
                     onChange={(e) => setNumericValue(e.target.value)}
                     placeholder="0"
-                    className="w-28 h-16 text-2xl font-bold text-center rounded-2xl border-2 border-primary/20 focus:border-primary bg-muted/30"
+                    className={cn(
+                      "h-14 text-xl font-bold text-center bg-muted/30 border-2 border-primary/20 focus:border-primary",
+                      activeItem.unit ? "rounded-l-2xl rounded-r-none border-r-0 w-24" : "rounded-2xl w-full"
+                    )}
                     disabled={isSubmitting}
                     autoFocus
                     step="0.1"
                     min="0"
                   />
+                  {activeItem.unit && (
+                    <div className="h-14 px-4 flex items-center justify-center bg-muted/50 border-2 border-primary/20 border-l-0 rounded-r-2xl">
+                      <span className="text-base font-semibold text-muted-foreground">
+                        {activeItem.unit}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {activeItem.unit && (
-                  <div className="px-4 py-2 bg-primary/10 rounded-xl">
-                    <span className="text-lg font-semibold text-primary">
-                      {activeItem.unit}
-                    </span>
-                  </div>
-                )}
+                
+                {/* Confirm button - same height as input */}
+                <button
+                  onClick={handleNumericSubmit}
+                  disabled={isSubmitting || !numericValue}
+                  className={cn(
+                    "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0",
+                    "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg",
+                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <Check className="w-6 h-6" />
+                  )}
+                </button>
               </div>
-              
-              {/* Confirm button */}
-              <button
-                onClick={handleNumericSubmit}
-                disabled={isSubmitting || !numericValue}
-                className={cn(
-                  "px-8 h-12 rounded-2xl flex items-center justify-center gap-2 transition-all duration-300",
-                  "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl",
-                  "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
-                  numericValue && "animate-pulse-subtle"
-                )}
-              >
-                {isSubmitting ? (
-                  <span className="text-sm font-medium">Salvando...</span>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span className="text-sm font-semibold">Salva</span>
-                  </>
-                )}
-              </button>
             </div>
           ) : (
             <>
