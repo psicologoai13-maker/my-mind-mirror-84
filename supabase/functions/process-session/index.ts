@@ -509,12 +509,40 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
 ═══════════════════════════════════════════════
-- NON INVENTARE DATI. Se qualcosa non è espresso, usa 0 per emozioni o null per metriche opzionali.
+- NON INVENTARE DATI completamente. Ma INFERISCI emozioni dal contesto emotivo complessivo.
 - APATIA: Assegna > 0 SOLO per frasi esplicite come "non sento niente", "vuoto", "indifferenza totale". 
   Stanchezza fisica o noia NON sono apatia → apathy = 0.
 - SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
 - ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
 - BURNOUT: Assegna SOLO se esplicitamente legato a lavoro/doveri. Stanchezza generica ≠ burnout.
+
+═══════════════════════════════════════════════
+🔗 CORRELAZIONE VITALI → EMOZIONI (IMPORTANTE!)
+═══════════════════════════════════════════════
+Le emozioni devono RIFLETTERE il contesto emotivo complessivo. USA queste regole:
+
+**ANSIA → PAURA (fear):**
+- Se anxiety >= 5, DEVI assegnare fear >= anxiety * 0.6 (minimo)
+- Ansia e paura sono correlate: preoccupazione = forma di paura
+- Esempio: anxiety: 6 → fear: almeno 4
+
+**UMORE BASSO → TRISTEZZA (sadness):**
+- Se mood <= 4, DEVI assegnare sadness >= (10 - mood) * 0.5
+- Umore basso implica componente di tristezza sottostante
+- Esempio: mood: 3 → sadness: almeno 3-4
+
+**AREE VITA NEGATIVE → EMOZIONI CORRELATE:**
+- love <= 3 e contesto negativo → sadness += 2-3 (dolore relazionale)
+- work <= 3 + stress → anger o fear += 2 (frustrazione/paura)
+
+**GIOIA NON ESCLUSIVA:**
+- Se joy > 0 MA anche mood basso o anxiety alta, BILANCIA con altre emozioni
+- Evita il paradosso "100% gioia" quando ci sono segnali negativi
+
+**REGOLA D'ORO:**
+Il MIX EMOTIVO deve riflettere la COMPLESSITÀ dello stato psicologico.
+Un utente con ansia 6 e umore 4 NON può avere solo "gioia 100%" - 
+deve avere fear >= 3 e sadness >= 2 come minimo.
 
 ═══════════════════════════════════════════════
 📊 STRUTTURA JSON RICHIESTA
