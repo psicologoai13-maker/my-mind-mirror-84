@@ -3,11 +3,12 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import AIInsightCard from '@/components/home/AIInsightCard';
-// GoalsWidget removed - objectives now live in /objectives page
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
+import StreakCounter from '@/components/home/StreakCounter';
+import HabitTrackerSection from '@/components/habits/HabitTrackerSection';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -118,10 +119,17 @@ const Index: React.FC = () => {
 
         {/* Smart Personalized Check-in */}
         <SmartCheckinSection onStartCheckin={startCheckinTimer} />
+        
+        {/* Streak Counter */}
+        <div className="mt-4">
+          <StreakCounter />
+        </div>
       </header>
 
-      {/* Content Blocks - AI Driven Order */}
       <div className="px-6 pb-8 space-y-5">
+        {/* Habit Tracker Section */}
+        <HabitTrackerSection />
+        
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
 

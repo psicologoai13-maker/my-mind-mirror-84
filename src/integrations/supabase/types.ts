@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      body_metrics: {
+        Row: {
+          blood_pressure_diastolic: number | null
+          blood_pressure_systolic: number | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          resting_heart_rate: number | null
+          sleep_hours: number | null
+          updated_at: string
+          user_id: string
+          waist_circumference: number | null
+          weight: number | null
+        }
+        Insert: {
+          blood_pressure_diastolic?: number | null
+          blood_pressure_systolic?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          resting_heart_rate?: number | null
+          sleep_hours?: number | null
+          updated_at?: string
+          user_id: string
+          waist_circumference?: number | null
+          weight?: number | null
+        }
+        Update: {
+          blood_pressure_diastolic?: number | null
+          blood_pressure_systolic?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          resting_heart_rate?: number | null
+          sleep_hours?: number | null
+          updated_at?: string
+          user_id?: string
+          waist_circumference?: number | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -143,6 +188,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      daily_habits: {
+        Row: {
+          created_at: string
+          date: string
+          habit_type: string
+          id: string
+          notes: string | null
+          target_value: number | null
+          unit: string | null
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          habit_type: string
+          id?: string
+          notes?: string | null
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+          value?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          habit_type?: string
+          id?: string
+          notes?: string | null
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
       }
       daily_life_areas: {
         Row: {
@@ -453,6 +537,66 @@ export type Database = {
           last_updated_at?: string
           messages?: Json
           theme?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          metadata: Json | null
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          metadata?: Json | null
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          metadata?: Json | null
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_habits_config: {
+        Row: {
+          created_at: string
+          daily_target: number | null
+          habit_type: string
+          id: string
+          is_active: boolean
+          streak_type: string | null
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_target?: number | null
+          habit_type: string
+          id?: string
+          is_active?: boolean
+          streak_type?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_target?: number | null
+          habit_type?: string
+          id?: string
+          is_active?: boolean
+          streak_type?: string | null
+          unit?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
