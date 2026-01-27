@@ -51,7 +51,7 @@ const FocusTopics: React.FC = () => {
 
     return topicList
       .sort((a, b) => b.intensity - a.intensity)
-      .slice(0, 6);
+      .slice(0, 4);
   }, [emotions, deepPsychology, hasData]);
 
   const topicColors = [
@@ -61,40 +61,44 @@ const FocusTopics: React.FC = () => {
     'bg-muted text-muted-foreground border-muted',
   ];
 
-  // Don't render if no topics
-  if (topics.length === 0) {
-    return null;
-  }
-
   return (
-    <div className="space-y-3">
-      {/* Focus Title */}
-      <div className="flex items-center gap-2 px-1">
-        <Hash className="w-4 h-4 text-primary" />
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          I Tuoi Focus
+    <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-5 shadow-soft border border-border/50 h-full">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 rounded-xl bg-accent">
+          <Hash className="w-4 h-4 text-accent-foreground" />
+        </div>
+        <h3 className="font-display font-semibold text-foreground">
+          I tuoi Focus
         </h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {topics.map((topic, index) => (
-          <div
-            key={topic.tag}
-            className={cn(
-              "px-4 py-3 rounded-2xl text-sm font-medium border transition-all duration-300",
-              "hover:scale-[1.02] cursor-default",
-              "flex items-center justify-between",
-              topicColors[index % topicColors.length]
-            )}
-            style={{ animationDelay: `${index * 0.05}s` }}
-          >
-            <span className="capitalize">{topic.tag}</span>
-            <span className="text-xs opacity-70 font-semibold">
-              {Math.round(topic.intensity)}/10
-            </span>
-          </div>
-        ))}
-      </div>
+      {topics.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2">
+          {topics.slice(0, 6).map((topic, index) => (
+            <div
+              key={topic.tag}
+              className={cn(
+                "px-3 py-2.5 rounded-2xl text-sm font-medium border transition-all duration-300",
+                "hover:scale-[1.02] cursor-default text-center",
+                topicColors[index % topicColors.length]
+              )}
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <span className="capitalize">{topic.tag}</span>
+              <span className="ml-1.5 text-xs opacity-70">
+                {Math.round(topic.intensity)}/10
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-20 text-center">
+          <Sparkles className="w-6 h-6 text-muted-foreground/50 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            Inizia a parlare per<br />scoprire i tuoi temi
+          </p>
+        </div>
+      )}
     </div>
   );
 };

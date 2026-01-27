@@ -3,7 +3,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import AIInsightCard from '@/components/home/AIInsightCard';
-import FocusTopics from '@/components/home/FocusTopics';
+// GoalsWidget removed - objectives now live in /objectives page
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
@@ -116,13 +116,8 @@ const Index: React.FC = () => {
           />
         </div>
 
-        {/* Smart Personalized Check-in */}
-        <SmartCheckinSection onStartCheckin={startCheckinTimer} />
-        
-        {/* Focus Topics - 2 per row, max 6 */}
-        <div className="mt-5">
-          <FocusTopics />
-        </div>
+        {/* Smart Personalized Check-in with Focus title */}
+        <SmartCheckinSection onStartCheckin={startCheckinTimer} showFocusTitle />
       </header>
 
       {/* Content Blocks - AI Driven Order */}
