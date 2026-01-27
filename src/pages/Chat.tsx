@@ -293,8 +293,17 @@ const Chat: React.FC = () => {
     requestAnimationFrame(() => scrollToBottom('instant'));
 
     // Get all messages for context (include the optimistic one)
+    // CRITICAL: Include the initial greeting if it exists but wasn't yet in messages array
+    const existingMessages = messages.map(m => ({ role: m.role, content: m.content }));
+    
+    // Check if initial greeting exists but isn't in messages yet (first user message scenario)
+    const hasGreetingInMessages = messages.some(m => m.role === 'assistant');
+    if (initialGreeting && !hasGreetingInMessages) {
+      existingMessages.unshift({ role: 'assistant' as const, content: initialGreeting });
+    }
+    
     const apiMessages = [
-      ...messages.map(m => ({ role: m.role, content: m.content })),
+      ...existingMessages,
       { role: 'user' as const, content: userInput },
     ];
 
