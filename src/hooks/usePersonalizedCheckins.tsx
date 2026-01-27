@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Smile, Brain, Zap, Moon, Heart, Briefcase, Users, Sprout, Activity,
   Flame, CloudRain, Wind, Eye, Battery, Frown, ThumbsUp, AlertCircle,
-  Sparkles, TrendingDown, Coffee, Sun
+  Sparkles, TrendingDown, Coffee, Sun, Target
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -231,8 +231,12 @@ export const usePersonalizedCheckins = () => {
     return aiData.checkins
       .filter(item => !(item.key in completedToday))
       .map((item, index) => {
-        const colors = colorMap[item.key] || { color: 'text-gray-500', bgColor: 'bg-gray-50' };
-        const Icon = iconMap[item.key] || Sparkles;
+        // Dynamic colors for objectives
+        const isObjective = item.key.startsWith('objective_');
+        const colors = isObjective 
+          ? { color: 'text-emerald-500', bgColor: 'bg-emerald-50' }
+          : (colorMap[item.key] || { color: 'text-gray-500', bgColor: 'bg-gray-50' });
+        const Icon = isObjective ? Target : (iconMap[item.key] || Sparkles);
 
         return {
           key: item.key,

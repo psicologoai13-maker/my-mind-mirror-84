@@ -167,19 +167,21 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
 
   const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted_));
 
-  // Loading state
+  // Loading state - show skeleton, not text message
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-muted-foreground">Check-in personalizzato</span>
-          </div>
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-4 h-4 text-primary/50" />
+          <span className="text-xs font-medium text-muted-foreground/50">Check-in</span>
         </div>
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          <span className="text-sm">AI sta preparando le domande...</span>
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div 
+              key={i} 
+              className="h-20 rounded-xl bg-muted/30 animate-pulse"
+            />
+          ))}
         </div>
       </div>
     );
