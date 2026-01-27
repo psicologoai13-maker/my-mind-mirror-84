@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PenLine, AudioLines, Plus, ChevronRight, Loader2, Sparkles, MessageCircle, Mic } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { Card } from '@/components/ui/card';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
-import { useThematicDiaries, DIARY_THEMES } from '@/hooks/useThematicDiaries';
+import { useThematicDiaries } from '@/hooks/useThematicDiaries';
 import { useSessions } from '@/hooks/useSessions';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import DiaryManagementModal from '@/components/diary/DiaryManagementModal';
+import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
+import SessionDetailModal from '@/components/sessions/SessionDetailModal';
+import type { DiaryTheme, ThematicDiary } from '@/hooks/useThematicDiaries';
 
 // Extended diary themes including suggested ones
 const ALL_DIARY_THEMES = [
@@ -27,8 +28,10 @@ const Aria: React.FC = () => {
   const navigate = useNavigate();
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [selectedDiaryTheme, setSelectedDiaryTheme] = useState<DiaryTheme | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const { diaries, isLoading: diariesLoading } = useThematicDiaries();
-  const { sessions, isLoading: sessionsLoading } = useSessions();
+  const { journalSessions, isLoading: sessionsLoading } = useSessions();
 
   // Active diaries - default to first 4, stored in localStorage for persistence
   const [activeDiaryIds, setActiveDiaryIds] = useState<string[]>(() => {
@@ -36,14 +39,18 @@ const Aria: React.FC = () => {
     return stored ? JSON.parse(stored) : ['love', 'work', 'relationships', 'self'];
   });
 
-  const recentSessions = sessions?.slice(0, 5) || [];
+  const recentSessions = journalSessions?.slice(0, 5) || [];
 
   const handleStartChat = () => {
     navigate('/chat');
   };
 
   const handleOpenDiary = (theme: string) => {
-    navigate(`/sessions?diary=${theme}`);
+    // Check if theme is a valid DiaryTheme
+    const validThemes: DiaryTheme[] = ['love', 'work', 'relationships', 'self'];
+    if (validThemes.includes(theme as DiaryTheme)) {
+      setSelectedDiaryTheme(theme as DiaryTheme);
+    }
   };
 
   const handleAddDiary = (themeId: string, isCustom: boolean, customLabel?: string) => {
@@ -80,9 +87,26 @@ const Aria: React.FC = () => {
     return { emoji: '📝', label: id };
   };
 
+  // If a diary theme is selected, show the thematic chat interface
+  if (selectedDiaryTheme) {
+    const selectedDiary = diaries?.find(d => d.theme === selectedDiaryTheme);
+    return (
+      <ThematicChatInterface
+        theme={selectedDiaryTheme}
+        diary={selectedDiary}
+        onBack={() => setSelectedDiaryTheme(null)}
+      />
+    );
+  }
+
   return (
     <MobileLayout>
       <div className="p-4 pb-28 space-y-6">
+        {/* Page Title */}
+        <header>
+          <h1 className="text-2xl font-semibold text-foreground">Aria</h1>
+        </header>
+
         {/* Session Type Selector - Two Premium Boxes */}
         <div className="grid grid-cols-2 gap-4">
           {/* Chat Box */}
@@ -184,9 +208,10 @@ const Aria: React.FC = () => {
           ) : (
             <div className="space-y-2">
               {recentSessions.map(session => (
-                <div
+                <button
                   key={session.id}
-                  className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl"
+                  onClick={() => setSelectedSessionId(session.id)}
+                  className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted/30 transition-colors text-left"
                 >
                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
                     {session.type === 'voice' ? (
@@ -201,11 +226,11 @@ const Aria: React.FC = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(session.start_time), "d MMM, HH:mm", { locale: it })}
-                      {session.duration && ` • ${session.duration} min`}
+                      {session.duration && ` • ${Math.floor(session.duration / 60)} min`}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -223,6 +248,13 @@ const Aria: React.FC = () => {
         activeDiaries={activeDiaryIds}
         onAddDiary={handleAddDiary}
         onRemoveDiary={handleRemoveDiary}
+      />
+
+      <SessionDetailModal
+        session={journalSessions?.find(s => s.id === selectedSessionId) || null}
+        open={!!selectedSessionId}
+        onOpenChange={(open) => !open && setSelectedSessionId(null)}
+        onDelete={() => {}}
       />
     </MobileLayout>
   );
