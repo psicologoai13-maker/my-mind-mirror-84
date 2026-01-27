@@ -83,10 +83,15 @@ export type Database = {
           created_at: string
           date: string
           fear: number | null
+          frustration: number | null
+          hope: number | null
           id: string
+          jealousy: number | null
           joy: number | null
+          nostalgia: number | null
           sadness: number | null
           session_id: string | null
+          shame: number | null
           source: string
           updated_at: string
           user_id: string
@@ -97,10 +102,15 @@ export type Database = {
           created_at?: string
           date?: string
           fear?: number | null
+          frustration?: number | null
+          hope?: number | null
           id?: string
+          jealousy?: number | null
           joy?: number | null
+          nostalgia?: number | null
           sadness?: number | null
           session_id?: string | null
+          shame?: number | null
           source?: string
           updated_at?: string
           user_id: string
@@ -111,10 +121,15 @@ export type Database = {
           created_at?: string
           date?: string
           fear?: number | null
+          frustration?: number | null
+          hope?: number | null
           id?: string
+          jealousy?: number | null
           joy?: number | null
+          nostalgia?: number | null
           sadness?: number | null
           session_id?: string | null
+          shame?: number | null
           source?: string
           updated_at?: string
           user_id?: string

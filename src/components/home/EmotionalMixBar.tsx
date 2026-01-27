@@ -3,11 +3,18 @@ import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Sparkles, MessageCircle } from 'lucide-react';
 
 const EMOTION_CONFIG = {
+  // Primary emotions
   joy: { label: 'Gioia', color: 'hsl(var(--mood-neutral))' },
   sadness: { label: 'Tristezza', color: 'hsl(var(--area-friendship))' },
   anger: { label: 'Rabbia', color: 'hsl(var(--mood-bad))' },
   fear: { label: 'Paura', color: 'hsl(var(--accent-foreground))' },
   apathy: { label: 'Apatia', color: 'hsl(var(--muted-foreground))' },
+  // Secondary emotions
+  shame: { label: 'Vergogna', color: 'hsl(320, 60%, 50%)' },
+  jealousy: { label: 'Gelosia', color: 'hsl(150, 60%, 40%)' },
+  hope: { label: 'Speranza', color: 'hsl(200, 80%, 55%)' },
+  frustration: { label: 'Frustrazione', color: 'hsl(30, 80%, 50%)' },
+  nostalgia: { label: 'Nostalgia', color: 'hsl(260, 50%, 55%)' },
 };
 
 type EmotionKey = keyof typeof EMOTION_CONFIG;
