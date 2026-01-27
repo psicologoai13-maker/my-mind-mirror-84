@@ -73,19 +73,19 @@ const FocusTopics: React.FC = () => {
       </div>
 
       {topics.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2">
-          {topics.slice(0, 6).map((topic, index) => (
+        <div className="flex flex-wrap gap-2">
+          {topics.map((topic, index) => (
             <div
               key={topic.tag}
               className={cn(
-                "px-3 py-2.5 rounded-2xl text-sm font-medium border transition-all duration-300",
-                "hover:scale-[1.02] cursor-default text-center",
+                "px-3 py-2 rounded-full text-sm font-medium border transition-all duration-300",
+                "hover:scale-105 cursor-default",
                 topicColors[index % topicColors.length]
               )}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <span className="capitalize">{topic.tag}</span>
-              <span className="ml-1.5 text-xs opacity-70">
+              <span className="ml-1 text-xs opacity-70">
                 {Math.round(topic.intensity)}/10
               </span>
             </div>
