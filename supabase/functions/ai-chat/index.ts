@@ -1174,7 +1174,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, generateSummary, userId } = await req.json();
+    const { messages, generateSummary, userId, realTimeContext } = await req.json();
     const authHeader = req.headers.get("Authorization");
     
     const isCrisis = detectCrisis(messages || []);
@@ -1256,6 +1256,46 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       userProfile.all_active_objectives
     );
     
+    // Inject real-time context if provided
+    if (realTimeContext) {
+      const rtContext = realTimeContext;
+      let contextBlock = `
+═══════════════════════════════════════════════
+📍 CONTESTO TEMPO REALE
+═══════════════════════════════════════════════
+
+DATA/ORA: ${rtContext.datetime?.day || ''} ${rtContext.datetime?.date || ''}, ore ${rtContext.datetime?.time || ''} (${rtContext.datetime?.period || ''}, ${rtContext.datetime?.season || ''})`;
+      
+      if (rtContext.datetime?.holiday) {
+        contextBlock += `\n🎉 OGGI È: ${rtContext.datetime.holiday}`;
+      }
+      
+      if (rtContext.location?.city) {
+        contextBlock += `\n\nPOSIZIONE UTENTE: ${rtContext.location.city}${rtContext.location.region ? `, ${rtContext.location.region}` : ''}${rtContext.location.country ? `, ${rtContext.location.country}` : ''}`;
+      }
+      
+      if (rtContext.weather) {
+        contextBlock += `\n\nMETEO ATTUALE: ${rtContext.weather.condition}, ${Math.round(rtContext.weather.temperature)}°C (percepiti ${Math.round(rtContext.weather.feels_like)}°C)
+- ${rtContext.weather.description}`;
+      }
+      
+      if (rtContext.news?.headlines && rtContext.news.headlines.length > 0) {
+        contextBlock += `\n\nULTIME NOTIZIE ITALIA:
+${rtContext.news.headlines.map((n: string) => `- ${n}`).join('\n')}`;
+      }
+      
+      contextBlock += `
+
+USO DEL CONTESTO:
+- Usa questi dati solo se PERTINENTI alla conversazione
+- NON forzare queste info se l'utente ha un problema urgente
+- Puoi contestualizzare: "Con questo tempo...", "Sono le ${rtContext.datetime?.time || ''}, è ${rtContext.datetime?.period || ''}..."
+- NON iniziare con meteo/news se l'utente è in difficoltà
+`;
+      
+      systemPrompt += contextBlock;
+      console.log('[ai-chat] Injected real-time context:', rtContext.location?.city || 'no location', rtContext.datetime?.time);
+    }
     // Crisis override
     if (isCrisis) {
       console.log('[ai-chat] CRISIS DETECTED - Activating SOS protocol');
