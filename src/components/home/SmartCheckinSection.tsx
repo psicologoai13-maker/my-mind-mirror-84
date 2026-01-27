@@ -27,10 +27,9 @@ const moodEmojis = ['😔', '😕', '😐', '🙂', '😊'];
 
 interface SmartCheckinSectionProps {
   onStartCheckin?: () => void;
-  showFocusTitle?: boolean;
 }
 
-const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartCheckin, showFocusTitle = false }) => {
+const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartCheckin }) => {
   const queryClient = useQueryClient();
   const { dailyCheckins, completedToday, completedCount, refetchTodayData, isLoading, aiGenerated, allCompleted } = usePersonalizedCheckins();
   const { saveCheckin, todayCheckin } = useCheckins();
@@ -271,24 +270,17 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
 
   return (
     <div className="space-y-3">
-      {/* Focus Title - shown when prop is true */}
-      {showFocusTitle && (
-        <div className="flex items-center gap-2 px-1 mb-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            I Tuoi Focus
-          </h3>
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
-            AI
-          </span>
-        </div>
-      )}
-      
+      {/* Check-in Title */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Check-in personalizzato</span>
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">Check-in</h3>
           {aiGenerated && (
-            <span className="text-xs text-primary/60">✨</span>
+            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
+              AI
+            </span>
           )}
         </div>
         {(completedCount + Object.keys(locallyCompleted).length) > 0 && (
