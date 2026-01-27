@@ -670,10 +670,13 @@ export type Database = {
           id: string
           last_data_change_at: string | null
           life_areas_scores: Json | null
+          location_permission_granted: boolean | null
           long_term_memory: string[] | null
           name: string | null
           onboarding_answers: Json | null
           onboarding_completed: boolean | null
+          realtime_context_cache: Json | null
+          realtime_context_updated_at: string | null
           selected_goals: string[] | null
           user_id: string
           wellness_score: number | null
@@ -692,10 +695,13 @@ export type Database = {
           id?: string
           last_data_change_at?: string | null
           life_areas_scores?: Json | null
+          location_permission_granted?: boolean | null
           long_term_memory?: string[] | null
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          realtime_context_cache?: Json | null
+          realtime_context_updated_at?: string | null
           selected_goals?: string[] | null
           user_id: string
           wellness_score?: number | null
@@ -714,10 +720,13 @@ export type Database = {
           id?: string
           last_data_change_at?: string | null
           life_areas_scores?: Json | null
+          location_permission_granted?: boolean | null
           long_term_memory?: string[] | null
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          realtime_context_cache?: Json | null
+          realtime_context_updated_at?: string | null
           selected_goals?: string[] | null
           user_id?: string
           wellness_score?: number | null
