@@ -1,5 +1,5 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { forwardRef, memo } from 'react';
+import ReactMarkdown, { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { User, Sparkles } from 'lucide-react';
 
@@ -10,19 +10,28 @@ interface ChatBubbleProps {
   showAvatar?: boolean;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ 
+// Memoized markdown components to prevent re-renders
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="whitespace-pre-wrap">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  ul: ({ children }) => <ul className="list-disc pl-4 my-1">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-4 my-1">{children}</ol>,
+  li: ({ children }) => <li className="my-0.5">{children}</li>,
+};
+
+const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({ 
   content, 
   role, 
   timestamp,
   showAvatar = true 
-}) => {
+}, ref) => {
   const isUser = role === 'user';
   const isSystem = role === 'system';
   
   // System messages are displayed as centered info
   if (isSystem) {
     return (
-      <div className="flex justify-center my-2">
+      <div ref={ref} className="flex justify-center my-2">
         <div className="bg-muted/50 text-muted-foreground text-xs px-4 py-2 rounded-full">
           {content}
         </div>
@@ -62,20 +71,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
           '[&_strong]:font-semibold',
           isUser ? '[&_strong]:text-white' : '[&_strong]:text-gray-900'
         )}>
-          <ReactMarkdown
-            components={{
-              // Prevent default paragraph margin issues
-              p: ({ children }) => <p className="whitespace-pre-wrap">{children}</p>,
-              // Style bold text
-              strong: ({ children }) => (
-                <strong className="font-semibold">{children}</strong>
-              ),
-              // Handle lists cleanly
-              ul: ({ children }) => <ul className="list-disc pl-4 my-1">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-4 my-1">{children}</ol>,
-              li: ({ children }) => <li className="my-0.5">{children}</li>,
-            }}
-          >
+          <ReactMarkdown components={markdownComponents}>
             {content}
           </ReactMarkdown>
         </div>
@@ -101,6 +97,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
       )}
     </div>
   );
-};
+}));
+
+ChatBubble.displayName = 'ChatBubble';
 
 export default ChatBubble;
