@@ -9,19 +9,79 @@ interface DeepPsychologyCardProps {
   onMetricClick: (key: string) => void;
 }
 
-const PSYCHOLOGY_META: Record<string, { label: string; icon: string; isNegative: boolean }> = {
-  rumination: { label: 'Ruminazione', icon: '🔄', isNegative: true },
-  burnout_level: { label: 'Burnout', icon: '🔥', isNegative: true },
-  somatic_tension: { label: 'Tensione Somatica', icon: '💪', isNegative: true },
-  self_efficacy: { label: 'Autoefficacia', icon: '💫', isNegative: false },
-  mental_clarity: { label: 'Chiarezza Mentale', icon: '🧠', isNegative: false },
-  gratitude: { label: 'Gratitudine', icon: '🙏', isNegative: false },
-  guilt: { label: 'Senso di Colpa', icon: '😔', isNegative: true },
-  irritability: { label: 'Irritabilità', icon: '😤', isNegative: true },
-  loneliness_perceived: { label: 'Solitudine', icon: '🏝️', isNegative: true },
-  coping_ability: { label: 'Capacità di Coping', icon: '🛡️', isNegative: false },
-  appetite_changes: { label: 'Appetito', icon: '🍽️', isNegative: true },
-  sunlight_exposure: { label: 'Esposizione Solare', icon: '☀️', isNegative: false },
+const PSYCHOLOGY_META: Record<string, { label: string; icon: string; isNegative: boolean; description: string }> = {
+  rumination: { 
+    label: 'Ruminazione', 
+    icon: '🔄', 
+    isNegative: true,
+    description: 'Tendenza a ripensare ripetutamente a eventi passati o preoccupazioni. Punteggi alti indicano pensieri ciclici difficili da interrompere.'
+  },
+  burnout_level: { 
+    label: 'Burnout', 
+    icon: '🔥', 
+    isNegative: true,
+    description: 'Livello di esaurimento emotivo e mentale. Punteggi alti segnalano stanchezza cronica e distacco dalle attività quotidiane.'
+  },
+  somatic_tension: { 
+    label: 'Tensione Somatica', 
+    icon: '💪', 
+    isNegative: true,
+    description: 'Tensione fisica accumulata nel corpo (collo, spalle, mascella). Riflette lo stress emotivo manifestato fisicamente.'
+  },
+  self_efficacy: { 
+    label: 'Autoefficacia', 
+    icon: '💫', 
+    isNegative: false,
+    description: 'Fiducia nella propria capacità di affrontare sfide e raggiungere obiettivi. Punteggi alti indicano sicurezza in sé stessi.'
+  },
+  mental_clarity: { 
+    label: 'Chiarezza Mentale', 
+    icon: '🧠', 
+    isNegative: false,
+    description: 'Capacità di pensare lucidamente e prendere decisioni. Punteggi alti indicano mente sgombra e concentrazione.'
+  },
+  gratitude: { 
+    label: 'Gratitudine', 
+    icon: '🙏', 
+    isNegative: false,
+    description: 'Capacità di apprezzare le cose positive nella vita. Fortemente correlata al benessere emotivo generale.'
+  },
+  guilt: { 
+    label: 'Senso di Colpa', 
+    icon: '😔', 
+    isNegative: true,
+    description: 'Sensazione di aver fatto qualcosa di sbagliato o di non essere all\'altezza. Può essere adattivo o eccessivo.'
+  },
+  irritability: { 
+    label: 'Irritabilità', 
+    icon: '😤', 
+    isNegative: true,
+    description: 'Tendenza a reagire con frustrazione o impazienza. Spesso segnala stress accumulato o bisogni insoddisfatti.'
+  },
+  loneliness_perceived: { 
+    label: 'Solitudine', 
+    icon: '🏝️', 
+    isNegative: true,
+    description: 'Sensazione soggettiva di isolamento sociale, indipendentemente dai contatti reali. Impatta profondamente il benessere.'
+  },
+  coping_ability: { 
+    label: 'Capacità di Coping', 
+    icon: '🛡️', 
+    isNegative: false,
+    description: 'Abilità di gestire situazioni stressanti in modo efficace. Include strategie cognitive ed emotive.'
+  },
+  appetite_changes: { 
+    label: 'Appetito', 
+    icon: '🍽️', 
+    isNegative: true,
+    description: 'Variazioni nell\'appetito (aumento o diminuzione). Spesso riflette lo stato emotivo e lo stress.'
+  },
+  sunlight_exposure: { 
+    label: 'Esposizione Solare', 
+    icon: '☀️', 
+    isNegative: false,
+    description: 'Tempo trascorso all\'aperto con luce naturale. Fondamentale per umore, energia e ritmo circadiano.'
+  },
 };
 
 const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({ 
@@ -94,9 +154,9 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
                 <span className="text-lg">{meta.icon}</span>
                 <div className="text-left">
                   <span className="font-medium text-foreground text-sm">{meta.label}</span>
-                  {highlighted?.reason && (
-                    <p className="text-xs text-primary">{highlighted.reason}</p>
-                  )}
+                  <p className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]">
+                    {highlighted?.reason || meta.description}
+                  </p>
                 </div>
               </div>
               
