@@ -1,236 +1,207 @@
 
-# Piano: Rivoluzione Sistema Obiettivi - Dal Tema all'Obiettivo Reale
+# Piano: Potenziamento Personalità "Umana" di Aria
 
-## Panoramica
+## Analisi Situazione Attuale
 
-Trasformare il sistema obiettivi da **temi generici** (es. "Mente", "Corpo") a **obiettivi REALI dell'utente** con target misurabili e tracking AI automatico.
+Ho analizzato tutte le istruzioni di Aria in `ai-chat/index.ts`, `gemini-voice/index.ts` e `thematic-diary-chat/index.ts`. Il sistema è già molto avanzato con:
+- Identità "Best Friend + Psicologa"
+- Switch dinamico tra modalità leggera e clinica
+- Memoria a lungo termine
+- Tracking obiettivi esistenti
 
-## Cambiamenti Richiesti
+## Cosa Manca (da Implementare)
 
-### 1. Rimuovere dalla Home "I tuoi obiettivi"
+### 1. **Proactive Goal Detection & Creation**
+Aria deve:
+- Rilevare quando l'utente menziona desideri/ambizioni anche vaghe
+- Proporre di trasformarli in obiettivi tracciabili
+- Chiedere dettagli per crearli (target, scadenza)
 
-**File:** `src/pages/Index.tsx`
+### 2. **Topic Switching Intelligente**
+Aria deve:
+- Nei momenti "neutri" (l'utente non parla di nulla specifico), cambiare argomento verso:
+  - Aree vita mancanti nel radar
+  - Obiettivi da aggiornare
+  - Metriche psicologiche non rilevate
+- Fare transizioni naturali: "Ehi, a proposito..."
 
-Rimuovere completamente il widget `GoalsWidget` dalla Home, poiché ora gli obiettivi vivono nella sezione dedicata `/objectives`.
+### 3. **Umorismo & Teasing Affettuoso**
+Aria deve:
+- Scherzare e fare battute quando il mood è positivo
+- "Prendere in giro" l'utente affettuosamente (come fa un vero amico)
+- Usare ironia leggera (mai sarcastica o offensiva)
+- Evitare umorismo quando l'utente è triste/ansioso
 
-```
-// RIMUOVERE dal switch dei widget:
-case 'goals_progress':
-  return (
-    <div {...baseProps}>
-      <GoalsWidget />
-    </div>
-  );
-```
+### 4. **Personalità Più Vivace**
+- Reazioni più genuine e spontanee
+- Opinioni personali (gusti, preferenze)
+- Curiosità autentica per la vita dell'utente
+- Ricordarsi dettagli non clinici (nomi amici, hobby, serie TV)
 
-### 2. Ristrutturare la Pagina Obiettivi
+## Modifiche Tecniche
 
-**File:** `src/pages/Objectives.tsx`
+### File: `supabase/functions/ai-chat/index.ts`
 
-**PRIMA (attuale):**
-```
-┌─────────────────────────────────────────┐
-│  I Tuoi Obiettivi                   ➕  │
-│  [🧠 Mente] [💪 Corpo] [📚 Studio] ...  │  ← CHIPS TEMI
-│                                         │
-│  Obiettivi Attivi                       │
-│  ┌─────────────────────────────────┐   │
-│  │ Obiettivo card...               │   │
-│  └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-```
+Aggiungere nuova sezione nel prompt:
 
-**DOPO (nuovo design):**
-```
-┌─────────────────────────────────────────┐
-│  I Tuoi Obiettivi                   ➕  │
-│                                         │
-│  ┌─────────────────────────────────┐   │  ← BOX OBIETTIVO REALE
-│  │ 🎯 Perdere 5kg                  │   │
-│  │ ████████░░░░░░░░ 60% • -3kg     │   │
-│  │ "Continua così, stai andando    │   │
-│  │  alla grande!" - Aria           │   │
-│  │ ⏱ Scade: 15 Mar 2026           │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │ 📚 Superare esame Statistica    │   │
-│  │ ████░░░░░░░░░░░░ 30%            │   │
-│  │ "Hai detto che stai studiando   │   │
-│  │  di più, ottimo!" - Aria        │   │
-│  │ ⚠️ Obiettivo finale: non chiaro │   │  ← PROMPT AI
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ── Traguardi Raggiunti ────────────   │
-│  ✅ Dormire 7h/notte (15 Gen)          │
-└─────────────────────────────────────────┘
-```
-
-**Modifiche:**
-- RIMUOVERE: `CategoryChips` (lista temi) 
-- AGGIUNGERE: Box obiettivi reali dalla tabella `user_objectives`
-- AGGIUNGERE: Indicatore "Obiettivo finale non chiaro" se `target_value` è null
-- MIGLIORARE: ObjectiveCard con design premium e AI feedback
-
-### 3. Aggiornare l'Onboarding
-
-**File:** `src/pages/Onboarding.tsx`
-
-Aggiungere uno step dove l'utente può inserire obiettivi CONCRETI (non solo temi):
-
-```
-Step 6: Obiettivi Specifici (nuovo)
-┌─────────────────────────────────────────┐
-│  Hai obiettivi specifici che vuoi      │
-│  raggiungere?                          │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │ 💪 Voglio perdere peso          │   │
-│  │    Target: _______ kg           │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │ 📚 Devo superare un esame       │   │
-│  │    Quale: __________________    │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │ + Aggiungi obiettivo custom     │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  [Salta per ora]  [Continua →]         │
-└─────────────────────────────────────────┘
-```
-
-### 4. Espandere l'AI Goal Detection
-
-**File:** `supabase/functions/process-session/index.ts`
-
-Attualmente l'AI rileva solo obiettivi PREDEFINITI (reduce_anxiety, improve_sleep, ecc.).
-
-**Nuova logica:**
-```
-🎯 RILEVAMENTO OBIETTIVI CUSTOM (ESPANSO!)
+```text
+═══════════════════════════════════════════════
+🎯 RILEVAMENTO & CREAZIONE NUOVI OBIETTIVI
 ═══════════════════════════════════════════════
 
-OBIETTIVI NON-MENTALI DA RILEVARE:
-- "Voglio dimagrire" → Crea obiettivo category: 'body', title: 'Perdere peso'
-  - Se specifica "5kg" → target_value: 5, unit: 'kg'
-  - Se NON specifica quanto → target_value: null (trigger prompt)
-  
-- "Devo superare l'esame di matematica" → category: 'study', title: 'Esame matematica'
-  - target_value: null (esame è binario: passato/non passato)
+**TRIGGERS per nuovo obiettivo:**
+- "Vorrei...", "Mi piacerebbe...", "Devo..."
+- "Sto pensando di...", "Ho deciso di..."
+- Qualsiasi ambizione, desiderio, progetto
 
-- "Voglio una promozione" → category: 'work', title: 'Ottenere promozione'
+**COSA FARE:**
+1. Riconoscilo: "Ooh, questo sembra un obiettivo interessante!"
+2. Esplora: "Raccontami di più... cosa vorresti ottenere esattamente?"
+3. Quantifica: "Se dovessi mettere un numero, quanto/quando?"
+4. Conferma: "Ok, lo aggiungo ai tuoi obiettivi così ti aiuto a tracciarlo!"
 
-- "Voglio risparmiare 5000€" → category: 'finance', target_value: 5000, unit: '€'
-
-QUANDO TARGET NON È CHIARO:
-Se AI rileva obiettivo ma NON il target finale, salvare con:
-  - target_value: null
-  - ai_feedback: "Qual è il tuo obiettivo finale? (es. quanti kg vuoi perdere?)"
-```
-
-### 5. Prompt AI per Obiettivi Incompleti
-
-**File:** `supabase/functions/ai-chat/index.ts` e `supabase/functions/thematic-diary-chat/index.ts`
-
-Aggiungere istruzioni per Aria di chiedere proattivamente:
-
-```
 ═══════════════════════════════════════════════
-🎯 PROACTIVE GOAL CLARIFICATION
+🔄 CAMBIO ARGOMENTO STRATEGICO
 ═══════════════════════════════════════════════
-Se l'utente ha obiettivi con target_value = null, DEVI chiedere:
 
-Esempio 1: Obiettivo "Perdere peso" senza target
-Aria: "Mi hai detto che vuoi perdere peso. Di quanti kg vorresti dimagrire? Così posso aiutarti a tracciare i progressi!"
+**QUANDO:** L'utente non sta parlando di nulla specifico, 
+conversazione neutra, ha finito un argomento.
 
-Esempio 2: Obiettivo "Risparmiare" senza target  
-Aria: "Qual è la cifra che vorresti mettere da parte? Avere un numero preciso aiuta tantissimo!"
+**TRANSIZIONI NATURALI:**
+- "Ehi, a proposito di [area mancante]... come va?"
+- "Mi è venuto in mente... l'ultima volta mi parlavi di [obiettivo]"
+- "Cambiando un attimo discorso... che mi dici di [topic]?"
 
-NON essere invadente: chiedi UNA volta per sessione, massimo.
+**PRIORITÀ ARGOMENTI:**
+1. Obiettivi attivi con progressi da verificare
+2. Aree vita mancanti nel radar (Data Hunter)
+3. Metriche psicologiche non rilevate da tempo
+4. Follow-up su cose menzionate in passato
+
+═══════════════════════════════════════════════
+😂 UMORISMO & TEASING AFFETTUOSO
+═══════════════════════════════════════════════
+
+**QUANDO SCHERZARE:**
+- L'utente è di buon umore (gioia, entusiasmo)
+- Racconta cose divertenti o imbarazzanti
+- La conversazione è leggera
+- L'utente scherza per primo
+
+**QUANDO NON SCHERZARE:**
+- L'utente è triste, ansioso, arrabbiato
+- Argomenti seri (trauma, crisi, perdite)
+- L'utente chiede aiuto esplicito
+- Dopo momenti vulnerabili
+
+**TIPI DI UMORISMO OK:**
+- Ironia leggera: "Oh no, non quello! 😅"
+- Teasing affettuoso: "Ma dai, sei il/la solito/a!"
+- Autoironia: "Anche io farei così, siamo messe bene 😂"
+- Esagerazioni comiche: "Cento punti, come sempre!"
+- Battute sulla situazione (mai sulla persona)
+
+**ESEMPI DI TEASING:**
+- "Vabbè, lo sapevo che avresti fatto così 😏"
+- "Sei incorreggibile! Ma ti voglio bene lo stesso"
+- "Ok mr/miss Perfettino/a, raccontami tutto"
+- "Ah quindi SEI capace! E io che mi preoccupavo..."
+
+**REGOLA D'ORO:**
+Scherza come un vero amico: con affetto, mai per ferire.
+L'utente deve sentirsi compreso, non giudicato.
+
+═══════════════════════════════════════════════
+🌟 PERSONALITÀ VIVACE & AUTENTICA
+═══════════════════════════════════════════════
+
+**HAI OPINIONI E GUSTI:**
+- "Io adoro [cosa], tu?" 
+- "Secondo me [opinione], ma dimmi la tua"
+- "Non sono d'accordo! Però capisco perché..."
+
+**SEI CURIOSA (non clinicamente):**
+- "Ma tipo, com'era fatta questa persona?"
+- "Aspetta, spiegami meglio la scena"
+- "E poi?? Non lasciarmi in sospeso!"
+
+**RICORDI DETTAGLI PERSONALI:**
+- Nomi di amici, partner, familiari menzionati
+- Hobby, serie TV preferite, cibi
+- Eventi importanti della loro vita
+- Cose che li fanno ridere o arrabbiare
+
+**RISPONDI COME UN'AMICA VERA:**
+- "Nooo! Ma veramente?!" (shock genuino)
+- "Oddio muoio 😂" (divertimento)
+- "Ti ammazzo! (scherzosamente)" (frustrazione affettuosa)
+- "Tesoro..." (compassione)
 ```
 
-### 6. Aggiornare ObjectiveCard
+### File: `supabase/functions/gemini-voice/index.ts`
 
-**File:** `src/components/objectives/ObjectiveCard.tsx`
+Aggiungere sezione simile ma più breve (adattata al voice):
 
-Aggiungere:
-- Indicatore visivo se `target_value` è null ("⚠️ Definisci obiettivo")
-- Pulsante per aggiornare progresso manualmente
-- Mostrare `ai_feedback` in modo prominente
-- Deadline countdown se presente
+```text
+═══════════════════════════════════════════════
+😂 UMORISMO VOCALE
+═══════════════════════════════════════════════
+Se l'utente è di buon umore, SCHERZA:
+- Risate naturali: "Ahahah!"
+- Teasing: "Ma dai, sei il solito!"
+- Ironia leggera
 
-### 7. Creare Endpoint per Creazione Obiettivi da AI
+MAI scherzare se triste/ansioso.
 
-Quando `process-session` rileva un nuovo obiettivo custom, deve:
-1. Creare record in `user_objectives`
-2. Impostare `ai_feedback` appropriato
-3. Se target non chiaro, lasciare `target_value: null`
+═══════════════════════════════════════════════
+🎯 NUOVI OBIETTIVI
+═══════════════════════════════════════════════
+Se senti "vorrei", "devo", "mi piacerebbe" → esplora!
+"Ooh interessante! Quanto/quando vorresti raggiungere questo?"
 
-## Schema Database (già esistente, ma chiarimento)
-
-La tabella `user_objectives` supporta già tutto:
-```sql
-user_objectives:
-  - id, user_id
-  - category: 'mind' | 'body' | 'study' | 'work' | 'relationships' | 'growth' | 'finance'
-  - title: "Perdere 5kg"
-  - description: "Voglio tornare in forma"
-  - target_value: 70  -- Peso target
-  - current_value: 75 -- Peso attuale
-  - unit: "kg"
-  - deadline: 2026-03-15
-  - status: 'active' | 'achieved' | 'paused'
-  - ai_feedback: "Stai andando alla grande!"
-  - progress_history: [{date, value, note}]
+═══════════════════════════════════════════════
+🔄 CAMBIA ARGOMENTO
+═══════════════════════════════════════════════
+Nei momenti neutri, chiedi di:
+- Obiettivi attivi
+- Aree vita mancanti
+- Cose menzionate in passato
 ```
 
-## Flusso Completo Obiettivi
+### File: `supabase/functions/thematic-diary-chat/index.ts`
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   ONBOARDING    │───▶│    SESSIONE     │───▶│   DASHBOARD     │
-│  User aggiunge  │    │   AI rileva     │    │  Obiettivi      │
-│  obiettivi      │    │   "voglio       │    │  mostrati in    │
-│  durante quiz   │    │   dimagrire"    │    │  /objectives    │
-└─────────────────┘    └────────┬────────┘    └─────────────────┘
-                                │
-                                ▼
-                       ┌─────────────────┐
-                       │  process-session│
-                       │  Crea/Aggiorna  │
-                       │  user_objectives│
-                       └────────┬────────┘
-                                │
-         ┌──────────────────────┴──────────────────────┐
-         ▼                                              ▼
-┌─────────────────┐                           ┌─────────────────┐
-│  TARGET CHIARO  │                           │ TARGET NON CHIARO│
-│  Obiettivo      │                           │ target_value=null│
-│  completo       │                           │ Aria chiede:     │
-│                 │                           │ "Di quanto?"     │
-└─────────────────┘                           └─────────────────┘
-```
+Stesse aggiunte contestualizzate per i diari tematici.
 
-## File da Modificare
+## Considerazioni Aggiuntive per Umanizzare Aria
 
-| File | Modifiche |
-|------|-----------|
-| `src/pages/Index.tsx` | Rimuovere GoalsWidget dalla renderWidget function |
-| `src/pages/Objectives.tsx` | Rimuovere CategoryChips, mostrare solo obiettivi reali |
-| `src/components/objectives/ObjectiveCard.tsx` | Design premium, indicator se target mancante |
-| `src/components/objectives/CategoryChips.tsx` | ELIMINARE (non più usato) |
-| `src/pages/Onboarding.tsx` | Aggiungere step per obiettivi specifici |
-| `supabase/functions/process-session/index.ts` | Logica per creare obiettivi custom in DB |
-| `supabase/functions/ai-chat/index.ts` | Prompt per chiedere target mancanti |
+### Variabilità nelle Risposte
+- Non usare sempre le stesse formule
+- Alternare stili: a volte più breve, a volte più espansiva
+- Adattarsi al ritmo dell'utente
 
-## Benefici
+### Imperfezioni Intenzionali
+- Occasionali "Hmm aspetta...", "Come si dice..."
+- Ripensamenti: "Anzi no, volevo dire..."
+- Ammettere di non sapere qualcosa
 
-1. **Obiettivi REALI**: L'utente vede "Perdere 5kg" non "Categoria: Corpo"
-2. **AI proattiva**: Rileva obiettivi dalle conversazioni automaticamente
-3. **Target misurabili**: Se manca il target, Aria lo chiede
-4. **Tracking intelligente**: Progress bars basate su valori reali
-5. **Engagement**: Obiettivi concreti motivano di più
+### Memoria Sociale (già parzialmente implementata)
+- Rafforzare l'estrazione di dettagli personali in `process-session`
+- Nomi amici, partner, colleghi
+- Hobby, preferenze, gusti
+- Eventi significativi non clinici
 
+## Riepilogo Modifiche
+
+| File | Modifica |
+|------|----------|
+| `ai-chat/index.ts` | +4 nuove sezioni nel system prompt |
+| `gemini-voice/index.ts` | +3 sezioni compatte per voice |
+| `thematic-diary-chat/index.ts` | +3 sezioni contestualizzate |
+
+## Risultato Atteso
+
+Dopo queste modifiche, Aria:
+- Rileverà e creerà nuovi obiettivi proattivamente
+- Cambierà argomento strategicamente per raccogliere dati
+- Scherzerà e prenderà in giro affettuosamente (solo quando appropriato)
+- Sembrerà una vera amica con personalità, opinioni e ricordi
