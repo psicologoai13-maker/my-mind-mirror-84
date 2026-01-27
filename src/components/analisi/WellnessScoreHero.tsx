@@ -1,6 +1,5 @@
 import React from 'react';
 import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MetricData } from '@/pages/Analisi';
 
@@ -11,7 +10,6 @@ interface WellnessScoreHeroProps {
 
 const WellnessScoreHero: React.FC<WellnessScoreHeroProps> = ({ metrics, timeRangeLabel }) => {
   // Calculate global wellness score from vital metrics
-  // Metrics are already in 1-10 scale, with anxiety inverted for scoring
   const vitalMetrics = metrics.filter(m => m.category === 'vitali');
   const validScores = vitalMetrics
     .map(m => {
@@ -24,48 +22,9 @@ const WellnessScoreHero: React.FC<WellnessScoreHeroProps> = ({ metrics, timeRang
     })
     .filter((v): v is number => v !== null);
   
-  // Calculate average of valid scores (already in 1-10 scale)
   const globalScore = validScores.length > 0 
-    ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+    ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length * 10) / 10
     : null;
-
-  // Find concerning and improving metrics
-  const anxietyMetric = metrics.find(m => m.key === 'anxiety');
-  const moodMetric = metrics.find(m => m.key === 'mood');
-  const energyMetric = metrics.find(m => m.key === 'energy');
-  
-  // Generate AI insight text
-  const generateInsight = () => {
-    if (globalScore === null) return "Non ci sono ancora dati sufficienti per un'analisi.";
-    
-    const insights: string[] = [];
-    
-    if (globalScore >= 7) {
-      insights.push(`${timeRangeLabel} stai andando molto bene`);
-    } else if (globalScore >= 5) {
-      insights.push(`${timeRangeLabel} sei stabile`);
-    } else {
-      insights.push(`${timeRangeLabel} potresti aver bisogno di più supporto`);
-    }
-    
-    // Check anxiety trend
-    if (anxietyMetric?.trend === 'up' && anxietyMetric.average && anxietyMetric.average > 50) {
-      insights.push("l'ansia è in leggero aumento");
-    } else if (anxietyMetric?.trend === 'down') {
-      insights.push("l'ansia sta diminuendo");
-    }
-    
-    // Check mood
-    if (moodMetric?.trend === 'up') {
-      insights.push("l'umore sta migliorando");
-    } else if (moodMetric?.trend === 'down' && moodMetric.average && moodMetric.average < 50) {
-      insights.push("l'umore richiede attenzione");
-    }
-    
-    return insights.length > 1 
-      ? `${insights[0]}, ma ${insights.slice(1).join(' e ')}.`
-      : `${insights[0]}.`;
-  };
 
   const chartData = [
     { name: 'score', value: globalScore ?? 0, fill: 'hsl(var(--primary))' }
@@ -78,14 +37,22 @@ const WellnessScoreHero: React.FC<WellnessScoreHeroProps> = ({ metrics, timeRang
     return 'text-orange-500';
   };
 
+  const getScoreLabel = (score: number | null) => {
+    if (score === null) return 'Nessun dato';
+    if (score >= 8) return 'Ottimo';
+    if (score >= 6) return 'Buono';
+    if (score >= 4) return 'Discreto';
+    return 'Da migliorare';
+  };
+
   return (
-    <div className="bg-card rounded-3xl shadow-premium p-6">
-      <div className="flex items-center gap-5">
+    <div className="bg-card rounded-3xl shadow-premium p-5">
+      <div className="flex items-center gap-4">
         {/* Ring Chart */}
-        <div className="relative w-28 h-28 flex-shrink-0">
+        <div className="relative w-20 h-20 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
-              innerRadius="75%"
+              innerRadius="70%"
               outerRadius="100%"
               data={chartData}
               startAngle={90}
@@ -100,40 +67,23 @@ const WellnessScoreHero: React.FC<WellnessScoreHeroProps> = ({ metrics, timeRang
             </RadialBarChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={cn("text-3xl font-bold", getScoreColor(globalScore))}>
-              {globalScore ?? '—'}
+            <span className={cn("text-2xl font-bold", getScoreColor(globalScore))}>
+              {globalScore?.toFixed(1) ?? '—'}
             </span>
-            <span className="text-xs text-muted-foreground">/10</span>
           </div>
         </div>
 
-        {/* AI Insight */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wide">Insight AI</span>
-          </div>
-          <p className="text-sm text-foreground leading-relaxed">
-            {generateInsight()}
+        {/* Score label */}
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-foreground">
+            Wellness Score
+          </h3>
+          <p className={cn("text-sm font-medium", getScoreColor(globalScore))}>
+            {getScoreLabel(globalScore)}
           </p>
-          
-          {/* Quick trend indicators */}
-          <div className="flex items-center gap-3 mt-3">
-            {vitalMetrics.slice(0, 3).map(m => {
-              const TrendIcon = m.trend === 'up' ? TrendingUp : m.trend === 'down' ? TrendingDown : Minus;
-              const isNegative = m.key === 'anxiety';
-              const trendColor = isNegative
-                ? (m.trend === 'up' ? 'text-orange-500' : m.trend === 'down' ? 'text-emerald-500' : 'text-muted-foreground')
-                : (m.trend === 'up' ? 'text-emerald-500' : m.trend === 'down' ? 'text-orange-500' : 'text-muted-foreground');
-              
-              return (
-                <div key={m.key} className="flex items-center gap-1">
-                  <span className="text-xs">{m.icon}</span>
-                  <TrendIcon className={cn("w-3 h-3", trendColor)} />
-                </div>
-              );
-            })}
-          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {timeRangeLabel}
+          </p>
         </div>
       </div>
     </div>
