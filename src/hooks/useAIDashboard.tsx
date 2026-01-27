@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -56,11 +56,17 @@ const DEFAULT_LAYOUT: DashboardLayout = {
   goals_evaluation: [],
 };
 
+// Store layout globally to persist across remounts
+let globalCachedLayout: DashboardLayout | null = null;
+let globalLastFetchTime: number = 0;
+
 export function useAIDashboard() {
   const { user, session } = useAuth();
-  const [layout, setLayout] = useState<DashboardLayout>(DEFAULT_LAYOUT);
-  const [isLoading, setIsLoading] = useState(true);
+  const [layout, setLayout] = useState<DashboardLayout>(globalCachedLayout || DEFAULT_LAYOUT);
+  const [isLoading, setIsLoading] = useState(!globalCachedLayout); // No loading if we have global cache
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshingInBackground, setIsRefreshingInBackground] = useState(false);
+  const fetchedRef = useRef(false);
 
   const fetchLayout = useCallback(async (forceRefresh = false) => {
     if (!user || !session?.access_token) {
@@ -68,11 +74,14 @@ export function useAIDashboard() {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setError(null);
+    // Prevent duplicate fetches on same mount
+    if (!forceRefresh && fetchedRef.current) {
+      return;
+    }
+    fetchedRef.current = true;
 
-      // First check if we have cached data and if it's still valid
+    try {
+      // First, immediately show cached data from DB (don't show loading if we have global cache)
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('ai_dashboard_cache, ai_cache_updated_at, last_data_change_at')
@@ -83,17 +92,36 @@ export function useAIDashboard() {
       const lastDataChange = profile?.last_data_change_at ? new Date(profile.last_data_change_at as string) : null;
       const cachedLayout = profile?.ai_dashboard_cache as unknown as DashboardLayout | null;
 
-      // Use cache if: has cache, not forcing refresh, and no new data since last cache
-      const shouldUseCache = !forceRefresh && 
-        cachedLayout && 
-        cacheUpdatedAt && 
-        lastDataChange && 
-        cacheUpdatedAt >= lastDataChange;
-
-      if (shouldUseCache && cachedLayout) {
-        console.log('[useAIDashboard] Using cached layout');
+      // IMMEDIATELY show cached data if available (no loading state)
+      if (cachedLayout && cachedLayout.primary_metrics?.length > 0) {
         setLayout(cachedLayout);
+        globalCachedLayout = cachedLayout;
+        setIsLoading(false); // Stop loading immediately
+        
+        // Check if we need to refresh in background
+        const cacheIsValid = cacheUpdatedAt && lastDataChange && cacheUpdatedAt >= lastDataChange;
+        
+        // Don't refresh if cache is valid and we're not forcing
+        if (!forceRefresh && cacheIsValid) {
+          console.log('[useAIDashboard] Cache is valid, no refresh needed');
+          return;
+        }
+
+        // Refresh in background (don't show loading)
+        if (!forceRefresh) {
+          console.log('[useAIDashboard] Refreshing in background...');
+          setIsRefreshingInBackground(true);
+        }
+      } else {
+        // No cache - need to show loading
+        setIsLoading(true);
+      }
+
+      // Skip if recently fetched (within 30 seconds) and not forcing
+      if (!forceRefresh && Date.now() - globalLastFetchTime < 30000 && globalCachedLayout) {
+        console.log('[useAIDashboard] Skipping fetch - recently updated');
         setIsLoading(false);
+        setIsRefreshingInBackground(false);
         return;
       }
 
@@ -112,14 +140,8 @@ export function useAIDashboard() {
       );
 
       if (!response.ok) {
-        if (response.status === 429) {
-          setError('Limite richieste raggiunto');
-          // Use cache as fallback
-          if (cachedLayout) setLayout(cachedLayout);
-          return;
-        }
-        if (response.status === 402) {
-          setError('Crediti AI esauriti');
+        if (response.status === 429 || response.status === 402) {
+          // Keep showing cached layout
           if (cachedLayout) setLayout(cachedLayout);
           return;
         }
@@ -127,8 +149,8 @@ export function useAIDashboard() {
       }
 
       const data = await response.json();
+      globalLastFetchTime = Date.now();
       
-      // Validate and use data
       if (data.primary_metrics && Array.isArray(data.primary_metrics)) {
         const newLayout: DashboardLayout = {
           primary_metrics: data.primary_metrics,
@@ -141,6 +163,7 @@ export function useAIDashboard() {
         };
         
         setLayout(newLayout);
+        globalCachedLayout = newLayout;
 
         // Save to cache
         await supabase
@@ -156,17 +179,20 @@ export function useAIDashboard() {
       setError(err instanceof Error ? err.message : 'Errore sconosciuto');
     } finally {
       setIsLoading(false);
+      setIsRefreshingInBackground(false);
     }
   }, [user, session]);
 
   useEffect(() => {
+    fetchedRef.current = false; // Reset on user/session change
     fetchLayout();
   }, [fetchLayout]);
 
   return {
     layout,
     isLoading,
+    isRefreshingInBackground,
     error,
-    refetch: () => fetchLayout(true), // Force refresh when manually called
+    refetch: () => fetchLayout(true),
   };
 }

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 
 const Index: React.FC = () => {
   const { profile, isLoading } = useProfile();
-  const { layout, isLoading: isLoadingAI } = useAIDashboard();
+  const { layout, isLoading: isLoadingAI, isRefreshingInBackground } = useAIDashboard();
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -107,12 +107,12 @@ const Index: React.FC = () => {
           </Button>
         </div>
 
-        {/* Wellness Score Box - NEW */}
+        {/* Wellness Score Box - Show cached data immediately */}
         <div className="mb-5">
           <WellnessScoreBox 
             score={layout.wellness_score} 
             message={layout.wellness_message}
-            isLoading={isLoadingAI}
+            isLoading={isLoadingAI && layout.wellness_score === 5}
           />
         </div>
 
