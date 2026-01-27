@@ -277,11 +277,6 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
             <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
           <h3 className="text-sm font-semibold text-foreground">Check-in</h3>
-          {aiGenerated && (
-            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
-              AI
-            </span>
-          )}
         </div>
         {(completedCount + Object.keys(locallyCompleted).length) > 0 && (
           <span className="text-xs text-emerald-600 font-medium">

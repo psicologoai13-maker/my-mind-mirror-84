@@ -84,13 +84,8 @@ const AdaptiveVitalsSection: React.FC = () => {
         <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
       </div>
 
-      {/* Priority Metrics Grid - AI Driven */}
-      <div className={cn(
-        "grid gap-4",
-        primaryMetrics.length <= 2 ? "grid-cols-2" : 
-        primaryMetrics.length <= 4 ? "grid-cols-2" :
-        "grid-cols-2 sm:grid-cols-3"
-      )}>
+      {/* Priority Metrics Grid - 2 columns, max 6 items */}
+      <div className="grid grid-cols-2 gap-4">
         {primaryMetrics.map((metric, index) => {
           const metricKey = metric.key as MetricKey;
           const config = METRIC_CONFIG[metricKey];
