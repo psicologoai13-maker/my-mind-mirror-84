@@ -207,31 +207,50 @@ const Aria: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {recentSessions.map(session => (
-                <button
-                  key={session.id}
-                  onClick={() => setSelectedSessionId(session.id)}
-                  className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted/30 transition-colors text-left"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    {session.type === 'voice' ? (
-                      <Mic className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <MessageCircle className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground text-sm truncate">
-                      {session.ai_summary || `Sessione ${session.type === 'voice' ? 'vocale' : 'chat'}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(session.start_time), "d MMM, HH:mm", { locale: it })}
-                      {session.duration && ` • ${Math.floor(session.duration / 60)} min`}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
+              {recentSessions.map(session => {
+                // Extract emotion tags or key theme for preview
+                const emotionTags = session.emotion_tags?.slice(0, 2) || [];
+                const sessionLabel = session.type === 'voice' ? 'Vocale' : 'Chat';
+                const dateLabel = format(new Date(session.start_time), "d MMM", { locale: it });
+                const timeLabel = format(new Date(session.start_time), "HH:mm", { locale: it });
+                
+                return (
+                  <button
+                    key={session.id}
+                    onClick={() => setSelectedSessionId(session.id)}
+                    className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      {session.type === 'voice' ? (
+                        <Mic className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <MessageCircle className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground text-sm">
+                          {sessionLabel} • {dateLabel}
+                        </p>
+                        {emotionTags.length > 0 && (
+                          <div className="flex gap-1">
+                            {emotionTags.map((tag, i) => (
+                              <span key={i} className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">
+                                {tag.replace('#', '')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {timeLabel}
+                        {session.duration && ` • ${Math.floor(session.duration / 60)} min`}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>
