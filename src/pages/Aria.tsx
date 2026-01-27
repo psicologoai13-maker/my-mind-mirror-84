@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PenLine, AudioLines, Plus, ChevronRight, Loader2, Sparkles, MessageCircle, Mic } from 'lucide-react';
+import { PenLine, AudioLines, Plus, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 import { useThematicDiaries } from '@/hooks/useThematicDiaries';
@@ -105,7 +105,6 @@ const Aria: React.FC = () => {
         {/* Page Title */}
         <header>
           <h1 className="text-2xl font-semibold text-foreground">Aria</h1>
-          <p className="text-muted-foreground text-sm mt-1">La tua compagna di benessere mentale</p>
         </header>
 
         {/* Session Type Selector - Two Premium Boxes */}
@@ -229,9 +228,9 @@ const Aria: React.FC = () => {
                       }}
                     >
                       {session.type === 'voice' ? (
-                        <Mic className="w-5 h-5 text-white" />
+                        <AudioLines className="w-5 h-5 text-white" />
                       ) : (
-                        <MessageCircle className="w-5 h-5 text-white" />
+                        <PenLine className="w-5 h-5 text-white" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
