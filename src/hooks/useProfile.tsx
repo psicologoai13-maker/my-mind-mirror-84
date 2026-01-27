@@ -22,6 +22,10 @@ export interface UserProfile {
   ai_insights_cache?: Record<string, unknown> | null;
   ai_cache_updated_at?: string | null;
   last_data_change_at?: string | null;
+  // Real-time context fields
+  location_permission_granted?: boolean | null;
+  realtime_context_cache?: Record<string, unknown> | null;
+  realtime_context_updated_at?: string | null;
 }
 
 export const useProfile = () => {

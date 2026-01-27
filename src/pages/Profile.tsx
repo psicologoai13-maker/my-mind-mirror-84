@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import LegalDisclaimer from '@/components/layout/LegalDisclaimer';
+import PrivacySettingsCard from '@/components/profile/PrivacySettingsCard';
 
 const menuItems = [
   { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo', action: null },
@@ -163,6 +164,9 @@ const Profile: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Privacy Settings for Aria */}
+        <PrivacySettingsCard />
 
         {/* Menu Items */}
         <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden animate-slide-up stagger-4">

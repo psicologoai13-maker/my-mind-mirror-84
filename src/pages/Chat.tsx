@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { useVisualViewport } from '@/hooks/useVisualViewport';
+import { useRealTimeContext } from '@/hooks/useRealTimeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ const Chat: React.FC = () => {
   const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
   const queryClient = useQueryClient();
+  const { context: realTimeContext } = useRealTimeContext();
   
   // VisualViewport for iOS keyboard handling
   const viewport = useVisualViewport();
@@ -327,7 +329,10 @@ const Chat: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ 
+          messages: apiMessages,
+          realTimeContext, // Include real-time context
+        }),
       });
 
       // Crisis detection

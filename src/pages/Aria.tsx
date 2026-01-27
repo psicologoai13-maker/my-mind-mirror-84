@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PenLine, AudioLines, Plus, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 import { useThematicDiaries } from '@/hooks/useThematicDiaries';
 import { useSessions } from '@/hooks/useSessions';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import { useProfile } from '@/hooks/useProfile';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import DiaryManagementModal from '@/components/diary/DiaryManagementModal';
 import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
 import SessionDetailModal from '@/components/sessions/SessionDetailModal';
+import LocationPermissionModal from '@/components/location/LocationPermissionModal';
 import type { DiaryTheme, ThematicDiary } from '@/hooks/useThematicDiaries';
 
 // Extended diary themes including suggested ones
@@ -28,10 +31,14 @@ const Aria: React.FC = () => {
   const navigate = useNavigate();
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'chat' | 'voice' | null>(null);
   const [selectedDiaryTheme, setSelectedDiaryTheme] = useState<DiaryTheme | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const { diaries, isLoading: diariesLoading } = useThematicDiaries();
   const { journalSessions, isLoading: sessionsLoading } = useSessions();
+  const { permission, requestLocation, isLoading: locationLoading } = useUserLocation();
+  const { profile } = useProfile();
 
   // Active diaries - default to first 4, stored in localStorage for persistence
   const [activeDiaryIds, setActiveDiaryIds] = useState<string[]>(() => {
@@ -41,8 +48,50 @@ const Aria: React.FC = () => {
 
   const recentSessions = journalSessions?.slice(0, 5) || [];
 
+  // Check if we should show location permission modal
+  const shouldAskLocation = permission === 'prompt' && profile?.location_permission_granted !== false;
+
   const handleStartChat = () => {
-    navigate('/chat');
+    if (shouldAskLocation) {
+      setPendingAction('chat');
+      setShowLocationModal(true);
+    } else {
+      navigate('/chat');
+    }
+  };
+
+  const handleStartVoice = () => {
+    if (shouldAskLocation) {
+      setPendingAction('voice');
+      setShowLocationModal(true);
+    } else {
+      setShowVoiceModal(true);
+    }
+  };
+
+  const handleLocationAllow = async () => {
+    await requestLocation();
+    setShowLocationModal(false);
+    
+    // Continue with pending action
+    if (pendingAction === 'chat') {
+      navigate('/chat');
+    } else if (pendingAction === 'voice') {
+      setShowVoiceModal(true);
+    }
+    setPendingAction(null);
+  };
+
+  const handleLocationDeny = () => {
+    setShowLocationModal(false);
+    
+    // Continue with pending action anyway
+    if (pendingAction === 'chat') {
+      navigate('/chat');
+    } else if (pendingAction === 'voice') {
+      setShowVoiceModal(true);
+    }
+    setPendingAction(null);
   };
 
   const handleOpenDiary = (theme: string) => {
@@ -128,7 +177,7 @@ const Aria: React.FC = () => {
 
           {/* Voice Box */}
           <button
-            onClick={() => setShowVoiceModal(true)}
+            onClick={handleStartVoice}
             className="group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 border border-violet-200/60 hover:border-violet-300 hover:shadow-lg transition-all duration-300"
           >
             {/* Decorative elements */}
@@ -280,6 +329,14 @@ const Aria: React.FC = () => {
         open={!!selectedSessionId}
         onOpenChange={(open) => !open && setSelectedSessionId(null)}
         onDelete={() => {}}
+      />
+
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onAllow={handleLocationAllow}
+        onDeny={handleLocationDeny}
+        isLoading={locationLoading}
       />
     </MobileLayout>
   );
