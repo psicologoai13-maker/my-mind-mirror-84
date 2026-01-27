@@ -314,6 +314,13 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .maybeSingle();
 
+    // 🎯 Get all active objectives for progress tracking
+    const { data: activeObjectives } = await supabase
+      .from('user_objectives')
+      .select('id, title, category, target_value, current_value, unit, status')
+      .eq('user_id', user_id)
+      .eq('status', 'active');
+
     const currentLifeScores = profileData?.life_areas_scores || {};
     
     // Extract user context (from request or profile)
@@ -328,6 +335,47 @@ serve(async (req) => {
       priorityMetrics,
       primaryLifeArea
     );
+
+    // 🎯 Build objectives tracking instructions for progress extraction
+    let objectivesTrackingPrompt = '';
+    if (activeObjectives && activeObjectives.length > 0) {
+      const objectivesList = activeObjectives.map(o => {
+        const progress = o.target_value 
+          ? `${o.current_value || 0}/${o.target_value} ${o.unit || ''}` 
+          : 'target non definito';
+        return `- ID: ${o.id} | "${o.title}" (${o.category}) | Progresso: ${progress}`;
+      }).join('\n');
+      
+      objectivesTrackingPrompt = `
+═══════════════════════════════════════════════
+🎯 OBIETTIVI ATTIVI - RILEVA PROGRESSI (CRUCIALE!)
+═══════════════════════════════════════════════
+L'utente ha questi obiettivi REALI da tracciare:
+${objectivesList}
+
+**DEVI estrarre aggiornamenti di progresso dalla conversazione:**
+
+ESEMPI DI RILEVAMENTO:
+- Utente dice: "Oggi peso 73kg" → per obiettivo "Perdere peso":
+  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 73, "note": "Peso registrato", "completed": false}]
+
+- Utente dice: "Ho messo da parte 800 euro questo mese" → per obiettivo "Risparmiare":
+  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 800, "note": "Risparmio mensile", "completed": false}]
+
+- Utente dice: "Questa settimana ho studiato 12 ore" → per obiettivo "Studiare 20h/settimana":
+  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 12, "note": null, "completed": false}]
+
+- Utente dice: "Ce l'ho fatta! Ho raggiunto i 70kg!" → se target era 70kg:
+  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 70, "note": "Obiettivo raggiunto!", "completed": true}]
+
+**REGOLE:**
+- Estrai SOLO valori NUMERICI ESPLICITI menzionati
+- Se l'utente NON menziona un valore numerico specifico, NON inventare
+- Per obiettivi senza unità (es. "superare esame"), usa 100 per completato, 0-99 per progresso stimato
+- Se new_value >= target_value, imposta completed: true
+- NON modificare obiettivi che non sono menzionati nella conversazione
+`;
+    }
 
     // VOICE ANALYSIS HEURISTICS (text-based)
     const voiceHeuristicsPrompt = is_voice ? `
@@ -403,6 +451,7 @@ Analizza la conversazione e restituisci SEMPRE un JSON valido.
 ${personalizedInstructions}
 ${dataHunterLifeAreas}
 ${deepPsychologyPrompt}
+${objectivesTrackingPrompt}
 
 ═══════════════════════════════════════════════
 🔍 SCREENING PSICHIATRICO AVANZATO
@@ -532,6 +581,9 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
   "suggested_new_goals": ["goal_id se emerge un nuovo focus dalla conversazione"],
   "custom_objectives_detected": [
     {"category": "body|study|work|finance|relationships|growth", "title": "Titolo obiettivo", "description": "Descrizione opzionale", "target_value": null, "unit": "kg|€|ore|null", "ai_feedback": "Messaggio se target mancante"}
+  ],
+  "objective_progress_updates": [
+    {"objective_id": "uuid dell'obiettivo", "new_value": <numero>, "note": "Nota opzionale", "completed": false}
   ]
 }
 
@@ -956,6 +1008,60 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           }
         } else {
           console.log('[process-session] Objective already exists:', obj.title);
+        }
+      }
+    }
+
+    // 🎯 NEW: Update progress for existing objectives
+    const objectiveProgressUpdates = (analysis as any).objective_progress_updates || [];
+    if (objectiveProgressUpdates.length > 0) {
+      console.log('[process-session] AI detected objective progress updates:', objectiveProgressUpdates);
+      
+      for (const update of objectiveProgressUpdates) {
+        if (!update.objective_id || update.new_value === undefined) continue;
+        
+        // Get the existing objective to update progress history
+        const { data: existingObj } = await supabase
+          .from('user_objectives')
+          .select('id, current_value, progress_history, target_value')
+          .eq('id', update.objective_id)
+          .eq('user_id', user_id)
+          .maybeSingle();
+        
+        if (existingObj) {
+          const newHistory = [
+            ...((existingObj.progress_history as any[]) || []),
+            { 
+              date: new Date().toISOString(), 
+              value: update.new_value, 
+              note: update.note || null 
+            }
+          ];
+          
+          const newStatus = update.completed || 
+            (existingObj.target_value && update.new_value >= existingObj.target_value) 
+              ? 'achieved' 
+              : 'active';
+          
+          const { error: updateError } = await supabase
+            .from('user_objectives')
+            .update({
+              current_value: update.new_value,
+              progress_history: newHistory,
+              status: newStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', update.objective_id)
+            .eq('user_id', user_id);
+          
+          if (updateError) {
+            console.error('[process-session] Error updating objective progress:', updateError);
+          } else {
+            console.log(`[process-session] Updated objective ${update.objective_id}: ${update.new_value}`);
+            if (newStatus === 'achieved') {
+              console.log(`[process-session] 🎉 Objective achieved!`);
+            }
+          }
         }
       }
     }

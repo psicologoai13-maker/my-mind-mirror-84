@@ -527,6 +527,16 @@ const getPriorityFocusDescription = (metrics: string[]): string => {
   return metrics.slice(0, 4).map(m => labels[m] || m).join(', ');
 };
 
+// Interface for objectives in prompt building
+interface ObjectiveForPrompt {
+  id: string;
+  title: string;
+  category: string;
+  target_value: number | null;
+  current_value: number | null;
+  unit: string | null;
+}
+
 // Build personalized system prompt
 function buildPersonalizedSystemPrompt(
   userName: string | null,
@@ -535,7 +545,8 @@ function buildPersonalizedSystemPrompt(
   selectedGoals: string[],
   onboardingAnswers: OnboardingAnswers | null,
   priorityMetrics: string[],
-  objectivesWithMissingTarget: { title: string; category: string }[]
+  objectivesWithMissingTarget: { title: string; category: string }[],
+  allActiveObjectives: ObjectiveForPrompt[] = []
 ): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
@@ -599,6 +610,61 @@ Esempi:
 - "Quante ore vorresti studiare a settimana per il tuo esame?"
 
 ⚠️ REGOLA: Chiedi UNA sola volta per sessione. NON essere invadente.`;
+  }
+
+  // 🎯 FULL OBJECTIVES TRACKING INSTRUCTION
+  let objectivesTrackingInstruction = '';
+  if (allActiveObjectives.length > 0) {
+    const categoryLabels: Record<string, string> = {
+      body: 'corpo/fitness', study: 'studio', work: 'lavoro',
+      finance: 'finanze', relationships: 'relazioni',
+      growth: 'crescita personale', mind: 'mente'
+    };
+    
+    const objectivesSummary = allActiveObjectives.map(o => {
+      const progress = o.target_value && o.current_value !== null 
+        ? `${o.current_value}/${o.target_value} ${o.unit || ''}` 
+        : (o.target_value ? `0/${o.target_value} ${o.unit || ''}` : 'target non definito');
+      return `- "${o.title}" (${categoryLabels[o.category] || o.category}): ${progress}`;
+    }).join('\n');
+    
+    objectivesTrackingInstruction = `
+═══════════════════════════════════════════════
+🎯 OBIETTIVI ATTIVI DELL'UTENTE (CRUCIALE!)
+═══════════════════════════════════════════════
+L'utente ha questi obiettivi REALI da tracciare:
+${objectivesSummary}
+
+**COSA DEVI FARE:**
+
+1. **CHIEDI PROGRESSI** (quando appropriato):
+   - Se non si parla di nulla di specifico: "A proposito, come va con [obiettivo]?"
+   - Se menziona l'argomento: "Com'è andata questa settimana?"
+   - Per obiettivi con unità misurabili (kg, €, ore): chiedi il VALORE ESATTO
+   
+   Esempi:
+   - "Ehi, come va con il progetto di perdere peso? Quanto pesi oggi?"
+   - "Mi avevi detto che volevi risparmiare. A che punto sei con i risparmi?"
+   - "Come sta andando lo studio? Quante ore sei riuscito a fare questa settimana?"
+
+2. **RILEVA PROGRESSI** da ciò che l'utente dice:
+   - Se dice "Oggi peso 75kg" → progresso rilevato per obiettivo peso
+   - Se dice "Ho risparmiato 500€" → progresso rilevato per obiettivo risparmio
+   - Se dice "Ho studiato 10 ore" → progresso rilevato per obiettivo studio
+   
+3. **CELEBRA o SUPPORTA** in base all'andamento:
+   - Progresso positivo: "Fantastico! Stai facendo passi avanti!"
+   - Difficoltà: "Capisco, alcune settimane sono più difficili. Cosa sta bloccando?"
+   - Obiettivo raggiunto: "Ce l'hai fatta! Sono così orgogliosa di te! 🎉"
+
+4. **VALUTA COMPLETAMENTO**:
+   - Se current_value >= target_value → l'obiettivo è RAGGIUNTO
+   - Se l'utente dice di aver raggiunto l'obiettivo, celebra e chiedi se vuole un nuovo target
+
+⚠️ REGOLA IMPORTANTE:
+- Chiedi di obiettivi solo quando la conversazione lo permette naturalmente
+- MAX 1 domanda sugli obiettivi per sessione
+- Priorità: obiettivi con progressi recenti o con scadenza vicina`;
   }
 
   // Priority metrics analysis focus
@@ -798,6 +864,7 @@ ${personaStyle}
 - ${memoryContent}
 ${dataHunterInstruction}
 ${objectivesClarificationInstruction}
+${objectivesTrackingInstruction}
 ${priorityAnalysisFocus}
 ${deepPsychologyInvestigation}
 
@@ -862,6 +929,17 @@ Non sei solo/a. Un professionista può aiutarti adesso. Io rimango qui con te."`
 }
 
 // User profile data structure
+interface UserObjective {
+  id: string;
+  title: string;
+  category: string;
+  target_value: number | null;
+  current_value: number | null;
+  unit: string | null;
+  status: string;
+  ai_feedback: string | null;
+}
+
 interface UserProfile {
   name: string | null;
   long_term_memory: string[];
@@ -870,6 +948,7 @@ interface UserProfile {
   onboarding_answers: OnboardingAnswers | null;
   dashboard_config: DashboardConfig | null;
   objectives_with_missing_target: { title: string; category: string }[];
+  all_active_objectives: UserObjective[];
 }
 
 // Helper to get user's profile and memory from database
@@ -882,6 +961,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     onboarding_answers: null,
     dashboard_config: null,
     objectives_with_missing_target: [],
+    all_active_objectives: [],
   };
   
   if (!authHeader) {
@@ -921,18 +1001,28 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       return defaultProfile;
     }
     
-    // Fetch objectives with missing target
-    const { data: objectivesData } = await supabase
+    // Fetch ALL active objectives (for full context)
+    const { data: allObjectivesData } = await supabase
       .from('user_objectives')
-      .select('title, category')
+      .select('id, title, category, target_value, current_value, unit, status, ai_feedback')
       .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('target_value', null);
+      .eq('status', 'active');
     
-    const objectivesWithMissingTarget = (objectivesData || []).map((obj: any) => ({
+    const allActiveObjectives: UserObjective[] = (allObjectivesData || []).map((obj: any) => ({
+      id: obj.id,
       title: obj.title,
-      category: obj.category
+      category: obj.category,
+      target_value: obj.target_value,
+      current_value: obj.current_value,
+      unit: obj.unit,
+      status: obj.status,
+      ai_feedback: obj.ai_feedback
     }));
+    
+    // Filter those missing target
+    const objectivesWithMissingTarget = allActiveObjectives
+      .filter(o => o.target_value === null)
+      .map(o => ({ title: o.title, category: o.category }));
     
     const result: UserProfile = {
       name: profile?.name || null,
@@ -942,9 +1032,10 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       onboarding_answers: profile?.onboarding_answers as OnboardingAnswers | null,
       dashboard_config: profile?.dashboard_config as DashboardConfig | null,
       objectives_with_missing_target: objectivesWithMissingTarget,
+      all_active_objectives: allActiveObjectives,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, objectives_missing_target=${objectivesWithMissingTarget.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}`);
     
     return result;
   } catch (error) {
@@ -1059,7 +1150,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       userProfile.selected_goals,
       userProfile.onboarding_answers,
       priorityMetrics,
-      userProfile.objectives_with_missing_target
+      userProfile.objectives_with_missing_target,
+      userProfile.all_active_objectives
     );
     
     // Crisis override
