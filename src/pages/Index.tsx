@@ -116,8 +116,8 @@ const Index: React.FC = () => {
           />
         </div>
 
-        {/* Smart Personalized Check-in with Focus title */}
-        <SmartCheckinSection onStartCheckin={startCheckinTimer} showFocusTitle />
+        {/* Smart Personalized Check-in */}
+        <SmartCheckinSection onStartCheckin={startCheckinTimer} />
       </header>
 
       {/* Content Blocks - AI Driven Order */}
