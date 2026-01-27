@@ -52,6 +52,12 @@ export interface TimeWeightedData {
     anger: number | null;
     fear: number | null;
     apathy: number | null;
+    // Secondary emotions
+    shame: number | null;
+    jealousy: number | null;
+    hope: number | null;
+    frustration: number | null;
+    nostalgia: number | null;
   };
   lifeAreas: {
     love: number | null;
@@ -119,7 +125,7 @@ export const useTimeWeightedMetrics = (
       
       const { data, error } = await supabase
         .from('daily_emotions')
-        .select('joy, sadness, anger, fear, apathy, updated_at')
+        .select('joy, sadness, anger, fear, apathy, shame, jealousy, hope, frustration, nostalgia, updated_at')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
         .lte('date', todayRome)
@@ -183,7 +189,10 @@ export const useTimeWeightedMetrics = (
     if (daysWithData.length === 0 && (!lifeAreasData || lifeAreasData.length === 0)) {
       return {
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
-        emotions: { joy: null, sadness: null, anger: null, fear: null, apathy: null },
+        emotions: { 
+          joy: null, sadness: null, anger: null, fear: null, apathy: null,
+          shame: null, jealousy: null, hope: null, frustration: null, nostalgia: null
+        },
         lifeAreas: { love: null, work: null, health: null, social: null, growth: null },
         deepPsychology: {
           rumination: null, self_efficacy: null, mental_clarity: null,
@@ -219,14 +228,14 @@ export const useTimeWeightedMetrics = (
 
     // 🎯 EMOTIONS: Query diretta sulla tabella daily_emotions
     // Questo bypassa la RPC che perde dati aggregando per data
-    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy';
+    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'shame' | 'jealousy' | 'hope' | 'frustration' | 'nostalgia';
     
     const getMostRecentEmotionDirect = (key: EmotionKey): number | null => {
       if (!rawEmotionsData || rawEmotionsData.length === 0) return null;
       
       // rawEmotionsData è già ordinato per updated_at DESC
       for (const record of rawEmotionsData) {
-        const value = record[key];
+        const value = record[key as keyof typeof record];
         if (typeof value === 'number' && value > 0) {
           return value;
         }
@@ -235,11 +244,18 @@ export const useTimeWeightedMetrics = (
     };
 
     const emotions = {
+      // Primary emotions
       joy: getMostRecentEmotionDirect('joy'),
       sadness: getMostRecentEmotionDirect('sadness'),
       anger: getMostRecentEmotionDirect('anger'),
       fear: getMostRecentEmotionDirect('fear'),
       apathy: getMostRecentEmotionDirect('apathy'),
+      // Secondary emotions
+      shame: getMostRecentEmotionDirect('shame'),
+      jealousy: getMostRecentEmotionDirect('jealousy'),
+      hope: getMostRecentEmotionDirect('hope'),
+      frustration: getMostRecentEmotionDirect('frustration'),
+      nostalgia: getMostRecentEmotionDirect('nostalgia'),
     };
 
     // 🎯 LIFE AREAS: Usa il PUNTEGGIO PIÙ RECENTE, non la media!

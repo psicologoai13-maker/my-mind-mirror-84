@@ -6,11 +6,18 @@ import { it } from 'date-fns/locale';
 import { Cloud } from 'lucide-react';
 
 const EMOTION_CONFIG = {
+  // Primary emotions
   joy: { label: 'Gioia', color: 'hsl(45, 90%, 55%)' },
   sadness: { label: 'Tristezza', color: 'hsl(220, 70%, 55%)' },
   anger: { label: 'Rabbia', color: 'hsl(0, 70%, 55%)' },
   fear: { label: 'Paura', color: 'hsl(280, 60%, 55%)' },
   apathy: { label: 'Apatia', color: 'hsl(220, 10%, 60%)' },
+  // Secondary emotions
+  shame: { label: 'Vergogna', color: 'hsl(320, 60%, 50%)' },
+  jealousy: { label: 'Gelosia', color: 'hsl(150, 60%, 40%)' },
+  hope: { label: 'Speranza', color: 'hsl(200, 80%, 55%)' },
+  frustration: { label: 'Frustrazione', color: 'hsl(30, 80%, 50%)' },
+  nostalgia: { label: 'Nostalgia', color: 'hsl(260, 50%, 55%)' },
 };
 
 interface DayEmotions {

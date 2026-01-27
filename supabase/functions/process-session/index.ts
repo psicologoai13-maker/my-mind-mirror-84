@@ -20,6 +20,12 @@ interface SpecificEmotions {
   anger: number;
   fear: number;
   apathy: number;
+  // Secondary emotions
+  shame?: number;
+  jealousy?: number;
+  hope?: number;
+  frustration?: number;
+  nostalgia?: number;
 }
 
 interface ClinicalIndices {
@@ -559,7 +565,12 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "sadness": <0-10, 0 se non presente>,
     "anger": <0-10, 0 se non presente>,
     "fear": <0-10, 0 se non presente>,
-    "apathy": <0-10, 0 se non ESPLICITAMENTE vuoto/distacco>
+    "apathy": <0-10, 0 se non ESPLICITAMENTE vuoto/distacco>,
+    "shame": <0-10, vergogna/imbarazzo>,
+    "jealousy": <0-10, gelosia/invidia>,
+    "hope": <0-10, speranza/ottimismo>,
+    "frustration": <0-10, frustrazione/impazienza>,
+    "nostalgia": <0-10, nostalgia/malinconia del passato>
   },
   "life_areas": {
     "work": <1-10 o null>,
@@ -788,7 +799,76 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       };
     }
 
-    console.log('[process-session] Parsed analysis:', JSON.stringify(analysis, null, 2));
+    // ═══════════════════════════════════════════════
+    // 🔒 POST-PROCESSING FORZATO: Correlazioni Vitali → Emozioni
+    // L'AI può ignorare le regole, ma questo codice le FORZA
+    // ═══════════════════════════════════════════════
+    const forceEmotionCorrelations = (analysis: OmniscientAnalysis): OmniscientAnalysis => {
+      const { vitals, emotions, life_areas } = analysis;
+      
+      // 1. ANXIETY → FEAR: Se ansia >= 4, fear deve essere almeno anxiety * 0.6
+      if (vitals.anxiety !== null && vitals.anxiety >= 4) {
+        const minFear = Math.round(vitals.anxiety * 0.6);
+        if (emotions.fear < minFear) {
+          console.log(`[POST-PROCESS] Forcing fear: ${emotions.fear} → ${minFear} (anxiety: ${vitals.anxiety})`);
+          emotions.fear = minFear;
+        }
+      }
+      
+      // 2. LOW MOOD → SADNESS: Se umore <= 5, sadness deve essere almeno (10 - mood) * 0.5
+      if (vitals.mood !== null && vitals.mood <= 5) {
+        const minSadness = Math.round((10 - vitals.mood) * 0.5);
+        if (emotions.sadness < minSadness) {
+          console.log(`[POST-PROCESS] Forcing sadness: ${emotions.sadness} → ${minSadness} (mood: ${vitals.mood})`);
+          emotions.sadness = minSadness;
+        }
+      }
+      
+      // 3. LOW LOVE → SADNESS boost: Se amore <= 3, aggiungi tristezza relazionale
+      if (life_areas.love !== null && life_areas.love <= 3) {
+        const loveBoost = Math.round((4 - life_areas.love) * 0.7);
+        if (emotions.sadness < loveBoost + 2) {
+          const newSadness = Math.min(10, emotions.sadness + loveBoost);
+          console.log(`[POST-PROCESS] Boosting sadness from love: ${emotions.sadness} → ${newSadness} (love: ${life_areas.love})`);
+          emotions.sadness = newSadness;
+        }
+      }
+      
+      // 4. BURNOUT → FRUSTRATION: Se burnout >= 5, frustration deve essere almeno burnout * 0.5
+      if (analysis.deep_psychology.burnout_level !== null && analysis.deep_psychology.burnout_level >= 5) {
+        const minFrustration = Math.round(analysis.deep_psychology.burnout_level * 0.5);
+        if ((emotions.frustration || 0) < minFrustration) {
+          console.log(`[POST-PROCESS] Forcing frustration: ${emotions.frustration || 0} → ${minFrustration} (burnout: ${analysis.deep_psychology.burnout_level})`);
+          emotions.frustration = minFrustration;
+        }
+      }
+      
+      // 5. PREVENT "100% JOY" PARADOX: Se ci sono emozioni negative significative, bilancia joy
+      const negativeSum = emotions.sadness + emotions.anger + emotions.fear + (emotions.frustration || 0);
+      if (negativeSum >= 5 && emotions.joy > 7) {
+        const maxJoy = Math.max(5, 10 - Math.floor(negativeSum / 2));
+        if (emotions.joy > maxJoy) {
+          console.log(`[POST-PROCESS] Capping joy: ${emotions.joy} → ${maxJoy} (negative sum: ${negativeSum})`);
+          emotions.joy = maxJoy;
+        }
+      }
+      
+      // 6. LONELINESS → NOSTALGIA: Se solitudine >= 6, nostalgia almeno loneliness * 0.4
+      if (analysis.deep_psychology.loneliness_perceived !== null && analysis.deep_psychology.loneliness_perceived >= 6) {
+        const minNostalgia = Math.round(analysis.deep_psychology.loneliness_perceived * 0.4);
+        if ((emotions.nostalgia || 0) < minNostalgia) {
+          console.log(`[POST-PROCESS] Forcing nostalgia: ${emotions.nostalgia || 0} → ${minNostalgia} (loneliness: ${analysis.deep_psychology.loneliness_perceived})`);
+          emotions.nostalgia = minNostalgia;
+        }
+      }
+      
+      return { ...analysis, emotions };
+    };
+    
+    // Apply forced correlations
+    analysis = forceEmotionCorrelations(analysis);
+    
+    console.log('[process-session] Post-processed analysis:', JSON.stringify(analysis.emotions, null, 2));
 
     const isCrisisAlert = analysis.crisis_risk === 'high';
     const today = new Date().toISOString().split('T')[0];
@@ -833,18 +913,25 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       throw new Error(`Failed to update session: ${sessionError.message}`);
     }
 
-    // 2. SAVE TO daily_emotions (upsert)
-    console.log('[process-session] Saving to daily_emotions...');
+    // 2. SAVE TO daily_emotions (upsert) - including secondary emotions
+    console.log('[process-session] Saving to daily_emotions with secondary emotions...');
     const { error: emotionsError } = await supabase
       .from('daily_emotions')
       .upsert({
         user_id: user_id,
         date: today,
+        // Primary emotions
         joy: analysis.emotions.joy || 0,
         sadness: analysis.emotions.sadness || 0,
         anger: analysis.emotions.anger || 0,
         fear: analysis.emotions.fear || 0,
         apathy: analysis.emotions.apathy || 0,
+        // Secondary emotions
+        shame: analysis.emotions.shame || null,
+        jealousy: analysis.emotions.jealousy || null,
+        hope: analysis.emotions.hope || null,
+        frustration: analysis.emotions.frustration || null,
+        nostalgia: analysis.emotions.nostalgia || null,
         source: 'session',
         session_id: session_id
       }, { onConflict: 'user_id,date,source' });
