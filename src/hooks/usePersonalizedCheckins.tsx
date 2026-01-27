@@ -11,7 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology' | 'objective';
-export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider';
+export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric';
 
 export interface CheckinItem {
   key: string;
@@ -24,6 +24,8 @@ export interface CheckinItem {
   responseType: ResponseType;
   priority: number;
   reason?: string;
+  unit?: string;
+  objectiveId?: string;
 }
 
 // Response type configurations - LEFT = negative, RIGHT = positive (always)
@@ -43,6 +45,10 @@ export const responseTypeConfig = {
   slider: {
     options: ['1', '2', '3', '4', '5'],
     labels: ['Minimo', '', '', '', 'Massimo'],
+  },
+  numeric: {
+    options: [],
+    labels: [],
   },
 };
 
@@ -87,6 +93,8 @@ interface AICheckinResponse {
   type: string;
   responseType: string;
   reason?: string;
+  unit?: string;
+  objectiveId?: string;
 }
 
 // Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
@@ -249,6 +257,8 @@ export const usePersonalizedCheckins = () => {
           responseType: item.responseType as ResponseType,
           priority: 100 - index,
           reason: item.reason,
+          unit: item.unit,
+          objectiveId: item.objectiveId,
         };
       });
   }, [aiData, completedToday]);
