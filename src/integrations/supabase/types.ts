@@ -467,6 +467,7 @@ export type Database = {
           description: string | null
           id: string
           progress_history: Json | null
+          starting_value: number | null
           status: string | null
           target_value: number | null
           title: string
@@ -483,6 +484,7 @@ export type Database = {
           description?: string | null
           id?: string
           progress_history?: Json | null
+          starting_value?: number | null
           status?: string | null
           target_value?: number | null
           title: string
@@ -499,6 +501,7 @@ export type Database = {
           description?: string | null
           id?: string
           progress_history?: Json | null
+          starting_value?: number | null
           status?: string | null
           target_value?: number | null
           title?: string

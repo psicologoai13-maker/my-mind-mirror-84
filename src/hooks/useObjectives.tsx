@@ -14,6 +14,7 @@ export interface Objective {
   description?: string;
   target_value?: number;
   current_value?: number;
+  starting_value?: number; // NEW: Initial value when objective was created
   unit?: string;
   deadline?: string;
   status: ObjectiveStatus;
@@ -21,6 +22,30 @@ export interface Objective {
   progress_history: Array<{ date: string; value: number; note?: string }>;
   created_at: string;
   updated_at: string;
+}
+
+// Helper to calculate true progress considering starting point
+export function calculateProgress(objective: Objective): number {
+  const current = objective.current_value ?? 0;
+  const target = objective.target_value;
+  const start = objective.starting_value;
+
+  if (target === null || target === undefined) return 0;
+  
+  // If no starting value, assume 0 (old behavior for backwards compatibility)
+  if (start === null || start === undefined) {
+    return Math.min(100, Math.max(0, (current / target) * 100));
+  }
+
+  // Calculate direction-aware progress
+  const totalDistance = target - start;
+  if (totalDistance === 0) return current >= target ? 100 : 0;
+  
+  const progressDistance = current - start;
+  const progress = (progressDistance / totalDistance) * 100;
+  
+  // Clamp between 0 and 100
+  return Math.min(100, Math.max(0, progress));
 }
 
 export interface CreateObjectiveInput {
