@@ -1,423 +1,355 @@
 
-
-# Piano: Profilo Rinnovato + Sistema Punti + Pagina Plus
+# Piano: Quiz Iniziale Gamificato e Completo
 
 ## Panoramica
 
-Questo piano implementa:
-1. **Rimozione streak dalla Home** - Spostamento nella sezione Profilo
-2. **Nuovo Profilo Premium** - Design rinnovato con streak, badge e punti
-3. **Pagina Plus** - Abbonamento premium con features e pricing
-4. **Sistema Punti** - Gamification per ottenere premium gratis
+Trasformazione del quiz di onboarding in un'esperienza **gamificata, veloce e coinvolgente** che raccoglie informazioni complete (inclusi dati privati come peso, altezza, vizi) in modo intuitivo e divertente.
+
+## Principi Guida
+
+| Principio | Implementazione |
+|-----------|-----------------|
+| **Velocita** | Max 8-10 step, ~3 minuti totali |
+| **Gamification** | Animazioni, feedback visivo, emoji, "punti" simbolici |
+| **Privacy First** | Domande sensibili presentate con cura e opzione "Preferisco non rispondere" |
+| **Multiscelta** | Box selezionabili per tutto tranne dati numerici specifici |
+| **Mobile First** | Touch-friendly, grandi aree cliccabili |
 
 ---
 
-## 1. Struttura Database
+## Nuova Struttura Step (10 step totali)
 
-### Nuove Tabelle
-
-```sql
--- Tabella punti utente
-CREATE TABLE user_reward_points (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  total_points INTEGER NOT NULL DEFAULT 0,
-  lifetime_points INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_id)
-);
-
--- Storico transazioni punti
-CREATE TABLE reward_transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  points INTEGER NOT NULL, -- positivo = guadagno, negativo = spesa
-  type TEXT NOT NULL, -- 'badge', 'streak', 'referral', 'premium_redemption'
-  source_id TEXT, -- ID badge, referral_code, etc.
-  description TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Sistema referral
-CREATE TABLE user_referrals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  referrer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  referred_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  referral_code TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'active', 'completed'
-  referred_active_days INTEGER DEFAULT 0,
-  points_awarded BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  completed_at TIMESTAMPTZ
-);
-
--- Colonne aggiuntive user_profiles
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS
-  referral_code TEXT UNIQUE,
-  premium_until TIMESTAMPTZ,
-  premium_type TEXT; -- 'paid', 'points', null
+### Step 1: Welcome Personalizzato
+**Tipo**: Intro animata (non conta come step)
+```
+"Ciao! Sono Aria, la tua compagna di benessere.
+Rispondi a poche domande per personalizzare la tua esperienza."
+[Iniziamo →]
 ```
 
-### Punti Assegnati per Achievement
+### Step 2: Nome
+**Tipo**: Input testuale semplice
+```
+"Come ti chiami?"
+[Input: Nome]
+```
+*Salvataggio in: user_profiles.name*
 
-| Achievement ID | Punti | Descrizione |
-|----------------|-------|-------------|
-| `week_streak` | 100 | 7 giorni consecutivi |
-| `month_streak` | 300 | 30 giorni consecutivi |
-| `first_checkin` | 25 | Primo check-in |
-| `first_session` | 50 | Prima sessione con Aria |
-| `hundred_checkins` | 200 | 100 check-in completati |
-| `hydration_master` | 75 | 7 giorni obiettivo acqua |
-| `smoke_free_week` | 150 | 7 giorni senza sigarette |
-| `smoke_free_month` | 400 | 30 giorni senza sigarette |
-| `zen_master` | 100 | 30 sessioni meditazione |
-| `balanced_life` | 250 | Tutte le aree sopra 6/10 |
-| Referral completato | 400 | Amico usa app per 7 giorni |
+### Step 3: Obiettivi Principali (Multi-selezione)
+**Tipo**: Card Grid con emoji
+```
+"Cosa vorresti migliorare?" (max 3)
+[ ] 🧘 Gestire l'ansia
+[ ] 😴 Dormire meglio  
+[ ] ⚡ Avere più energia
+[ ] 💕 Migliorare relazioni
+[ ] 📝 Sfogarmi/Diario
+[ ] 🌱 Crescita personale
+[ ] 💼 Gestire stress lavoro
+[ ] 🪞 Autostima
+```
+*Salvataggio in: onboarding_answers.primaryGoals*
+
+### Step 4: Situazione Attuale
+**Tipo**: Card singola selezione
+```
+"Come descriveresti questo periodo?"
+( ) 😐 Stabile ma voglio di più
+( ) 🌪️ Momento difficile
+( ) 🌅 In ripresa
+( ) 🚀 Voglio crescere
+```
+
+### Step 5: Come Ti Senti? (Emoji Slider)
+**Tipo**: Slider interattivo animato
+```
+"Come ti senti ultimamente?"
+😔 ──●────── 😊
+    Così così
+```
+
+### Step 6: Vizi & Abitudini da Monitorare (Multi-selezione)
+**Tipo**: Chip Grid tematici
+```
+"Hai qualche 'vizio' che vuoi tenere sotto controllo?" (opzionale)
+
+🚬 Fumo
+🍷 Alcol  
+☕ Troppo caffè
+🍬 Zuccheri
+📱 Social Media
+💅 Mangiarsi unghie
+⏰ Procrastinazione
+❌ Nessuno di questi
+```
+*Salvataggio in: onboarding_answers.vices + creazione automatica habits*
+
+### Step 7: Stile di Vita (Multi-selezione)
+**Tipo**: Chip Grid
+```
+"Come descriveresti il tuo stile di vita?"
+
+🏃 Faccio sport regolarmente
+🧘 Pratico meditazione
+😴 Ho problemi di sonno
+💧 Bevo poca acqua
+🍎 Mangio sano
+📚 Leggo spesso
+👥 Vita sociale attiva
+🏠 Passo molto tempo solo/a
+```
+
+### Step 8: Dati Fisici (Input Numerici Opzionali)
+**Tipo**: Card con input compatti
+```
+"Vuoi tracciare anche dati fisici?" (opzionale)
+
+┌─────────────────────────────┐
+│ ⚖️ Peso attuale            │
+│ [_____] kg                  │
+├─────────────────────────────┤
+│ 📏 Altezza                  │
+│ [_____] cm                  │
+├─────────────────────────────┤
+│ 🎂 Anno di nascita          │
+│ [_____]                     │
+└─────────────────────────────┘
+
+[Salta questo step →]
+```
+*Salvataggio in: body_metrics + onboarding_answers*
+
+### Step 9: Abitudini da Sviluppare (Suggerite + Griglia)
+**Tipo**: Suggerimenti AI + Grid
+```
+"Quali abitudini vuoi sviluppare?"
+
+✨ Suggerite per te:
+[💧 Acqua] [🧘 Meditazione] [😴 Sonno]
+
+Tutte le abitudini:
+[Grid completa esistente]
+```
+*Riutilizza HabitsSelectionStep migliorato*
+
+### Step 10: Loading Animato "Analisi"
+**Tipo**: Animazione gamificata
+```
+[Cerchio che si riempie]
+✓ Analisi profilo completata
+✓ Obiettivi identificati
+✓ Piano personalizzato creato
+✓ Dashboard pronta!
+```
+
+### Step 11: Risultato + CTA
+**Tipo**: Celebrazione
+```
+🎉 Sei pronto!
+Dashboard personalizzata per:
+• Gestione Ansia
+• Qualità Sonno
+• [altri obiettivi]
+
+[Inizia il tuo percorso →]
+```
 
 ---
 
-## 2. Rimozione Streak dalla Home
-
-### File: `src/pages/Index.tsx`
-
-Rimuovere l'import e l'uso di `StreakCounter`:
-
-```diff
-- import StreakCounter from '@/components/home/StreakCounter';
-
-// Nel return, rimuovere:
--        {/* Streak Counter */}
--        <div className="mt-4">
--          <StreakCounter />
--        </div>
-```
-
----
-
-## 3. Nuovo Profilo Premium
-
-### Struttura Pagina Profilo
-
-```
-┌─────────────────────────────────────┐
-│  👤 Nome Utente                     │
-│  email@example.com                  │
-│  🏷️ Free • Membro da gennaio 2026   │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  🔥 STREAK E STATISTICHE            │
-│  ┌─────┐ ┌─────┐ ┌─────┐           │
-│  │ 12  │ │ 35  │ │ 8   │           │
-│  │giorni│ │sess.│ │badge│           │
-│  └─────┘ └─────┘ └─────┘           │
-│                                     │
-│  Record: 45 giorni 🏆               │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  💎 I TUOI PUNTI                    │
-│  ┌─────────────────────────────────┐│
-│  │   1,250 punti                  ││
-│  │   ████████████░░░░ 1,250/1000   ││
-│  │   [Riscatta 1 mese Plus]       ││
-│  └─────────────────────────────────┘│
-│                                     │
-│  Prossimo premio: -250 punti        │
-│  Storico guadagni →                 │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  🏅 BADGE SBLOCCATI (5/16)          │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐   │
-│  │ 🏅 │ │ 🔥 │ │ 💧 │ │ 🧘 │   │
-│  └─────┘ └─────┘ └─────┘ └─────┘   │
-│  +12 altro →                        │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  👥 INVITA AMICI                    │
-│  Condividi codice: ABC123XY         │
-│  Guadagna 400 punti per amico!      │
-│  [Condividi] [Copia]                │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  ⚙️ IMPOSTAZIONI                     │
-│  ├─ Dati personali →                │
-│  ├─ Notifiche →                     │
-│  ├─ Privacy Aria →                  │
-│  ├─ Area Terapeutica →              │
-│  └─ Aiuto →                         │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  💳 ABBONAMENTO                     │
-│  Piano Free                         │
-│  [Passa a Plus] →                   │
-└─────────────────────────────────────┘
-
-[Esci]
-```
-
-### Nuovi Componenti
+## Nuovi Componenti da Creare
 
 | File | Descrizione |
 |------|-------------|
-| `src/components/profile/StreakStatsCard.tsx` | Card streak con stats |
-| `src/components/profile/RewardPointsCard.tsx` | Card punti con progresso |
-| `src/components/profile/BadgesGrid.tsx` | Griglia badge con modal dettagli |
-| `src/components/profile/ReferralCard.tsx` | Card invita amici |
-| `src/components/profile/SubscriptionCard.tsx` | Card abbonamento |
+| `src/components/onboarding/WelcomeStep.tsx` | Intro animata con Aria |
+| `src/components/onboarding/NameInputStep.tsx` | Input nome con animazione |
+| `src/components/onboarding/ChipGridStep.tsx` | Griglia chip multi-selezione riutilizzabile |
+| `src/components/onboarding/VicesStep.tsx` | Step vizi con chip selezionabili |
+| `src/components/onboarding/LifestyleStep.tsx` | Step stile di vita |
+| `src/components/onboarding/PhysicalDataStep.tsx` | Input peso, altezza, anno nascita |
+| `src/components/onboarding/ProgressBadge.tsx` | Badge animato che appare al completamento step |
 
-### Nuovi Hooks
-
-| File | Descrizione |
-|------|-------------|
-| `src/hooks/useRewardPoints.tsx` | Gestione punti utente |
-| `src/hooks/useReferrals.tsx` | Gestione referral |
-
----
-
-## 4. Pagina Plus (Premium)
-
-### Route: `/plus`
-
-### Design
-
-```
-┌─────────────────────────────────────┐
-│            ✨ PLUS ✨                │
-│     Sblocca il tuo potenziale       │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  🎁 FEATURES PREMIUM                 │
-│                                     │
-│  ✓ Sessioni illimitate con Aria     │
-│  ✓ Report clinici avanzati          │
-│  ✓ Analisi psicologiche approfondite│
-│  ✓ Obiettivi personalizzati illim.  │
-│  ✓ Export dati completo             │
-│  ✓ Nessuna pubblicità               │
-│  ✓ Supporto prioritario             │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  💳 SCEGLI COME PAGARE              │
-│                                     │
-│  ┌─────────────────────────────────┐│
-│  │ 💎 CON PUNTI                   ││
-│  │ 1,000 punti = 1 mese Plus      ││
-│  │                                ││
-│  │ Hai: 1,250 punti               ││
-│  │ [Riscatta 1 mese]              ││
-│  └─────────────────────────────────┘│
-│                                     │
-│  ─────── oppure ───────             │
-│                                     │
-│  ┌─────────────────────────────────┐│
-│  │ 💰 ABBONAMENTO                 ││
-│  │                                ││
-│  │ Mensile: €4,99/mese            ││
-│  │ Annuale: €39,99/anno (-33%)    ││
-│  │                                ││
-│  │ [Abbonati mensile]             ││
-│  │ [Abbonati annuale] ⭐ Consig.  ││
-│  └─────────────────────────────────┘│
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│  🎯 COME GUADAGNARE PUNTI           │
-│                                     │
-│  🔥 7 giorni consecutivi = 100 pts  │
-│  👥 Invita un amico = 400 pts       │
-│  🏅 Sblocca badge = 25-400 pts      │
-│  📊 100 check-in = 200 pts          │
-└─────────────────────────────────────┘
-```
-
-### Pricing (Placeholder)
-
-| Piano | Prezzo | Note |
-|-------|--------|------|
-| Mensile | €4,99/mese | Fatturato mensilmente |
-| Annuale | €39,99/anno | -33% risparmio |
-| Punti | 1,000 pts/mese | Cumulabile |
-
----
-
-## 5. File da Creare
-
-| File | Descrizione |
-|------|-------------|
-| `src/pages/Plus.tsx` | Pagina abbonamento premium |
-| `src/hooks/useRewardPoints.tsx` | Hook gestione punti |
-| `src/hooks/useReferrals.tsx` | Hook gestione referral |
-| `src/components/profile/StreakStatsCard.tsx` | Card streak + stats |
-| `src/components/profile/RewardPointsCard.tsx` | Card punti con progress bar |
-| `src/components/profile/BadgesGrid.tsx` | Griglia badge sbloccati |
-| `src/components/profile/BadgeDetailModal.tsx` | Modal dettaglio singolo badge |
-| `src/components/profile/ReferralCard.tsx` | Card invita amici |
-| `src/components/profile/SubscriptionCard.tsx` | Card stato abbonamento |
-| `src/components/plus/FeaturesList.tsx` | Lista features premium |
-| `src/components/plus/PointsRedemption.tsx` | Sezione riscatto punti |
-| `src/components/plus/PricingOptions.tsx` | Opzioni abbonamento |
-
----
-
-## 6. File da Modificare
+## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Index.tsx` | Rimuovere StreakCounter |
-| `src/pages/Profile.tsx` | Completo redesign con nuovi componenti |
-| `src/App.tsx` | Aggiungere route `/plus` |
-| `src/hooks/useAchievements.tsx` | Aggiungere logica assegnazione punti quando badge sbloccato |
-| `src/hooks/useProfile.tsx` | Aggiungere campi `referral_code`, `premium_until`, `premium_type` |
-| `src/components/layout/BottomNav.tsx` | Link a Plus da abbonamento (opzionale) |
+| `src/pages/Onboarding.tsx` | Ristrutturazione completa con nuovi step |
+| `src/components/onboarding/OnboardingLayout.tsx` | Progress bar gamificata con icone step |
+| `src/components/onboarding/QuizStep.tsx` | Migliorare animazioni, aggiungere feedback haptic |
+| `src/components/onboarding/EmojiSlider.tsx` | Animazioni più fluide, feedback visivo |
+| `src/components/onboarding/HabitsSelectionStep.tsx` | Design compatto, suggerimenti prominenti |
+| `src/components/onboarding/AnalyzingScreen.tsx` | Animazioni piu coinvolgenti |
+| `src/components/onboarding/ResultScreen.tsx` | Celebrazione piu elaborata |
 
 ---
 
-## 7. Logica Sistema Punti
+## Logica Dati e Salvataggio
 
-### Assegnazione Automatica Punti
-
-Quando un badge viene sbloccato (in `useAchievements.tsx`):
-
+### Struttura onboarding_answers aggiornata
 ```typescript
-// Mappa punti per badge
-const BADGE_POINTS: Record<string, number> = {
-  first_checkin: 25,
-  week_streak: 100,
-  month_streak: 300,
-  first_session: 50,
-  hundred_checkins: 200,
-  // ... etc
-};
-
-// Nella mutation unlockAchievement
-onSuccess: async (data, variables) => {
-  const points = BADGE_POINTS[variables.achievementId];
-  if (points) {
-    await supabase.from('reward_transactions').insert({
-      user_id: user.id,
-      points: points,
-      type: 'badge',
-      source_id: variables.achievementId,
-      description: `Badge ${ACHIEVEMENTS[variables.achievementId].title} sbloccato`
-    });
-    
-    // Aggiorna totale
-    await supabase.rpc('add_reward_points', { 
-      p_user_id: user.id, 
-      p_points: points 
-    });
-  }
+interface OnboardingAnswers {
+  // Step 2
+  name: string;
+  
+  // Step 3  
+  primaryGoals: string[];
+  
+  // Step 4
+  lifeSituation: string;
+  
+  // Step 5
+  currentMood: number; // 0-4
+  
+  // Step 6 - NUOVO
+  vices: string[]; // ['smoking', 'alcohol', 'caffeine', ...]
+  
+  // Step 7 - NUOVO
+  lifestyle: string[]; // ['active', 'meditation', 'sleep_issues', ...]
+  
+  // Step 8 - NUOVO
+  physicalData: {
+    weight?: number;
+    height?: number;
+    birthYear?: number;
+  };
+  
+  // Step 9
+  selectedHabits: string[];
 }
 ```
 
-### Riscatto Premium con Punti
+### Azioni automatiche post-onboarding
 
-```typescript
-async function redeemPremiumWithPoints() {
-  if (totalPoints < 1000) throw new Error('Punti insufficienti');
-  
-  // Scala 1000 punti
-  await supabase.from('reward_transactions').insert({
-    user_id: user.id,
-    points: -1000,
-    type: 'premium_redemption',
-    description: '1 mese Plus riscattato'
-  });
-  
-  // Calcola nuova scadenza
-  const currentExpiry = profile.premium_until ? new Date(profile.premium_until) : new Date();
-  const newExpiry = new Date(Math.max(currentExpiry.getTime(), Date.now()));
-  newExpiry.setMonth(newExpiry.getMonth() + 1);
-  
-  await updateProfile({
-    premium_until: newExpiry.toISOString(),
-    premium_type: 'points'
-  });
+1. **Salva nome** in `user_profiles.name`
+2. **Crea record peso** in `body_metrics` se fornito
+3. **Crea habits** per vizi selezionati (smoking, alcohol, etc.) con streakType: 'abstain'
+4. **Crea habits** per abitudini selezionate
+5. **Configura dashboard** basata su obiettivi
+6. **Salva tutto** in `onboarding_answers` per riferimento AI
+
+---
+
+## Gamification Elements
+
+### 1. Progress Bar Evoluta
+```
+Step 1   2   3   4   5   6   7   8   9   10
+  ●───●───●───○───○───○───○───○───○───○
+        "Ottimo inizio!"
+```
+
+### 2. Micro-animazioni
+- **Selezione card**: Scale up + glow + check animato
+- **Completamento step**: Confetti mini + suono haptic
+- **Emoji slider**: L'emoji selezionata "balla"
+- **Input completato**: Check verde animato
+
+### 3. Messaggi di Incoraggiamento
+- Step 3: "Fantastico! Adesso so cosa e importante per te"
+- Step 6: "Nessun giudizio, solo supporto"
+- Step 8: "Questi dati aiuteranno Aria a darti consigli piu precisi"
+- Step 10: "Ci siamo quasi!"
+
+### 4. Skip Intelligente
+- Domande sensibili hanno sempre "Preferisco non rispondere"
+- Skip non penalizza l'esperienza
+
+---
+
+## Design Specifiche
+
+### Card Chip (Vizi/Lifestyle)
+```css
+/* Non selezionato */
+.chip {
+  background: var(--card);
+  border: 2px solid transparent;
+  border-radius: 1rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+/* Selezionato */
+.chip-selected {
+  background: var(--primary) / 10%;
+  border-color: var(--primary);
+  transform: scale(1.02);
 }
 ```
 
-### Referral Flow
-
-1. Ogni utente ha un `referral_code` univoco generato al signup
-2. Amico si registra con codice → crea record in `user_referrals` con status `pending`
-3. Cron job o trigger verifica dopo 7 giorni se amico ha usato app
-4. Se 7 giorni attivi → status `completed` → 400 punti al referrer
-
----
-
-## 8. Generazione Codice Referral
-
-Database function:
-
-```sql
-CREATE OR REPLACE FUNCTION generate_referral_code()
-RETURNS TEXT
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  result TEXT := '';
-  i INTEGER;
-BEGIN
-  FOR i IN 1..6 LOOP
-    result := result || substr(chars, floor(random() * length(chars) + 1)::integer, 1);
-  END LOOP;
-  RETURN result;
-END;
-$$;
+### Input Numerico (Peso/Altezza)
+```css
+.numeric-input {
+  background: var(--card);
+  border-radius: 1rem;
+  padding: 1rem;
+  font-size: 1.5rem;
+  text-align: center;
+  width: 100%;
+}
 ```
 
 ---
 
-## 9. Sequenza Implementazione
+## Sequenza Implementazione
 
-1. **Database Migration** - Creare tabelle `user_reward_points`, `reward_transactions`, `user_referrals` + colonne `user_profiles`
-2. **Hook useRewardPoints** - CRUD punti e transazioni
-3. **Hook useReferrals** - Gestione codici e inviti
-4. **Modifica useAchievements** - Assegnazione automatica punti
-5. **Componenti Profile** - StreakStatsCard, RewardPointsCard, BadgesGrid, ReferralCard
-6. **Pagina Profile** - Redesign completo
-7. **Pagina Plus** - Features, pricing, riscatto punti
-8. **Rimozione StreakCounter da Home**
-9. **Route App.tsx** - Aggiungere `/plus`
+1. **Creare componenti base**
+   - WelcomeStep
+   - NameInputStep  
+   - ChipGridStep (riutilizzabile)
+
+2. **Creare step specifici**
+   - VicesStep
+   - LifestyleStep
+   - PhysicalDataStep
+
+3. **Migliorare componenti esistenti**
+   - QuizStep (animazioni)
+   - EmojiSlider (feedback)
+   - HabitsSelectionStep (compact)
+
+4. **Ristrutturare Onboarding.tsx**
+   - Nuovo flow 10 step
+   - Logica salvataggio estesa
+
+5. **Aggiornare AnalyzingScreen e ResultScreen**
+   - Animazioni celebrative
+   - Riepilogo personalizzato
+
+6. **Test e Polish**
+   - Animazioni fluide
+   - Gestione errori
+   - Accessibilita
 
 ---
 
-## 10. Dettagli Tecnici
+## Stima Tempo
 
-### RLS Policies
+| Fase | Tempo |
+|------|-------|
+| Componenti base | 15 min |
+| Step specifici | 20 min |
+| Miglioramenti esistenti | 15 min |
+| Onboarding.tsx | 20 min |
+| Animazioni/Polish | 15 min |
+| **Totale** | **~85 min** |
 
-```sql
--- user_reward_points: solo proprio record
-ALTER TABLE user_reward_points ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own points" ON user_reward_points
-  FOR SELECT USING (auth.uid() = user_id);
+---
 
--- reward_transactions: solo proprie transazioni
-ALTER TABLE reward_transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own transactions" ON reward_transactions
-  FOR SELECT USING (auth.uid() = user_id);
+## Risultato Finale
 
--- user_referrals: referrer e referred possono vedere
-ALTER TABLE user_referrals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own referrals" ON user_referrals
-  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referred_id);
-```
+L'utente completera il quiz in **~3 minuti** con un'esperienza:
+- Visivamente accattivante e moderna
+- Intuitiva (niente da "capire")
+- Completa (raccoglie dati psicologici + fisici + abitudini)
+- Rispettosa della privacy (skip sempre disponibile)
+- Divertente (sembra un gioco, non un questionario medico)
 
-### Stile Componenti (Premium 2025)
-
-- Card: `bg-card rounded-3xl border border-border/50 shadow-premium p-6`
-- Titoli: `font-display text-lg font-semibold text-foreground`
-- Stats numbers: `text-3xl font-bold text-primary`
-- Progress bar: `bg-primary/20` con fill `bg-gradient-to-r from-primary to-purple-500`
-- Badge grid: `grid grid-cols-4 gap-3`
-- CTA buttons: `bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl`
-
+Aria avra accesso a:
+- Nome utente
+- Obiettivi principali
+- Sfide attuali
+- Stato emotivo iniziale
+- Vizi da monitorare
+- Stile di vita
+- Dati fisici base (se forniti)
+- Abitudini da tracciare
