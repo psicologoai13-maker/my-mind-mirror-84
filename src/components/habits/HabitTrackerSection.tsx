@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useHabits, HABIT_TYPES, HABIT_CATEGORIES, HabitCategory } from '@/hooks/useHabits';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, Check, Sparkles, ChevronRight } from 'lucide-react';
+import { Plus, Sparkles, ChevronRight, Check } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -9,7 +9,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -38,14 +37,15 @@ const HabitTrackerSection: React.FC = () => {
     }
   };
 
-  const handleToggleHabit = async (habitType: string, isActive: boolean) => {
+  const handleToggleHabit = async (habitType: string) => {
+    const isActive = activeHabitTypes.has(habitType);
     try {
       if (isActive) {
-        await addHabit.mutateAsync(habitType);
-        toast.success('Habit aggiunta');
-      } else {
         await removeHabit.mutateAsync(habitType);
         toast.success('Habit rimossa');
+      } else {
+        await addHabit.mutateAsync(habitType);
+        toast.success('Habit aggiunta');
       }
     } catch (error) {
       toast.error('Errore');
@@ -176,32 +176,33 @@ const HabitTrackerSection: React.FC = () => {
               ))}
             </div>
 
-            <div className="mt-2 space-y-2 overflow-y-auto max-h-[calc(85vh-140px)] pb-8">
-              {filteredHabits.map(([key, meta]) => (
-                <div 
-                  key={key} 
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-xl transition-colors",
-                    activeHabitTypes.has(key) 
-                      ? "bg-primary/10 border border-primary/20" 
-                      : "bg-muted/50"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{meta.icon}</span>
-                    <div>
-                      <p className="font-medium text-sm">{meta.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {meta.streakType === 'abstain' ? 'Obiettivo: 0' : `Obiettivo: ${meta.defaultTarget}`} {meta.unit}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={activeHabitTypes.has(key)}
-                    onCheckedChange={(checked) => handleToggleHabit(key, checked)}
-                  />
-                </div>
-              ))}
+            {/* Grid of habit boxes */}
+            <div className="mt-2 grid grid-cols-3 gap-2 overflow-y-auto max-h-[calc(85vh-140px)] pb-8">
+              {filteredHabits.map(([key, meta]) => {
+                const isActive = activeHabitTypes.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleToggleHabit(key)}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all min-h-[80px]",
+                      isActive 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-card hover:border-muted-foreground/30"
+                    )}
+                  >
+                    {isActive && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                      </div>
+                    )}
+                    <span className="text-2xl mb-1">{meta.icon}</span>
+                    <span className="text-[10px] font-medium text-center text-muted-foreground line-clamp-2">
+                      {meta.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </SheetContent>
         </Sheet>

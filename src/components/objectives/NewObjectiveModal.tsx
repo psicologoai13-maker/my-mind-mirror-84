@@ -11,12 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ObjectiveCategory, CATEGORY_CONFIG, CreateObjectiveInput } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
+import { AlertCircle } from 'lucide-react';
 
 interface NewObjectiveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: CreateObjectiveInput) => void;
 }
+
+// Categories that typically need a starting value
+const NEEDS_STARTING_VALUE: ObjectiveCategory[] = ['body', 'finance'];
 
 export const NewObjectiveModal: React.FC<NewObjectiveModalProps> = ({
   isOpen,
@@ -27,19 +31,30 @@ export const NewObjectiveModal: React.FC<NewObjectiveModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [targetValue, setTargetValue] = useState('');
+  const [startingValue, setStartingValue] = useState('');
   const [unit, setUnit] = useState('');
   const [deadline, setDeadline] = useState('');
+
+  // Check if this category needs a starting value
+  const needsStartingValue = NEEDS_STARTING_VALUE.includes(category) && targetValue;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim()) return;
 
+    // If needs starting value and not provided, show warning
+    if (needsStartingValue && !startingValue) {
+      return; // Form validation will handle this
+    }
+
     onSubmit({
       category,
       title: title.trim(),
       description: description.trim() || undefined,
       target_value: targetValue ? parseFloat(targetValue) : undefined,
+      starting_value: startingValue ? parseFloat(startingValue) : undefined,
+      current_value: startingValue ? parseFloat(startingValue) : 0,
       unit: unit.trim() || undefined,
       deadline: deadline || undefined,
     });
@@ -48,6 +63,7 @@ export const NewObjectiveModal: React.FC<NewObjectiveModalProps> = ({
     setTitle('');
     setDescription('');
     setTargetValue('');
+    setStartingValue('');
     setUnit('');
     setDeadline('');
     setCategory('mind');
@@ -118,6 +134,7 @@ export const NewObjectiveModal: React.FC<NewObjectiveModalProps> = ({
               <Input
                 id="target"
                 type="number"
+                step="any"
                 value={targetValue}
                 onChange={(e) => setTargetValue(e.target.value)}
                 placeholder="Es: 70"
@@ -133,6 +150,40 @@ export const NewObjectiveModal: React.FC<NewObjectiveModalProps> = ({
               />
             </div>
           </div>
+
+          {/* Starting Value - Show for body/finance categories when target is set */}
+          {needsStartingValue && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+              <div className="flex items-start gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Punto di partenza
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Per calcolare correttamente i progressi, inserisci il valore attuale
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+              <Input
+                id="starting"
+                type="number"
+                step="any"
+                value={startingValue}
+                onChange={(e) => setStartingValue(e.target.value)}
+                placeholder={`Es: ${category === 'body' ? '75' : '1000'}`}
+                required={!!needsStartingValue}
+                className="bg-white dark:bg-card"
+              />
+                {unit && (
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    {unit}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Deadline */}
           <div>
