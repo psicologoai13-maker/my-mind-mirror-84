@@ -227,10 +227,45 @@ export const useAchievements = () => {
         .single();
       
       if (error) throw error;
+
+      // Award points for the badge
+      const badgePoints: Record<string, number> = {
+        first_checkin: 25,
+        week_streak: 100,
+        month_streak: 300,
+        first_session: 50,
+        hundred_checkins: 200,
+        hydration_master: 75,
+        smoke_free_week: 150,
+        smoke_free_month: 400,
+        zen_master: 100,
+        balanced_life: 250,
+      };
+
+      const points = badgePoints[achievementId];
+      if (points) {
+        // Insert transaction
+        await supabase.from('reward_transactions').insert({
+          user_id: user.id,
+          points: points,
+          type: 'badge',
+          source_id: achievementId,
+          description: `Badge "${ACHIEVEMENTS[achievementId]?.title || achievementId}" sbloccato`,
+        });
+
+        // Update total via RPC
+        await supabase.rpc('add_reward_points', {
+          p_user_id: user.id,
+          p_points: points,
+        });
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['achievements'] });
+      queryClient.invalidateQueries({ queryKey: ['reward-points'] });
+      queryClient.invalidateQueries({ queryKey: ['reward-transactions'] });
     },
   });
 

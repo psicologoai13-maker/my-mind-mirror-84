@@ -26,6 +26,10 @@ export interface UserProfile {
   location_permission_granted?: boolean | null;
   realtime_context_cache?: Record<string, unknown> | null;
   realtime_context_updated_at?: string | null;
+  // Premium & referral fields
+  referral_code?: string | null;
+  premium_until?: string | null;
+  premium_type?: string | null;
 }
 
 export const useProfile = () => {
