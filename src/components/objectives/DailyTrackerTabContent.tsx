@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useHabits, HABIT_TYPES, HABIT_CATEGORIES, HabitCategory } from '@/hooks/useHabits';
 import HabitCard from '@/components/habits/HabitCard';
-import WeightCard from '@/components/body/WeightCard';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Plus, TrendingUp, Trophy, Loader2, Settings } from 'lucide-react';
+import { Plus, Loader2, Sparkles } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -13,13 +12,11 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { useAchievements } from '@/hooks/useAchievements';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 const DailyTrackerTabContent: React.FC = () => {
   const { habits, habitConfigs, isLoading, addHabit, removeHabit, logHabit } = useHabits();
-  const { recentAchievements, totalUnlocked } = useAchievements();
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [loggingHabit, setLoggingHabit] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
@@ -58,7 +55,6 @@ const DailyTrackerTabContent: React.FC = () => {
   const activeHabitTypes = new Set(habitConfigs?.map(c => c.habit_type) || []);
 
   // Calculate stats
-  const totalStreakDays = habits.reduce((sum, h) => sum + h.streak, 0);
   const completedToday = habits.filter(h => {
     const target = h.daily_target || HABIT_TYPES[h.habit_type as keyof typeof HABIT_TYPES]?.defaultTarget || 1;
     return h.streak_type === 'abstain' ? h.todayValue === 0 : h.todayValue >= target;
@@ -73,11 +69,6 @@ const DailyTrackerTabContent: React.FC = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-20 rounded-2xl" />
-          <Skeleton className="h-20 rounded-2xl" />
-          <Skeleton className="h-20 rounded-2xl" />
-        </div>
         <div className="grid grid-cols-2 gap-3">
           <Skeleton className="h-36 rounded-2xl" />
           <Skeleton className="h-36 rounded-2xl" />
@@ -88,27 +79,22 @@ const DailyTrackerTabContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="p-4 rounded-2xl bg-card border border-border/50 text-center">
-          <TrendingUp className="w-5 h-5 text-primary mx-auto mb-1" />
-          <p className="text-2xl font-bold text-foreground">{totalStreakDays}</p>
-          <p className="text-xs text-muted-foreground">Streak totali</p>
+      {/* Quick Stats */}
+      {habits.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Completate oggi</p>
+              <p className="text-2xl font-bold text-foreground">
+                {completedToday}/{habits.length}
+              </p>
+            </div>
+            <div className="text-4xl">
+              {completedToday === habits.length ? '🎉' : '📊'}
+            </div>
+          </div>
         </div>
-        <div className="p-4 rounded-2xl bg-card border border-border/50 text-center">
-          <span className="text-2xl mb-1 block">✓</span>
-          <p className="text-2xl font-bold text-foreground">{completedToday}/{habits.length}</p>
-          <p className="text-xs text-muted-foreground">Oggi</p>
-        </div>
-        <div className="p-4 rounded-2xl bg-card border border-border/50 text-center">
-          <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-foreground">{totalUnlocked}</p>
-          <p className="text-xs text-muted-foreground">Badge</p>
-        </div>
-      </div>
-
-      {/* Weight Tracker */}
-      <WeightCard />
+      )}
 
       {/* Habits Section */}
       <div>
@@ -116,14 +102,17 @@ const DailyTrackerTabContent: React.FC = () => {
           <h2 className="text-lg font-semibold text-foreground">Le Tue Habits</h2>
           <Sheet open={isManageOpen} onOpenChange={setIsManageOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-full">
-                <Settings className="w-4 h-4 mr-1" />
-                Gestisci
+              <Button variant="outline" size="sm" className="rounded-full h-8">
+                <Plus className="w-4 h-4 mr-1" />
+                Aggiungi
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-              <SheetHeader>
-                <SheetTitle>Gestisci Habits</SheetTitle>
+              <SheetHeader className="pb-2">
+                <SheetTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Scegli le tue Habits
+                </SheetTitle>
               </SheetHeader>
               
               {/* Category Filter */}
@@ -131,7 +120,7 @@ const DailyTrackerTabContent: React.FC = () => {
                 <Button
                   variant={selectedCategory === 'all' ? 'default' : 'outline'}
                   size="sm"
-                  className="rounded-full flex-shrink-0"
+                  className="rounded-full flex-shrink-0 h-8 text-xs"
                   onClick={() => setSelectedCategory('all')}
                 >
                   Tutte
@@ -141,7 +130,7 @@ const DailyTrackerTabContent: React.FC = () => {
                     key={key}
                     variant={selectedCategory === key ? 'default' : 'outline'}
                     size="sm"
-                    className="rounded-full flex-shrink-0"
+                    className="rounded-full flex-shrink-0 h-8 text-xs"
                     onClick={() => setSelectedCategory(key as HabitCategory)}
                   >
                     {icon} {label}
@@ -149,7 +138,7 @@ const DailyTrackerTabContent: React.FC = () => {
                 ))}
               </div>
 
-              <div className="mt-2 space-y-3 overflow-y-auto max-h-[calc(85vh-160px)] pb-8">
+              <div className="mt-2 space-y-2 overflow-y-auto max-h-[calc(85vh-140px)] pb-8">
                 {filteredHabits.map(([key, meta]) => (
                   <div 
                     key={key} 
@@ -163,7 +152,7 @@ const DailyTrackerTabContent: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{meta.icon}</span>
                       <div>
-                        <p className="font-medium">{meta.label}</p>
+                        <p className="font-medium text-sm">{meta.label}</p>
                         <p className="text-xs text-muted-foreground">
                           {meta.streakType === 'abstain' ? 'Obiettivo: 0' : `Obiettivo: ${meta.defaultTarget}`} {meta.unit}
                         </p>
@@ -205,26 +194,6 @@ const DailyTrackerTabContent: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Recent Achievements */}
-      {recentAchievements.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-3">Badge Recenti</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-            {recentAchievements.map((achievement, i) => (
-              <div
-                key={i}
-                className="flex-shrink-0 w-20 p-3 rounded-2xl bg-card border border-border/50 text-center"
-              >
-                <span className="text-3xl block mb-1">{achievement.icon}</span>
-                <p className="text-xs font-medium text-foreground truncate">
-                  {achievement.title}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
