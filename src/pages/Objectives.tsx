@@ -19,17 +19,17 @@ const Objectives: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="objectives" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-6 h-12 p-1 bg-muted/60 rounded-2xl">
+          <TabsList className="w-full grid grid-cols-2 mb-6 h-12 p-1 bg-muted/60 rounded-2xl mx-auto max-w-sm">
             <TabsTrigger 
               value="objectives" 
-              className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
+              className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
             >
               <Target className="w-4 h-4" />
               Traguardi
             </TabsTrigger>
             <TabsTrigger 
               value="daily" 
-              className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
+              className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
             >
               <BarChart3 className="w-4 h-4" />
               Daily Tracker
