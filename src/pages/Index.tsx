@@ -7,7 +7,6 @@ import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
-import StreakCounter from '@/components/home/StreakCounter';
 import HabitTrackerSection from '@/components/habits/HabitTrackerSection';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -119,11 +118,6 @@ const Index: React.FC = () => {
 
         {/* Smart Personalized Check-in */}
         <SmartCheckinSection onStartCheckin={startCheckinTimer} />
-        
-        {/* Streak Counter */}
-        <div className="mt-4">
-          <StreakCounter />
-        </div>
       </header>
 
       <div className="px-6 pb-8 space-y-5">

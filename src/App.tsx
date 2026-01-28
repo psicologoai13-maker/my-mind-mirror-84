@@ -20,6 +20,7 @@ import DoctorPatientView from "./pages/DoctorPatientView";
 import Aria from "./pages/Aria";
 import Objectives from "./pages/Objectives";
 import Habits from "./pages/Habits";
+import Plus from "./pages/Plus";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -126,6 +127,7 @@ const App = () => (
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
+            <Route path="/plus" element={<ProtectedRoute><Plus /></ProtectedRoute>} />
             <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
             <Route path="/doctor-view-patient/:patientId" element={<DoctorRoute><DoctorPatientView /></DoctorRoute>} />
             <Route path="/doctor-view/:token" element={<DoctorView />} />

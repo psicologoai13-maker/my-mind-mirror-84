@@ -430,6 +430,36 @@ export type Database = {
         }
         Relationships: []
       }
+      reward_transactions: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          points: number
+          source_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          points: number
+          source_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          points?: number
+          source_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           ai_summary: string | null
@@ -699,8 +729,11 @@ export type Database = {
           name: string | null
           onboarding_answers: Json | null
           onboarding_completed: boolean | null
+          premium_type: string | null
+          premium_until: string | null
           realtime_context_cache: Json | null
           realtime_context_updated_at: string | null
+          referral_code: string | null
           selected_goals: string[] | null
           user_id: string
           wellness_score: number | null
@@ -724,8 +757,11 @@ export type Database = {
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          premium_type?: string | null
+          premium_until?: string | null
           realtime_context_cache?: Json | null
           realtime_context_updated_at?: string | null
+          referral_code?: string | null
           selected_goals?: string[] | null
           user_id: string
           wellness_score?: number | null
@@ -749,11 +785,77 @@ export type Database = {
           name?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
+          premium_type?: string | null
+          premium_until?: string | null
           realtime_context_cache?: Json | null
           realtime_context_updated_at?: string | null
+          referral_code?: string | null
           selected_goals?: string[] | null
           user_id?: string
           wellness_score?: number | null
+        }
+        Relationships: []
+      }
+      user_referrals: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: boolean | null
+          referral_code: string
+          referred_active_days: number | null
+          referred_id: string
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: boolean | null
+          referral_code: string
+          referred_active_days?: number | null
+          referred_id: string
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: boolean | null
+          referral_code?: string
+          referred_active_days?: number | null
+          referred_id?: string
+          referrer_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      user_reward_points: {
+        Row: {
+          created_at: string
+          id: string
+          lifetime_points: number
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lifetime_points?: number
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lifetime_points?: number
+          total_points?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -783,6 +885,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_reward_points: {
+        Args: { p_points: number; p_user_id: string }
+        Returns: undefined
+      }
       find_patient_by_code: {
         Args: { _code: string }
         Returns: {
@@ -791,6 +897,7 @@ export type Database = {
         }[]
       }
       generate_connection_code: { Args: never; Returns: string }
+      generate_referral_code: { Args: never; Returns: string }
       get_daily_metrics: {
         Args: { p_date?: string; p_user_id: string }
         Returns: Json
