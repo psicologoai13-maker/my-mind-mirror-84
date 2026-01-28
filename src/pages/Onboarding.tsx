@@ -1,27 +1,39 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
+import WelcomeStep from '@/components/onboarding/WelcomeStep';
+import NameInputStep from '@/components/onboarding/NameInputStep';
 import QuizStep from '@/components/onboarding/QuizStep';
+import ChipGridStep from '@/components/onboarding/ChipGridStep';
 import EmojiSlider from '@/components/onboarding/EmojiSlider';
+import VicesStep from '@/components/onboarding/VicesStep';
+import LifestyleStep from '@/components/onboarding/LifestyleStep';
+import PhysicalDataStep from '@/components/onboarding/PhysicalDataStep';
 import AnalyzingScreen from '@/components/onboarding/AnalyzingScreen';
 import ResultScreen from '@/components/onboarding/ResultScreen';
 import HabitsSelectionStep from '@/components/onboarding/HabitsSelectionStep';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useHabits } from '@/hooks/useHabits';
+import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { toast } from 'sonner';
 
+interface PhysicalData {
+  weight?: number;
+  height?: number;
+  birthYear?: number;
+}
+
 interface OnboardingAnswers {
-  goal: string | null;
+  name: string;
   primaryGoals: string[];
-  mood: number;
-  sleepIssues: string | null;
-  mainChallenge: string | null;
   lifeSituation: string | null;
-  supportType: string | null;
-  anxietyLevel: number;
-  selectedHabits: string[]; // NEW: habits selected by user
+  currentMood: number;
+  vices: string[];
+  lifestyle: string[];
+  physicalData: PhysicalData;
+  selectedHabits: string[];
 }
 
 interface DashboardConfig {
@@ -31,57 +43,43 @@ interface DashboardConfig {
   theme: string;
 }
 
-const goalOptions = [
-  { id: 'anxiety', label: 'Ridurre l\'ansia', emoji: '🧘', description: 'Gestire stress e preoccupazioni' },
-  { id: 'sleep', label: 'Dormire meglio', emoji: '😴', description: 'Migliorare la qualità del sonno' },
-  { id: 'growth', label: 'Crescita personale', emoji: '🌱', description: 'Sviluppo e consapevolezza' },
-  { id: 'mood', label: 'Migliorare l\'umore', emoji: '☀️', description: 'Sentirsi più positivi' },
-];
-
+// Goal options with emoji for gamified feel
 const primaryGoalOptions = [
-  { id: 'reduce_anxiety', label: 'Ridurre l\'Ansia', emoji: '🧠', description: 'Meno stress e preoccupazioni quotidiane' },
-  { id: 'improve_sleep', label: 'Dormire Meglio', emoji: '🌙', description: 'Notti più riposanti e rigeneranti' },
-  { id: 'find_love', label: 'Migliorare Relazioni', emoji: '💕', description: 'Connessioni più profonde con gli altri' },
-  { id: 'boost_energy', label: 'Aumentare Energia', emoji: '⚡', description: 'Più vitalità durante la giornata' },
-  { id: 'express_feelings', label: 'Sfogarmi/Diario', emoji: '📝', description: 'Esprimere pensieri ed emozioni' },
-];
-
-const sleepOptions = [
-  { id: 'yes', label: 'Sì, spesso', emoji: '😔' },
-  { id: 'sometimes', label: 'A volte', emoji: '😕' },
-  { id: 'no', label: 'No, dormo bene', emoji: '😊' },
-];
-
-const mainChallengeOptions = [
-  { id: 'work_stress', label: 'Stress lavorativo', emoji: '💼', description: 'Pressione, burnout, problemi con colleghi' },
-  { id: 'relationships', label: 'Difficoltà relazionali', emoji: '💔', description: 'Partner, famiglia, amicizie' },
-  { id: 'self_esteem', label: 'Autostima bassa', emoji: '🪞', description: 'Insicurezze, autocritica, senso di inadeguatezza' },
-  { id: 'life_transition', label: 'Cambiamenti di vita', emoji: '🔄', description: 'Trasferimenti, cambi lavoro, separazioni' },
-  { id: 'general_anxiety', label: 'Ansia generalizzata', emoji: '😰', description: 'Preoccupazioni costanti, difficoltà a rilassarsi' },
-  { id: 'loneliness', label: 'Solitudine', emoji: '🏝️', description: 'Isolamento, mancanza di connessioni' },
+  { id: 'reduce_anxiety', label: 'Gestire l\'ansia', emoji: '🧘' },
+  { id: 'improve_sleep', label: 'Dormire meglio', emoji: '😴' },
+  { id: 'boost_energy', label: 'Più energia', emoji: '⚡' },
+  { id: 'find_love', label: 'Migliorare relazioni', emoji: '💕' },
+  { id: 'express_feelings', label: 'Sfogarmi/Diario', emoji: '📝' },
+  { id: 'personal_growth', label: 'Crescita personale', emoji: '🌱' },
+  { id: 'work_stress', label: 'Stress lavoro', emoji: '💼' },
+  { id: 'self_esteem', label: 'Autostima', emoji: '🪞' },
 ];
 
 const lifeSituationOptions = [
-  { id: 'stable', label: 'Stabile ma insoddisfatto', emoji: '😐', description: 'Le cose vanno, ma sento che manca qualcosa' },
-  { id: 'crisis', label: 'Momento difficile', emoji: '🌪️', description: 'Sto attraversando una crisi o periodo duro' },
+  { id: 'stable', label: 'Stabile ma voglio di più', emoji: '😐', description: 'Le cose vanno, ma sento che manca qualcosa' },
+  { id: 'crisis', label: 'Momento difficile', emoji: '🌪️', description: 'Sto attraversando un periodo duro' },
   { id: 'recovery', label: 'In ripresa', emoji: '🌅', description: 'Sto uscendo da un periodo buio' },
-  { id: 'growth_seeking', label: 'Voglio crescere', emoji: '🚀', description: 'Sto bene ma voglio migliorarmi' },
+  { id: 'growth', label: 'Voglio crescere', emoji: '🚀', description: 'Sto bene ma voglio migliorarmi' },
 ];
 
-const supportTypeOptions = [
-  { id: 'listener', label: 'Qualcuno che ascolti', emoji: '👂', description: 'Ho bisogno di sfogarmi senza giudizio' },
-  { id: 'advisor', label: 'Consigli pratici', emoji: '💡', description: 'Voglio suggerimenti concreti su cosa fare' },
-  { id: 'challenger', label: 'Sfidami a crescere', emoji: '🏋️', description: 'Ho bisogno di essere spinto fuori dalla zona comfort' },
-  { id: 'comforter', label: 'Supporto emotivo', emoji: '🤗', description: 'Ho bisogno di sentirmi compreso e validato' },
-];
+type Step = 'welcome' | 'name' | 'goals' | 'situation' | 'mood' | 'vices' | 'lifestyle' | 'physical' | 'habits' | 'analyzing' | 'result';
 
-type Step = 'goal' | 'primaryGoal' | 'mainChallenge' | 'lifeSituation' | 'supportType' | 'mood' | 'anxietyLevel' | 'sleep' | 'habits' | 'analyzing' | 'result';
+const stepEncouragements: Partial<Record<Step, string>> = {
+  name: '',
+  goals: 'Ottimo inizio!',
+  situation: 'Fantastico!',
+  mood: 'Ci siamo quasi!',
+  vices: 'Nessun giudizio 💙',
+  lifestyle: 'Quasi finito!',
+  physical: 'Opzionale',
+  habits: 'Ultimo step!',
+};
 
 const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
   const priorityMetrics: string[] = [];
   const secondaryMetrics: string[] = [];
-  const hiddenMetrics: string[] = [];
 
+  // Map goals to metrics
   answers.primaryGoals.forEach(goal => {
     switch (goal) {
       case 'reduce_anxiety':
@@ -90,79 +88,41 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
         break;
       case 'improve_sleep':
         priorityMetrics.push('sleep', 'energy');
-        secondaryMetrics.push('evening_routine');
         break;
       case 'find_love':
         priorityMetrics.push('love', 'social');
-        secondaryMetrics.push('loneliness');
         break;
       case 'boost_energy':
         priorityMetrics.push('energy', 'mood');
-        secondaryMetrics.push('vitality');
         break;
       case 'express_feelings':
         priorityMetrics.push('mood', 'emotional_clarity');
-        secondaryMetrics.push('sadness', 'joy');
+        break;
+      case 'personal_growth':
+        priorityMetrics.push('growth', 'mood');
+        break;
+      case 'work_stress':
+        priorityMetrics.push('work', 'stress');
+        secondaryMetrics.push('burnout_level');
+        break;
+      case 'self_esteem':
+        priorityMetrics.push('mood');
+        secondaryMetrics.push('self_efficacy');
         break;
     }
   });
 
-  if (answers.mainChallenge) {
-    switch (answers.mainChallenge) {
-      case 'work_stress':
-        if (!priorityMetrics.includes('work')) priorityMetrics.push('work');
-        if (!priorityMetrics.includes('stress')) priorityMetrics.push('stress');
-        secondaryMetrics.push('burnout_level');
-        break;
-      case 'relationships':
-        if (!priorityMetrics.includes('love')) priorityMetrics.push('love');
-        if (!priorityMetrics.includes('social')) priorityMetrics.push('social');
-        break;
-      case 'self_esteem':
-        secondaryMetrics.push('self_efficacy');
-        break;
-      case 'loneliness':
-        if (!priorityMetrics.includes('social')) priorityMetrics.push('social');
-        secondaryMetrics.push('loneliness');
-        break;
-      case 'general_anxiety':
-        if (!priorityMetrics.includes('anxiety')) priorityMetrics.push('anxiety');
-        secondaryMetrics.push('rumination');
-        break;
-    }
-  }
-
-  if (answers.goal && priorityMetrics.length === 0) {
-    switch (answers.goal) {
-      case 'anxiety':
-        priorityMetrics.push('anxiety', 'stress');
-        break;
-      case 'sleep':
-        priorityMetrics.push('sleep', 'energy');
-        break;
-      case 'growth':
-        priorityMetrics.push('growth', 'mood');
-        break;
-      case 'mood':
-        priorityMetrics.push('mood', 'joy');
-        break;
-    }
-  }
-
-  if ((answers.sleepIssues === 'yes' || answers.sleepIssues === 'sometimes') && 
-      !priorityMetrics.includes('sleep')) {
+  // Add sleep if lifestyle has sleep issues
+  if (answers.lifestyle.includes('sleep_issues') && !priorityMetrics.includes('sleep')) {
     priorityMetrics.push('sleep');
   }
 
-  if (answers.anxietyLevel >= 3 && !priorityMetrics.includes('anxiety')) {
-    priorityMetrics.push('anxiety');
+  // Add social if alone time is high
+  if (answers.lifestyle.includes('alone_time') && !priorityMetrics.includes('social')) {
+    secondaryMetrics.push('loneliness');
   }
 
-  if (answers.mood <= 1 && !priorityMetrics.includes('mood')) {
-    priorityMetrics.push('mood');
-    secondaryMetrics.push('sadness');
-  }
-
+  // Default metrics if nothing selected
   const defaultMetrics = ['mood', 'anxiety', 'energy', 'sleep'];
   defaultMetrics.forEach(metric => {
     if (priorityMetrics.length < 4 && !priorityMetrics.includes(metric)) {
@@ -170,57 +130,62 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
     }
   });
 
-  const uniquePriority = [...new Set(priorityMetrics)].slice(0, 6);
-  const uniqueSecondary = [...new Set(secondaryMetrics)]
-    .filter(m => !uniquePriority.includes(m))
-    .slice(0, 4);
-
   return {
-    priority_metrics: uniquePriority,
-    secondary_metrics: uniqueSecondary,
-    hidden_metrics: hiddenMetrics,
+    priority_metrics: [...new Set(priorityMetrics)].slice(0, 6),
+    secondary_metrics: [...new Set(secondaryMetrics)].filter(m => !priorityMetrics.includes(m)).slice(0, 4),
+    hidden_metrics: [],
     theme: 'default',
   };
 };
 
-const getPersonalizedMetrics = (answers: OnboardingAnswers): string[] => {
-  const config = buildDashboardConfig(answers);
-  return config.priority_metrics.slice(0, 4);
+// Map vices to habit types with abstain streak
+const viceToHabitMap: Record<string, { habit_type: string; streak_type: string }> = {
+  smoking: { habit_type: 'no_smoking', streak_type: 'abstain' },
+  alcohol: { habit_type: 'no_alcohol', streak_type: 'abstain' },
+  caffeine: { habit_type: 'limit_caffeine', streak_type: 'abstain' },
+  sugar: { habit_type: 'no_sugar', streak_type: 'abstain' },
+  social_media: { habit_type: 'limit_social', streak_type: 'abstain' },
+  nail_biting: { habit_type: 'no_nail_biting', streak_type: 'abstain' },
+  procrastination: { habit_type: 'no_procrastination', streak_type: 'abstain' },
+  junk_food: { habit_type: 'no_junk_food', streak_type: 'abstain' },
+  gaming: { habit_type: 'limit_gaming', streak_type: 'abstain' },
+  shopping: { habit_type: 'limit_shopping', streak_type: 'abstain' },
 };
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
-  const { addMultipleHabits } = useHabits();
+  const { addMultipleHabits, addHabit } = useHabits();
+  const { logMetrics } = useBodyMetrics();
   
-  const [currentStep, setCurrentStep] = useState<Step>('goal');
+  const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [answers, setAnswers] = useState<OnboardingAnswers>({
-    goal: null,
+    name: '',
     primaryGoals: [],
-    mood: 2,
-    sleepIssues: null,
-    mainChallenge: null,
     lifeSituation: null,
-    supportType: null,
-    anxietyLevel: 2,
+    currentMood: 2,
+    vices: [],
+    lifestyle: [],
+    physicalData: {},
     selectedHabits: [],
   });
 
   const stepOrder: Step[] = [
-    'goal', 
-    'primaryGoal', 
-    'mainChallenge',
-    'lifeSituation',
-    'supportType',
-    'mood', 
-    'anxietyLevel',
-    'sleep',
-    'habits', // NEW STEP
-    'analyzing', 
+    'welcome',
+    'name',
+    'goals',
+    'situation',
+    'mood',
+    'vices',
+    'lifestyle',
+    'physical',
+    'habits',
+    'analyzing',
     'result'
   ];
+
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 9; // Updated step count
+  const quizSteps = 8; // Excludes welcome, analyzing, result
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -231,45 +196,55 @@ const Onboarding: React.FC = () => {
 
   const handleBack = () => {
     const prevIndex = currentIndex - 1;
-    if (prevIndex >= 0) {
+    if (prevIndex >= 0 && stepOrder[prevIndex] !== 'welcome') {
       setCurrentStep(stepOrder[prevIndex]);
     }
   };
 
   const canProceed = () => {
     switch (currentStep) {
-      case 'goal':
-        return answers.goal !== null;
-      case 'primaryGoal':
+      case 'name':
+        return answers.name.trim().length > 0;
+      case 'goals':
         return answers.primaryGoals.length > 0;
-      case 'mainChallenge':
-        return answers.mainChallenge !== null;
-      case 'lifeSituation':
+      case 'situation':
         return answers.lifeSituation !== null;
-      case 'supportType':
-        return answers.supportType !== null;
       case 'mood':
-        return true;
-      case 'anxietyLevel':
-        return true;
-      case 'sleep':
-        return answers.sleepIssues !== null;
+      case 'vices':
+      case 'lifestyle':
+      case 'physical':
       case 'habits':
-        return true; // Optional step, can skip
+        return true; // All optional or have defaults
       default:
-        return false;
+        return true;
     }
+  };
+
+  const getProgressStep = () => {
+    // Map actual steps to progress (1-8)
+    const progressMap: Partial<Record<Step, number>> = {
+      name: 1,
+      goals: 2,
+      situation: 3,
+      mood: 4,
+      vices: 5,
+      lifestyle: 6,
+      physical: 7,
+      habits: 8,
+    };
+    return progressMap[currentStep] || 0;
   };
 
   const handleComplete = async () => {
     try {
       const dashboardConfig = buildDashboardConfig(answers);
-      const personalizedMetrics = getPersonalizedMetrics(answers);
+      const personalizedMetrics = dashboardConfig.priority_metrics.slice(0, 4);
       
-      console.log('[Onboarding] Saving config:', { dashboardConfig, personalizedMetrics, answers });
+      console.log('[Onboarding] Saving complete profile:', { answers, dashboardConfig });
       
-      // Save profile
+      // Save profile with name and all answers
       await updateProfile.mutateAsync({
+        name: answers.name,
         onboarding_completed: true,
         onboarding_answers: answers,
         dashboard_config: dashboardConfig,
@@ -277,12 +252,32 @@ const Onboarding: React.FC = () => {
         selected_goals: answers.primaryGoals,
       } as any);
       
+      // Save physical data if provided
+      if (answers.physicalData.weight) {
+        await logMetrics.mutateAsync({
+          weight: answers.physicalData.weight,
+        });
+      }
+
       // Save selected habits
       if (answers.selectedHabits.length > 0) {
         await addMultipleHabits.mutateAsync(answers.selectedHabits);
       }
+
+      // Create habits for vices (abstain type) - just add the habit type string
+      const viceHabitTypes = answers.vices
+        .filter(v => v !== 'none' && viceToHabitMap[v])
+        .map(v => viceToHabitMap[v].habit_type);
       
-      toast.success('Profilo personalizzato!');
+      if (viceHabitTypes.length > 0) {
+        try {
+          await addMultipleHabits.mutateAsync(viceHabitTypes);
+        } catch (e) {
+          console.log('Some vice habits may already exist');
+        }
+      }
+      
+      toast.success(`Benvenuto/a, ${answers.name}! 🎉`);
       navigate('/', { replace: true });
     } catch (error) {
       console.error('Error saving onboarding:', error);
@@ -291,22 +286,22 @@ const Onboarding: React.FC = () => {
     }
   };
 
-  // Analyzing and Result screens don't show standard layout
-  if (currentStep === 'analyzing') {
-    return <AnalyzingScreen onComplete={handleNext} />;
+  // Welcome screen - no layout
+  if (currentStep === 'welcome') {
+    return <WelcomeStep onStart={handleNext} />;
   }
 
+  // Analyzing screen - no layout
+  if (currentStep === 'analyzing') {
+    return <AnalyzingScreen onComplete={handleNext} userName={answers.name} />;
+  }
+
+  // Result screen - no layout
   if (currentStep === 'result') {
-    // Convert answers to the format expected by ResultScreen
     const resultAnswers = {
-      goal: answers.goal ?? undefined,
       primaryGoals: answers.primaryGoals,
-      mood: answers.mood,
-      sleepIssues: answers.sleepIssues ?? undefined,
-      mainChallenge: answers.mainChallenge ?? undefined,
+      mood: answers.currentMood,
       lifeSituation: answers.lifeSituation ?? undefined,
-      supportType: answers.supportType ?? undefined,
-      anxietyLevel: answers.anxietyLevel,
       selectedHabits: answers.selectedHabits,
     };
     return (
@@ -317,48 +312,40 @@ const Onboarding: React.FC = () => {
     );
   }
 
+  const showBackButton = currentStep !== 'name';
+
   return (
     <OnboardingLayout 
-      currentStep={currentIndex + 1} 
+      currentStep={getProgressStep()} 
       totalSteps={quizSteps}
+      onBack={handleBack}
+      showBack={showBackButton}
+      encouragement={stepEncouragements[currentStep]}
     >
       {/* Step Content */}
-      {currentStep === 'goal' && (
-        <QuizStep
-          title="Cosa ti ha portato qui?"
-          subtitle="Scegli quello che ti sta più a cuore"
-          options={goalOptions}
-          selectedValue={answers.goal}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, goal: value }))}
+      {currentStep === 'name' && (
+        <NameInputStep
+          value={answers.name}
+          onChange={(name) => setAnswers(prev => ({ ...prev, name }))}
+          onNext={handleNext}
         />
       )}
 
-      {currentStep === 'primaryGoal' && (
-        <QuizStep
-          title="Quali sono i tuoi traguardi?"
-          subtitle="Puoi selezionarne più di uno"
+      {currentStep === 'goals' && (
+        <ChipGridStep
+          title="Cosa vorresti migliorare?"
+          subtitle="Seleziona fino a 3 obiettivi"
           options={primaryGoalOptions}
-          selectedValue={null}
-          onSelect={() => {}}
-          multiSelect={true}
           selectedValues={answers.primaryGoals}
-          onMultiSelect={(values) => setAnswers(prev => ({ ...prev, primaryGoals: values }))}
+          onChange={(values) => setAnswers(prev => ({ ...prev, primaryGoals: values }))}
+          maxSelections={3}
+          encouragement="Fantastico! Adesso so cosa è importante per te ✨"
         />
       )}
 
-      {currentStep === 'mainChallenge' && (
+      {currentStep === 'situation' && (
         <QuizStep
-          title="Qual è la tua sfida principale?"
-          subtitle="Cosa ti pesa di più in questo momento"
-          options={mainChallengeOptions}
-          selectedValue={answers.mainChallenge}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, mainChallenge: value }))}
-        />
-      )}
-
-      {currentStep === 'lifeSituation' && (
-        <QuizStep
-          title="Come descriveresti la tua situazione attuale?"
+          title="Come descriveresti questo periodo?"
           subtitle="Non ci sono risposte giuste o sbagliate"
           options={lifeSituationOptions}
           selectedValue={answers.lifeSituation}
@@ -366,42 +353,33 @@ const Onboarding: React.FC = () => {
         />
       )}
 
-      {currentStep === 'supportType' && (
-        <QuizStep
-          title="Di che tipo di supporto hai bisogno?"
-          subtitle="Questo ci aiuterà a personalizzare l'esperienza"
-          options={supportTypeOptions}
-          selectedValue={answers.supportType}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, supportType: value }))}
-        />
-      )}
-
       {currentStep === 'mood' && (
         <EmojiSlider
           title="Come ti senti ultimamente?"
-          subtitle="Seleziona l'emoji che meglio rappresenta il tuo stato"
-          value={answers.mood}
-          onChange={(value) => setAnswers(prev => ({ ...prev, mood: value }))}
+          subtitle="Seleziona l'emoji che meglio ti rappresenta"
+          value={answers.currentMood}
+          onChange={(value) => setAnswers(prev => ({ ...prev, currentMood: value }))}
         />
       )}
 
-      {currentStep === 'anxietyLevel' && (
-        <EmojiSlider
-          title="Quanto ti senti ansioso/a ultimamente?"
-          subtitle="0 = Per niente, 4 = Molto ansioso/a"
-          value={answers.anxietyLevel}
-          onChange={(value) => setAnswers(prev => ({ ...prev, anxietyLevel: value }))}
-          emojis={['😌', '🙂', '😐', '😟', '😰']}
+      {currentStep === 'vices' && (
+        <VicesStep
+          selectedValues={answers.vices}
+          onChange={(values) => setAnswers(prev => ({ ...prev, vices: values }))}
         />
       )}
 
-      {currentStep === 'sleep' && (
-        <QuizStep
-          title="Hai problemi di sonno?"
-          subtitle="Difficoltà ad addormentarti o risvegli notturni"
-          options={sleepOptions}
-          selectedValue={answers.sleepIssues}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, sleepIssues: value }))}
+      {currentStep === 'lifestyle' && (
+        <LifestyleStep
+          selectedValues={answers.lifestyle}
+          onChange={(values) => setAnswers(prev => ({ ...prev, lifestyle: values }))}
+        />
+      )}
+
+      {currentStep === 'physical' && (
+        <PhysicalDataStep
+          value={answers.physicalData}
+          onChange={(data) => setAnswers(prev => ({ ...prev, physicalData: data }))}
         />
       )}
 
@@ -413,26 +391,24 @@ const Onboarding: React.FC = () => {
         />
       )}
 
-      {/* Navigation */}
-      <div className="px-6 pb-8 pt-4 flex gap-3">
-        {currentIndex > 0 && (
+      {/* Navigation - only for steps that don't have their own button */}
+      {currentStep !== 'name' && (
+        <div className="px-6 pb-8 pt-4">
           <Button
-            variant="outline"
-            onClick={handleBack}
-            className="h-14 px-6 rounded-full border-border"
+            onClick={handleNext}
+            disabled={!canProceed()}
+            className="w-full h-14 rounded-full text-base font-medium shadow-premium hover:shadow-elevated transition-all duration-300 disabled:opacity-50"
           >
-            <ArrowLeft className="w-5 h-5" />
+            {(currentStep === 'vices' && (answers.vices.length === 0 || answers.vices.includes('none'))) ||
+             (currentStep === 'lifestyle' && answers.lifestyle.length === 0) ||
+             (currentStep === 'physical' && !answers.physicalData.weight && !answers.physicalData.height) ||
+             (currentStep === 'habits' && answers.selectedHabits.length === 0)
+              ? 'Salta'
+              : 'Continua'}
+            <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
-        )}
-        <Button
-          onClick={handleNext}
-          disabled={!canProceed()}
-          className="flex-1 h-14 rounded-full text-base font-medium shadow-premium hover:shadow-elevated transition-all duration-300 disabled:opacity-50"
-        >
-          {currentStep === 'habits' && answers.selectedHabits.length === 0 ? 'Salta' : 'Continua'}
-          <ArrowRight className="w-5 h-5 ml-2" />
-        </Button>
-      </div>
+        </div>
+      )}
     </OnboardingLayout>
   );
 };
