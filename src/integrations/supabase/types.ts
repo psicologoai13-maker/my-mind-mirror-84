@@ -726,6 +726,7 @@ export type Database = {
           ai_checkins_cache: Json | null
           ai_dashboard_cache: Json | null
           ai_insights_cache: Json | null
+          appearance_settings: Json | null
           connection_code: string | null
           created_at: string
           dashboard_config: Json | null
@@ -736,6 +737,7 @@ export type Database = {
           location_permission_granted: boolean | null
           long_term_memory: string[] | null
           name: string | null
+          notification_settings: Json | null
           onboarding_answers: Json | null
           onboarding_completed: boolean | null
           premium_type: string | null
@@ -754,6 +756,7 @@ export type Database = {
           ai_checkins_cache?: Json | null
           ai_dashboard_cache?: Json | null
           ai_insights_cache?: Json | null
+          appearance_settings?: Json | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
@@ -764,6 +767,7 @@ export type Database = {
           location_permission_granted?: boolean | null
           long_term_memory?: string[] | null
           name?: string | null
+          notification_settings?: Json | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
           premium_type?: string | null
@@ -782,6 +786,7 @@ export type Database = {
           ai_checkins_cache?: Json | null
           ai_dashboard_cache?: Json | null
           ai_insights_cache?: Json | null
+          appearance_settings?: Json | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
@@ -792,6 +797,7 @@ export type Database = {
           location_permission_granted?: boolean | null
           long_term_memory?: string[] | null
           name?: string | null
+          notification_settings?: Json | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
           premium_type?: string | null

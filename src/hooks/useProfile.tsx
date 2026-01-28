@@ -30,6 +30,9 @@ export interface UserProfile {
   referral_code?: string | null;
   premium_until?: string | null;
   premium_type?: string | null;
+  // Settings fields
+  notification_settings?: Record<string, unknown> | null;
+  appearance_settings?: Record<string, unknown> | null;
 }
 
 export const useProfile = () => {
