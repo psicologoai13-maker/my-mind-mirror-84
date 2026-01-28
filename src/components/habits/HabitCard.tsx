@@ -186,7 +186,7 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, onLog, isLogging }) => {
       {isComplete && (
         <div className="mt-2 text-center">
           <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            ✓ Obiettivo raggiunto!
+            ✓ Completato oggi
           </span>
         </div>
       )}

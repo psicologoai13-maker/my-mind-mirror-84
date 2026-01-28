@@ -8,7 +8,7 @@ const navItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: BarChart3, label: 'Analisi', path: '/analisi' },
   { icon: Sparkles, label: 'Aria', path: '/aria', isMain: true },
-  { icon: Target, label: 'Obiettivi', path: '/objectives' },
+  { icon: Target, label: 'Progressi', path: '/objectives' },
   { icon: User, label: 'Profilo', path: '/profile' },
 ];
 

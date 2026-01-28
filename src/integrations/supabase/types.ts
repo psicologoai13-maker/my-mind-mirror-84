@@ -621,33 +621,42 @@ export type Database = {
       }
       user_habits_config: {
         Row: {
+          auto_sync_enabled: boolean | null
           created_at: string
           daily_target: number | null
+          data_source: string | null
           habit_type: string
           id: string
           is_active: boolean
+          last_auto_sync_at: string | null
           streak_type: string | null
           unit: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_sync_enabled?: boolean | null
           created_at?: string
           daily_target?: number | null
+          data_source?: string | null
           habit_type: string
           id?: string
           is_active?: boolean
+          last_auto_sync_at?: string | null
           streak_type?: string | null
           unit?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_sync_enabled?: boolean | null
           created_at?: string
           daily_target?: number | null
+          data_source?: string | null
           habit_type?: string
           id?: string
           is_active?: boolean
+          last_auto_sync_at?: string | null
           streak_type?: string | null
           unit?: string | null
           updated_at?: string
