@@ -3,7 +3,6 @@ import { Award, ChevronRight, Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAchievements, ACHIEVEMENTS, AchievementDefinition } from '@/hooks/useAchievements';
-import { BADGE_POINTS } from '@/hooks/useRewardPoints';
 import {
   Dialog,
   DialogContent,
@@ -108,14 +107,6 @@ const BadgesGrid: React.FC = () => {
                 <p className="text-muted-foreground text-sm">
                   {selectedBadge.description}
                 </p>
-
-                {BADGE_POINTS[selectedBadge.id] && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 dark:bg-violet-900/30 rounded-full">
-                    <span className="text-violet-600 dark:text-violet-400 font-semibold">
-                      +{BADGE_POINTS[selectedBadge.id]} punti
-                    </span>
-                  </div>
-                )}
 
                 {selectedBadge.unlocked ? (
                   <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl">
