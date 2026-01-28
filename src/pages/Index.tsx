@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
-import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import AIInsightCard from '@/components/home/AIInsightCard';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
@@ -55,12 +54,9 @@ const Index: React.FC = () => {
       // goals_progress removed - objectives now live in /objectives page
       case 'goals_progress':
         return null;
+      // radar_chart moved to Analisi page
       case 'radar_chart':
-        return (
-          <div {...baseProps}>
-            <LifeBalanceRadar />
-          </div>
-        );
+        return null;
       case 'emotional_mix':
         return (
           <div {...baseProps}>

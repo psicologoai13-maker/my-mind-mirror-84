@@ -7,6 +7,7 @@ import VitalMetricCard from '@/components/analisi/VitalMetricCard';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import LifeAreasCard from '@/components/analisi/LifeAreasCard';
 import DeepPsychologyCard from '@/components/analisi/DeepPsychologyCard';
+import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { Loader2 } from 'lucide-react';
@@ -202,7 +203,11 @@ const Analisi: React.FC = () => {
           </section>
         );
       case 'life_areas':
-        return null; // Removed - life areas shown on Home page
+        return (
+          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
+            <LifeBalanceRadar />
+          </section>
+        );
       case 'deep_psychology':
         return (
           <section key={sectionId} className="animate-fade-in" style={animationStyle}>
