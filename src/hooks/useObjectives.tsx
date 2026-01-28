@@ -53,6 +53,8 @@ export interface CreateObjectiveInput {
   title: string;
   description?: string;
   target_value?: number;
+  starting_value?: number;
+  current_value?: number;
   unit?: string;
   deadline?: string;
 }
@@ -113,7 +115,7 @@ export const useObjectives = () => {
         .insert({
           user_id: user.id,
           ...input,
-          current_value: 0,
+          current_value: input.current_value ?? input.starting_value ?? 0,
           status: 'active',
           progress_history: [],
         })
