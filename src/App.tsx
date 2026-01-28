@@ -11,6 +11,9 @@ import Chat from "./pages/Chat";
 import Analisi from "./pages/Analisi";
 import Sessions from "./pages/Sessions";
 import Profile from "./pages/Profile";
+import ProfilePersonal from "./pages/ProfilePersonal";
+import ProfilePrivacy from "./pages/ProfilePrivacy";
+import ProfileHelp from "./pages/ProfileHelp";
 import ClinicalArea from "./pages/ClinicalArea";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -126,6 +129,9 @@ const App = () => (
             {/* Habits route removed - now part of Objectives page */}
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/personal" element={<ProtectedRoute><ProfilePersonal /></ProtectedRoute>} />
+            <Route path="/profile/privacy" element={<ProtectedRoute><ProfilePrivacy /></ProtectedRoute>} />
+            <Route path="/profile/help" element={<ProtectedRoute><ProfileHelp /></ProtectedRoute>} />
             <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
             <Route path="/plus" element={<ProtectedRoute><Plus /></ProtectedRoute>} />
             <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -24,15 +24,26 @@ import ProfileBadgesRow from '@/components/profile/ProfileBadgesRow';
 import ProfileStatsRow from '@/components/profile/ProfileStatsRow';
 import PremiumCard from '@/components/profile/PremiumCard';
 import PointsProgressCard from '@/components/profile/PointsProgressCard';
+import NotificationsSheet from '@/components/profile/NotificationsSheet';
+import AppearanceSheet from '@/components/profile/AppearanceSheet';
 import { Badge } from '@/components/ui/badge';
 
-const settingsItems = [
-  { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo', action: null },
-  { icon: Bell, label: 'Notifiche', description: 'Gestisci le tue preferenze', action: null },
-  { icon: Moon, label: 'Aspetto', description: 'Tema e accessibilità', action: null },
-  { icon: Shield, label: 'Privacy Aria', description: 'Dati e sicurezza', action: null },
+type SettingsAction = string | 'notifications' | 'appearance';
+
+interface SettingsItem {
+  icon: React.ElementType;
+  label: string;
+  description: string;
+  action: SettingsAction | null;
+}
+
+const settingsItems: SettingsItem[] = [
+  { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo', action: '/profile/personal' },
+  { icon: Bell, label: 'Notifiche', description: 'Gestisci le tue preferenze', action: 'notifications' },
+  { icon: Moon, label: 'Aspetto', description: 'Tema e accessibilità', action: 'appearance' },
+  { icon: Shield, label: 'Privacy Aria', description: 'Dati e sicurezza', action: '/profile/privacy' },
   { icon: Stethoscope, label: 'Area Terapeutica', description: 'Condivisione dati clinici', action: '/profile/clinical' },
-  { icon: HelpCircle, label: 'Aiuto', description: 'FAQ e supporto', action: null },
+  { icon: HelpCircle, label: 'Aiuto', description: 'FAQ e supporto', action: '/profile/help' },
 ];
 
 const Profile: React.FC = () => {
@@ -40,11 +51,26 @@ const Profile: React.FC = () => {
   const { profile, isLoading: profileLoading } = useProfile();
   const { totalPoints, isLoading: pointsLoading } = useRewardPoints();
   const navigate = useNavigate();
+  
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
     toast.success('Arrivederci!');
     navigate('/auth');
+  };
+
+  const handleSettingsClick = (action: SettingsAction | null) => {
+    if (!action) return;
+    
+    if (action === 'notifications') {
+      setNotificationsOpen(true);
+    } else if (action === 'appearance') {
+      setAppearanceOpen(true);
+    } else {
+      navigate(action);
+    }
   };
 
   const isPremium = profile?.premium_until && new Date(profile.premium_until) > new Date();
@@ -117,7 +143,7 @@ const Profile: React.FC = () => {
             return (
               <button
                 key={item.label}
-                onClick={() => item.action && navigate(item.action)}
+                onClick={() => handleSettingsClick(item.action)}
                 className={cn(
                   "w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/50 transition-colors",
                   index !== settingsItems.length - 1 && "border-b border-border/30"
@@ -162,6 +188,10 @@ const Profile: React.FC = () => {
           Aria v1.0.0 • Made with 💚
         </p>
       </div>
+
+      {/* Sheets */}
+      <NotificationsSheet open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      <AppearanceSheet open={appearanceOpen} onOpenChange={setAppearanceOpen} />
     </MobileLayout>
   );
 };
