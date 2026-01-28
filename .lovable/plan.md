@@ -1,350 +1,376 @@
 
-
-# Piano: Unificazione Habits e Obiettivi con Sistema Check-in Intelligente
+# Piano: Implementazione Sezioni Impostazioni Profilo
 
 ## Panoramica
 
-Unificare **Habits** e **Obiettivi** in un'unica pagina con tab, distinguendo tra:
-- **Tracker automatici** (dati da dispositivi/app esterne come passi)
-- **Tracker manuali** (inserimento utente come acqua, meditazione)
-- **Obiettivi a lungo termine** (peso target, risparmio, esami)
-
-L'inserimento dati sara centralizzato nel sistema **Check-in** della Home per massima semplicita.
+Attualmente la pagina Profilo ha 6 voci nella sezione Impostazioni, ma solo **"Area Terapeutica"** funziona. Questo piano definisce cosa deve contenere ogni sezione e come renderle tutte interattive e funzionali.
 
 ---
 
-## Analisi Differenze Concettuali
+## Struttura Attuale
 
-| Caratteristica | Habits | Obiettivi |
-|----------------|--------|-----------|
-| Frequenza | Giornaliera/ricorrente | Una tantum con deadline |
-| Completamento | Reset ogni giorno | Permanente quando raggiunto |
-| Progresso | Streak (giorni consecutivi) | % verso target finale |
-| Fonte dati | Manuale o Automatica | Sempre manuale |
-| Feedback | "Completato oggi ✓" | "Obiettivo raggiunto! 🎉" |
-
----
-
-## Architettura Proposta
-
-### 1. Tipi di Tracker
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│                    TRACKER TYPES                        │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  🤖 AUTOMATICI (richiedono permessi)                    │
-│  ├── 👟 Passi (Apple Health / Google Fit)              │
-│  ├── 😴 Ore sonno (Health Kit)                         │
-│  ├── ❤️ Battito cardiaco                               │
-│  └── 🔥 Calorie bruciate                               │
-│                                                         │
-│  ✏️ MANUALI GIORNALIERI (habits)                        │
-│  ├── 💧 Acqua                                          │
-│  ├── 🧘 Meditazione                                    │
-│  ├── 🚭 Sigarette (abstain)                            │
-│  └── ... altri                                         │
-│                                                         │
-│  🎯 OBIETTIVI A LUNGO TERMINE                           │
-│  ├── ⚖️ Raggiungere peso X kg                          │
-│  ├── 💰 Risparmiare X €                                │
-│  └── 📚 Completare X esami                             │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 2. Flusso Dati Unificato
-
-```text
-                    ┌──────────────────┐
-                    │     HOME         │
-                    │   Check-in       │
-                    │   (4-8 box)      │
-                    └────────┬─────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  Vitali/Psico   │  │  Habits Manua.  │  │   Obiettivi     │
-│  (mood, ansia)  │  │  (acqua, medita)│  │  (peso oggi)    │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-         │                   │                   │
-         └───────────────────┼───────────────────┘
-                             ▼
-                    ┌──────────────────┐
-                    │   daily_*        │
-                    │   tables DB      │
-                    └──────────────────┘
-```
+| Voce | Stato Attuale | Azione |
+|------|---------------|--------|
+| Dati personali | `action: null` | Da implementare |
+| Notifiche | `action: null` | Da implementare |
+| Aspetto | `action: null` | Da implementare |
+| Privacy Aria | `action: null` | Da implementare |
+| Area Terapeutica | `action: '/profile/clinical'` | Funzionante |
+| Aiuto | `action: null` | Da implementare |
 
 ---
 
-## Nuova Struttura Pagina Obiettivi
+## Sezioni da Implementare
 
-### Tab Layout
+### 1. Dati Personali (`/profile/personal`)
 
-```text
-┌─────────────────────────────────────────┐
-│           I Tuoi Progressi              │
-├─────────────────────────────────────────┤
-│  [🎯 Traguardi]  [📊 Daily Tracker]     │
-├─────────────────────────────────────────┤
-│                                         │
-│  ╔═══════════════════════════════════╗  │
-│  ║  TAB TRAGUARDI:                   ║  │
-│  ║  - Obiettivi con deadline         ║  │
-│  ║  - Progress bar verso target      ║  │
-│  ║  - AI feedback                    ║  │
-│  ╚═══════════════════════════════════╝  │
-│                                         │
-│  ╔═══════════════════════════════════╗  │
-│  ║  TAB DAILY TRACKER:               ║  │
-│  ║  - Habits giornaliere             ║  │
-│  ║  - Streak counter                 ║  │
-│  ║  - Quick log inline               ║  │
-│  ╚═══════════════════════════════════╝  │
-│                                         │
-└─────────────────────────────────────────┘
-```
+**Contenuto:**
+- **Nome** - Modificabile (attualmente salvato durante onboarding)
+- **Email** - Solo visualizzazione (da auth.users, non modificabile direttamente)
+- **Anno di nascita** - Modificabile (da onboarding_answers.physicalData.birthYear)
+- **Altezza** - Modificabile (da onboarding_answers.physicalData.height)
+- **Peso attuale** - Link rapido a body_metrics per aggiornare
+
+**Dati esistenti nel DB:**
+- `user_profiles.name`
+- `user_profiles.email`
+- `user_profiles.onboarding_answers` contiene physicalData
+
+**UI Pattern:**
+- Lista di campi editabili inline
+- Click su campo apre input/modal per modifica
+- Salvataggio immediato con toast conferma
 
 ---
 
-## Integrazione Check-in Unificato
+### 2. Notifiche (`/profile/notifications`)
 
-### Principio: Un Solo Punto di Inserimento
+**Contenuto:**
+- **Reminder Check-in** - Toggle on/off + orario preferito
+- **Reminder Sessioni** - Toggle on/off
+- **Insight Giornalieri** - Toggle on/off
+- **Obiettivi completati** - Toggle on/off
+- **Aggiornamenti App** - Toggle on/off
 
-L'utente NON deve inserire dati in posti diversi. Il **Check-in della Home** e l'unico punto di ingresso:
+**Note tecniche:**
+- Richiede aggiunta colonne al DB (notification_settings JSONB)
+- Per notifiche push reali: richiede Capacitor + plugin push (futuro)
+- Per ora: preparare UI + salvare preferenze
 
-```text
-HOME CHECK-IN (4 box prioritari)
-┌────────┬────────┬────────┬────────┐
-│ 😊     │ 💧     │ ⚖️     │ 🧘     │
-│ Umore  │ Acqua  │ Peso   │ Medita │
-└────────┴────────┴────────┴────────┘
-     │        │        │        │
-     ▼        ▼        ▼        ▼
-  daily_   daily_   body_    daily_
-  checkins habits   metrics  habits
-```
-
-### Logica di Priorita AI
-
-L'AI seleziona i 4-8 box giornalieri in base a:
-1. **Obiettivi attivi** (peso se ha obiettivo peso)
-2. **Habits attive** (acqua se traccia acqua)
-3. **Parametri vitali** (mood sempre)
-4. **Aree vita** (lavoro se focus lavoro)
-
----
-
-## Modifiche Database
-
-### Nuovi Campi `user_habits_config`
-
+**Nuova colonna DB:**
 ```sql
-ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
-  data_source TEXT DEFAULT 'manual'; 
-  -- 'manual', 'apple_health', 'google_fit'
-  
-ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
-  auto_sync_enabled BOOLEAN DEFAULT false;
-  
-ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
-  last_auto_sync_at TIMESTAMPTZ;
-```
-
-### Mapping Habits Automatiche
-
-```typescript
-const AUTO_SYNC_HABITS = {
-  steps: {
-    sources: ['apple_health', 'google_fit'],
-    permission: 'health_data',
-    syncInterval: 'hourly',
-  },
-  sleep: {
-    sources: ['apple_health', 'google_fit'],
-    permission: 'health_data',
-    syncInterval: 'daily',
-  },
-  // Future: heart_rate, calories_burned
-};
+ALTER TABLE user_profiles 
+ADD COLUMN notification_settings JSONB DEFAULT '{
+  "checkin_reminder": true,
+  "checkin_time": "09:00",
+  "session_reminder": true,
+  "daily_insights": true,
+  "goal_completed": true,
+  "app_updates": false
+}'::jsonb;
 ```
 
 ---
 
-## Componenti da Modificare/Creare
+### 3. Aspetto (`/profile/appearance`)
 
-### File da Eliminare
-| File | Motivo |
-|------|--------|
-| `src/pages/Habits.tsx` | Unificata in Objectives |
-| `/habits` route | Rimossa |
+**Contenuto:**
+- **Tema** - Light / Dark / Sistema (toggle 3 opzioni)
+- **Dimensione Testo** - Normale / Grande (accessibility)
+- **Animazioni ridotte** - Toggle per ridurre motion
 
-### File da Modificare
+**Note tecniche:**
+- Usa `next-themes` gia installato
+- Salva preferenze in localStorage + opzionalmente nel profilo DB
+
+**UI Pattern:**
+- Radio buttons per tema
+- Toggle per altre opzioni
+
+---
+
+### 4. Privacy Aria (`/profile/privacy`)
+
+**Contenuto:**
+- **Condividi posizione** - Toggle (gia esiste in PrivacySettingsCard.tsx)
+- **Dati raccolti da Aria** - Info su cosa viene analizzato
+- **Esporta i tuoi dati** - Button per download JSON/PDF
+- **Elimina tutti i dati** - Button con conferma (danger zone)
+- **Termini e Privacy Policy** - Link esterni
+
+**Componente esistente:** `PrivacySettingsCard.tsx` contiene gia il toggle posizione
+
+**UI Pattern:**
+- Toggle per permessi
+- Sezione info con accordion
+- Danger zone in fondo con sfondo rosso leggero
+
+---
+
+### 5. Aiuto (`/profile/help`)
+
+**Contenuto:**
+- **FAQ** - Accordion con domande frequenti
+- **Come funziona Aria** - Breve spiegazione
+- **Contatta supporto** - Email/form
+- **Versione app** - Info tecnica
+- **Tutorial** - Link per rifare onboarding tour
+
+**UI Pattern:**
+- Accordion per FAQ
+- Card info per tutorial
+- Footer con versione
+
+---
+
+## Approccio Implementativo
+
+### Opzione A: Pagine Separate (Come Area Terapeutica)
+Ogni sezione ha la sua pagina dedicata (`/profile/personal`, `/profile/notifications`, etc.)
+
+**Pro:** Navigazione pulita, piu spazio per contenuti
+**Contro:** Piu file da creare
+
+### Opzione B: Sheet/Modal (Raccomandato)
+Ogni sezione si apre come Sheet dal basso (gia usato per gestione habits)
+
+**Pro:** Navigazione veloce, meno route, UX mobile-first
+**Contro:** Contenuti limitati in altezza
+
+### Decisione: **Ibrido**
+- Sezioni semplici (Aspetto, Notifiche): **Sheet**
+- Sezioni complesse (Dati personali, Privacy, Aiuto): **Pagine separate**
+
+---
+
+## File da Creare
+
+| File | Tipo | Descrizione |
+|------|------|-------------|
+| `src/pages/ProfilePersonal.tsx` | Pagina | Modifica dati personali |
+| `src/pages/ProfilePrivacy.tsx` | Pagina | Gestione privacy e dati |
+| `src/pages/ProfileHelp.tsx` | Pagina | FAQ e supporto |
+| `src/components/profile/NotificationsSheet.tsx` | Sheet | Toggle notifiche |
+| `src/components/profile/AppearanceSheet.tsx` | Sheet | Tema e accessibilita |
+
+---
+
+## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Objectives.tsx` | Aggiungere tab system con Habits |
-| `src/components/layout/BottomNav.tsx` | Rimuovere link /habits, rinominare tab |
-| `src/App.tsx` | Rimuovere route /habits |
-| `src/components/habits/HabitCard.tsx` | Cambiare "Obiettivo raggiunto" → "Completato oggi ✓" |
-| `src/components/habits/HabitTrackerSection.tsx` | Mostrare solo top 4 habits in Home |
-| `src/hooks/usePersonalizedCheckins.tsx` | Integrare habits nel sistema check-in |
-
-### File da Creare
-
-| File | Descrizione |
-|------|-------------|
-| `src/components/objectives/ObjectivesTabContent.tsx` | Tab traguardi |
-| `src/components/objectives/DailyTrackerTabContent.tsx` | Tab habits giornaliere |
-| `src/components/objectives/UnifiedProgressPage.tsx` | Container con tabs |
-| `src/hooks/useHealthPermissions.tsx` | Gestione permessi Health (future) |
+| `src/pages/Profile.tsx` | Aggiornare settingsItems con azioni corrette, aggiungere state per Sheet |
+| `src/App.tsx` | Aggiungere nuove route |
+| `src/hooks/useProfile.tsx` | Aggiungere notification_settings al tipo |
 
 ---
 
-## Nuova UX Home
+## Dettaglio UI per Sezione
 
-### Sezione Check-in Migliorata
+### Dati Personali (Pagina)
 
-```text
+```
 ┌─────────────────────────────────────────┐
-│ ✨ Check-in                    2 fatti │
+│ ← Dati Personali                        │
 ├─────────────────────────────────────────┤
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐    │
-│ │ 😊      │ │ 💧      │ │ ⚖️      │ ...│
-│ │ Umore   │ │ Acqua   │ │ Peso    │    │
-│ └─────────┘ └─────────┘ └─────────┘    │
-└─────────────────────────────────────────┘
-
-Sotto: 
-┌─────────────────────────────────────────┐
-│ 📊 Le Tue Habits              Vedi →   │
-├─────────────────────────────────────────┤
-│ Solo habits NON nel check-in:           │
-│ (es. tracker automatici come passi)     │
+│                                         │
+│  👤 Nome                                │
+│  ┌─────────────────────────────────┐   │
+│  │ Marco                        ✏️  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  📧 Email                               │
+│  ┌─────────────────────────────────┐   │
+│  │ marco@email.com           🔒    │   │
+│  └─────────────────────────────────┘   │
+│  (Non modificabile)                     │
+│                                         │
+│  📅 Anno di nascita                     │
+│  ┌─────────────────────────────────┐   │
+│  │ 1990                         ✏️  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  📏 Altezza                             │
+│  ┌─────────────────────────────────┐   │
+│  │ 175 cm                       ✏️  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
 └─────────────────────────────────────────┘
 ```
 
-### Logica di Visualizzazione Home
+### Notifiche (Sheet)
 
-1. **Check-in box**: Mostra elementi che richiedono input manuale oggi
-2. **Habits section** (sotto): Mostra solo tracker automatici o habits gia completate
-3. **Se tutti completati**: Check-in sparisce, mostra riassunto
+```
+┌─────────────────────────────────────────┐
+│              Notifiche                  │
+├─────────────────────────────────────────┤
+│                                         │
+│  🔔 Reminder Check-in          [ON ]   │
+│     Ogni giorno alle 09:00              │
+│                                         │
+│  💬 Reminder Sessioni          [ON ]   │
+│                                         │
+│  ✨ Insight Giornalieri        [OFF]   │
+│                                         │
+│  🎯 Obiettivi completati       [ON ]   │
+│                                         │
+│  📱 Aggiornamenti App          [OFF]   │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Aspetto (Sheet)
+
+```
+┌─────────────────────────────────────────┐
+│               Aspetto                   │
+├─────────────────────────────────────────┤
+│                                         │
+│  🎨 Tema                                │
+│  ┌───────┬───────┬───────┐             │
+│  │ ☀️    │ 🌙    │ 📱    │             │
+│  │ Light │ Dark  │ Auto  │             │
+│  └───────┴───────┴───────┘             │
+│                                         │
+│  Aa Testo Grande            [OFF]      │
+│                                         │
+│  🎭 Riduci animazioni       [OFF]      │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Privacy (Pagina)
+
+```
+┌─────────────────────────────────────────┐
+│ ← Privacy Aria                          │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 🛡️ I tuoi dati sono protetti   │   │
+│  │ Solo tu hai accesso ai tuoi    │   │
+│  │ dati. Aria non condivide nulla │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  📍 Condividi posizione      [OFF]     │
+│     Aria contestualizza meteo           │
+│                                         │
+│  📊 Cosa raccoglie Aria         ▼      │
+│  (Accordion espandibile)                │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 📥 Esporta i tuoi dati         │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ⚠️ Zona Pericolosa                    │
+│  ┌─────────────────────────────────┐   │
+│  │ 🗑️ Elimina tutti i dati        │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  📄 Termini di Servizio                 │
+│  🔐 Privacy Policy                      │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Aiuto (Pagina)
+
+```
+┌─────────────────────────────────────────┐
+│ ← Aiuto                                 │
+├─────────────────────────────────────────┤
+│                                         │
+│  ❓ Domande Frequenti                   │
+│  ┌─────────────────────────────────┐   │
+│  │ Come funziona Aria?          ▼  │   │
+│  ├─────────────────────────────────┤   │
+│  │ I miei dati sono sicuri?     ▼  │   │
+│  ├─────────────────────────────────┤   │
+│  │ Come guadagno punti?         ▼  │   │
+│  ├─────────────────────────────────┤   │
+│  │ Posso connettere il medico?  ▼  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  📚 Tutorial                            │
+│  ┌─────────────────────────────────┐   │
+│  │ 🎓 Rifai il tour introduttivo   │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  💬 Contatta Supporto                   │
+│  ┌─────────────────────────────────┐   │
+│  │ 📧 support@aria.app            │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ─────────────────────────────────────  │
+│  Aria v1.0.0                            │
+│  Made with 💚                           │
+│                                         │
+└─────────────────────────────────────────┘
+```
 
 ---
 
-## Flusso Inserimento Dati
+## Migrazione Database
 
-### Prima (Confuso)
+```sql
+-- Aggiungere colonna per preferenze notifiche
+ALTER TABLE user_profiles 
+ADD COLUMN IF NOT EXISTS notification_settings JSONB DEFAULT '{
+  "checkin_reminder": true,
+  "checkin_time": "09:00",
+  "session_reminder": true,
+  "daily_insights": true,
+  "goal_completed": true,
+  "app_updates": false
+}'::jsonb;
+
+-- Aggiungere colonna per preferenze aspetto
+ALTER TABLE user_profiles 
+ADD COLUMN IF NOT EXISTS appearance_settings JSONB DEFAULT '{
+  "theme": "system",
+  "large_text": false,
+  "reduce_motion": false
+}'::jsonb;
 ```
-Utente vuole registrare acqua:
-  ├── Opzione 1: Home → Check-in → Acqua (se presente)
-  ├── Opzione 2: Home → Habits Section → Acqua card → +
-  └── Opzione 3: /habits → Acqua card → +
-```
-
-### Dopo (Unificato)
-```
-Utente vuole registrare acqua:
-  └── Home → Check-in → Acqua (sempre presente se attivo)
-      └── Click → Input valore → Salva
-          └── Aggiorna daily_habits + invalida query
-```
-
----
-
-## Gestione Habits Automatiche (Future)
-
-### Step 1: UI Preparatoria (Ora)
-```typescript
-// In HabitTrackerSection
-if (habit.data_source !== 'manual') {
-  return (
-    <div className="opacity-60">
-      <span>🔄 {habit.todayValue} passi</span>
-      <span className="text-xs">Sincronizzato</span>
-    </div>
-  );
-}
-```
-
-### Step 2: Integrazione Health (Post-Capacitor)
-```typescript
-// useHealthPermissions.tsx
-const requestHealthPermission = async () => {
-  // Solo dopo conversione nativa con Capacitor
-  // Usa plugin: @nicwehrli/capacitor-healthkit
-};
-```
-
----
-
-## Rinomina e Differenziazione
-
-### Vecchio → Nuovo
-
-| Vecchio | Nuovo |
-|---------|-------|
-| "Obiettivo raggiunto!" (habits) | "Completato oggi ✓" |
-| "Habits" (nav) | Rimosso |
-| "Obiettivi" (nav) | "Progressi" |
-| Progress bar habits | Circular progress o barra diversa |
-
-### Stile Visivo Differenziato
-
-| Elemento | Habits | Obiettivi |
-|----------|--------|-----------|
-| Icona completamento | ✓ checkmark | 🎉 celebration |
-| Colore progress | Blue/Primary | Gradient emerald |
-| Streak badge | 🔥 fiamma | N/A |
-| Reset | Ogni giorno | Mai |
 
 ---
 
 ## Sequenza Implementazione
 
-### Fase 1: Ristrutturazione Base
-1. Modificare `HabitCard.tsx` - cambiare testo completamento
-2. Creare `DailyTrackerTabContent.tsx` 
-3. Creare `ObjectivesTabContent.tsx`
-4. Modificare `Objectives.tsx` con tab system
+### Fase 1: Struttura Base
+1. Creare migrazione DB per nuove colonne
+2. Aggiornare tipo UserProfile nel hook
+3. Creare componenti Sheet per Notifiche e Aspetto
+4. Aggiornare Profile.tsx con state per Sheet
 
-### Fase 2: Unificazione Check-in
-5. Modificare `usePersonalizedCheckins.tsx` - integrare habits attive
-6. Modificare `SmartCheckinSection.tsx` - supporto habits
-7. Aggiornare edge function `ai-checkins` - includere habits nella priorita
+### Fase 2: Pagine Dedicate
+5. Creare `/profile/personal` con form editabili
+6. Creare `/profile/privacy` con toggle e danger zone
+7. Creare `/profile/help` con FAQ accordion
+8. Aggiungere route in App.tsx
 
-### Fase 3: Cleanup
-8. Rimuovere `/habits` route da `App.tsx`
-9. Rimuovere `Habits.tsx`
-10. Aggiornare `BottomNav.tsx` - rimuovere habits, rinominare Obiettivi
+### Fase 3: Funzionalita
+9. Implementare logica salvataggio per ogni sezione
+10. Aggiungere toast feedback
+11. Implementare export dati (JSON)
+12. Aggiungere conferma per delete dati
 
 ### Fase 4: Polish
-11. Aggiungere colonne DB per data_source
-12. Preparare UI per habits automatiche (placeholder)
-13. Test e refinement
+13. Animazioni e transizioni
+14. Test su tutti i flussi
+15. Accessibilita (focus trap nei modal)
 
 ---
 
 ## Risultato Finale
 
-### Esperienza Utente Semplificata
+Tutte le 6 voci delle Impostazioni saranno cliccabili e funzionali:
 
-1. **Home**: Check-in unico per TUTTO (mood, habits, obiettivi con misura)
-2. **Progressi page**: Due tab chiare
-   - 🎯 Traguardi: obiettivi a lungo termine
-   - 📊 Daily: habits giornaliere con streak
-3. **Nessuna confusione**: 
-   - Habits = azioni ricorrenti → "Completato oggi"
-   - Obiettivi = milestone → "Raggiunto!"
-
-### Vantaggi
-
-- Un solo punto di inserimento dati
-- Distinzione chiara habits vs obiettivi
-- Preparazione per sync automatico Health
-- Meno pagine = meno confusione
-- AI puo mixare habits e obiettivi nel check-in giornaliero
-
+| Voce | Tipo | Funzionalita |
+|------|------|--------------|
+| Dati personali | Pagina | Modifica nome, anno nascita, altezza |
+| Notifiche | Sheet | Toggle preferenze notifiche |
+| Aspetto | Sheet | Tema + accessibilita |
+| Privacy Aria | Pagina | Posizione, export, delete dati |
+| Area Terapeutica | Pagina | Esistente, gia funzionante |
+| Aiuto | Pagina | FAQ, supporto, versione |
