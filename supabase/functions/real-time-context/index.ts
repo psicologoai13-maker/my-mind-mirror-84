@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Cache durations
+const WEATHER_CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+
 // Italian day names
 const DAYS_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
 
@@ -53,7 +56,6 @@ interface RealTimeContext {
   };
   news?: {
     headlines: string[];
-    sports?: string[];
   };
 }
 
@@ -110,6 +112,11 @@ function getDateTimeContext(timezone: string = 'Europe/Rome'): RealTimeContext['
   };
 }
 
+// Grid-based coordinate rounding for efficient caching
+function roundCoordinate(coord: number): number {
+  return Math.round(coord * 10) / 10; // Round to 0.1°
+}
+
 async function fetchWeather(lat: number, lon: number): Promise<RealTimeContext['weather'] | null> {
   const apiKey = Deno.env.get('OPENWEATHER_API_KEY');
   if (!apiKey) {
@@ -118,8 +125,12 @@ async function fetchWeather(lat: number, lon: number): Promise<RealTimeContext['
   }
   
   try {
+    // Use grid-based coordinates for better caching
+    const gridLat = roundCoordinate(lat);
+    const gridLon = roundCoordinate(lon);
+    
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=it&appid=${apiKey}`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${gridLat}&lon=${gridLon}&units=metric&lang=it&appid=${apiKey}`
     );
     
     if (!response.ok) {
@@ -131,8 +142,8 @@ async function fetchWeather(lat: number, lon: number): Promise<RealTimeContext['
     
     return {
       condition: data.weather?.[0]?.description || 'non disponibile',
-      temperature: data.main?.temp || 0,
-      feels_like: data.main?.feels_like || 0,
+      temperature: Math.round(data.main?.temp || 0),
+      feels_like: Math.round(data.main?.feels_like || 0),
       humidity: data.main?.humidity || 0,
       description: `${data.weather?.[0]?.description || 'tempo non disponibile'}${data.main?.humidity > 70 ? ', umidità alta' : ''}`
     };
@@ -142,35 +153,40 @@ async function fetchWeather(lat: number, lon: number): Promise<RealTimeContext['
   }
 }
 
-async function fetchNews(): Promise<RealTimeContext['news'] | null> {
-  const apiKey = Deno.env.get('WORLDNEWS_API_KEY');
-  if (!apiKey) {
-    console.log('[real-time-context] No WORLDNEWS_API_KEY configured');
-    return null;
-  }
-  
+// Read news from global cache (never call API directly)
+async function getNewsFromCache(supabase: any): Promise<RealTimeContext['news'] | null> {
   try {
-    // WorldNewsAPI endpoint for top news
-    const response = await fetch(
-      `https://api.worldnewsapi.com/search-news?source-countries=it&language=it&number=5&api-key=${apiKey}`
-    );
+    const { data, error } = await supabase
+      .from('global_context_cache')
+      .select('data, expires_at')
+      .eq('cache_key', 'italy_news')
+      .maybeSingle();
     
-    if (!response.ok) {
-      console.error('[real-time-context] WorldNews API error:', response.status);
+    if (error || !data) {
+      console.log('[real-time-context] No news cache found');
       return null;
     }
     
-    const data = await response.json();
-    
-    const headlines = data.news?.slice(0, 5).map((a: any) => a.title) || [];
+    // Check if cache is expired
+    if (new Date(data.expires_at) < new Date()) {
+      console.log('[real-time-context] News cache expired');
+      return null;
+    }
     
     return {
-      headlines
+      headlines: data.data?.headlines || []
     };
   } catch (error) {
-    console.error('[real-time-context] WorldNews fetch error:', error);
+    console.error('[real-time-context] Error reading news cache:', error);
     return null;
   }
+}
+
+// Check if weather cache is still valid
+function isWeatherCacheValid(cacheUpdatedAt: string | null): boolean {
+  if (!cacheUpdatedAt) return false;
+  const cacheAge = Date.now() - new Date(cacheUpdatedAt).getTime();
+  return cacheAge < WEATHER_CACHE_DURATION;
 }
 
 serve(async (req) => {
@@ -183,12 +199,28 @@ serve(async (req) => {
     
     console.log('[real-time-context] Request:', { lat, lon, user_id, timezone });
     
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     // Always get datetime context (no API needed)
     const datetime = getDateTimeContext(timezone);
     
     const context: RealTimeContext = {
       datetime
     };
+    
+    // Check existing user cache for weather
+    let existingCache: any = null;
+    if (user_id) {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('realtime_context_cache, realtime_context_updated_at')
+        .eq('user_id', user_id)
+        .maybeSingle();
+      
+      existingCache = profileData;
+    }
     
     // Try to get location info if coordinates provided
     if (lat && lon) {
@@ -210,35 +242,37 @@ serve(async (req) => {
         console.warn('[real-time-context] Geocoding failed:', e);
       }
       
-      // Try weather (optional - requires API key)
-      const weather = await fetchWeather(lat, lon);
-      if (weather) {
-        context.weather = weather;
+      // Weather: Check cache first, then fetch if needed
+      const cachedContext = existingCache?.realtime_context_cache as RealTimeContext | null;
+      const cacheUpdatedAt = existingCache?.realtime_context_updated_at;
+      
+      if (cachedContext?.weather && isWeatherCacheValid(cacheUpdatedAt)) {
+        console.log('[real-time-context] Using cached weather');
+        context.weather = cachedContext.weather;
+      } else {
+        console.log('[real-time-context] Fetching fresh weather');
+        const weather = await fetchWeather(lat, lon);
+        if (weather) {
+          context.weather = weather;
+        }
       }
     }
     
-    // Try news (optional - requires API key)
-    const news = await fetchNews();
-    if (news) {
+    // News: Always read from global cache (never call API directly)
+    const news = await getNewsFromCache(supabase);
+    if (news && news.headlines.length > 0) {
       context.news = news;
     }
     
     // Cache in user profile if user_id provided
     if (user_id) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        
-        await supabase
-          .from('user_profiles')
-          .update({
-            realtime_context_cache: context,
-            realtime_context_updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user_id);
-      }
+      await supabase
+        .from('user_profiles')
+        .update({
+          realtime_context_cache: context,
+          realtime_context_updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user_id);
     }
     
     return new Response(JSON.stringify(context), {

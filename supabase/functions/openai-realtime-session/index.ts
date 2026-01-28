@@ -20,16 +20,24 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    // Parse request body for user_id
+    // Parse request body for user_id and real-time context
     let userId: string | null = null;
+    let realTimeContext: {
+      datetime?: { date: string; day: string; time: string; period: string; season: string; holiday?: string };
+      location?: { city: string; region: string; country: string };
+      weather?: { condition: string; temperature: number; feels_like: number; description: string };
+      news?: { headlines: string[] };
+    } | null = null;
+    
     try {
       const body = await req.json();
       userId = body.user_id;
+      realTimeContext = body.realTimeContext || null;
     } catch {
       // No body or invalid JSON, continue without user_id
     }
 
-    console.log('[openai-realtime-session] Creating session for user:', userId);
+    console.log('[openai-realtime-session] Creating session for user:', userId, 'with context:', !!realTimeContext);
 
     // Fetch user's long-term memory and life areas scores if available
     let longTermMemory: string[] = [];
@@ -162,6 +170,22 @@ Mentre ascolti l'utente, DEVI valutare mentalmente un punteggio (1-10) a queste 
 ISTRUZIONE CRITICA: Se l'utente NON esprime esplicitamente un'emozione, mantieni il valore precedente o assegna 0. NON inventare emozioni. Cerca parole chiave e analizza il tono della voce.
 `;
 
+    // Build real-time context block for prompt
+    let realTimeContextBlock = '';
+    if (realTimeContext) {
+      realTimeContextBlock = `
+
+CONTESTO TEMPO REALE:
+Data/Ora: ${realTimeContext.datetime?.day || ''} ${realTimeContext.datetime?.date || ''}, ore ${realTimeContext.datetime?.time || ''}
+Periodo: ${realTimeContext.datetime?.period || ''} (${realTimeContext.datetime?.season || ''})
+${realTimeContext.datetime?.holiday ? `Festività: ${realTimeContext.datetime.holiday}` : ''}
+${realTimeContext.location ? `Posizione: ${realTimeContext.location.city}, ${realTimeContext.location.region}` : ''}
+${realTimeContext.weather ? `Meteo: ${realTimeContext.weather.condition}, ${realTimeContext.weather.temperature}°C` : ''}
+${realTimeContext.news?.headlines?.length ? `News: ${realTimeContext.news.headlines.slice(0, 2).join(' | ')}` : ''}
+
+Usa queste informazioni per personalizzare la conversazione. Se il meteo è brutto, mostra empatia.`;
+    }
+
     const systemInstructions = `Sei Aria, una psicologa empatica italiana con anni di esperienza in Terapia Cognitivo-Comportamentale (CBT).
 
 REGOLE FONDAMENTALI:
@@ -172,6 +196,7 @@ REGOLE FONDAMENTALI:
 - Se l'utente ti interrompe, fermati subito e ascolta
 - Usa pause naturali nel parlare
 - Ricorda i dettagli che l'utente condivide durante la conversazione
+${realTimeContextBlock}
 
 ${emotionalRubric}
 

@@ -31,7 +31,7 @@ interface RealTimeContext {
   };
 }
 
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours (optimized for API limits)
 
 export const useRealTimeContext = () => {
   const { location, permission } = useUserLocation();

@@ -334,11 +334,17 @@ serve(async (req) => {
     };
     const goalDescriptions = selectedGoals.map(g => goalLabels[g] || g).join(', ') || 'benessere generale';
 
-    const { theme, themeLabel, message, history } = await req.json() as {
+    const { theme, themeLabel, message, history, realTimeContext } = await req.json() as {
       theme: string;
       themeLabel: string;
       message: string;
       history: DiaryMessage[];
+      realTimeContext?: {
+        datetime?: { date: string; day: string; time: string; period: string; season: string; holiday?: string };
+        location?: { city: string; region: string; country: string };
+        weather?: { condition: string; temperature: number; feels_like: number; description: string };
+        news?: { headlines: string[] };
+      };
     };
 
     // Build conversation history
@@ -596,7 +602,27 @@ Quando qualcuno scrive su un diario, spesso vuole:
 - Disagio significativo → "Aspetta, sento che questa cosa ti pesa..."
 `;
 
+    // Build real-time context block for prompt
+    let realTimeContextBlock = '';
+    if (realTimeContext) {
+      realTimeContextBlock = `
+═══════════════════════════════════════════════
+📍 CONTESTO TEMPO REALE
+═══════════════════════════════════════════════
+DATA/ORA: ${realTimeContext.datetime?.day || ''} ${realTimeContext.datetime?.date || ''}, ore ${realTimeContext.datetime?.time || ''}
+PERIODO: ${realTimeContext.datetime?.period || ''} (${realTimeContext.datetime?.season || ''})
+${realTimeContext.datetime?.holiday ? `FESTIVITÀ: ${realTimeContext.datetime.holiday}` : ''}
+${realTimeContext.location ? `POSIZIONE: ${realTimeContext.location.city}, ${realTimeContext.location.region}` : ''}
+${realTimeContext.weather ? `METEO: ${realTimeContext.weather.condition}, ${realTimeContext.weather.temperature}°C` : ''}
+${realTimeContext.news?.headlines?.length ? `NEWS: ${realTimeContext.news.headlines.slice(0, 2).join(' | ')}` : ''}
+
+ISTRUZIONE: Puoi usare queste informazioni per contestualizzare risposte.
+`;
+    }
+
     const systemPrompt = `${BEST_FRIEND_THEMATIC}
+
+${realTimeContextBlock}
 
 ═══════════════════════════════════════════════
 🎓 COMPETENZE CLINICHE: DIARIO "${themeLabel.toUpperCase()}"

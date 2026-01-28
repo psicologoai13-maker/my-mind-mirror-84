@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useSessions } from './useSessions';
+import { useRealTimeContext } from './useRealTimeContext';
 import { toast } from 'sonner';
 
 interface TranscriptEntry {
@@ -22,6 +23,7 @@ interface UseRealtimeVoiceReturn {
 export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
   const { user } = useAuth();
   const { startSession, endSession } = useSessions();
+  const { context: realTimeContext } = useRealTimeContext();
   
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -109,10 +111,10 @@ export const useRealtimeVoice = (): UseRealtimeVoiceReturn => {
       sessionIdRef.current = session.id;
       console.log('[Realtime] Session created:', session.id);
 
-      // Get ephemeral token from edge function, passing user_id for memory injection
-      console.log('[Realtime] Fetching ephemeral token with memory...');
+      // Get ephemeral token from edge function, passing user_id and realTimeContext for memory injection
+      console.log('[Realtime] Fetching ephemeral token with memory and context...');
       const { data: tokenData, error: tokenError } = await supabase.functions.invoke('openai-realtime-session', {
-        body: { user_id: user.id }
+        body: { user_id: user.id, realTimeContext }
       });
       
       if (tokenError || !tokenData?.client_secret?.value) {

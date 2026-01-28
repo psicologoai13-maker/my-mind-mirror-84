@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { useSessions } from './useSessions';
+import { useRealTimeContext } from './useRealTimeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -48,6 +49,7 @@ registerProcessor('pcm-player-processor', PCMPlayerProcessor);
 export const useGeminiVoice = (): UseGeminiVoiceReturn => {
   const { user } = useAuth();
   const { startSession, endSession } = useSessions();
+  const { context: realTimeContext } = useRealTimeContext();
   
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -205,9 +207,11 @@ export const useGeminiVoice = (): UseGeminiVoiceReturn => {
       processorRef.current.connect(inputContext.destination);
 
       // Connect to Gemini via edge function WebSocket
+      // Pass real-time context as encoded query param
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const wsUrl = `${supabaseUrl.replace('https://', 'wss://')}/functions/v1/gemini-voice?user_id=${user.id}`;
-      console.log('[GeminiVoice] Connecting to:', wsUrl.substring(0, 50) + '...');
+      const contextParam = encodeURIComponent(JSON.stringify(realTimeContext));
+      const wsUrl = `${supabaseUrl.replace('https://', 'wss://')}/functions/v1/gemini-voice?user_id=${user.id}&realtime_context=${contextParam}`;
+      console.log('[GeminiVoice] Connecting with real-time context...');
       
       wsRef.current = new WebSocket(wsUrl);
       
