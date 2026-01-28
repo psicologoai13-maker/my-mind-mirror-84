@@ -11,20 +11,19 @@ import {
   LogOut,
   ChevronRight,
   Moon,
-  Stethoscope
+  Stethoscope,
+  Gem
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useRewardPoints } from '@/hooks/useRewardPoints';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
 import LegalDisclaimer from '@/components/layout/LegalDisclaimer';
-import StreakStatsCard from '@/components/profile/StreakStatsCard';
-import RewardPointsCard from '@/components/profile/RewardPointsCard';
-import BadgesGrid from '@/components/profile/BadgesGrid';
-import ReferralCard from '@/components/profile/ReferralCard';
-import SubscriptionCard from '@/components/profile/SubscriptionCard';
+import ProfileBadgesRow from '@/components/profile/ProfileBadgesRow';
+import ProfileStatsRow from '@/components/profile/ProfileStatsRow';
+import PremiumCard from '@/components/profile/PremiumCard';
+import PointsProgressCard from '@/components/profile/PointsProgressCard';
 import { Badge } from '@/components/ui/badge';
 
 const settingsItems = [
@@ -39,6 +38,7 @@ const settingsItems = [
 const Profile: React.FC = () => {
   const { signOut, user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
+  const { totalPoints, isLoading: pointsLoading } = useRewardPoints();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -46,10 +46,6 @@ const Profile: React.FC = () => {
     toast.success('Arrivederci!');
     navigate('/auth');
   };
-
-  const memberSince = profile?.created_at 
-    ? format(new Date(profile.created_at), 'MMMM yyyy', { locale: it })
-    : '';
 
   const isPremium = profile?.premium_until && new Date(profile.premium_until) > new Date();
 
@@ -65,53 +61,48 @@ const Profile: React.FC = () => {
       </header>
 
       <div className="px-6 space-y-5 pb-8">
-        {/* Profile Header Card */}
+        {/* Profile Header - Compact */}
         <div className="bg-card rounded-3xl p-5 border border-border/50 shadow-premium">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-lg">
-              <span className="text-3xl">👤</span>
-            </div>
+          <div className="flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">
-              <h2 className="font-display text-xl font-semibold text-foreground truncate">
-                {profileLoading ? '...' : (profile?.name || 'Utente')}
-              </h2>
-              <p className="text-muted-foreground text-sm truncate">
-                {user?.email || ''}
-              </p>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="font-display text-xl font-semibold text-foreground truncate">
+                  {profileLoading ? '...' : (profile?.name || 'Utente')}
+                </h2>
                 <Badge 
                   variant={isPremium ? "default" : "secondary"}
-                  className={isPremium 
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0" 
-                    : ""
-                  }
+                  className={cn(
+                    "shrink-0",
+                    isPremium && "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0"
+                  )}
                 >
                   {isPremium ? '✨ Plus' : 'Free'}
                 </Badge>
-                {memberSince && (
-                  <span className="text-xs text-muted-foreground">
-                    • Membro da {memberSince}
-                  </span>
-                )}
               </div>
+              
+              {/* Points Display */}
+              <div className="flex items-center gap-1.5 mb-3">
+                <Gem className="w-4 h-4 text-violet-500" />
+                <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
+                  {pointsLoading ? '...' : totalPoints.toLocaleString()}
+                </span>
+                <span className="text-sm text-muted-foreground">punti</span>
+              </div>
+
+              {/* Stats Row */}
+              <ProfileStatsRow />
             </div>
           </div>
+
+          {/* Badges Row */}
+          <ProfileBadgesRow />
         </div>
 
-        {/* Streak & Stats */}
-        <StreakStatsCard />
+        {/* Premium Card - At Top */}
+        <PremiumCard />
 
-        {/* Reward Points */}
-        <RewardPointsCard />
-
-        {/* Badges Grid */}
-        <BadgesGrid />
-
-        {/* Referral Card */}
-        <ReferralCard />
-
-        {/* Subscription Status */}
-        <SubscriptionCard />
+        {/* Points Progress Card */}
+        <PointsProgressCard />
 
         {/* Settings Menu */}
         <div className="bg-card rounded-3xl shadow-premium border border-border/50 overflow-hidden">
