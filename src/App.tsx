@@ -19,7 +19,7 @@ import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorPatientView from "./pages/DoctorPatientView";
 import Aria from "./pages/Aria";
 import Objectives from "./pages/Objectives";
-import Habits from "./pages/Habits";
+// Habits page removed - unified into Objectives
 import Plus from "./pages/Plus";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -123,7 +123,7 @@ const App = () => (
             <Route path="/progress" element={<Navigate to="/analisi" replace />} />
             <Route path="/aria" element={<ProtectedRoute><Aria /></ProtectedRoute>} />
             <Route path="/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
-            <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
+            {/* Habits route removed - now part of Objectives page */}
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />

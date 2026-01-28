@@ -168,12 +168,12 @@ const HabitTrackerSection: React.FC = () => {
         ))}
       </div>
 
-      {/* See All Button */}
+      {/* See All Button - Navigate to unified Progressi page */}
       {habits.length > 4 && (
         <Button
           variant="ghost"
           className="w-full text-muted-foreground"
-          onClick={() => navigate('/habits')}
+          onClick={() => navigate('/objectives?tab=daily')}
         >
           Vedi tutte ({habits.length})
           <ChevronRight className="w-4 h-4 ml-1" />
