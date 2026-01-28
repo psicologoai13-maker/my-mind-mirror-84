@@ -1,207 +1,423 @@
 
-# Piano Ottimizzato: Aria Real-Time Context Awareness
 
-## Obiettivo
-Rendere Aria consapevole del contesto in tempo reale (data/ora, meteo, news, posizione) con architettura a **costo zero** rispettando i limiti delle API gratuite.
+# Piano: Profilo Rinnovato + Sistema Punti + Pagina Plus
 
-## Limiti API da Rispettare
+## Panoramica
 
-| API | Limite Giornaliero | Strategia |
-|-----|-------------------|-----------|
-| **World News API** | 50 points/day | Cache globale condivisa: **2 chiamate/giorno** (mattina + sera) |
-| **OpenWeather API** | 1,000 calls/day | Cache per utente: **1 chiamata ogni 2 ore** max 12/utente/giorno |
-
-## Calcolo Budget
-
-### World News API (50 points/day)
-- **Strategia**: Cache globale per TUTTI gli utenti (stesse news Italia)
-- Refresh: 2 volte al giorno (08:00 e 18:00)
-- **Consumo**: 2 points/day
-- **Margine**: 48 points di riserva
-
-### OpenWeather API (1,000 calls/day)
-- **Strategia**: Cache per utente basata su coordinate (arrotondate a 0.1°)
-- Refresh: ogni 2 ore max
-- Con 50 utenti attivi: 50 × 12 = 600 calls/day
-- **Margine**: 400 calls di riserva
-
-## Architettura Finale
-
-```
-FRONTEND                           BACKEND
-┌─────────────────┐               ┌─────────────────────────────────┐
-│ useUserLocation │──── GPS ────►│ real-time-context Function      │
-│ useRealTimeContext │            │   ├─ datetime (sempre gratis)   │
-└─────────────────┘               │   ├─ weather → user_profiles    │
-                                  │   └─ news → global_news_cache   │
-                                  └─────────────────────────────────┘
-                                              │
-                                              ▼
-                                  ┌─────────────────────────────────┐
-                                  │ Prompt Injection in:            │
-                                  │  • ai-chat                      │
-                                  │  • gemini-voice                 │
-                                  │  • thematic-diary-chat          │
-                                  │  • openai-realtime-session      │
-                                  └─────────────────────────────────┘
-```
+Questo piano implementa:
+1. **Rimozione streak dalla Home** - Spostamento nella sezione Profilo
+2. **Nuovo Profilo Premium** - Design rinnovato con streak, badge e punti
+3. **Pagina Plus** - Abbonamento premium con features e pricing
+4. **Sistema Punti** - Gamification per ottenere premium gratis
 
 ---
 
-## Step di Implementazione
+## 1. Struttura Database
 
-### Step 1: Database Migration
-Creare tabella cache globale per le news (condivisa tra tutti gli utenti):
+### Nuove Tabelle
 
 ```sql
-CREATE TABLE IF NOT EXISTS global_context_cache (
+-- Tabella punti utente
+CREATE TABLE user_reward_points (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cache_key TEXT UNIQUE NOT NULL,
-  data JSONB NOT NULL DEFAULT '{}',
-  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at TIMESTAMPTZ NOT NULL
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  total_points INTEGER NOT NULL DEFAULT 0,
+  lifetime_points INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id)
 );
 
--- RLS: lettura pubblica (dati non sensibili)
-ALTER TABLE global_context_cache ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can read global cache" ON global_context_cache
-  FOR SELECT USING (true);
+-- Storico transazioni punti
+CREATE TABLE reward_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  points INTEGER NOT NULL, -- positivo = guadagno, negativo = spesa
+  type TEXT NOT NULL, -- 'badge', 'streak', 'referral', 'premium_redemption'
+  source_id TEXT, -- ID badge, referral_code, etc.
+  description TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Sistema referral
+CREATE TABLE user_referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  referred_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  referral_code TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'active', 'completed'
+  referred_active_days INTEGER DEFAULT 0,
+  points_awarded BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
+-- Colonne aggiuntive user_profiles
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS
+  referral_code TEXT UNIQUE,
+  premium_until TIMESTAMPTZ,
+  premium_type TEXT; -- 'paid', 'points', null
 ```
 
-### Step 2: Nuova Edge Function - refresh-global-context
-Funzione dedicata per refreshare la cache globale news (chiamata da cron o manualmente):
+### Punti Assegnati per Achievement
 
-**File**: `supabase/functions/refresh-global-context/index.ts`
-
-Funzionalità:
-- Chiama World News API
-- Salva in `global_context_cache` con `cache_key = 'italy_news'`
-- Scadenza: 12 ore (per 2 refresh/giorno)
-
-### Step 3: Modificare real-time-context 
-Aggiornare l'edge function esistente per usare la cache intelligente:
-
-**Logica ottimizzata**:
-1. **DateTime**: Sempre calcolato (gratis)
-2. **News**: Legge da `global_context_cache` (MAI chiama API direttamente)
-3. **Weather**: 
-   - Arrotonda coordinate a 0.1° (grid-based caching)
-   - Controlla cache in `user_profiles.realtime_context_cache`
-   - Se cache < 2 ore, usa cache
-   - Se cache > 2 ore, chiama OpenWeather e aggiorna cache
-
-### Step 4: Setup Cron Job per News
-Configurare pg_cron per chiamare `refresh-global-context` 2 volte al giorno:
-
-```sql
-SELECT cron.schedule(
-  'refresh-news-morning',
-  '0 8 * * *',
-  $$ SELECT net.http_post(...) $$
-);
-
-SELECT cron.schedule(
-  'refresh-news-evening', 
-  '0 18 * * *',
-  $$ SELECT net.http_post(...) $$
-);
-```
-
-### Step 5: Integrare Context in Tutte le Edge Functions AI
-
-**gemini-voice/index.ts**:
-- Riceve `realTimeContext` via query params o WebSocket setup
-- Inietta nel system prompt
-
-**thematic-diary-chat/index.ts**:
-- Riceve `realTimeContext` nel body
-- Inietta nel system prompt
-
-**openai-realtime-session/index.ts** (se usato):
-- Passa context nelle instructions WebRTC
-
-### Step 6: Modificare Frontend per Passare Context
-
-**Chat.tsx**: Già implementato ✓
-
-**Aria.tsx / VoiceModal**: 
-- Passare `realTimeContext` alla sessione voice via query params
-
-**ThematicChatInterface.tsx**:
-- Passare `realTimeContext` a thematic-diary-chat
-
-### Step 7: Ottimizzare useRealTimeContext
-Aggiornare l'hook per:
-- Estendere cache a 2 ore (da 30 min)
-- Non chiamare mai direttamente news API (solo backend)
-- Fallback graceful se nessun dato disponibile
+| Achievement ID | Punti | Descrizione |
+|----------------|-------|-------------|
+| `week_streak` | 100 | 7 giorni consecutivi |
+| `month_streak` | 300 | 30 giorni consecutivi |
+| `first_checkin` | 25 | Primo check-in |
+| `first_session` | 50 | Prima sessione con Aria |
+| `hundred_checkins` | 200 | 100 check-in completati |
+| `hydration_master` | 75 | 7 giorni obiettivo acqua |
+| `smoke_free_week` | 150 | 7 giorni senza sigarette |
+| `smoke_free_month` | 400 | 30 giorni senza sigarette |
+| `zen_master` | 100 | 30 sessioni meditazione |
+| `balanced_life` | 250 | Tutte le aree sopra 6/10 |
+| Referral completato | 400 | Amico usa app per 7 giorni |
 
 ---
 
-## Dettagli Tecnici
+## 2. Rimozione Streak dalla Home
 
-### Formato Cache News (global_context_cache)
-```json
-{
-  "headlines": [
-    "Titolo notizia 1",
-    "Titolo notizia 2",
-    "..."
-  ],
-  "fetched_at": "2026-01-28T08:00:00Z"
-}
-```
+### File: `src/pages/Index.tsx`
 
-### Formato Cache Weather (user_profiles.realtime_context_cache)
-```json
-{
-  "datetime": { ... },
-  "location": { "city": "Milano", "region": "Lombardia" },
-  "weather": { "condition": "Nuvoloso", "temperature": 8, ... },
-  "weather_fetched_at": "2026-01-28T10:30:00Z"
-}
-```
+Rimuovere l'import e l'uso di `StreakCounter`:
 
-### Grid-Based Weather Caching
-Arrotondare coordinate per condividere cache tra utenti vicini:
-```javascript
-const gridLat = Math.round(lat * 10) / 10; // 45.123 → 45.1
-const gridLon = Math.round(lon * 10) / 10; // 9.456 → 9.5
+```diff
+- import StreakCounter from '@/components/home/StreakCounter';
+
+// Nel return, rimuovere:
+-        {/* Streak Counter */}
+-        <div className="mt-4">
+-          <StreakCounter />
+-        </div>
 ```
 
 ---
 
-## File da Creare
+## 3. Nuovo Profilo Premium
+
+### Struttura Pagina Profilo
+
+```
+┌─────────────────────────────────────┐
+│  👤 Nome Utente                     │
+│  email@example.com                  │
+│  🏷️ Free • Membro da gennaio 2026   │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  🔥 STREAK E STATISTICHE            │
+│  ┌─────┐ ┌─────┐ ┌─────┐           │
+│  │ 12  │ │ 35  │ │ 8   │           │
+│  │giorni│ │sess.│ │badge│           │
+│  └─────┘ └─────┘ └─────┘           │
+│                                     │
+│  Record: 45 giorni 🏆               │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  💎 I TUOI PUNTI                    │
+│  ┌─────────────────────────────────┐│
+│  │   1,250 punti                  ││
+│  │   ████████████░░░░ 1,250/1000   ││
+│  │   [Riscatta 1 mese Plus]       ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  Prossimo premio: -250 punti        │
+│  Storico guadagni →                 │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  🏅 BADGE SBLOCCATI (5/16)          │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐   │
+│  │ 🏅 │ │ 🔥 │ │ 💧 │ │ 🧘 │   │
+│  └─────┘ └─────┘ └─────┘ └─────┘   │
+│  +12 altro →                        │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  👥 INVITA AMICI                    │
+│  Condividi codice: ABC123XY         │
+│  Guadagna 400 punti per amico!      │
+│  [Condividi] [Copia]                │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  ⚙️ IMPOSTAZIONI                     │
+│  ├─ Dati personali →                │
+│  ├─ Notifiche →                     │
+│  ├─ Privacy Aria →                  │
+│  ├─ Area Terapeutica →              │
+│  └─ Aiuto →                         │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  💳 ABBONAMENTO                     │
+│  Piano Free                         │
+│  [Passa a Plus] →                   │
+└─────────────────────────────────────┘
+
+[Esci]
+```
+
+### Nuovi Componenti
 
 | File | Descrizione |
 |------|-------------|
-| `supabase/functions/refresh-global-context/index.ts` | Cron job per refresh news |
+| `src/components/profile/StreakStatsCard.tsx` | Card streak con stats |
+| `src/components/profile/RewardPointsCard.tsx` | Card punti con progresso |
+| `src/components/profile/BadgesGrid.tsx` | Griglia badge con modal dettagli |
+| `src/components/profile/ReferralCard.tsx` | Card invita amici |
+| `src/components/profile/SubscriptionCard.tsx` | Card abbonamento |
 
-## File da Modificare
+### Nuovi Hooks
 
-| File | Modifica |
-|------|----------|
-| `supabase/functions/real-time-context/index.ts` | Cache intelligente weather + lettura news da cache globale |
-| `supabase/functions/gemini-voice/index.ts` | Inject realTimeContext nel system prompt |
-| `supabase/functions/thematic-diary-chat/index.ts` | Inject realTimeContext nel system prompt |
-| `src/hooks/useRealTimeContext.tsx` | Estendere cache a 2 ore |
-| `src/components/diary/ThematicChatInterface.tsx` | Passare context a edge function |
-| `src/components/voice/ZenVoiceModal.tsx` | Passare context a gemini-voice |
+| File | Descrizione |
+|------|-------------|
+| `src/hooks/useRewardPoints.tsx` | Gestione punti utente |
+| `src/hooks/useReferrals.tsx` | Gestione referral |
 
 ---
 
-## Risultato Finale
+## 4. Pagina Plus (Premium)
 
-### Costi
-| API | Calls/Giorno | Limite | Status |
-|-----|--------------|--------|--------|
-| World News | 2 | 50 | ✅ 4% utilizzo |
-| OpenWeather | ~600 (50 utenti) | 1,000 | ✅ 60% utilizzo |
+### Route: `/plus`
 
-**Costo mensile: €0**
+### Design
 
-### Funzionalità
-- Aria conosce data, ora, stagione, festività italiane
-- Aria conosce il meteo locale dell'utente
-- Aria conosce le principali notizie italiane del giorno
-- Tutto disponibile in Chat, Voice e Diari Tematici
+```
+┌─────────────────────────────────────┐
+│            ✨ PLUS ✨                │
+│     Sblocca il tuo potenziale       │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  🎁 FEATURES PREMIUM                 │
+│                                     │
+│  ✓ Sessioni illimitate con Aria     │
+│  ✓ Report clinici avanzati          │
+│  ✓ Analisi psicologiche approfondite│
+│  ✓ Obiettivi personalizzati illim.  │
+│  ✓ Export dati completo             │
+│  ✓ Nessuna pubblicità               │
+│  ✓ Supporto prioritario             │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  💳 SCEGLI COME PAGARE              │
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ 💎 CON PUNTI                   ││
+│  │ 1,000 punti = 1 mese Plus      ││
+│  │                                ││
+│  │ Hai: 1,250 punti               ││
+│  │ [Riscatta 1 mese]              ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  ─────── oppure ───────             │
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ 💰 ABBONAMENTO                 ││
+│  │                                ││
+│  │ Mensile: €4,99/mese            ││
+│  │ Annuale: €39,99/anno (-33%)    ││
+│  │                                ││
+│  │ [Abbonati mensile]             ││
+│  │ [Abbonati annuale] ⭐ Consig.  ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  🎯 COME GUADAGNARE PUNTI           │
+│                                     │
+│  🔥 7 giorni consecutivi = 100 pts  │
+│  👥 Invita un amico = 400 pts       │
+│  🏅 Sblocca badge = 25-400 pts      │
+│  📊 100 check-in = 200 pts          │
+└─────────────────────────────────────┘
+```
+
+### Pricing (Placeholder)
+
+| Piano | Prezzo | Note |
+|-------|--------|------|
+| Mensile | €4,99/mese | Fatturato mensilmente |
+| Annuale | €39,99/anno | -33% risparmio |
+| Punti | 1,000 pts/mese | Cumulabile |
+
+---
+
+## 5. File da Creare
+
+| File | Descrizione |
+|------|-------------|
+| `src/pages/Plus.tsx` | Pagina abbonamento premium |
+| `src/hooks/useRewardPoints.tsx` | Hook gestione punti |
+| `src/hooks/useReferrals.tsx` | Hook gestione referral |
+| `src/components/profile/StreakStatsCard.tsx` | Card streak + stats |
+| `src/components/profile/RewardPointsCard.tsx` | Card punti con progress bar |
+| `src/components/profile/BadgesGrid.tsx` | Griglia badge sbloccati |
+| `src/components/profile/BadgeDetailModal.tsx` | Modal dettaglio singolo badge |
+| `src/components/profile/ReferralCard.tsx` | Card invita amici |
+| `src/components/profile/SubscriptionCard.tsx` | Card stato abbonamento |
+| `src/components/plus/FeaturesList.tsx` | Lista features premium |
+| `src/components/plus/PointsRedemption.tsx` | Sezione riscatto punti |
+| `src/components/plus/PricingOptions.tsx` | Opzioni abbonamento |
+
+---
+
+## 6. File da Modificare
+
+| File | Modifica |
+|------|----------|
+| `src/pages/Index.tsx` | Rimuovere StreakCounter |
+| `src/pages/Profile.tsx` | Completo redesign con nuovi componenti |
+| `src/App.tsx` | Aggiungere route `/plus` |
+| `src/hooks/useAchievements.tsx` | Aggiungere logica assegnazione punti quando badge sbloccato |
+| `src/hooks/useProfile.tsx` | Aggiungere campi `referral_code`, `premium_until`, `premium_type` |
+| `src/components/layout/BottomNav.tsx` | Link a Plus da abbonamento (opzionale) |
+
+---
+
+## 7. Logica Sistema Punti
+
+### Assegnazione Automatica Punti
+
+Quando un badge viene sbloccato (in `useAchievements.tsx`):
+
+```typescript
+// Mappa punti per badge
+const BADGE_POINTS: Record<string, number> = {
+  first_checkin: 25,
+  week_streak: 100,
+  month_streak: 300,
+  first_session: 50,
+  hundred_checkins: 200,
+  // ... etc
+};
+
+// Nella mutation unlockAchievement
+onSuccess: async (data, variables) => {
+  const points = BADGE_POINTS[variables.achievementId];
+  if (points) {
+    await supabase.from('reward_transactions').insert({
+      user_id: user.id,
+      points: points,
+      type: 'badge',
+      source_id: variables.achievementId,
+      description: `Badge ${ACHIEVEMENTS[variables.achievementId].title} sbloccato`
+    });
+    
+    // Aggiorna totale
+    await supabase.rpc('add_reward_points', { 
+      p_user_id: user.id, 
+      p_points: points 
+    });
+  }
+}
+```
+
+### Riscatto Premium con Punti
+
+```typescript
+async function redeemPremiumWithPoints() {
+  if (totalPoints < 1000) throw new Error('Punti insufficienti');
+  
+  // Scala 1000 punti
+  await supabase.from('reward_transactions').insert({
+    user_id: user.id,
+    points: -1000,
+    type: 'premium_redemption',
+    description: '1 mese Plus riscattato'
+  });
+  
+  // Calcola nuova scadenza
+  const currentExpiry = profile.premium_until ? new Date(profile.premium_until) : new Date();
+  const newExpiry = new Date(Math.max(currentExpiry.getTime(), Date.now()));
+  newExpiry.setMonth(newExpiry.getMonth() + 1);
+  
+  await updateProfile({
+    premium_until: newExpiry.toISOString(),
+    premium_type: 'points'
+  });
+}
+```
+
+### Referral Flow
+
+1. Ogni utente ha un `referral_code` univoco generato al signup
+2. Amico si registra con codice → crea record in `user_referrals` con status `pending`
+3. Cron job o trigger verifica dopo 7 giorni se amico ha usato app
+4. Se 7 giorni attivi → status `completed` → 400 punti al referrer
+
+---
+
+## 8. Generazione Codice Referral
+
+Database function:
+
+```sql
+CREATE OR REPLACE FUNCTION generate_referral_code()
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  result TEXT := '';
+  i INTEGER;
+BEGIN
+  FOR i IN 1..6 LOOP
+    result := result || substr(chars, floor(random() * length(chars) + 1)::integer, 1);
+  END LOOP;
+  RETURN result;
+END;
+$$;
+```
+
+---
+
+## 9. Sequenza Implementazione
+
+1. **Database Migration** - Creare tabelle `user_reward_points`, `reward_transactions`, `user_referrals` + colonne `user_profiles`
+2. **Hook useRewardPoints** - CRUD punti e transazioni
+3. **Hook useReferrals** - Gestione codici e inviti
+4. **Modifica useAchievements** - Assegnazione automatica punti
+5. **Componenti Profile** - StreakStatsCard, RewardPointsCard, BadgesGrid, ReferralCard
+6. **Pagina Profile** - Redesign completo
+7. **Pagina Plus** - Features, pricing, riscatto punti
+8. **Rimozione StreakCounter da Home**
+9. **Route App.tsx** - Aggiungere `/plus`
+
+---
+
+## 10. Dettagli Tecnici
+
+### RLS Policies
+
+```sql
+-- user_reward_points: solo proprio record
+ALTER TABLE user_reward_points ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own points" ON user_reward_points
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- reward_transactions: solo proprie transazioni
+ALTER TABLE reward_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own transactions" ON reward_transactions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- user_referrals: referrer e referred possono vedere
+ALTER TABLE user_referrals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own referrals" ON user_referrals
+  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referred_id);
+```
+
+### Stile Componenti (Premium 2025)
+
+- Card: `bg-card rounded-3xl border border-border/50 shadow-premium p-6`
+- Titoli: `font-display text-lg font-semibold text-foreground`
+- Stats numbers: `text-3xl font-bold text-primary`
+- Progress bar: `bg-primary/20` con fill `bg-gradient-to-r from-primary to-purple-500`
+- Badge grid: `grid grid-cols-4 gap-3`
+- CTA buttons: `bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl`
+
