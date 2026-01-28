@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface EmojiSliderProps {
@@ -21,6 +21,14 @@ const EmojiSlider: React.FC<EmojiSliderProps> = ({
   emojis = defaultEmojis,
   labels = defaultLabels,
 }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleSelect = (index: number) => {
+    setIsAnimating(true);
+    onChange(index);
+    setTimeout(() => setIsAnimating(false), 300);
+  };
+
   return (
     <div className="flex-1 flex flex-col px-6 py-8 animate-fade-in">
       {/* Header */}
@@ -37,10 +45,18 @@ const EmojiSlider: React.FC<EmojiSliderProps> = ({
 
       {/* Current Selection Display */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-8xl mb-4 animate-scale-in">
+        <div 
+          className={cn(
+            "text-8xl mb-4 transition-all duration-300",
+            isAnimating ? "scale-125 animate-bounce" : "animate-scale-in"
+          )}
+        >
           {emojis[value]}
         </div>
-        <p className="text-lg font-medium text-foreground mb-12">
+        <p className={cn(
+          "text-lg font-medium text-foreground mb-12 transition-all duration-300",
+          isAnimating && "text-primary"
+        )}>
           {labels[value]}
         </p>
 
@@ -49,12 +65,12 @@ const EmojiSlider: React.FC<EmojiSliderProps> = ({
           {emojis.map((emoji, index) => (
             <button
               key={index}
-              onClick={() => onChange(index)}
+              onClick={() => handleSelect(index)}
               className={cn(
                 "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300",
                 index === value
-                  ? "bg-primary/15 scale-110 shadow-glow"
-                  : "bg-card shadow-soft hover:scale-105 hover:shadow-premium"
+                  ? "bg-primary/15 scale-110 shadow-glow ring-2 ring-primary/30"
+                  : "bg-card shadow-soft hover:scale-105 hover:shadow-premium active:scale-95"
               )}
             >
               {emoji}
@@ -67,6 +83,18 @@ const EmojiSlider: React.FC<EmojiSliderProps> = ({
           <span className="text-xs text-muted-foreground">Peggio</span>
           <span className="text-xs text-muted-foreground">Meglio</span>
         </div>
+
+        {/* Feedback */}
+        {value >= 3 && (
+          <p className="text-sm text-primary mt-6 animate-fade-in">
+            Che bello sentirti così! 🌟
+          </p>
+        )}
+        {value <= 1 && (
+          <p className="text-sm text-muted-foreground mt-6 animate-fade-in">
+            Sono qui per aiutarti 💙
+          </p>
+        )}
       </div>
     </div>
   );
