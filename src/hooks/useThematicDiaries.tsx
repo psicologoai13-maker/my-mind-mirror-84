@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useRealTimeContext } from './useRealTimeContext';
 
 export type DiaryTheme = 'love' | 'work' | 'relationships' | 'self';
 
@@ -56,6 +57,7 @@ export const DIARY_THEMES: {
 export const useThematicDiaries = () => {
   const { user, session } = useAuth();
   const queryClient = useQueryClient();
+  const { context: realTimeContext } = useRealTimeContext();
 
   const { data: diaries, isLoading } = useQuery({
     queryKey: ['thematic-diaries', user?.id],
@@ -114,6 +116,7 @@ export const useThematicDiaries = () => {
             themeLabel: themeConfig?.label || theme,
             message,
             history: existingDiary?.messages || [],
+            realTimeContext,
           }),
         }
       );

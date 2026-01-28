@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.ai-analysis]
 verify_jwt = false
+
+[functions.real-time-context]
+verify_jwt = false
+
+[functions.refresh-global-context]
+verify_jwt = false

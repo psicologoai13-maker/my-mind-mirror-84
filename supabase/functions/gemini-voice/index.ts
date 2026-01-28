@@ -31,9 +31,27 @@ serve(async (req) => {
     }
 
     try {
-      // Extract user_id from query params if provided
+      // Extract user_id and real-time context from query params if provided
       const url = new URL(req.url);
       const userId = url.searchParams.get('user_id');
+      const realTimeContextParam = url.searchParams.get('realtime_context');
+      
+      // Parse real-time context if provided
+      let realTimeContext: {
+        datetime?: { date: string; day: string; time: string; period: string; season: string; holiday?: string };
+        location?: { city: string; region: string; country: string };
+        weather?: { condition: string; temperature: number; feels_like: number; humidity: number; description: string };
+        news?: { headlines: string[] };
+      } | null = null;
+      
+      if (realTimeContextParam) {
+        try {
+          realTimeContext = JSON.parse(decodeURIComponent(realTimeContextParam));
+          console.log('[gemini-voice] Received real-time context:', realTimeContext?.datetime?.date);
+        } catch (e) {
+          console.warn('[gemini-voice] Failed to parse real-time context:', e);
+        }
+      }
       
       // Fetch user profile for personalization
       let longTermMemory: string[] = [];
@@ -241,7 +259,29 @@ Inizia SEMPRE come amica. Diventa terapeuta solo quando serve.
 Voce calda, naturale, come una vera amica al telefono.
 `;
 
+      // Build real-time context block for prompt
+      let realTimeContextBlock = '';
+      if (realTimeContext) {
+        realTimeContextBlock = `
+═══════════════════════════════════════════════
+📍 CONTESTO TEMPO REALE
+═══════════════════════════════════════════════
+DATA/ORA: ${realTimeContext.datetime?.day || ''} ${realTimeContext.datetime?.date || ''}, ore ${realTimeContext.datetime?.time || ''}
+PERIODO: ${realTimeContext.datetime?.period || ''} (${realTimeContext.datetime?.season || ''})
+${realTimeContext.datetime?.holiday ? `FESTIVITÀ: ${realTimeContext.datetime.holiday}` : ''}
+${realTimeContext.location ? `POSIZIONE: ${realTimeContext.location.city}, ${realTimeContext.location.region}` : ''}
+${realTimeContext.weather ? `METEO: ${realTimeContext.weather.condition}, ${realTimeContext.weather.temperature}°C (percepiti ${realTimeContext.weather.feels_like}°C)` : ''}
+${realTimeContext.news?.headlines?.length ? `NEWS: ${realTimeContext.news.headlines.slice(0, 3).join(' | ')}` : ''}
+
+ISTRUZIONE: Usa queste informazioni per contestualizzare la conversazione.
+Se il meteo è brutto, mostra empatia ("Con questa pioggia, capisco se ti senti giù...").
+Se è una festività, fai riferimento ("Come stai passando ${realTimeContext.datetime?.holiday || 'questa giornata'}?").
+`;
+      }
+
       const SYSTEM_PROMPT = `${BEST_FRIEND_VOICE}
+
+${realTimeContextBlock}
 
 ═══════════════════════════════════════════════
 🎓 COMPETENZE CLINICHE (quando serve)
