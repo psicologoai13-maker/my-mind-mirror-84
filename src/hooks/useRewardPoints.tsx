@@ -21,17 +21,14 @@ export interface RewardTransaction {
   created_at: string;
 }
 
-export const BADGE_POINTS: Record<string, number> = {
-  first_checkin: 25,
+// Points are earned from verified activities only:
+// - 7 consecutive days with 4+ check-ins: 100 points
+// - 30 consecutive days with 4+ check-ins: 300 points  
+// - Referral (friend uses app for 7 days): 400 points
+export const STREAK_POINTS = {
   week_streak: 100,
   month_streak: 300,
-  first_session: 50,
-  hundred_checkins: 200,
-  hydration_master: 75,
-  smoke_free_week: 150,
-  smoke_free_month: 400,
-  zen_master: 100,
-  balanced_life: 250,
+  referral: 400,
 };
 
 export const useRewardPoints = () => {
