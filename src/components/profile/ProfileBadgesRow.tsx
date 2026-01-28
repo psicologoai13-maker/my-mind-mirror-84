@@ -22,7 +22,10 @@ const BadgeItem = forwardRef<HTMLDivElement, { icon: string }>(
 BadgeItem.displayName = 'BadgeItem';
 
 const ProfileBadgesRow: React.FC = () => {
-  const { unlockedAchievements } = useAchievements();
+  const { unlockedAchievements, isLoading } = useAchievements();
+
+  // Early return if loading or no achievements
+  if (isLoading || !unlockedAchievements) return null;
 
   // Get only unlocked badges
   const unlockedBadges = unlockedAchievements
