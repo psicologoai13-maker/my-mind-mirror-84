@@ -1,355 +1,350 @@
 
-# Piano: Quiz Iniziale Gamificato e Completo
+
+# Piano: Unificazione Habits e Obiettivi con Sistema Check-in Intelligente
 
 ## Panoramica
 
-Trasformazione del quiz di onboarding in un'esperienza **gamificata, veloce e coinvolgente** che raccoglie informazioni complete (inclusi dati privati come peso, altezza, vizi) in modo intuitivo e divertente.
+Unificare **Habits** e **Obiettivi** in un'unica pagina con tab, distinguendo tra:
+- **Tracker automatici** (dati da dispositivi/app esterne come passi)
+- **Tracker manuali** (inserimento utente come acqua, meditazione)
+- **Obiettivi a lungo termine** (peso target, risparmio, esami)
 
-## Principi Guida
-
-| Principio | Implementazione |
-|-----------|-----------------|
-| **Velocita** | Max 8-10 step, ~3 minuti totali |
-| **Gamification** | Animazioni, feedback visivo, emoji, "punti" simbolici |
-| **Privacy First** | Domande sensibili presentate con cura e opzione "Preferisco non rispondere" |
-| **Multiscelta** | Box selezionabili per tutto tranne dati numerici specifici |
-| **Mobile First** | Touch-friendly, grandi aree cliccabili |
+L'inserimento dati sara centralizzato nel sistema **Check-in** della Home per massima semplicita.
 
 ---
 
-## Nuova Struttura Step (10 step totali)
+## Analisi Differenze Concettuali
 
-### Step 1: Welcome Personalizzato
-**Tipo**: Intro animata (non conta come step)
-```
-"Ciao! Sono Aria, la tua compagna di benessere.
-Rispondi a poche domande per personalizzare la tua esperienza."
-[Iniziamo →]
-```
+| Caratteristica | Habits | Obiettivi |
+|----------------|--------|-----------|
+| Frequenza | Giornaliera/ricorrente | Una tantum con deadline |
+| Completamento | Reset ogni giorno | Permanente quando raggiunto |
+| Progresso | Streak (giorni consecutivi) | % verso target finale |
+| Fonte dati | Manuale o Automatica | Sempre manuale |
+| Feedback | "Completato oggi ✓" | "Obiettivo raggiunto! 🎉" |
 
-### Step 2: Nome
-**Tipo**: Input testuale semplice
-```
-"Come ti chiami?"
-[Input: Nome]
-```
-*Salvataggio in: user_profiles.name*
+---
 
-### Step 3: Obiettivi Principali (Multi-selezione)
-**Tipo**: Card Grid con emoji
-```
-"Cosa vorresti migliorare?" (max 3)
-[ ] 🧘 Gestire l'ansia
-[ ] 😴 Dormire meglio  
-[ ] ⚡ Avere più energia
-[ ] 💕 Migliorare relazioni
-[ ] 📝 Sfogarmi/Diario
-[ ] 🌱 Crescita personale
-[ ] 💼 Gestire stress lavoro
-[ ] 🪞 Autostima
-```
-*Salvataggio in: onboarding_answers.primaryGoals*
+## Architettura Proposta
 
-### Step 4: Situazione Attuale
-**Tipo**: Card singola selezione
-```
-"Come descriveresti questo periodo?"
-( ) 😐 Stabile ma voglio di più
-( ) 🌪️ Momento difficile
-( ) 🌅 In ripresa
-( ) 🚀 Voglio crescere
+### 1. Tipi di Tracker
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    TRACKER TYPES                        │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  🤖 AUTOMATICI (richiedono permessi)                    │
+│  ├── 👟 Passi (Apple Health / Google Fit)              │
+│  ├── 😴 Ore sonno (Health Kit)                         │
+│  ├── ❤️ Battito cardiaco                               │
+│  └── 🔥 Calorie bruciate                               │
+│                                                         │
+│  ✏️ MANUALI GIORNALIERI (habits)                        │
+│  ├── 💧 Acqua                                          │
+│  ├── 🧘 Meditazione                                    │
+│  ├── 🚭 Sigarette (abstain)                            │
+│  └── ... altri                                         │
+│                                                         │
+│  🎯 OBIETTIVI A LUNGO TERMINE                           │
+│  ├── ⚖️ Raggiungere peso X kg                          │
+│  ├── 💰 Risparmiare X €                                │
+│  └── 📚 Completare X esami                             │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Step 5: Come Ti Senti? (Emoji Slider)
-**Tipo**: Slider interattivo animato
-```
-"Come ti senti ultimamente?"
-😔 ──●────── 😊
-    Così così
-```
+### 2. Flusso Dati Unificato
 
-### Step 6: Vizi & Abitudini da Monitorare (Multi-selezione)
-**Tipo**: Chip Grid tematici
-```
-"Hai qualche 'vizio' che vuoi tenere sotto controllo?" (opzionale)
-
-🚬 Fumo
-🍷 Alcol  
-☕ Troppo caffè
-🍬 Zuccheri
-📱 Social Media
-💅 Mangiarsi unghie
-⏰ Procrastinazione
-❌ Nessuno di questi
-```
-*Salvataggio in: onboarding_answers.vices + creazione automatica habits*
-
-### Step 7: Stile di Vita (Multi-selezione)
-**Tipo**: Chip Grid
-```
-"Come descriveresti il tuo stile di vita?"
-
-🏃 Faccio sport regolarmente
-🧘 Pratico meditazione
-😴 Ho problemi di sonno
-💧 Bevo poca acqua
-🍎 Mangio sano
-📚 Leggo spesso
-👥 Vita sociale attiva
-🏠 Passo molto tempo solo/a
-```
-
-### Step 8: Dati Fisici (Input Numerici Opzionali)
-**Tipo**: Card con input compatti
-```
-"Vuoi tracciare anche dati fisici?" (opzionale)
-
-┌─────────────────────────────┐
-│ ⚖️ Peso attuale            │
-│ [_____] kg                  │
-├─────────────────────────────┤
-│ 📏 Altezza                  │
-│ [_____] cm                  │
-├─────────────────────────────┤
-│ 🎂 Anno di nascita          │
-│ [_____]                     │
-└─────────────────────────────┘
-
-[Salta questo step →]
-```
-*Salvataggio in: body_metrics + onboarding_answers*
-
-### Step 9: Abitudini da Sviluppare (Suggerite + Griglia)
-**Tipo**: Suggerimenti AI + Grid
-```
-"Quali abitudini vuoi sviluppare?"
-
-✨ Suggerite per te:
-[💧 Acqua] [🧘 Meditazione] [😴 Sonno]
-
-Tutte le abitudini:
-[Grid completa esistente]
-```
-*Riutilizza HabitsSelectionStep migliorato*
-
-### Step 10: Loading Animato "Analisi"
-**Tipo**: Animazione gamificata
-```
-[Cerchio che si riempie]
-✓ Analisi profilo completata
-✓ Obiettivi identificati
-✓ Piano personalizzato creato
-✓ Dashboard pronta!
-```
-
-### Step 11: Risultato + CTA
-**Tipo**: Celebrazione
-```
-🎉 Sei pronto!
-Dashboard personalizzata per:
-• Gestione Ansia
-• Qualità Sonno
-• [altri obiettivi]
-
-[Inizia il tuo percorso →]
+```text
+                    ┌──────────────────┐
+                    │     HOME         │
+                    │   Check-in       │
+                    │   (4-8 box)      │
+                    └────────┬─────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         ▼                   ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│  Vitali/Psico   │  │  Habits Manua.  │  │   Obiettivi     │
+│  (mood, ansia)  │  │  (acqua, medita)│  │  (peso oggi)    │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             ▼
+                    ┌──────────────────┐
+                    │   daily_*        │
+                    │   tables DB      │
+                    └──────────────────┘
 ```
 
 ---
 
-## Nuovi Componenti da Creare
+## Nuova Struttura Pagina Obiettivi
 
-| File | Descrizione |
-|------|-------------|
-| `src/components/onboarding/WelcomeStep.tsx` | Intro animata con Aria |
-| `src/components/onboarding/NameInputStep.tsx` | Input nome con animazione |
-| `src/components/onboarding/ChipGridStep.tsx` | Griglia chip multi-selezione riutilizzabile |
-| `src/components/onboarding/VicesStep.tsx` | Step vizi con chip selezionabili |
-| `src/components/onboarding/LifestyleStep.tsx` | Step stile di vita |
-| `src/components/onboarding/PhysicalDataStep.tsx` | Input peso, altezza, anno nascita |
-| `src/components/onboarding/ProgressBadge.tsx` | Badge animato che appare al completamento step |
+### Tab Layout
 
-## File da Modificare
+```text
+┌─────────────────────────────────────────┐
+│           I Tuoi Progressi              │
+├─────────────────────────────────────────┤
+│  [🎯 Traguardi]  [📊 Daily Tracker]     │
+├─────────────────────────────────────────┤
+│                                         │
+│  ╔═══════════════════════════════════╗  │
+│  ║  TAB TRAGUARDI:                   ║  │
+│  ║  - Obiettivi con deadline         ║  │
+│  ║  - Progress bar verso target      ║  │
+│  ║  - AI feedback                    ║  │
+│  ╚═══════════════════════════════════╝  │
+│                                         │
+│  ╔═══════════════════════════════════╗  │
+│  ║  TAB DAILY TRACKER:               ║  │
+│  ║  - Habits giornaliere             ║  │
+│  ║  - Streak counter                 ║  │
+│  ║  - Quick log inline               ║  │
+│  ╚═══════════════════════════════════╝  │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Integrazione Check-in Unificato
+
+### Principio: Un Solo Punto di Inserimento
+
+L'utente NON deve inserire dati in posti diversi. Il **Check-in della Home** e l'unico punto di ingresso:
+
+```text
+HOME CHECK-IN (4 box prioritari)
+┌────────┬────────┬────────┬────────┐
+│ 😊     │ 💧     │ ⚖️     │ 🧘     │
+│ Umore  │ Acqua  │ Peso   │ Medita │
+└────────┴────────┴────────┴────────┘
+     │        │        │        │
+     ▼        ▼        ▼        ▼
+  daily_   daily_   body_    daily_
+  checkins habits   metrics  habits
+```
+
+### Logica di Priorita AI
+
+L'AI seleziona i 4-8 box giornalieri in base a:
+1. **Obiettivi attivi** (peso se ha obiettivo peso)
+2. **Habits attive** (acqua se traccia acqua)
+3. **Parametri vitali** (mood sempre)
+4. **Aree vita** (lavoro se focus lavoro)
+
+---
+
+## Modifiche Database
+
+### Nuovi Campi `user_habits_config`
+
+```sql
+ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
+  data_source TEXT DEFAULT 'manual'; 
+  -- 'manual', 'apple_health', 'google_fit'
+  
+ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
+  auto_sync_enabled BOOLEAN DEFAULT false;
+  
+ALTER TABLE user_habits_config ADD COLUMN IF NOT EXISTS
+  last_auto_sync_at TIMESTAMPTZ;
+```
+
+### Mapping Habits Automatiche
+
+```typescript
+const AUTO_SYNC_HABITS = {
+  steps: {
+    sources: ['apple_health', 'google_fit'],
+    permission: 'health_data',
+    syncInterval: 'hourly',
+  },
+  sleep: {
+    sources: ['apple_health', 'google_fit'],
+    permission: 'health_data',
+    syncInterval: 'daily',
+  },
+  // Future: heart_rate, calories_burned
+};
+```
+
+---
+
+## Componenti da Modificare/Creare
+
+### File da Eliminare
+| File | Motivo |
+|------|--------|
+| `src/pages/Habits.tsx` | Unificata in Objectives |
+| `/habits` route | Rimossa |
+
+### File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Onboarding.tsx` | Ristrutturazione completa con nuovi step |
-| `src/components/onboarding/OnboardingLayout.tsx` | Progress bar gamificata con icone step |
-| `src/components/onboarding/QuizStep.tsx` | Migliorare animazioni, aggiungere feedback haptic |
-| `src/components/onboarding/EmojiSlider.tsx` | Animazioni più fluide, feedback visivo |
-| `src/components/onboarding/HabitsSelectionStep.tsx` | Design compatto, suggerimenti prominenti |
-| `src/components/onboarding/AnalyzingScreen.tsx` | Animazioni piu coinvolgenti |
-| `src/components/onboarding/ResultScreen.tsx` | Celebrazione piu elaborata |
+| `src/pages/Objectives.tsx` | Aggiungere tab system con Habits |
+| `src/components/layout/BottomNav.tsx` | Rimuovere link /habits, rinominare tab |
+| `src/App.tsx` | Rimuovere route /habits |
+| `src/components/habits/HabitCard.tsx` | Cambiare "Obiettivo raggiunto" → "Completato oggi ✓" |
+| `src/components/habits/HabitTrackerSection.tsx` | Mostrare solo top 4 habits in Home |
+| `src/hooks/usePersonalizedCheckins.tsx` | Integrare habits nel sistema check-in |
+
+### File da Creare
+
+| File | Descrizione |
+|------|-------------|
+| `src/components/objectives/ObjectivesTabContent.tsx` | Tab traguardi |
+| `src/components/objectives/DailyTrackerTabContent.tsx` | Tab habits giornaliere |
+| `src/components/objectives/UnifiedProgressPage.tsx` | Container con tabs |
+| `src/hooks/useHealthPermissions.tsx` | Gestione permessi Health (future) |
 
 ---
 
-## Logica Dati e Salvataggio
+## Nuova UX Home
 
-### Struttura onboarding_answers aggiornata
+### Sezione Check-in Migliorata
+
+```text
+┌─────────────────────────────────────────┐
+│ ✨ Check-in                    2 fatti │
+├─────────────────────────────────────────┤
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐    │
+│ │ 😊      │ │ 💧      │ │ ⚖️      │ ...│
+│ │ Umore   │ │ Acqua   │ │ Peso    │    │
+│ └─────────┘ └─────────┘ └─────────┘    │
+└─────────────────────────────────────────┘
+
+Sotto: 
+┌─────────────────────────────────────────┐
+│ 📊 Le Tue Habits              Vedi →   │
+├─────────────────────────────────────────┤
+│ Solo habits NON nel check-in:           │
+│ (es. tracker automatici come passi)     │
+└─────────────────────────────────────────┘
+```
+
+### Logica di Visualizzazione Home
+
+1. **Check-in box**: Mostra elementi che richiedono input manuale oggi
+2. **Habits section** (sotto): Mostra solo tracker automatici o habits gia completate
+3. **Se tutti completati**: Check-in sparisce, mostra riassunto
+
+---
+
+## Flusso Inserimento Dati
+
+### Prima (Confuso)
+```
+Utente vuole registrare acqua:
+  ├── Opzione 1: Home → Check-in → Acqua (se presente)
+  ├── Opzione 2: Home → Habits Section → Acqua card → +
+  └── Opzione 3: /habits → Acqua card → +
+```
+
+### Dopo (Unificato)
+```
+Utente vuole registrare acqua:
+  └── Home → Check-in → Acqua (sempre presente se attivo)
+      └── Click → Input valore → Salva
+          └── Aggiorna daily_habits + invalida query
+```
+
+---
+
+## Gestione Habits Automatiche (Future)
+
+### Step 1: UI Preparatoria (Ora)
 ```typescript
-interface OnboardingAnswers {
-  // Step 2
-  name: string;
-  
-  // Step 3  
-  primaryGoals: string[];
-  
-  // Step 4
-  lifeSituation: string;
-  
-  // Step 5
-  currentMood: number; // 0-4
-  
-  // Step 6 - NUOVO
-  vices: string[]; // ['smoking', 'alcohol', 'caffeine', ...]
-  
-  // Step 7 - NUOVO
-  lifestyle: string[]; // ['active', 'meditation', 'sleep_issues', ...]
-  
-  // Step 8 - NUOVO
-  physicalData: {
-    weight?: number;
-    height?: number;
-    birthYear?: number;
-  };
-  
-  // Step 9
-  selectedHabits: string[];
+// In HabitTrackerSection
+if (habit.data_source !== 'manual') {
+  return (
+    <div className="opacity-60">
+      <span>🔄 {habit.todayValue} passi</span>
+      <span className="text-xs">Sincronizzato</span>
+    </div>
+  );
 }
 ```
 
-### Azioni automatiche post-onboarding
-
-1. **Salva nome** in `user_profiles.name`
-2. **Crea record peso** in `body_metrics` se fornito
-3. **Crea habits** per vizi selezionati (smoking, alcohol, etc.) con streakType: 'abstain'
-4. **Crea habits** per abitudini selezionate
-5. **Configura dashboard** basata su obiettivi
-6. **Salva tutto** in `onboarding_answers` per riferimento AI
+### Step 2: Integrazione Health (Post-Capacitor)
+```typescript
+// useHealthPermissions.tsx
+const requestHealthPermission = async () => {
+  // Solo dopo conversione nativa con Capacitor
+  // Usa plugin: @nicwehrli/capacitor-healthkit
+};
+```
 
 ---
 
-## Gamification Elements
+## Rinomina e Differenziazione
 
-### 1. Progress Bar Evoluta
-```
-Step 1   2   3   4   5   6   7   8   9   10
-  ●───●───●───○───○───○───○───○───○───○
-        "Ottimo inizio!"
-```
+### Vecchio → Nuovo
 
-### 2. Micro-animazioni
-- **Selezione card**: Scale up + glow + check animato
-- **Completamento step**: Confetti mini + suono haptic
-- **Emoji slider**: L'emoji selezionata "balla"
-- **Input completato**: Check verde animato
+| Vecchio | Nuovo |
+|---------|-------|
+| "Obiettivo raggiunto!" (habits) | "Completato oggi ✓" |
+| "Habits" (nav) | Rimosso |
+| "Obiettivi" (nav) | "Progressi" |
+| Progress bar habits | Circular progress o barra diversa |
 
-### 3. Messaggi di Incoraggiamento
-- Step 3: "Fantastico! Adesso so cosa e importante per te"
-- Step 6: "Nessun giudizio, solo supporto"
-- Step 8: "Questi dati aiuteranno Aria a darti consigli piu precisi"
-- Step 10: "Ci siamo quasi!"
+### Stile Visivo Differenziato
 
-### 4. Skip Intelligente
-- Domande sensibili hanno sempre "Preferisco non rispondere"
-- Skip non penalizza l'esperienza
-
----
-
-## Design Specifiche
-
-### Card Chip (Vizi/Lifestyle)
-```css
-/* Non selezionato */
-.chip {
-  background: var(--card);
-  border: 2px solid transparent;
-  border-radius: 1rem;
-  padding: 0.75rem 1.25rem;
-  font-size: 0.9rem;
-}
-
-/* Selezionato */
-.chip-selected {
-  background: var(--primary) / 10%;
-  border-color: var(--primary);
-  transform: scale(1.02);
-}
-```
-
-### Input Numerico (Peso/Altezza)
-```css
-.numeric-input {
-  background: var(--card);
-  border-radius: 1rem;
-  padding: 1rem;
-  font-size: 1.5rem;
-  text-align: center;
-  width: 100%;
-}
-```
+| Elemento | Habits | Obiettivi |
+|----------|--------|-----------|
+| Icona completamento | ✓ checkmark | 🎉 celebration |
+| Colore progress | Blue/Primary | Gradient emerald |
+| Streak badge | 🔥 fiamma | N/A |
+| Reset | Ogni giorno | Mai |
 
 ---
 
 ## Sequenza Implementazione
 
-1. **Creare componenti base**
-   - WelcomeStep
-   - NameInputStep  
-   - ChipGridStep (riutilizzabile)
+### Fase 1: Ristrutturazione Base
+1. Modificare `HabitCard.tsx` - cambiare testo completamento
+2. Creare `DailyTrackerTabContent.tsx` 
+3. Creare `ObjectivesTabContent.tsx`
+4. Modificare `Objectives.tsx` con tab system
 
-2. **Creare step specifici**
-   - VicesStep
-   - LifestyleStep
-   - PhysicalDataStep
+### Fase 2: Unificazione Check-in
+5. Modificare `usePersonalizedCheckins.tsx` - integrare habits attive
+6. Modificare `SmartCheckinSection.tsx` - supporto habits
+7. Aggiornare edge function `ai-checkins` - includere habits nella priorita
 
-3. **Migliorare componenti esistenti**
-   - QuizStep (animazioni)
-   - EmojiSlider (feedback)
-   - HabitsSelectionStep (compact)
+### Fase 3: Cleanup
+8. Rimuovere `/habits` route da `App.tsx`
+9. Rimuovere `Habits.tsx`
+10. Aggiornare `BottomNav.tsx` - rimuovere habits, rinominare Obiettivi
 
-4. **Ristrutturare Onboarding.tsx**
-   - Nuovo flow 10 step
-   - Logica salvataggio estesa
-
-5. **Aggiornare AnalyzingScreen e ResultScreen**
-   - Animazioni celebrative
-   - Riepilogo personalizzato
-
-6. **Test e Polish**
-   - Animazioni fluide
-   - Gestione errori
-   - Accessibilita
-
----
-
-## Stima Tempo
-
-| Fase | Tempo |
-|------|-------|
-| Componenti base | 15 min |
-| Step specifici | 20 min |
-| Miglioramenti esistenti | 15 min |
-| Onboarding.tsx | 20 min |
-| Animazioni/Polish | 15 min |
-| **Totale** | **~85 min** |
+### Fase 4: Polish
+11. Aggiungere colonne DB per data_source
+12. Preparare UI per habits automatiche (placeholder)
+13. Test e refinement
 
 ---
 
 ## Risultato Finale
 
-L'utente completera il quiz in **~3 minuti** con un'esperienza:
-- Visivamente accattivante e moderna
-- Intuitiva (niente da "capire")
-- Completa (raccoglie dati psicologici + fisici + abitudini)
-- Rispettosa della privacy (skip sempre disponibile)
-- Divertente (sembra un gioco, non un questionario medico)
+### Esperienza Utente Semplificata
 
-Aria avra accesso a:
-- Nome utente
-- Obiettivi principali
-- Sfide attuali
-- Stato emotivo iniziale
-- Vizi da monitorare
-- Stile di vita
-- Dati fisici base (se forniti)
-- Abitudini da tracciare
+1. **Home**: Check-in unico per TUTTO (mood, habits, obiettivi con misura)
+2. **Progressi page**: Due tab chiare
+   - 🎯 Traguardi: obiettivi a lungo termine
+   - 📊 Daily: habits giornaliere con streak
+3. **Nessuna confusione**: 
+   - Habits = azioni ricorrenti → "Completato oggi"
+   - Obiettivi = milestone → "Raggiunto!"
+
+### Vantaggi
+
+- Un solo punto di inserimento dati
+- Distinzione chiara habits vs obiettivi
+- Preparazione per sync automatico Health
+- Meno pagine = meno confusione
+- AI puo mixare habits e obiettivi nel check-in giornaliero
+
