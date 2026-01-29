@@ -1,232 +1,449 @@
 
-# Piano: Definizione Colori + Estensione Liquid Glass 2026 a Tutta l'App
+# Piano: Ristrutturazione Habits + Architettura Dati Unificata al "Cervello"
 
-## Decisioni Cromatiche
+## Analisi del Problema Attuale
 
-Basandomi sulle tue scelte:
-- **Mood Generale**: Gradient dinamico (colori che cambiano)
-- **Identità Aria**: Gradient esclusivo (distinto dall'app)
+### Problemi Identificati nelle Habits
+
+1. **Input Method Non Intelligente**
+   - Tutte le habits usano +/- indiscriminatamente
+   - "Tempo con altri" chiede di incrementare minuti manualmente → assurdo
+   - Nessuna differenziazione per tipo di dato
+
+2. **Habits Poco Sensate per Categoria**
+   - `social_time`: "30 minuti" come target giornaliero con +/- è innaturale
+   - `steps`: dovrebbe essere auto-sync, non manuale
+   - `weight`: dovrebbe essere numerico diretto, non +/-
+   - `sleep`: ore con decimali, non +/-
+
+3. **Mancanza di Input Methods Intelligenti**
+   - Non esistono: toggle (sì/no), input numerico diretto, sincronizzazione automatica
+   - Tutto è ricondotto a +/- o slider
+
+4. **Nessuna Integrazione con Dati Esterni**
+   - Predisposizione DB esiste (`data_source`, `auto_sync_enabled`) ma mai implementata
+   - Nessun collegamento con Apple Health / Google Fit / wearables
 
 ---
 
-## Proposta Palette Colori 2026
+## Architettura Dati Attuale vs. Obiettivo
 
-### 1. Base App - "Ambient Wellness"
+### Flussi Dati ATTUALI (Già Collegati al Cervello ✅)
+```
+                    ┌─────────────────────────────────────┐
+                    │         UNIFIED BRAIN              │
+                    │    (process-session Edge Fn)       │
+                    └─────────────────────────────────────┘
+                              ▲        ▲        ▲
+                              │        │        │
+              ┌───────────────┼────────┼────────┼───────────────┐
+              │               │        │        │               │
+        ╔═══════════╗   ╔══════════╗   ╔═══════════╗   ╔═══════════╗
+        ║ Sessions  ║   ║ Diaries  ║   ║ Check-ins ║   ║ Real-Time ║
+        ║ (Chat/    ║   ║ Tematici ║   ║ (Home)    ║   ║ Context   ║
+        ║  Voice)   ║   ╚══════════╝   ╚═══════════╝   ║ (Meteo/   ║
+        ╚═══════════╝                                   ║ News/Loc) ║
+              │               │              │         ╚═══════════╝
+              ▼               ▼              ▼               │
+        ┌─────────────────────────────────────┐              │
+        │    Tabelle Unificate (daily_*)      │◄─────────────┘
+        │ - daily_emotions                    │
+        │ - daily_life_areas                  │
+        │ - daily_psychology                  │
+        │ - sessions                          │
+        └─────────────────────────────────────┘
+```
 
-Un sistema di colori che cambia leggermente in base al wellness_score dell'utente:
-
-| Stato | Gradient Background | Primary Accent |
-|-------|---------------------|----------------|
-| Positivo (score 7-10) | Sage → Teal → Cyan | Emerald |
-| Neutro (score 4-6) | Sand → Amber → Peach | Golden |
-| Supportivo (score 1-3) | Lavender → Rose → Blush | Soft Pink |
-
-**Default/Generale**: Sage Green → Teal → Soft Blue
-- Calmo, naturale, tech-forward
-- HSL: `155° → 175° → 200°`
-
-### 2. Aria - "Aurora Gradient"
-
-Gradient esclusivo viola/indigo che distingue l'IA:
-- **Amethyst** `#9B6FD0` → **Indigo** `#6366F1` → **Violet** `#A78BFA`
-- Usato per: pulsante Aria nella navbar, sessioni chat/voice, elementi AI-driven
-- Trasmette: intelligenza, mistero, profondità
-
-### 3. Token CSS Proposti
-
-```css
-/* Gradient dinamico app - cambia con mood */
---gradient-ambient-positive: linear-gradient(135deg, 
-  hsl(155 40% 92%), 
-  hsl(175 35% 90%), 
-  hsl(200 30% 92%));
-
---gradient-ambient-neutral: linear-gradient(135deg, 
-  hsl(45 50% 92%), 
-  hsl(35 45% 90%), 
-  hsl(25 40% 92%));
-
---gradient-ambient-supportive: linear-gradient(135deg, 
-  hsl(280 35% 93%), 
-  hsl(340 30% 92%), 
-  hsl(350 35% 94%));
-
-/* Aria exclusive gradient */
---gradient-aria: linear-gradient(135deg, 
-  hsl(270 60% 65%), 
-  hsl(240 80% 65%), 
-  hsl(280 70% 70%));
-
---gradient-aria-subtle: linear-gradient(135deg, 
-  hsl(270 40% 95%), 
-  hsl(250 35% 93%), 
-  hsl(280 30% 95%));
+### Flussi Dati MANCANTI (Da Collegare ❌)
+```
+    ╔═══════════════════════════════════╗
+    ║     DATI NON COLLEGATI AL         ║
+    ║     CERVELLO ATTUALMENTE          ║
+    ╠═══════════════════════════════════╣
+    ║ • daily_habits (abitudini)        ║  ← Non elaborati da AI
+    ║ • body_metrics (peso, sonno)      ║  ← Non elaborati da AI
+    ║ • user_objectives (progressi)     ║  ← Parzialmente collegati
+    ║ • External APIs (Health/Fit)      ║  ← Non esistono
+    ╚═══════════════════════════════════╝
 ```
 
 ---
 
-## Pagine da Aggiornare
+## Soluzione Strutturale: Input Methods Intelligenti
 
-### 1. Analisi.tsx (Pagina Corrente)
-**Stato attuale**: Header basic, card senza glass, time selector piatto
+### Nuovo Sistema di Input per Habits
 
-**Aggiornamenti**:
-- Header con gradient mesh sottile
-- `TimeRangeSelector` → convertire a `PillTabs` style (già creato)
-- `VitalMetricCard` → glass surface con AnimatedRing
-- Sezioni con glass-card invece di bg-card
-- AI badge con glow animato
+Ogni habit deve avere un `inputMethod` appropriato:
 
-### 2. Aria.tsx
-**Stato attuale**: Box colorati ma statici, no glass
+| Input Method | Uso | Esempio |
+|--------------|-----|---------|
+| `toggle` | Sì/No binario | "Hai meditato oggi?", "Hai preso le vitamine?" |
+| `numeric` | Valore diretto | "Quanto pesi?", "Ore dormite?" |
+| `counter` | +/- con target | "Bicchieri d'acqua" (0→8) |
+| `abstain` | Obiettivo zero | "Sigarette fumate" (0 = successo) |
+| `timer` | Avvio/Stop tempo | "Tempo meditazione" |
+| `auto_sync` | Da fonte esterna | "Passi" (da Apple Health) |
 
-**Aggiornamenti**:
-- Box "Scrivi/Parla con Aria" → glass-card con gradient-aria
-- Sezione Diari → Bento grid layout
-- Cronologia → card glass con hover effects
-- Pulsante centrale "Aria" nella navbar → breathing animation con gradient-aria
+### Libreria Habits Ristrutturata (40+ habits)
 
-### 3. Profile.tsx
-**Stato attuale**: Card bianche uniformi
+**FITNESS - Con Input Intelligente**
+```typescript
+steps: { 
+  inputMethod: 'auto_sync',  // ← Da Health app
+  fallbackMethod: 'numeric', // ← Manuale se no permessi
+  label: 'Passi',
+  unit: 'passi',
+  defaultTarget: 10000,
+  autoSyncSource: 'health_kit|google_fit'
+}
 
-**Aggiornamenti**:
-- Header profilo → glass-card hero con avatar glow
-- Badge utente → pill con gradient (Plus = golden, Free = glass)
-- Settings menu → glass-card con hover glow
-- Stats row → micro-cards con AnimatedRing
+exercise: {
+  inputMethod: 'timer',  // ← Avvia/ferma cronometro
+  label: 'Esercizio',
+  unit: 'min',
+  defaultTarget: 30
+}
+```
 
-### 4. Sessions.tsx
-- Card sessioni → glass con gradient border
-- Emotion tags → pills con glow contestuale
+**HEALTH - Valori Numerici Diretti**
+```typescript
+sleep: {
+  inputMethod: 'numeric',  // ← Input ore diretto (es. 7.5)
+  label: 'Ore Sonno',
+  unit: 'ore',
+  defaultTarget: 8,
+  step: 0.5,  // incrementi di mezz'ora
+  min: 0,
+  max: 14
+}
 
-### 5. Chat.tsx
-- Bubble Aria → gradient-aria background
-- Input → glass-card con focus glow
+weight: {
+  inputMethod: 'numeric',
+  label: 'Peso',
+  unit: 'kg',
+  defaultTarget: null,  // no target giornaliero
+  syncToObjective: true  // collega automaticamente a obiettivi body
+}
+```
 
-### 6. Componenti Analisi da aggiornare
-- `TimeRangeSelector` → PillTabs style
-- `VitalMetricCard` → glass + AnimatedRing
-- `EmotionalMixBar` → glass container
-- `LifeBalanceRadar` → glass-card
-- `DeepPsychologyCard` → accordion glass
+**SOCIAL - Toggle e Contatori**
+```typescript
+social_interaction: {
+  inputMethod: 'toggle',  // ← "Hai socializzato oggi?" Sì/No
+  label: 'Interazione Sociale',
+  question: 'Hai trascorso tempo con qualcuno oggi?'
+}
+
+call_friend: {
+  inputMethod: 'counter',  // ← +1 ogni chiamata
+  label: 'Chiamate',
+  unit: 'chiamate',
+  defaultTarget: 1
+}
+```
+
+**BAD HABITS - Astinenza con Celebrazione**
+```typescript
+cigarettes: {
+  inputMethod: 'abstain',  // ← Default 0, bottone "Ho fumato" se slip
+  label: 'Sigarette',
+  unit: 'sigarette',
+  defaultTarget: 0,
+  streakCelebration: true  // Mostra "🔥 7 giorni senza!" 
+}
+```
+
+---
+
+## Nuova Architettura: Tutto al Cervello
+
+### Fase 1: Habits → Cervello
+
+Creare edge function `sync-habits-to-brain` che:
+1. Legge `daily_habits` dell'utente
+2. Traduce in metriche comprensibili dall'AI
+3. Salva in formato processabile (o invia a `process-session`)
+
+```typescript
+// Mapping habits → metriche cervello
+const HABITS_TO_BRAIN_METRICS = {
+  sleep: { type: 'vital', metric: 'sleep_quality' },
+  water: { type: 'health', metric: 'hydration' },
+  exercise: { type: 'health', metric: 'physical_activity' },
+  meditation: { type: 'psychology', metric: 'mindfulness_practice' },
+  cigarettes: { type: 'behavior', metric: 'smoking_status' },
+  steps: { type: 'fitness', metric: 'daily_activity' }
+};
+```
+
+### Fase 2: External Data Sources
+
+1. **Apple Health (HealthKit)** - Richiede app nativa (Phase B)
+   - Passi, battito cardiaco, sonno, calorie
+
+2. **Google Fit** - Richiede app nativa (Phase B)
+   - Stesso set di dati
+
+3. **Web-Based Fallback** (Phase A - ORA)
+   - Input manuale intelligente
+   - Importazione CSV da export Health
+   - Integrazione Strava/Garmin via OAuth (futuro)
+
+### Fase 3: Unified Data Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNIFIED DATA HUB                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
+│  │ Sessions │ │ Diaries  │ │ Check-in │ │ External Sources │   │
+│  │ (Chat/   │ │ Tematici │ │ (Home)   │ │ • Health Apps    │   │
+│  │  Voice)  │ │          │ │          │ │ • Wearables      │   │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ │ • Manual Entry   │   │
+│       │            │            │       └────────┬─────────┘   │
+│       │            │            │                │             │
+│       ▼            ▼            ▼                ▼             │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              UNIFIED INGESTION LAYER                    │   │
+│  │  • Normalizza tutti i dati a formato comune             │   │
+│  │  • Tagga con timestamp, source, reliability_score       │   │
+│  │  • Deduplica (es. sonno da check-in E da Health)        │   │
+│  └─────────────────────────────┬───────────────────────────┘   │
+│                                │                               │
+│                                ▼                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                  AI BRAIN (process-session)             │   │
+│  │  • Analizza TUTTI i dati unificati                      │   │
+│  │  • Genera insights cross-category                       │   │
+│  │  • Aggiorna objectives progress                         │   │
+│  │  • Rileva pattern (es. "dormi poco = mood basso")       │   │
+│  └─────────────────────────────┬───────────────────────────┘   │
+│                                │                               │
+│                                ▼                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    OUTPUT LAYERS                         │   │
+│  │  • Dashboard metrics (ai_dashboard_cache)                │   │
+│  │  • Radar chart life areas                                │   │
+│  │  • Objectives progress                                   │   │
+│  │  • Flash insights                                        │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Implementazione Tecnica
 
-### Fase 1: Token Colori (index.css)
+### File da Modificare/Creare
 
-Nuove variabili per gradients dinamici:
-```css
-/* Ambient gradients - mood responsive */
---gradient-ambient: var(--gradient-ambient-positive);
+**1. Ristrutturazione HABIT_TYPES** (`src/hooks/useHabits.tsx`)
 
-/* Aria identity */
---gradient-aria: linear-gradient(135deg, #9B6FD0, #6366F1, #A78BFA);
---aria-glow: 0 0 30px rgba(99, 102, 241, 0.3);
+Aggiungere `inputMethod` a ogni habit con logica intelligente:
 
-/* Updated primary - slightly more vibrant */
---primary: 160 50% 40%;
---primary-rgb: 64, 153, 128;
+```typescript
+export type InputMethod = 
+  | 'toggle'      // Sì/No
+  | 'numeric'     // Input diretto (peso, ore sonno)
+  | 'counter'     // +/- con target (bicchieri acqua)
+  | 'abstain'     // Goal = 0 (sigarette)
+  | 'timer'       // Cronometro
+  | 'auto_sync';  // Da fonte esterna
+
+export interface HabitMeta {
+  label: string;
+  icon: string;
+  unit: string;
+  defaultTarget: number;
+  streakType: 'daily' | 'abstain';
+  category: HabitCategory;
+  description: string;
+  inputMethod: InputMethod;        // NUOVO
+  autoSyncSource?: string;         // NUOVO
+  fallbackMethod?: InputMethod;    // NUOVO
+  step?: number;                   // Per numeric (es. 0.5 ore)
+  min?: number;                    // Validazione
+  max?: number;                    // Validazione
+  question?: string;               // Per toggle (domanda)
+  syncToObjective?: boolean;       // Collega a obiettivi
+}
 ```
 
-### Fase 2: BottomNav Enhancement
+**2. Nuovo HabitCard Intelligente** (`src/components/habits/HabitCard.tsx`)
 
-- Pulsante Aria centrale con `gradient-aria` e `animate-breathe`
-- Glow viola on hover/active
-- Active indicator che usa gradient dinamico
+Renderizza UI diversa in base a `inputMethod`:
 
-### Fase 3: Analisi Page Modernization
+- `toggle` → Switch grande con testo "Sì/No"
+- `numeric` → Input campo numerico con unità
+- `counter` → +/- con display centrale
+- `abstain` → Grande check "✓ Oggi OK" + pulsante "Ho ceduto"
+- `timer` → Play/Pause con contatore
 
-- `TimeRangeSelector.tsx` → rifatto con PillTabs style già esistente
-- `VitalMetricCard.tsx` → glass-surface + AnimatedRing + chart glow
-- Header con gradient mesh
-- Sezioni con staggered animation
+**3. Edge Function Habits Sync** (`supabase/functions/sync-habits-to-brain/index.ts`)
 
-### Fase 4: Aria Page Modernization
+Nuova funzione che:
+1. Raccoglie `daily_habits` del giorno
+2. Li converte in formato compatibile con il cervello
+3. Aggiorna `daily_psychology`, `body_metrics`, o tabelle appropriate
+4. Triggera refresh degli insights
 
-- Hero boxes con glass + gradient-aria
-- Diaries in Bento grid
-- Session cards con glass effect
+**4. Modifiche a process-session** (`supabase/functions/process-session/index.ts`)
 
-### Fase 5: Profile Page Modernization
+Aggiungere sezione che legge anche:
+- `daily_habits` per contesto comportamentale
+- `body_metrics` per dati fisici
+- Correla con stato emotivo
 
-- Hero card glass con inner glow
-- Settings menu con glass-card
-- Badge gradient animato per Plus users
+**5. Database Migration**
 
-### Fase 6: Global Components
+Aggiungere colonne a `user_habits_config`:
+```sql
+ALTER TABLE user_habits_config 
+ADD COLUMN input_method text DEFAULT 'counter',
+ADD COLUMN sync_source text,
+ADD COLUMN last_external_value numeric;
+```
 
-- `EmotionalMixBar` → glass container
-- `LifeBalanceRadar` → glass-card wrapping
-- Tutti i Chart → glow on data points
-- Loading states → shimmer con gradient
+### Lista Habits Definitiva (40+)
+
+**FITNESS (8 habits)**
+- `steps` - Passi (auto_sync/numeric)
+- `exercise` - Esercizio (timer)
+- `stretching` - Stretching (timer)
+- `strength` - Pesi (timer)
+- `cardio` - Cardio (timer)
+- `yoga` - Yoga (timer)
+- `swimming` - Nuoto (numeric minuti)
+- `cycling` - Ciclismo (numeric km)
+
+**HEALTH (8 habits)**
+- `sleep` - Ore sonno (numeric)
+- `water` - Acqua litri (counter con step 0.25)
+- `weight` - Peso (numeric, sync to objectives)
+- `heart_rate` - Battito (auto_sync/numeric)
+- `vitamins` - Vitamine (toggle)
+- `medication` - Farmaci (toggle)
+- `sunlight` - Sole 15min (toggle)
+- `doctor_visit` - Visite mediche (toggle)
+
+**MENTAL (8 habits)**
+- `meditation` - Meditazione (timer)
+- `journaling` - Diario (toggle - "Hai scritto?")
+- `breathing` - Respirazione (timer)
+- `gratitude` - Gratitudine (counter 1-3 cose)
+- `therapy` - Terapia (toggle)
+- `mindfulness` - Mindfulness (timer)
+- `affirmations` - Affermazioni (toggle)
+- `digital_detox` - No smartphone (toggle)
+
+**NUTRITION (6 habits)**
+- `healthy_meals` - Pasti sani (counter)
+- `no_junk_food` - No cibo spazzatura (abstain)
+- `fruits_veggies` - Frutta/verdura (counter porzioni)
+- `meal_prep` - Pasti preparati (toggle)
+- `no_sugar` - No zuccheri (abstain)
+- `intermittent_fasting` - Digiuno (toggle)
+
+**BAD_HABITS (6 habits)**
+- `cigarettes` - Sigarette (abstain)
+- `alcohol` - Alcol (abstain)
+- `caffeine` - Caffeina (counter max 2)
+- `social_media` - Social (timer max 60min)
+- `nail_biting` - Unghie (abstain)
+- `late_snacking` - Snack notturni (abstain)
+
+**PRODUCTIVITY (5 habits)**
+- `reading` - Lettura (timer)
+- `learning` - Studio (timer)
+- `deep_work` - Focus (timer)
+- `no_procrastination` - Task completati (counter)
+- `morning_routine` - Routine mattutina (toggle)
+
+**SOCIAL (5 habits)**
+- `social_interaction` - Socializzato? (toggle)
+- `call_loved_one` - Chiamata affetti (toggle)
+- `quality_time` - Tempo qualità (toggle)
+- `kindness` - Atto gentilezza (toggle)
+- `networking` - Networking (toggle)
+
+**SELF_CARE (5 habits)**
+- `skincare` - Skincare (toggle)
+- `hobby` - Hobby (timer)
+- `nature` - Natura (toggle)
+- `self_care_routine` - Self-care (toggle)
+- `creative_time` - Creatività (timer)
 
 ---
 
-## File da Modificare
+## Collegamento Completo al Cervello
 
-### Core Design System
-1. `src/index.css` - Nuovi token gradient e colori Aria
-2. `tailwind.config.ts` - Utilities per gradients
+### Dati che Arrivano al Cervello (DOPO questa implementazione)
 
-### Componenti Layout
-3. `src/components/layout/BottomNav.tsx` - Aria button gradient
-4. `src/components/layout/MobileLayout.tsx` - Mood-responsive background
+| Fonte | Tipo Dato | Frequenza | Già Collegato? |
+|-------|-----------|-----------|----------------|
+| Sessions (Chat) | Trascritto + Emozioni | Per sessione | ✅ |
+| Sessions (Voice) | Trascritto + Voce | Per sessione | ✅ |
+| Diari Tematici | Messaggi + Contesto | Continuo | ✅ |
+| Check-ins Home | Vitali + Emozioni | Giornaliero | ✅ |
+| Real-Time Context | Meteo/News/Posizione | Caching 2h | ✅ |
+| **Habits** | Comportamenti giornalieri | Giornaliero | ❌ → ✅ |
+| **Body Metrics** | Peso, Sonno, Battito | Giornaliero | ❌ → ✅ |
+| **External Health** | Steps, Sleep, Heart | Auto-sync | ❌ (Phase B) |
 
-### Pagina Analisi
-5. `src/pages/Analisi.tsx` - Glass layout
-6. `src/components/analisi/TimeRangeSelector.tsx` - PillTabs style
-7. `src/components/analisi/VitalMetricCard.tsx` - Glass + AnimatedRing
-8. `src/components/analisi/DeepPsychologyCard.tsx` - Glass accordion
-9. `src/components/analisi/LifeAreasCard.tsx` - Glass wrapper
+### Correlazioni che l'AI Potrà Fare
 
-### Pagina Aria
-10. `src/pages/Aria.tsx` - Full glass redesign
-11. `src/components/diary/DiaryNotebookCard.tsx` - Glass variant
+Con tutti i dati unificati, il cervello potrà:
 
-### Pagina Profile
-12. `src/pages/Profile.tsx` - Glass cards
-13. `src/components/profile/PremiumCard.tsx` - Gradient badge
-14. `src/components/profile/PointsProgressCard.tsx` - Glass + glow
+1. **Correlazione Sonno-Mood**
+   - "Quando dormi <6 ore, il tuo umore cala del 30% il giorno dopo"
 
-### Pagina Chat
-15. `src/components/chat/ChatBubble.tsx` - Aria gradient
+2. **Correlazione Esercizio-Ansia**
+   - "Nei giorni in cui fai esercizio, la tua ansia è 40% più bassa"
 
-### Shared Components
-16. `src/components/home/EmotionalMixBar.tsx` - Glass container
-17. `src/components/home/LifeBalanceRadar.tsx` - Glass card
+3. **Pattern Sigarette-Stress**
+   - "Fumi di più quando il lavoro va male (correlazione 0.7)"
+
+4. **Trend Peso-Obiettivo**
+   - "Stai guadagnando 0.3kg/settimana, a questo ritmo raggiungi l'obiettivo in 12 settimane"
 
 ---
 
-## Risultato Visivo Finale
+## Priorità Implementazione
 
-### Identità App
-- Background: Gradient mesh animato che cambia con il mood
-- Superfici: Liquid Glass con blur e luce interna
-- Accenti: Sage/Teal per elementi generali
+1. **FASE 1 - Input Methods** (Immediato)
+   - Aggiungere `inputMethod` a HABIT_TYPES
+   - Modificare HabitCard per renderizzare UI diversa
+   - Migliorare UX input
 
-### Identità Aria
-- Gradient esclusivo viola/indigo
-- Glow distintivo su tutti gli elementi AI
-- Animazione "breathing" sul pulsante centrale
-- Chat bubbles con gradiente leggero
+2. **FASE 2 - Habits → Cervello** (Dopo Fase 1)
+   - Edge function `sync-habits-to-brain`
+   - Integrazione in `process-session`
+   - Aggiornamento dashboard insights
 
-### Coerenza 2026
-- Ogni pagina usa glass-card
-- Animazioni spring su tutte le interazioni
-- Glow contestuali su stati active/focus
-- Typography bold con tracking stretto
+3. **FASE 3 - Body Metrics → Cervello** (Dopo Fase 2)
+   - Collegare `body_metrics` al processo
+   - Correlazioni peso/sonno
+
+4. **FASE 4 - External Sources** (Phase B - Post Native)
+   - Apple Health via Capacitor
+   - Google Fit via Capacitor
+   - Wearables API
 
 ---
 
-## Ordine di Implementazione
+## Note Tecniche
 
-1. **Token CSS** - Definire tutti i nuovi colori/gradients
-2. **BottomNav Aria** - Gradient esclusivo + breathing
-3. **Analisi completa** - Glass + modern selectors
-4. **Aria Hub** - Glass + gradient hero
-5. **Profile** - Glass settings menu
-6. **Chat bubbles** - Aria gradient
-7. **Testing cross-page** - Coerenza visiva
+**Performance**
+- Sync habits → brain eseguito 1x/giorno a mezzanotte Roma
+- Caching aggressivo per non rallentare UI
+- Batch processing per multiple habits
 
+**Accessibilità**
+- Input numerici con stepper accessibili
+- Toggle con etichette chiare
+- Feedback haptic su completamento
+
+**Retrocompatibilità**
+- Habits esistenti mantengono funzionamento
+- `inputMethod` fallback a 'counter' se non specificato
+- Migrazione graduale utenti esistenti
