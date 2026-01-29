@@ -15,7 +15,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology' | 'objective' | 'habit';
-export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric' | 'toggle' | 'abstain' | 'counter' | 'timer';
+export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric' | 'toggle' | 'abstain' | 'counter' | 'timer' | 'range';
 
 export interface CheckinItem {
   key: string;
@@ -60,6 +60,7 @@ export const responseTypeConfig = {
   abstain: { options: [], labels: [] },
   counter: { options: [], labels: [] },
   timer: { options: [], labels: [] },
+  range: { options: [], labels: [] }, // For preset range options
 };
 
 // ============================================

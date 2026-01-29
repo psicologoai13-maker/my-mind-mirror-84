@@ -13,6 +13,7 @@ import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { getHabitMeta, RangeOption } from '@/hooks/useHabits';
 
 // Get current date in Rome timezone
 function getRomeDateString(): string {
@@ -261,6 +262,26 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     }
   };
 
+  // Handle RANGE input (preset options like cigarettes)
+  const handleRangeSubmit = async (value: number, optionLabel: string) => {
+    if (!activeItem || isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        await saveHabitValue(activeItem.habitType, value);
+      }
+
+      completeCheckin(activeItem.key, value);
+      toast.success(value === 0 ? '🎉 Ottimo lavoro!' : `${activeItem.label}: ${optionLabel}`);
+      
+    } catch (error) {
+      console.error('Error saving range:', error);
+      toast.error('Errore nel salvataggio');
+      setIsSubmitting(false);
+    }
+  };
+
   // Handle NUMERIC input
   const handleNumericSubmit = async () => {
     if (!activeItem || isSubmitting || !numericValue) return;
@@ -452,6 +473,36 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               <CheckCircle2 className="w-5 h-5 mr-2" />
               Oggi OK!
             </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // RANGE - Preset options (cigarettes: 0, 1-5, 6-10...)
+    if (responseType === 'range') {
+      const habitMeta = activeItem.habitType ? getHabitMeta(activeItem.habitType) : null;
+      const rangeOptions: RangeOption[] = habitMeta?.rangeOptions || [];
+      
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm text-muted-foreground text-center">{activeItem.question}</p>
+          <div className="grid grid-cols-3 gap-2 w-full max-w-xs">
+            {rangeOptions.map((option) => (
+              <Button
+                key={option.value}
+                variant="outline"
+                size="lg"
+                onClick={() => handleRangeSubmit(option.value, option.label)}
+                disabled={isSubmitting}
+                className={cn(
+                  "h-14 rounded-2xl flex flex-col gap-0.5 border-2",
+                  option.value === 0 && "border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                )}
+              >
+                {option.emoji && <span className="text-lg">{option.emoji}</span>}
+                <span className="text-xs">{option.label}</span>
+              </Button>
+            ))}
           </div>
         </div>
       );

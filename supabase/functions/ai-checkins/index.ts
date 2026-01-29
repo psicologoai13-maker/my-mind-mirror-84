@@ -46,6 +46,9 @@ const HABIT_METADATA: Record<string, {
   unit?: string;
   defaultTarget?: number;
   step?: number;
+  requiresExternalSync?: boolean;
+  webFallback?: string;
+  rangeOptions?: { label: string; value: number; emoji?: string }[];
 }> = {
   // Toggle habits
   vitamins: { label: 'Vitamine', icon: '💊', inputMethod: 'toggle', question: 'Hai preso le vitamine?' },
@@ -65,8 +68,22 @@ const HABIT_METADATA: Record<string, {
   networking: { label: 'Networking', icon: '🤝', inputMethod: 'toggle', question: 'Fatto networking?' },
   doctor_visit: { label: 'Visita Medica', icon: '🏥', inputMethod: 'toggle', question: 'Visita medica fatta?' },
   
+  // Range habits (preset options)
+  cigarettes: { 
+    label: 'Sigarette', 
+    icon: '🚭', 
+    inputMethod: 'range', 
+    question: 'Quante sigarette hai fumato oggi?',
+    rangeOptions: [
+      { label: 'Nessuna', value: 0, emoji: '🎉' },
+      { label: '1-5', value: 3 },
+      { label: '6-10', value: 8 },
+      { label: '11-20', value: 15 },
+      { label: '20+', value: 25 },
+    ]
+  },
+  
   // Abstain habits
-  cigarettes: { label: 'Sigarette', icon: '🚭', inputMethod: 'abstain', question: 'Non hai fumato oggi?' },
   alcohol: { label: 'Alcol', icon: '🍷', inputMethod: 'abstain', question: 'Non hai bevuto alcolici?' },
   nail_biting: { label: 'Unghie', icon: '💅', inputMethod: 'abstain', question: 'Non ti sei mangiato le unghie?' },
   no_junk_food: { label: 'No Junk Food', icon: '🍔', inputMethod: 'abstain', question: 'Evitato cibo spazzatura?' },
@@ -84,14 +101,17 @@ const HABIT_METADATA: Record<string, {
   // Numeric habits
   sleep: { label: 'Ore Sonno', icon: '😴', inputMethod: 'numeric', unit: 'ore', defaultTarget: 8, step: 0.5 },
   weight: { label: 'Peso', icon: '⚖️', inputMethod: 'numeric', unit: 'kg', step: 0.1 },
-  steps: { label: 'Passi', icon: '👟', inputMethod: 'numeric', unit: 'passi', defaultTarget: 10000 },
-  social_media: { label: 'Social Media', icon: '📱', inputMethod: 'numeric', unit: 'min', defaultTarget: 60 },
   swimming: { label: 'Nuoto', icon: '🏊', inputMethod: 'numeric', unit: 'min', defaultTarget: 30 },
   cycling: { label: 'Ciclismo', icon: '🚴', inputMethod: 'numeric', unit: 'km', defaultTarget: 10 },
   deep_work: { label: 'Focus', icon: '🎯', inputMethod: 'numeric', unit: 'ore', defaultTarget: 4, step: 0.5 },
   
-  // Timer habits
-  exercise: { label: 'Esercizio', icon: '🏃', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
+  // External sync habits (hidden on web, shown only if webFallback exists)
+  steps: { label: 'Passi', icon: '👟', inputMethod: 'auto_sync', requiresExternalSync: true }, // No webFallback = hidden
+  heart_rate: { label: 'Battito', icon: '💓', inputMethod: 'auto_sync', requiresExternalSync: true }, // No webFallback = hidden
+  social_media: { label: 'Social Media', icon: '📱', inputMethod: 'auto_sync', requiresExternalSync: true }, // Needs Screen Time API
+  exercise: { label: 'Esercizio', icon: '🏃', inputMethod: 'toggle', question: 'Hai fatto esercizio oggi?', requiresExternalSync: true, webFallback: 'toggle' },
+  
+  // Timer habits (still available on web)
   stretching: { label: 'Stretching', icon: '🧘‍♂️', inputMethod: 'timer', unit: 'min', defaultTarget: 10 },
   strength: { label: 'Pesi', icon: '💪', inputMethod: 'timer', unit: 'min', defaultTarget: 45 },
   cardio: { label: 'Cardio', icon: '🫀', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
@@ -102,6 +122,35 @@ const HABIT_METADATA: Record<string, {
   reading: { label: 'Lettura', icon: '📚', inputMethod: 'timer', unit: 'min', defaultTarget: 20 },
   learning: { label: 'Studio', icon: '🎓', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
 };
+
+// Habit aliases for backward compatibility
+const HABIT_ALIASES: Record<string, string> = {
+  'social_time': 'social_media',
+  'new_connection': 'networking',
+  'no_smoking': 'cigarettes',
+  'no_nail_biting': 'nail_biting',
+  'no-smoking': 'cigarettes',
+  'no-nail-biting': 'nail_biting',
+  'smettere_fumare': 'cigarettes',
+};
+
+// Helper to resolve habit type with aliases
+function resolveHabitType(habitType: string): string {
+  return HABIT_ALIASES[habitType] || habitType;
+}
+
+// Check if habit should be shown on web
+function shouldShowHabitOnWeb(habitType: string): boolean {
+  const resolved = resolveHabitType(habitType);
+  const meta = HABIT_METADATA[resolved];
+  if (!meta) return false;
+  
+  // If requires external sync and has no web fallback, hide it
+  if (meta.requiresExternalSync && !meta.webFallback) {
+    return false;
+  }
+  return true;
+}
 
 // ============================================
 // OBJECTIVE INPUT METHOD MAPPING
@@ -251,27 +300,31 @@ serve(async (req) => {
 
     // 1. HABITS - Convert active habits to check-in items
     activeHabits.forEach((config: any) => {
-      const key = `habit_${config.habit_type}`;
+      const resolvedType = resolveHabitType(config.habit_type);
+      const key = `habit_${resolvedType}`;
       if (completedKeys.has(key)) return;
       
-      const meta = HABIT_METADATA[config.habit_type];
+      // Check if should show on web
+      if (!shouldShowHabitOnWeb(config.habit_type)) return;
+      
+      const meta = HABIT_METADATA[resolvedType];
       if (!meta) return;
       
-      // Skip auto_sync habits that need external data
-      if (meta.inputMethod === 'auto_sync') return;
+      // Determine effective input method (use webFallback if available)
+      const effectiveInputMethod = meta.webFallback || meta.inputMethod;
 
       allItems.push({
         key,
         label: meta.label,
         question: meta.question || `${meta.label}?`,
         type: 'habit',
-        responseType: meta.inputMethod, // toggle, abstain, counter, numeric, timer
-        habitType: config.habit_type,
+        responseType: effectiveInputMethod,
+        habitType: resolvedType,
         icon: meta.icon,
         unit: meta.unit || config.unit,
         target: config.daily_target || meta.defaultTarget,
         step: meta.step,
-        priority: 80, // Habits have high priority
+        priority: 80,
       });
     });
 
