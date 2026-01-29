@@ -90,9 +90,15 @@ export type HabitCategory =
 // COMPLETE HABIT LIBRARY (45+ habits)
 // With intelligent input methods
 // ============================================
+// ============================================
+// DATA SOURCE LEGEND:
+// - auto_sync + requiresExternalSync: System/App data (Health Kit, Google Fit, Screen Time)
+// - manual inputs: toggle, numeric, counter, abstain, range (user knows the value)
+// - timer: REMOVED for most (user doesn't track with our app, uses external apps)
+// ============================================
 export const HABIT_TYPES: Record<string, HabitMeta> = {
   // ══════════════════════════════════════════
-  // 🏃 FITNESS (8 habits)
+  // 🏃 FITNESS - Requires external sync (phone/wearable)
   // ══════════════════════════════════════════
   steps: { 
     label: 'Passi', 
@@ -101,15 +107,12 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 10000, 
     streakType: 'daily',
     category: 'fitness',
-    description: 'Passi giornalieri (sync con Health)',
+    description: 'Passi giornalieri',
     inputMethod: 'auto_sync',
-    fallbackMethod: 'numeric',
     autoSyncSource: 'health_kit',
-    min: 0,
-    max: 50000,
     brainMetric: 'physical_activity',
     suggestedFor: ['boost_energy'],
-    requiresExternalSync: true, // Needs phone step counter
+    requiresExternalSync: true, // ⚠️ Needs phone step counter
     // No webFallback = hidden on web
   },
   exercise: { 
@@ -119,71 +122,74 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 30, 
     streakType: 'daily',
     category: 'fitness',
-    description: 'Corsa, palestra, sport',
+    description: 'Attività fisica svolta',
     inputMethod: 'auto_sync',
     brainMetric: 'physical_activity',
     suggestedFor: ['boost_energy', 'reduce_anxiety', 'work_stress'],
-    requiresExternalSync: true,
-    webFallback: 'toggle', // On web: "Hai fatto esercizio oggi?"
+    requiresExternalSync: true, // ⚠️ External fitness apps
+    webFallback: 'toggle', // ✅ On web: "Hai fatto esercizio oggi?"
     question: 'Hai fatto esercizio oggi?',
   },
   stretching: { 
     label: 'Stretching', 
     icon: '🧘‍♂️', 
-    unit: 'min', 
-    defaultTarget: 10, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'fitness',
     description: 'Mobilità e allungamento',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ User knows if they stretched
+    question: 'Hai fatto stretching oggi?',
     suggestedFor: ['work_stress', 'boost_energy']
   },
   strength: { 
     label: 'Pesi', 
     icon: '💪', 
-    unit: 'min', 
-    defaultTarget: 45, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'fitness',
     description: 'Allenamento forza',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ User knows if they trained
+    question: 'Hai fatto allenamento pesi oggi?',
     suggestedFor: ['boost_energy', 'self_esteem']
   },
   cardio: { 
     label: 'Cardio', 
     icon: '🫀', 
-    unit: 'min', 
-    defaultTarget: 30, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'fitness',
     description: 'Corsa, bici, nuoto',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ User knows if they did cardio
+    question: 'Hai fatto cardio oggi?',
     brainMetric: 'physical_activity',
     suggestedFor: ['boost_energy', 'reduce_anxiety']
   },
   yoga: { 
     label: 'Yoga', 
     icon: '🧘', 
-    unit: 'min', 
-    defaultTarget: 20, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'fitness',
     description: 'Pratica yoga',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! User knows if they did yoga
+    question: 'Hai fatto yoga oggi?',
     brainMetric: 'mindfulness_practice',
     suggestedFor: ['reduce_anxiety', 'improve_sleep']
   },
   swimming: { 
     label: 'Nuoto', 
     icon: '🏊', 
-    unit: 'min', 
-    defaultTarget: 30, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'fitness',
     description: 'Sessione di nuoto',
-    inputMethod: 'numeric',
-    min: 0,
-    max: 180,
+    inputMethod: 'toggle', // ✅ User knows if they swam
+    question: 'Hai nuotato oggi?',
     suggestedFor: ['boost_energy']
   },
   cycling: { 
@@ -194,15 +200,16 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'fitness',
     description: 'Chilometri pedalati',
-    inputMethod: 'numeric',
-    min: 0,
-    max: 200,
-    step: 1,
-    suggestedFor: ['boost_energy']
+    inputMethod: 'auto_sync',
+    autoSyncSource: 'health_kit',
+    suggestedFor: ['boost_energy'],
+    requiresExternalSync: true, // ⚠️ Needs GPS/fitness app
+    webFallback: 'toggle',
+    question: 'Hai pedalato oggi?',
   },
 
   // ══════════════════════════════════════════
-  // ❤️ HEALTH (8 habits)
+  // ❤️ HEALTH - Mix of manual and auto-sync
   // ══════════════════════════════════════════
   sleep: { 
     label: 'Ore Sonno', 
@@ -212,7 +219,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Ore dormite stanotte',
-    inputMethod: 'numeric',
+    inputMethod: 'numeric', // ✅ User can estimate sleep hours
     step: 0.5,
     min: 0,
     max: 14,
@@ -222,15 +229,15 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
   water: { 
     label: 'Acqua', 
     icon: '💧', 
-    unit: 'L', 
-    defaultTarget: 2, 
+    unit: 'bicchieri', 
+    defaultTarget: 8, 
     streakType: 'daily',
     category: 'health',
-    description: 'Litri di acqua',
-    inputMethod: 'counter',
-    step: 0.25,
+    description: 'Bicchieri di acqua',
+    inputMethod: 'counter', // ✅ User tracks glasses
+    step: 1,
     min: 0,
-    max: 5,
+    max: 20,
     brainMetric: 'hydration',
     suggestedFor: ['boost_energy']
   },
@@ -242,7 +249,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Peso corporeo',
-    inputMethod: 'numeric',
+    inputMethod: 'numeric', // ✅ User weighs themselves
     step: 0.1,
     min: 30,
     max: 250,
@@ -259,13 +266,10 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     category: 'health',
     description: 'Frequenza cardiaca a riposo',
     inputMethod: 'auto_sync',
-    fallbackMethod: 'numeric',
     autoSyncSource: 'health_kit',
-    min: 40,
-    max: 200,
     brainMetric: 'resting_heart_rate',
     suggestedFor: [],
-    requiresExternalSync: true, // Needs smartwatch
+    requiresExternalSync: true, // ⚠️ Needs smartwatch/band
     // No webFallback = hidden on web
   },
   vitamins: { 
@@ -276,7 +280,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Hai preso le vitamine?',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai preso le vitamine oggi?',
     suggestedFor: ['boost_energy']
   },
@@ -288,7 +292,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Hai preso i farmaci?',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai preso i farmaci prescritti?',
     suggestedFor: []
   },
@@ -300,7 +304,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Almeno 15 min di luce naturale',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Sei uscito alla luce del sole oggi?',
     brainMetric: 'sunlight_exposure',
     suggestedFor: ['improve_sleep', 'reduce_anxiety', 'loneliness']
@@ -313,23 +317,24 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'health',
     description: 'Appuntamento medico completato',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto una visita medica oggi?',
     suggestedFor: []
   },
 
   // ══════════════════════════════════════════
-  // 🧠 MENTAL (8 habits)
+  // 🧠 MENTAL - Mostly toggles (user knows if they did it)
   // ══════════════════════════════════════════
   meditation: { 
     label: 'Meditazione', 
     icon: '🧘', 
-    unit: 'min', 
-    defaultTarget: 10, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'mental',
-    description: 'Mindfulness e meditazione',
-    inputMethod: 'timer',
+    description: 'Pratica di meditazione',
+    inputMethod: 'toggle', // ✅ Fixed! No timer - user uses dedicated apps
+    question: 'Hai meditato oggi?',
     brainMetric: 'mindfulness_practice',
     suggestedFor: ['reduce_anxiety', 'general_anxiety', 'improve_sleep', 'work_stress']
   },
@@ -341,7 +346,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'mental',
     description: 'Hai scritto nel diario?',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai scritto i tuoi pensieri oggi?',
     brainMetric: 'emotional_expression',
     suggestedFor: ['express_feelings', 'self_esteem', 'general_anxiety']
@@ -349,12 +354,13 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
   breathing: { 
     label: 'Respirazione', 
     icon: '🌬️', 
-    unit: 'min', 
-    defaultTarget: 5, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'mental',
     description: 'Esercizi di respirazione',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! User uses breathing apps or does it without tracking
+    question: 'Hai fatto esercizi di respirazione oggi?',
     brainMetric: 'stress_relief',
     suggestedFor: ['reduce_anxiety', 'general_anxiety', 'work_stress']
   },
@@ -366,7 +372,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'mental',
     description: 'Cose per cui sei grato',
-    inputMethod: 'counter',
+    inputMethod: 'counter', // ✅ User counts gratitude items
     min: 0,
     max: 10,
     brainMetric: 'gratitude',
@@ -380,19 +386,20 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'mental',
     description: 'Sessione terapia completata',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto una sessione di terapia?',
     suggestedFor: ['general_anxiety', 'relationships', 'self_esteem']
   },
   mindfulness: { 
     label: 'Mindfulness', 
     icon: '🌸', 
-    unit: 'min', 
-    defaultTarget: 10, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'mental',
     description: 'Pratica di consapevolezza',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! No timer
+    question: 'Hai praticato mindfulness oggi?',
     brainMetric: 'mindfulness_practice',
     suggestedFor: ['reduce_anxiety', 'work_stress']
   },
@@ -404,7 +411,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'mental',
     description: 'Affermazioni positive',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto affermazioni positive oggi?',
     brainMetric: 'self_efficacy',
     suggestedFor: ['self_esteem']
@@ -417,13 +424,13 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'mental',
     description: 'Tempo senza smartphone',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto una pausa digitale oggi?',
     suggestedFor: ['reduce_anxiety', 'improve_sleep']
   },
 
   // ══════════════════════════════════════════
-  // 🍎 NUTRITION (6 habits)
+  // 🍎 NUTRITION - Manual tracking (user knows what they ate)
   // ══════════════════════════════════════════
   healthy_meals: { 
     label: 'Pasti Sani', 
@@ -433,7 +440,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'nutrition',
     description: 'Pasti equilibrati',
-    inputMethod: 'counter',
+    inputMethod: 'counter', // ✅ User counts healthy meals
     min: 0,
     max: 5,
     brainMetric: 'nutrition_quality',
@@ -447,8 +454,8 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'nutrition',
     description: 'Evitare cibo spazzatura',
-    inputMethod: 'abstain',
-    question: 'Hai evitato il cibo spazzatura?',
+    inputMethod: 'abstain', // ✅ Abstain pattern
+    question: 'Hai evitato il cibo spazzatura oggi?',
     suggestedFor: ['boost_energy']
   },
   fruits_veggies: { 
@@ -459,7 +466,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'nutrition',
     description: 'Porzioni di frutta e verdura',
-    inputMethod: 'counter',
+    inputMethod: 'counter', // ✅ User counts portions
     min: 0,
     max: 10,
     suggestedFor: ['boost_energy']
@@ -472,7 +479,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'nutrition',
     description: 'Pasti preparati in anticipo',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai preparato i pasti in anticipo?',
     suggestedFor: ['work_stress']
   },
@@ -484,8 +491,8 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'nutrition',
     description: 'Evitare zuccheri aggiunti',
-    inputMethod: 'abstain',
-    question: 'Hai evitato zuccheri aggiunti?',
+    inputMethod: 'abstain', // ✅ Abstain pattern
+    question: 'Hai evitato zuccheri aggiunti oggi?',
     suggestedFor: ['boost_energy']
   },
   intermittent_fasting: { 
@@ -496,13 +503,13 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'nutrition',
     description: 'Digiuno intermittente rispettato',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai rispettato la finestra di digiuno?',
     suggestedFor: []
   },
 
   // ══════════════════════════════════════════
-  // 🚭 BAD HABITS (6 habits)
+  // 🚭 BAD HABITS - Range for smoking, abstain for others
   // ══════════════════════════════════════════
   cigarettes: { 
     label: 'Sigarette', 
@@ -512,7 +519,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Quante sigarette oggi?',
-    inputMethod: 'range',
+    inputMethod: 'range', // ✅ Preset options: 0, 1-5, 6-10, etc.
     question: 'Quante sigarette hai fumato oggi?',
     brainMetric: 'smoking_status',
     suggestedFor: ['reduce_anxiety', 'boost_energy'],
@@ -532,7 +539,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Giorni senza alcol',
-    inputMethod: 'abstain',
+    inputMethod: 'abstain', // ✅ Abstain pattern
     question: 'Non hai bevuto alcolici oggi?',
     brainMetric: 'alcohol_status',
     suggestedFor: ['improve_sleep', 'reduce_anxiety']
@@ -544,11 +551,16 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 2, 
     streakType: 'daily',
     category: 'bad_habits',
-    description: 'Limita caffè (max 2)',
-    inputMethod: 'counter',
-    min: 0,
-    max: 10,
-    suggestedFor: ['improve_sleep', 'reduce_anxiety']
+    description: 'Limita caffè (max 2-3)',
+    inputMethod: 'range', // ✅ Preset options for coffee
+    question: 'Quanti caffè hai bevuto oggi?',
+    suggestedFor: ['improve_sleep', 'reduce_anxiety'],
+    rangeOptions: [
+      { label: '0', value: 0, emoji: '✨' },
+      { label: '1-2', value: 2 },
+      { label: '3-4', value: 4 },
+      { label: '5+', value: 6 },
+    ],
   },
   social_media: { 
     label: 'Social Media', 
@@ -557,13 +569,12 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 60, 
     streakType: 'daily',
     category: 'bad_habits',
-    description: 'Tempo sui social (limite)',
+    description: 'Tempo sui social',
     inputMethod: 'auto_sync',
-    min: 0,
-    max: 480,
+    autoSyncSource: 'health_kit', // Screen Time API
     suggestedFor: ['reduce_anxiety', 'loneliness', 'self_esteem'],
-    requiresExternalSync: true, // Needs Screen Time API
-    // No webFallback = hidden on web (user can't know exact minutes)
+    requiresExternalSync: true, // ⚠️ Needs Screen Time API
+    // No webFallback = hidden on web (user doesn't know exact minutes)
   },
   nail_biting: { 
     label: 'Mangiarsi Unghie', 
@@ -573,8 +584,8 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Giorni senza mangiarsi le unghie',
-    inputMethod: 'abstain',
-    question: 'Non ti sei mangiato le unghie?',
+    inputMethod: 'abstain', // ✅ Abstain pattern
+    question: 'Non ti sei mangiato le unghie oggi?',
     suggestedFor: ['reduce_anxiety']
   },
   late_snacking: { 
@@ -585,34 +596,36 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Evitare cibo dopo le 21',
-    inputMethod: 'abstain',
+    inputMethod: 'abstain', // ✅ Abstain pattern
     question: 'Hai evitato gli snack notturni?',
     suggestedFor: ['improve_sleep']
   },
 
   // ══════════════════════════════════════════
-  // 📚 PRODUCTIVITY (5 habits)
+  // 📚 PRODUCTIVITY - Toggles and counters
   // ══════════════════════════════════════════
   reading: { 
     label: 'Lettura', 
     icon: '📚', 
-    unit: 'min', 
-    defaultTarget: 20, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'productivity',
-    description: 'Tempo dedicato alla lettura',
-    inputMethod: 'timer',
+    description: 'Hai letto oggi?',
+    inputMethod: 'toggle', // ✅ Fixed! No timer - user reads without tracking
+    question: 'Hai letto qualcosa oggi?',
     suggestedFor: ['reduce_anxiety', 'improve_sleep']
   },
   learning: { 
     label: 'Studio', 
     icon: '🎓', 
-    unit: 'min', 
-    defaultTarget: 30, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'productivity',
     description: 'Imparare qualcosa di nuovo',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! No timer
+    question: 'Hai imparato qualcosa di nuovo oggi?',
     brainMetric: 'learning_activity',
     suggestedFor: ['self_esteem', 'work_stress']
   },
@@ -624,11 +637,15 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'productivity',
     description: 'Lavoro concentrato senza distrazioni',
-    inputMethod: 'numeric',
-    step: 0.5,
-    min: 0,
-    max: 12,
-    suggestedFor: ['work_stress']
+    inputMethod: 'range', // ✅ Range: 0-2h, 2-4h, 4-6h, 6+h
+    question: 'Quante ore di lavoro concentrato?',
+    suggestedFor: ['work_stress'],
+    rangeOptions: [
+      { label: '0-1h', value: 1 },
+      { label: '2-3h', value: 2.5 },
+      { label: '4-5h', value: 4.5 },
+      { label: '6+h', value: 7, emoji: '🔥' },
+    ],
   },
   no_procrastination: { 
     label: 'Task Completati', 
@@ -638,7 +655,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'productivity',
     description: 'Compiti portati a termine',
-    inputMethod: 'counter',
+    inputMethod: 'counter', // ✅ User counts completed tasks
     min: 0,
     max: 20,
     suggestedFor: ['work_stress', 'self_esteem']
@@ -651,13 +668,13 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'productivity',
     description: 'Routine mattutina completata',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai completato la tua routine mattutina?',
     suggestedFor: ['boost_energy', 'work_stress']
   },
 
   // ══════════════════════════════════════════
-  // 👥 SOCIAL (5 habits)
+  // 👥 SOCIAL - All toggles (user knows if they socialized)
   // ══════════════════════════════════════════
   social_interaction: { 
     label: 'Socializzato', 
@@ -667,7 +684,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'social',
     description: 'Tempo con altre persone',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai trascorso tempo con qualcuno oggi?',
     brainMetric: 'social_connection',
     suggestedFor: ['loneliness', 'find_love', 'relationships']
@@ -680,7 +697,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'social',
     description: 'Chiamare qualcuno a cui tieni',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai chiamato qualcuno che ami?',
     brainMetric: 'social_connection',
     suggestedFor: ['loneliness', 'relationships']
@@ -693,7 +710,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'social',
     description: 'Tempo di qualità con partner/famiglia',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai passato tempo di qualità con chi ami?',
     brainMetric: 'relationship_quality',
     suggestedFor: ['relationships', 'find_love']
@@ -706,7 +723,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'social',
     description: 'Atto di gentilezza verso altri',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto qualcosa di gentile per qualcuno?',
     brainMetric: 'prosocial_behavior',
     suggestedFor: ['self_esteem', 'loneliness']
@@ -719,13 +736,13 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'social',
     description: 'Nuove connessioni professionali',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto networking oggi?',
     suggestedFor: ['work_stress']
   },
 
   // ══════════════════════════════════════════
-  // 🛁 SELF CARE (5 habits)
+  // 🛁 SELF CARE - All toggles (user knows if they practiced)
   // ══════════════════════════════════════════
   skincare: { 
     label: 'Skincare', 
@@ -735,19 +752,20 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'self_care',
     description: 'Routine cura della pelle',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Hai fatto la tua skincare routine?',
     suggestedFor: ['self_esteem']
   },
   hobby: { 
     label: 'Hobby', 
     icon: '🎨', 
-    unit: 'min', 
-    defaultTarget: 30, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'self_care',
     description: 'Tempo dedicato ai tuoi hobby',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! No timer
+    question: 'Hai dedicato tempo ai tuoi hobby oggi?',
     suggestedFor: ['reduce_anxiety', 'express_feelings', 'work_stress']
   },
   nature: { 
@@ -758,7 +776,7 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'self_care',
     description: 'Tempo all\'aperto nella natura',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Sei stato nella natura oggi?',
     brainMetric: 'nature_exposure',
     suggestedFor: ['reduce_anxiety', 'boost_energy', 'loneliness']
@@ -771,19 +789,20 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'self_care',
     description: 'Routine di cura personale',
-    inputMethod: 'toggle',
+    inputMethod: 'toggle', // ✅ Simple yes/no
     question: 'Ti sei preso cura di te oggi?',
     suggestedFor: ['reduce_anxiety', 'self_esteem']
   },
   creative_time: { 
     label: 'Creatività', 
     icon: '🎭', 
-    unit: 'min', 
-    defaultTarget: 20, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'self_care',
     description: 'Attività creative',
-    inputMethod: 'timer',
+    inputMethod: 'toggle', // ✅ Fixed! No timer
+    question: 'Hai fatto qualcosa di creativo oggi?',
     brainMetric: 'creative_expression',
     suggestedFor: ['express_feelings', 'reduce_anxiety']
   },
