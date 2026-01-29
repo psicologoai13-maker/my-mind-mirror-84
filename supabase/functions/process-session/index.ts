@@ -318,7 +318,7 @@ serve(async (req) => {
     // 🎯 Get all active objectives for progress tracking
     const { data: activeObjectives } = await supabase
       .from('user_objectives')
-      .select('id, title, category, target_value, current_value, unit, status')
+      .select('id, title, category, target_value, current_value, unit, status, starting_value')
       .eq('user_id', user_id)
       .eq('status', 'active');
 
@@ -341,10 +341,11 @@ serve(async (req) => {
     let objectivesTrackingPrompt = '';
     if (activeObjectives && activeObjectives.length > 0) {
       const objectivesList = activeObjectives.map(o => {
-        const progress = o.target_value 
-          ? `${o.current_value || 0}/${o.target_value} ${o.unit || ''}` 
-          : 'target non definito';
-        return `- ID: ${o.id} | "${o.title}" (${o.category}) | Progresso: ${progress}`;
+        // Include starting_value for context
+        const startVal = o.starting_value !== null ? o.starting_value : 'NON DEFINITO';
+        const currVal = o.current_value ?? 0;
+        const targetVal = o.target_value !== null ? o.target_value : 'NON DEFINITO';
+        return `- ID: ${o.id} | "${o.title}" (${o.category}) | Partenza: ${startVal} ${o.unit || ''} | Attuale: ${currVal} ${o.unit || ''} | Target: ${targetVal} ${o.unit || ''}`;
       }).join('\n');
       
       objectivesTrackingPrompt = `
@@ -356,25 +357,46 @@ ${objectivesList}
 
 **DEVI estrarre aggiornamenti di progresso dalla conversazione:**
 
-ESEMPI DI RILEVAMENTO:
-- Utente dice: "Oggi peso 73kg" → per obiettivo "Perdere peso":
-  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 73, "note": "Peso registrato", "completed": false}]
+⚠️ REGOLA FONDAMENTALE: DISTINGUI TRA:
+1. VALORE ATTUALE (il peso/valore di oggi) → aggiorna current_value, completed: FALSE
+2. OBIETTIVO RAGGIUNTO (l'utente ESPLICITAMENTE festeggia o dichiara di aver raggiunto il target) → completed: TRUE
 
-- Utente dice: "Ho messo da parte 800 euro questo mese" → per obiettivo "Risparmiare":
-  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 800, "note": "Risparmio mensile", "completed": false}]
+ESEMPI DI VALORE ATTUALE (completed: FALSE):
+- Utente dice: "peso 70kg" → Sta comunicando il suo peso attuale
+  → objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 70, "note": "Peso aggiornato", "completed": false}]
 
-- Utente dice: "Questa settimana ho studiato 12 ore" → per obiettivo "Studiare 20h/settimana":
-  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 12, "note": null, "completed": false}]
+- Utente dice: "Oggi peso 73kg, vediamo come va" → Sta comunicando il progresso
+  → completed: FALSE (sta solo aggiornando, non ha raggiunto nessun traguardo)
 
-- Utente dice: "Ce l'ho fatta! Ho raggiunto i 70kg!" → se target era 70kg:
-  objective_progress_updates: [{"objective_id": "<uuid>", "new_value": 70, "note": "Obiettivo raggiunto!", "completed": true}]
+ESEMPI DI OBIETTIVO RAGGIUNTO (completed: TRUE):
+- Utente dice: "Ce l'ho fatta! Finalmente sono arrivato a 80kg!" E il target era 80kg
+  → completed: TRUE (celebra esplicitamente il raggiungimento)
+
+- Utente dice: "Obiettivo raggiunto!" O "Ho centrato il mio goal!"
+  → completed: TRUE (dichiarazione esplicita)
+
+⚠️ ATTENZIONE PESO:
+- Se l'obiettivo è "Prendere peso" (aumentare) e l'utente dice "peso 70kg":
+  - Se starting_value è NON DEFINITO → questo potrebbe essere il PUNTO DI PARTENZA
+  - NON marcare completed: true solo perché un numero corrisponde!
+  - Solo se l'utente CELEBRA o il valore SUPERA il target in direzione corretta
+
+⚠️ QUANDO starting_value È "NON DEFINITO":
+- Se l'utente fornisce un valore numerico E starting_value manca:
+  - Questo valore dovrebbe essere usato come starting_value (punto di partenza)
+  - Aggiungi "is_starting_value": true nel JSON
+  
+ESEMPIO:
+- Obiettivo: "Prendere peso" con Partenza: NON DEFINITO
+- Utente dice: "peso 70kg"
+→ {"objective_id": "<uuid>", "new_value": 70, "note": "Peso iniziale registrato", "completed": false, "is_starting_value": true}
 
 **REGOLE:**
 - Estrai SOLO valori NUMERICI ESPLICITI menzionati
 - Se l'utente NON menziona un valore numerico specifico, NON inventare
-- Per obiettivi senza unità (es. "superare esame"), usa 100 per completato, 0-99 per progresso stimato
-- Se new_value >= target_value, imposta completed: true
+- completed: TRUE solo se l'utente ESPLICITAMENTE dichiara di aver raggiunto l'obiettivo
 - NON modificare obiettivi che non sono menzionati nella conversazione
+- Se starting_value è NON DEFINITO e l'utente dà un valore → is_starting_value: true
 `;
     }
 
@@ -1139,7 +1161,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         // Get the existing objective to update progress history
         const { data: existingObj } = await supabase
           .from('user_objectives')
-          .select('id, current_value, progress_history, target_value')
+          .select('id, current_value, progress_history, target_value, starting_value, category')
           .eq('id', update.objective_id)
           .eq('user_id', user_id)
           .maybeSingle();
@@ -1154,19 +1176,43 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
             }
           ];
           
-          const newStatus = update.completed || 
-            (existingObj.target_value && update.new_value >= existingObj.target_value) 
-              ? 'achieved' 
-              : 'active';
+          // 🎯 FIX: Determine status based on EXPLICIT completion flag from AI
+          // Do NOT auto-mark as achieved based on value comparison alone
+          // The AI should only set completed: true when user EXPLICITLY celebrates/declares achievement
+          let newStatus = 'active';
+          
+          if (update.completed === true) {
+            // AI explicitly detected user celebrating goal achievement
+            newStatus = 'achieved';
+            console.log(`[process-session] 🎉 AI detected explicit goal achievement!`);
+          }
+          // Removed auto-detection: the old logic `new_value >= target_value` was wrong for "gain weight" objectives
+          
+          // 🎯 FIX: If this is the FIRST value and starting_value is null, set it as starting_value
+          const isStartingValue = update.is_starting_value === true || 
+            (existingObj.starting_value === null && 
+             (existingObj.category === 'body' || existingObj.category === 'finance'));
+          
+          const updateData: Record<string, any> = {
+            current_value: update.new_value,
+            progress_history: newHistory,
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          };
+          
+          // If this is the starting value, set it
+          if (isStartingValue && existingObj.starting_value === null) {
+            updateData.starting_value = update.new_value;
+            console.log(`[process-session] Setting starting_value for objective: ${update.new_value}`);
+            // Also update ai_feedback to prompt for target
+            if (existingObj.target_value === null) {
+              updateData.ai_feedback = 'Punto di partenza registrato! Ora definisci il tuo obiettivo finale.';
+            }
+          }
           
           const { error: updateError } = await supabase
             .from('user_objectives')
-            .update({
-              current_value: update.new_value,
-              progress_history: newHistory,
-              status: newStatus,
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', update.objective_id)
             .eq('user_id', user_id);
           
