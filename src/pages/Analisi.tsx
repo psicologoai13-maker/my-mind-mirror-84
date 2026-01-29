@@ -3,14 +3,13 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import { subDays, startOfDay, format } from 'date-fns';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
-import VitalMetricCard from '@/components/analisi/VitalMetricCard';
-import EmotionalMixBar from '@/components/home/EmotionalMixBar';
-import LifeAreasCard from '@/components/analisi/LifeAreasCard';
-import DeepPsychologyCard from '@/components/analisi/DeepPsychologyCard';
-import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
+import MenteTab from '@/components/analisi/AnalisiTabContent';
+import CorpoTab from '@/components/analisi/CorpoTab';
+import AbitudiniTab from '@/components/analisi/AbitudiniTab';
+import ObiettiviTab from '@/components/analisi/ObiettiviTab';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Brain, Activity, Target, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
@@ -27,9 +26,19 @@ export interface MetricData {
   unit?: string;
 }
 
+type AnalisiTab = 'mente' | 'corpo' | 'abitudini' | 'obiettivi';
+
+const TAB_CONFIG: { id: AnalisiTab; label: string; icon: React.ReactNode; emoji: string }[] = [
+  { id: 'mente', label: 'Mente', icon: <Brain className="w-4 h-4" />, emoji: '🧠' },
+  { id: 'corpo', label: 'Corpo', icon: <Heart className="w-4 h-4" />, emoji: '💪' },
+  { id: 'abitudini', label: 'Abitudini', icon: <Activity className="w-4 h-4" />, emoji: '📊' },
+  { id: 'obiettivi', label: 'Obiettivi', icon: <Target className="w-4 h-4" />, emoji: '🎯' },
+];
+
 const Analisi: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
+  const [activeTab, setActiveTab] = useState<AnalisiTab>('mente');
 
   // 🎯 AI-DRIVEN: Layout deciso dall'AI
   const { layout: aiLayout, isLoading: isLoadingAI } = useAIAnalysis(timeRange);
@@ -105,33 +114,11 @@ const Analisi: React.FC = () => {
     const energyValues = daysWithData.map(m => m.vitals.energy);
     const sleepValues = daysWithData.map(m => m.vitals.sleep);
 
-    const joyValues = daysWithData.map(m => m.emotions.joy);
-    const sadnessValues = daysWithData.map(m => m.emotions.sadness);
-    const angerValues = daysWithData.map(m => m.emotions.anger);
-    const fearValues = daysWithData.map(m => m.emotions.fear);
-    const apathyValues = daysWithData.map(m => m.emotions.apathy);
-
-    const loveValues = daysWithData.map(m => m.life_areas.love);
-    const workValues = daysWithData.map(m => m.life_areas.work);
-    const healthValues = daysWithData.map(m => m.life_areas.health);
-    const socialValues = daysWithData.map(m => m.life_areas.social);
-    const growthValues = daysWithData.map(m => m.life_areas.growth);
-
     return [
       { key: 'mood' as MetricType, label: 'Umore', category: 'vitali' as const, icon: '😌', color: 'hsl(150, 60%, 45%)', average: calculateAverage(moodValues), trend: calculateTrend(moodValues), unit: '/10' },
       { key: 'anxiety' as MetricType, label: 'Ansia', category: 'vitali' as const, icon: '😰', color: 'hsl(25, 80%, 55%)', average: calculateAverage(anxietyValues), trend: calculateTrend(anxietyValues), unit: '/10' },
       { key: 'energy' as MetricType, label: 'Energia', category: 'vitali' as const, icon: '⚡', color: 'hsl(45, 80%, 50%)', average: calculateAverage(energyValues), trend: calculateTrend(energyValues), unit: '/10' },
       { key: 'sleep' as MetricType, label: 'Sonno', category: 'vitali' as const, icon: '💤', color: 'hsl(260, 60%, 55%)', average: calculateAverage(sleepValues), trend: calculateTrend(sleepValues), unit: '/10' },
-      { key: 'joy' as MetricType, label: 'Gioia', category: 'emozioni' as const, icon: '😊', color: 'hsl(50, 90%, 55%)', average: calculateAverage(joyValues), trend: calculateTrend(joyValues), unit: '/10' },
-      { key: 'sadness' as MetricType, label: 'Tristezza', category: 'emozioni' as const, icon: '😢', color: 'hsl(210, 70%, 55%)', average: calculateAverage(sadnessValues), trend: calculateTrend(sadnessValues), unit: '/10' },
-      { key: 'anger' as MetricType, label: 'Rabbia', category: 'emozioni' as const, icon: '😠', color: 'hsl(0, 75%, 55%)', average: calculateAverage(angerValues), trend: calculateTrend(angerValues), unit: '/10' },
-      { key: 'fear' as MetricType, label: 'Paura', category: 'emozioni' as const, icon: '😨', color: 'hsl(280, 60%, 55%)', average: calculateAverage(fearValues), trend: calculateTrend(fearValues), unit: '/10' },
-      { key: 'apathy' as MetricType, label: 'Apatia', category: 'emozioni' as const, icon: '😶', color: 'hsl(0, 0%, 55%)', average: calculateAverage(apathyValues), trend: calculateTrend(apathyValues), unit: '/10' },
-      { key: 'love' as MetricType, label: 'Amore', category: 'aree' as const, icon: '❤️', color: 'hsl(350, 80%, 55%)', average: calculateAverage(loveValues), trend: calculateTrend(loveValues), unit: '/10' },
-      { key: 'work' as MetricType, label: 'Lavoro', category: 'aree' as const, icon: '💼', color: 'hsl(220, 70%, 55%)', average: calculateAverage(workValues), trend: calculateTrend(workValues), unit: '/10' },
-      { key: 'social' as MetricType, label: 'Socialità', category: 'aree' as const, icon: '🤝', color: 'hsl(45, 80%, 50%)', average: calculateAverage(socialValues), trend: calculateTrend(socialValues), unit: '/10' },
-      { key: 'growth' as MetricType, label: 'Crescita', category: 'aree' as const, icon: '🌱', color: 'hsl(280, 60%, 55%)', average: calculateAverage(growthValues), trend: calculateTrend(growthValues), unit: '/10' },
-      { key: 'health' as MetricType, label: 'Salute', category: 'aree' as const, icon: '💪', color: 'hsl(150, 60%, 45%)', average: calculateAverage(healthValues), trend: calculateTrend(healthValues), unit: '/10' },
     ];
   }, [daysWithData]);
 
@@ -151,80 +138,17 @@ const Analisi: React.FC = () => {
   }, [daysWithData]);
 
   const vitalMetrics = metrics.filter(m => m.category === 'vitali');
-  const areaMetrics = metrics.filter(m => m.category === 'aree');
-
   const selectedMetricData = selectedMetric ? metrics.find(m => m.key === selectedMetric) : null;
 
-  const timeRangeLabel = timeRange === 'day' ? 'Oggi' : timeRange === 'week' ? 'Questa settimana' : timeRange === 'month' ? 'Questo mese' : 'In generale';
-
-  // Sort sections by AI priority
-  const sortedSections = useMemo(() => {
-    if (!aiLayout.sections) return [];
-    return [...aiLayout.sections]
-      .filter(s => s.visible)
-      .sort((a, b) => a.priority - b.priority);
-  }, [aiLayout.sections]);
-
-  // Render section by ID
-  const renderSection = (sectionId: string, index: number) => {
-    const section = sortedSections.find(s => s.id === sectionId);
-    if (!section) return null;
-
-    const animationStyle = { animationDelay: `${index * 0.1}s` };
-
-    switch (sectionId) {
-      case 'wellness_hero':
-        return null; // Removed - wellness score is shown on Home page
-      case 'vitals_grid':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h2 className="font-display font-semibold text-foreground flex items-center gap-2">
-                <span>📊</span> {section.title}
-              </h2>
-              <span className="px-2 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                AI
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {vitalMetrics.map((metric) => (
-                <VitalMetricCard
-                  key={metric.key}
-                  metric={metric}
-                  chartData={chartDataByMetric[metric.key] || []}
-                  onClick={() => setSelectedMetric(metric.key)}
-                />
-              ))}
-            </div>
-          </section>
-        );
-      case 'emotional_mix':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <EmotionalMixBar />
-          </section>
-        );
-      case 'life_areas':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <LifeBalanceRadar />
-          </section>
-        );
-      case 'deep_psychology':
-        return (
-          <section key={sectionId} className="animate-fade-in" style={animationStyle}>
-            <DeepPsychologyCard
-              metrics={aiLayout.highlighted_metrics.filter(m => m.category === 'psicologia')}
-              psychologyData={psychologyData}
-              onMetricClick={(key) => setSelectedMetric(key as MetricType)}
-            />
-          </section>
-        );
-      default:
-        return null;
+  // Calculate lookback days based on time range
+  const lookbackDays = useMemo(() => {
+    switch (timeRange) {
+      case 'day': return 1;
+      case 'week': return 7;
+      case 'month': return 30;
+      case 'all': return 365;
     }
-  };
+  }, [timeRange]);
 
   return (
     <MobileLayout>
@@ -232,7 +156,7 @@ const Analisi: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">Analisi</h1>
-            <p className="text-muted-foreground text-sm mt-1">La tua dashboard del benessere</p>
+            <p className="text-muted-foreground text-sm mt-1">Il tuo wellness a 360°</p>
           </div>
           {isLoadingAI && (
             <Loader2 className="w-5 h-5 text-aria-violet animate-spin" />
@@ -240,15 +164,49 @@ const Analisi: React.FC = () => {
         </div>
       </header>
 
-      {/* Time Range Selector - Glass style */}
-      <div className="px-4 mb-5">
+      {/* Time Range Selector */}
+      <div className="px-4 mb-4">
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
+      {/* Tab Navigation */}
+      <div className="px-4 mb-5">
+        <div className="flex bg-muted/50 rounded-2xl p-1 gap-1">
+          {TAB_CONFIG.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-sm font-medium transition-all",
+                activeTab === tab.id
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <span className="text-base">{tab.emoji}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* AI-Ordered Sections */}
-      <div className="px-4 space-y-5 pb-8">
-        {sortedSections.map((section, index) => renderSection(section.id, index))}
+      {/* Tab Content */}
+      <div className="px-4 pb-8">
+        {activeTab === 'mente' && (
+          <MenteTab
+            vitalMetrics={vitalMetrics}
+            chartDataByMetric={chartDataByMetric}
+            psychologyData={psychologyData}
+            highlightedMetrics={aiLayout.highlighted_metrics}
+            onMetricClick={setSelectedMetric}
+          />
+        )}
+        
+        {activeTab === 'corpo' && <CorpoTab />}
+        
+        {activeTab === 'abitudini' && <AbitudiniTab lookbackDays={lookbackDays} />}
+        
+        {activeTab === 'obiettivi' && <ObiettiviTab />}
       </div>
 
       {/* Metric Detail Sheet */}
