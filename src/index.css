@@ -147,6 +147,31 @@
     --area-wellness: 155 50% 45%;
 
     /* ========================================
+       ARIA EXCLUSIVE IDENTITY - Aurora Gradient
+       Distinctive violet/indigo for AI elements
+    ======================================== */
+    --aria-violet: 270 60% 65%;
+    --aria-indigo: 240 80% 65%;
+    --aria-purple: 280 70% 70%;
+    --aria-rgb: 155, 111, 208;
+    
+    /* Aria gradients */
+    --gradient-aria: linear-gradient(135deg, hsl(270 60% 65%), hsl(240 80% 65%), hsl(280 70% 70%));
+    --gradient-aria-subtle: linear-gradient(135deg, hsl(270 40% 95%), hsl(250 35% 93%), hsl(280 30% 95%));
+    --aria-glow: 0 0 30px rgba(155, 111, 208, 0.3);
+    --aria-glow-strong: 0 0 50px rgba(155, 111, 208, 0.5);
+
+    /* ========================================
+       AMBIENT WELLNESS - Mood-Responsive Gradients
+    ======================================== */
+    --gradient-ambient-positive: linear-gradient(135deg, hsl(155 40% 92%), hsl(175 35% 90%), hsl(200 30% 92%));
+    --gradient-ambient-neutral: linear-gradient(135deg, hsl(45 50% 92%), hsl(35 45% 90%), hsl(25 40% 92%));
+    --gradient-ambient-supportive: linear-gradient(135deg, hsl(280 35% 93%), hsl(340 30% 92%), hsl(350 35% 94%));
+    
+    /* Default ambient gradient */
+    --gradient-ambient: var(--gradient-ambient-positive);
+
+    /* ========================================
        LIQUID GLASS TOKENS 2026
     ======================================== */
     
@@ -168,6 +193,9 @@
     --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
     --shadow-glass-glow: 0 8px 32px rgba(86, 145, 120, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
     --shadow-glass-elevated: 0 16px 48px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    
+    /* Aria-specific glass shadow */
+    --shadow-aria-glow: 0 8px 32px rgba(155, 111, 208, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
     /* Gradient mesh backgrounds */
     --gradient-mesh: 
@@ -222,6 +250,23 @@
     --input: 225 15% 16%;
     --ring: 155 45% 48%;
 
+    /* Aria dark mode */
+    --aria-violet: 270 55% 70%;
+    --aria-indigo: 240 75% 70%;
+    --aria-purple: 280 65% 75%;
+    --aria-rgb: 175, 140, 220;
+    
+    --gradient-aria: linear-gradient(135deg, hsl(270 55% 70%), hsl(240 75% 70%), hsl(280 65% 75%));
+    --gradient-aria-subtle: linear-gradient(135deg, hsl(270 30% 15%), hsl(250 25% 14%), hsl(280 20% 15%));
+    --aria-glow: 0 0 30px rgba(175, 140, 220, 0.35);
+    --aria-glow-strong: 0 0 50px rgba(175, 140, 220, 0.5);
+
+    /* Ambient dark mode gradients */
+    --gradient-ambient-positive: linear-gradient(135deg, hsl(155 30% 10%), hsl(175 25% 9%), hsl(200 20% 10%));
+    --gradient-ambient-neutral: linear-gradient(135deg, hsl(45 30% 10%), hsl(35 25% 9%), hsl(25 20% 10%));
+    --gradient-ambient-supportive: linear-gradient(135deg, hsl(280 25% 12%), hsl(340 20% 11%), hsl(350 25% 12%));
+    --gradient-ambient: var(--gradient-ambient-positive);
+
     /* Glass surfaces - dark mode */
     --glass-bg: 225 18% 12% / 0.8;
     --glass-bg-subtle: 225 18% 12% / 0.5;
@@ -236,6 +281,7 @@
     --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --shadow-glass-glow: 0 8px 32px rgba(86, 175, 130, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     --shadow-glass-elevated: 0 16px 48px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-aria-glow: 0 8px 32px rgba(175, 140, 220, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
     --gradient-mesh: 
       radial-gradient(ellipse 80% 50% at 20% 20%, hsl(155 40% 20% / 0.3), transparent),
@@ -342,10 +388,40 @@
   .shadow-glass-elevated {
     box-shadow: var(--shadow-glass-elevated);
   }
+  
+  .shadow-aria-glow {
+    box-shadow: var(--shadow-aria-glow);
+  }
 
   /* Gradient mesh background */
   .bg-gradient-mesh {
     background: var(--gradient-mesh);
+  }
+
+  /* Aria gradient backgrounds */
+  .bg-gradient-aria {
+    background: var(--gradient-aria);
+  }
+  
+  .bg-gradient-aria-subtle {
+    background: var(--gradient-aria-subtle);
+  }
+  
+  /* Ambient mood gradients */
+  .bg-gradient-ambient {
+    background: var(--gradient-ambient);
+  }
+  
+  .bg-gradient-ambient-positive {
+    background: var(--gradient-ambient-positive);
+  }
+  
+  .bg-gradient-ambient-neutral {
+    background: var(--gradient-ambient-neutral);
+  }
+  
+  .bg-gradient-ambient-supportive {
+    background: var(--gradient-ambient-supportive);
   }
 
   .text-balance {
@@ -362,6 +438,11 @@
   .animate-liquid-shimmer {
     animation: liquid-shimmer 3s ease-in-out infinite;
     background-size: 200% 100%;
+  }
+  
+  /* Aria breathing animation */
+  .animate-aria-breathe {
+    animation: aria-breathe 4s ease-in-out infinite;
   }
 }
 
@@ -490,6 +571,18 @@ select:focus {
 @keyframes breathe {
   0%, 100% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.05); opacity: 1; }
+}
+
+/* Aria-specific breathing with glow */
+@keyframes aria-breathe {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 20px rgba(var(--aria-rgb), 0.3);
+  }
+  50% { 
+    transform: scale(1.08); 
+    box-shadow: 0 0 40px rgba(var(--aria-rgb), 0.5);
+  }
 }
 
 /* Zen Voice Modal - Breathing Gradients */

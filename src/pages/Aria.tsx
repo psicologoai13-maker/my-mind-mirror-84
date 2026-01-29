@@ -13,6 +13,7 @@ import DiaryManagementModal from '@/components/diary/DiaryManagementModal';
 import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
 import SessionDetailModal from '@/components/sessions/SessionDetailModal';
 import LocationPermissionModal from '@/components/location/LocationPermissionModal';
+import { cn } from '@/lib/utils';
 import type { DiaryTheme, ThematicDiary } from '@/hooks/useThematicDiaries';
 
 // Extended diary themes including suggested ones
@@ -154,52 +155,87 @@ const Aria: React.FC = () => {
         {/* Page Title */}
         <header>
           <h1 className="text-2xl font-semibold text-foreground">Aria</h1>
+          <p className="text-sm text-muted-foreground mt-1">Il tuo spazio di riflessione</p>
         </header>
 
-        {/* Session Type Selector - Two Premium Boxes */}
+        {/* Session Type Selector - Two Premium Glass Boxes with Aria gradient */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Chat Box */}
+          {/* Chat Box - Primary accent */}
           <button
             onClick={handleStartChat}
-            className="group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200/60 hover:border-emerald-300 hover:shadow-lg transition-all duration-300"
+            className={cn(
+              "group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl",
+              "bg-glass backdrop-blur-xl border border-glass-border",
+              "shadow-glass hover:shadow-glass-elevated",
+              "transition-all duration-300",
+              "hover:scale-[1.02] active:scale-[0.98]"
+            )}
           >
-            {/* Decorative elements */}
-            <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-40 transition-opacity">
-              <Sparkles className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-emerald-200/30 to-transparent rounded-full blur-xl" />
+            {/* Decorative gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent rounded-3xl" />
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-transparent via-transparent to-white/20 pointer-events-none" />
             
-            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-200/50 group-hover:scale-105 transition-transform duration-300">
-              <PenLine className="w-7 h-7 text-white" />
+            {/* Decorative elements */}
+            <div className="absolute top-2 right-2 opacity-30 group-hover:opacity-50 transition-opacity">
+              <Sparkles className="w-4 h-4 text-primary" />
             </div>
-            <span className="font-semibold text-foreground">Scrivi con Aria</span>
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-xl" />
+            
+            <div className={cn(
+              "relative w-14 h-14 rounded-2xl flex items-center justify-center",
+              "bg-gradient-to-br from-primary to-primary-glow",
+              "shadow-glass-glow group-hover:scale-105 transition-transform duration-300"
+            )}>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/25 pointer-events-none" />
+              <PenLine className="w-7 h-7 text-white relative z-10" />
+            </div>
+            <span className="relative z-10 font-semibold text-foreground">Scrivi con Aria</span>
           </button>
 
-          {/* Voice Box */}
+          {/* Voice Box - Aria exclusive gradient */}
           <button
             onClick={handleStartVoice}
-            className="group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 border border-violet-200/60 hover:border-violet-300 hover:shadow-lg transition-all duration-300"
+            className={cn(
+              "group relative overflow-hidden flex flex-col items-center gap-3 p-5 rounded-3xl",
+              "bg-glass backdrop-blur-xl border border-glass-border",
+              "shadow-glass hover:shadow-aria-glow",
+              "transition-all duration-300",
+              "hover:scale-[1.02] active:scale-[0.98]"
+            )}
           >
-            {/* Decorative elements */}
-            <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-40 transition-opacity">
-              <Sparkles className="w-4 h-4 text-violet-500" />
-            </div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-violet-200/30 to-transparent rounded-full blur-xl" />
+            {/* Aria gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-aria-subtle rounded-3xl opacity-60" />
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-transparent via-transparent to-white/20 pointer-events-none" />
             
-            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-200/50 group-hover:scale-105 transition-transform duration-300">
-              <AudioLines className="w-7 h-7 text-white" />
+            {/* Decorative elements */}
+            <div className="absolute top-2 right-2 opacity-30 group-hover:opacity-50 transition-opacity">
+              <Sparkles className="w-4 h-4 text-aria-violet" />
             </div>
-            <span className="font-semibold text-foreground">Parla con Aria</span>
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-aria rounded-full blur-xl opacity-30" />
+            
+            <div className={cn(
+              "relative w-14 h-14 rounded-2xl flex items-center justify-center",
+              "bg-gradient-aria",
+              "shadow-aria-glow group-hover:scale-105 transition-transform duration-300"
+            )}>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/30 pointer-events-none" />
+              <AudioLines className="w-7 h-7 text-white relative z-10" />
+            </div>
+            <span className="relative z-10 font-semibold text-foreground">Parla con Aria</span>
           </button>
         </div>
 
-        {/* Thematic Diaries */}
+        {/* Thematic Diaries - Glass cards */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground">I Tuoi Diari</h2>
             <button
               onClick={() => setShowDiaryModal(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              className={cn(
+                "w-8 h-8 flex items-center justify-center rounded-full",
+                "bg-glass backdrop-blur-xl border border-glass-border",
+                "text-primary hover:shadow-glass-glow transition-all"
+              )}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -214,14 +250,23 @@ const Aria: React.FC = () => {
                 <button
                   key={diaryId}
                   onClick={() => handleOpenDiary(diaryId)}
-                  className="flex flex-col items-start p-4 rounded-2xl bg-card border border-border shadow-card hover:shadow-md transition-all text-left h-24"
+                  className={cn(
+                    "relative overflow-hidden flex flex-col items-start p-4 rounded-2xl h-24 text-left",
+                    "bg-glass backdrop-blur-xl border border-glass-border",
+                    "shadow-glass hover:shadow-glass-elevated",
+                    "transition-all duration-300",
+                    "hover:scale-[1.02] active:scale-[0.98]"
+                  )}
                 >
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mb-2">
+                  {/* Inner light */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+                  
+                  <div className="relative z-10 w-10 h-10 rounded-xl bg-muted/50 backdrop-blur-sm flex items-center justify-center mb-2">
                     <span className="text-xl">{emoji}</span>
                   </div>
-                  <span className="font-medium text-foreground text-sm">{label}</span>
+                  <span className="relative z-10 font-medium text-foreground text-sm">{label}</span>
                   {diary && (
-                    <span className="text-xs text-muted-foreground mt-0.5">
+                    <span className="relative z-10 text-xs text-muted-foreground mt-0.5">
                       {format(new Date(diary.last_updated_at), 'd MMM', { locale: it })}
                     </span>
                   )}
@@ -231,13 +276,13 @@ const Aria: React.FC = () => {
           </div>
         </section>
 
-        {/* Session History */}
+        {/* Session History - Glass cards */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground">Cronologia</h2>
             <button 
               onClick={() => navigate('/sessions')}
-              className="text-sm text-primary font-medium flex items-center gap-1"
+              className="text-sm text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
             >
               Vedi tutto
               <ChevronRight className="w-4 h-4" />
@@ -246,11 +291,15 @@ const Aria: React.FC = () => {
 
           {sessionsLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <Loader2 className="w-6 h-6 animate-spin text-aria-violet" />
             </div>
           ) : recentSessions.length === 0 ? (
-            <div className="text-center py-8 bg-muted/30 rounded-2xl">
-              <p className="text-muted-foreground text-sm">
+            <div className={cn(
+              "relative overflow-hidden text-center py-8 rounded-2xl",
+              "bg-glass backdrop-blur-xl border border-glass-border"
+            )}>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+              <p className="relative z-10 text-muted-foreground text-sm">
                 Nessuna sessione ancora. Inizia a parlare con Aria!
               </p>
             </div>
@@ -262,27 +311,35 @@ const Aria: React.FC = () => {
                 const sessionLabel = session.type === 'voice' ? 'Vocale' : 'Chat';
                 const dateLabel = format(new Date(session.start_time), "d MMM", { locale: it });
                 const timeLabel = format(new Date(session.start_time), "HH:mm", { locale: it });
+                const isVoice = session.type === 'voice';
                 
                 return (
                   <button
                     key={session.id}
                     onClick={() => setSelectedSessionId(session.id)}
-                    className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted/30 transition-colors text-left"
+                    className={cn(
+                      "relative overflow-hidden w-full flex items-center gap-3 p-3 rounded-xl text-left",
+                      "bg-glass backdrop-blur-xl border border-glass-border",
+                      "hover:shadow-glass-glow transition-all duration-300"
+                    )}
                   >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
-                      style={{
-                        background: session.type === 'voice' 
-                          ? 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' 
-                          : 'linear-gradient(135deg, #34d399 0%, #14b8a6 100%)'
-                      }}
+                    {/* Inner light */}
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+                    
+                    <div 
+                      className={cn(
+                        "relative z-10 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm",
+                        isVoice ? "bg-gradient-aria" : "bg-gradient-to-br from-primary to-primary-glow"
+                      )}
                     >
-                      {session.type === 'voice' ? (
-                        <AudioLines className="w-5 h-5 text-white" />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-transparent to-white/25 pointer-events-none" />
+                      {isVoice ? (
+                        <AudioLines className="w-5 h-5 text-white relative z-10" />
                       ) : (
-                        <PenLine className="w-5 h-5 text-white" />
+                        <PenLine className="w-5 h-5 text-white relative z-10" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="relative z-10 flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground text-sm">
                           {sessionLabel} • {dateLabel}
@@ -290,7 +347,15 @@ const Aria: React.FC = () => {
                         {emotionTags.length > 0 && (
                           <div className="flex gap-1">
                             {emotionTags.map((tag, i) => (
-                              <span key={i} className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">
+                              <span 
+                                key={i} 
+                                className={cn(
+                                  "text-xs px-1.5 py-0.5 rounded-full",
+                                  isVoice 
+                                    ? "bg-gradient-aria-subtle text-aria-violet" 
+                                    : "bg-primary/10 text-primary"
+                                )}
+                              >
                                 {tag.replace('#', '')}
                               </span>
                             ))}
@@ -302,7 +367,7 @@ const Aria: React.FC = () => {
                         {session.duration && ` • ${Math.floor(session.duration / 60)} min`}
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <ChevronRight className="relative z-10 w-4 h-4 text-muted-foreground flex-shrink-0" />
                   </button>
                 );
               })}

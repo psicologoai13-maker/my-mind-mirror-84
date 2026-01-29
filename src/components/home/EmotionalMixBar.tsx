@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
 import { Sparkles, MessageCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const EMOTION_CONFIG = {
   // Primary emotions
@@ -46,8 +47,15 @@ const EmotionalMixBar: React.FC = () => {
   const hasEmotions = segments.length > 0;
 
   return (
-    <div className="rounded-3xl p-6 bg-card shadow-premium">
-      <div className="flex items-center gap-3 mb-5">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl p-6",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10 flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-2xl bg-area-work/10 flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-area-work" />
         </div>
@@ -57,14 +65,14 @@ const EmotionalMixBar: React.FC = () => {
       </div>
 
       {!hasEmotions ? (
-        <div className="h-20 flex flex-col items-center justify-center text-muted-foreground text-center">
+        <div className="relative z-10 h-20 flex flex-col items-center justify-center text-muted-foreground text-center">
           <MessageCircle className="w-8 h-8 text-muted-foreground/30 mb-2" />
           <p className="text-sm">Parla con l'AI per generare il grafico</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Slim Pill Bar */}
-          <div className="h-4 w-full rounded-full overflow-hidden flex bg-muted">
+        <div className="relative z-10 space-y-4">
+          {/* Slim Pill Bar with glass effect */}
+          <div className="h-4 w-full rounded-full overflow-hidden flex bg-muted/50 backdrop-blur-sm">
             {segments.map((segment) => (
               <div
                 key={segment.key}
@@ -82,7 +90,7 @@ const EmotionalMixBar: React.FC = () => {
             {segments.map(emotion => (
               <div key={emotion.key} className="flex items-center gap-1.5">
                 <div 
-                  className="w-2.5 h-2.5 rounded-full"
+                  className="w-2.5 h-2.5 rounded-full shadow-sm"
                   style={{ backgroundColor: EMOTION_CONFIG[emotion.key].color }}
                 />
                 <span className="text-xs text-muted-foreground">{EMOTION_CONFIG[emotion.key].label}</span>

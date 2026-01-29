@@ -59,7 +59,7 @@ const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({
           'max-w-[80%] px-4 py-3',
           isUser
             ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-none'
-            : 'bg-white text-gray-800 rounded-2xl rounded-tl-none shadow-sm border border-gray-100'
+            : 'bg-gradient-aria-subtle text-foreground rounded-2xl rounded-tl-none shadow-glass border border-aria-violet/20'
         )}
       >
         {/* Markdown Content */}

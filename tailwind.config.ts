@@ -76,6 +76,12 @@ export default {
           work: "hsl(var(--area-work))",
           wellness: "hsl(var(--area-wellness))",
         },
+        // Aria exclusive colors
+        aria: {
+          violet: "hsl(var(--aria-violet))",
+          indigo: "hsl(var(--aria-indigo))",
+          purple: "hsl(var(--aria-purple))",
+        },
       },
       minHeight: {
         'dvh': '100dvh',
@@ -165,6 +171,10 @@ export default {
           "0%, 100%": { transform: "scale(1)", opacity: "0.8" },
           "50%": { transform: "scale(1.05)", opacity: "1" },
         },
+        "aria-breathe": {
+          "0%, 100%": { transform: "scale(1)", boxShadow: "0 0 20px rgba(155, 111, 208, 0.3)" },
+          "50%": { transform: "scale(1.08)", boxShadow: "0 0 40px rgba(155, 111, 208, 0.5)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -180,6 +190,7 @@ export default {
         "liquid-shimmer": "liquid-shimmer 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "breathe": "breathe 4s ease-in-out infinite",
+        "aria-breathe": "aria-breathe 4s ease-in-out infinite",
       },
     },
   },

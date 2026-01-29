@@ -22,20 +22,28 @@ const DiaryNotebookCard: React.FC<DiaryNotebookCardProps> = ({ theme, diary, onC
   return (
     <button
       onClick={onClick}
-      className="w-full p-4 rounded-3xl bg-card shadow-premium hover:shadow-lg hover:scale-[1.02] transition-all duration-300 text-left group"
+      className={cn(
+        "relative overflow-hidden w-full p-4 rounded-3xl text-left group",
+        "bg-glass backdrop-blur-xl border border-glass-border",
+        "shadow-glass hover:shadow-glass-elevated",
+        "hover:scale-[1.02] transition-all duration-300"
+      )}
     >
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
       {/* Icon circle */}
-      <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center text-lg mb-3">
+      <div className="relative z-10 w-10 h-10 rounded-2xl bg-muted/50 backdrop-blur-sm flex items-center justify-center text-lg mb-3">
         {themeConfig.emoji}
       </div>
       
       {/* Title */}
-      <h3 className="font-display font-semibold text-foreground text-base">
+      <h3 className="relative z-10 font-display font-semibold text-foreground text-base">
         {themeConfig.label}
       </h3>
       
       {/* Subtitle */}
-      <p className="text-xs text-muted-foreground mt-1">
+      <p className="relative z-10 text-xs text-muted-foreground mt-1">
         {hasMessages ? (
           lastUpdated ? `Ultima modifica: ${lastUpdated}` : `${diary.messages.length} messaggi`
         ) : (

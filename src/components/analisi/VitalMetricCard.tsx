@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,24 +26,19 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
   const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
   
   // Trend color (inverted for negative metrics)
-  // For negative metrics: stored value going UP = feeling worse = RED
-  // For negative metrics: stored value going DOWN = feeling better = GREEN
   const trendColor = isNegative
     ? (metric.trend === 'up' ? 'text-orange-500' : metric.trend === 'down' ? 'text-emerald-500' : 'text-muted-foreground')
     : (metric.trend === 'up' ? 'text-emerald-500' : metric.trend === 'down' ? 'text-orange-500' : 'text-muted-foreground');
 
   // Score color based on INVERTED visual score for negative metrics
-  // After inversion: LOW score = GREEN (good), HIGH score = RED (bad)
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
     
     if (isNegative) {
-      // For negative metrics (after inversion): 0-3 = green, 4-6 = amber, 7-10 = red
       if (score <= 3) return 'text-emerald-500';
       if (score <= 6) return 'text-amber-500';
       return 'text-orange-500';
     } else {
-      // For positive metrics: 7-10 = green, 5-6 = amber, 0-4 = red
       if (score >= 7) return 'text-emerald-500';
       if (score >= 5) return 'text-amber-500';
       return 'text-orange-500';
@@ -56,10 +51,19 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
   return (
     <button
       onClick={onClick}
-      className="bg-card rounded-3xl shadow-premium overflow-hidden text-left transition-transform active:scale-[0.98] flex flex-col h-[140px]"
+      className={cn(
+        "relative overflow-hidden rounded-3xl text-left transition-all duration-300",
+        "bg-glass backdrop-blur-xl border border-glass-border",
+        "shadow-glass hover:shadow-glass-elevated",
+        "hover:scale-[1.02] active:scale-[0.98]",
+        "flex flex-col h-[140px]"
+      )}
     >
+      {/* Inner light reflection */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
       {/* Top Section - Info */}
-      <div className="p-4 pb-2 flex-shrink-0">
+      <div className="relative z-10 p-4 pb-2 flex-shrink-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -71,7 +75,7 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
           <TrendIcon className={cn("w-4 h-4", trendColor)} />
         </div>
 
-        {/* Big Score - Flexbox layout */}
+        {/* Big Score */}
         <div className="flex flex-row items-baseline gap-1">
           <span className={cn("text-4xl font-bold leading-none", getScoreColor(score10))}>
             {score10 ?? '—'}
@@ -80,13 +84,13 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
         </div>
       </div>
 
-      {/* Bottom Section - Chart (pushed to bottom) */}
-      <div className="mt-auto h-14 w-full">
+      {/* Bottom Section - Chart */}
+      <div className="relative z-10 mt-auto h-14 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData.length > 0 ? chartData : [{ value: 0 }]} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={metric.color} stopOpacity={0.4} />
+                <stop offset="5%" stopColor={metric.color} stopOpacity={0.5} />
                 <stop offset="95%" stopColor={metric.color} stopOpacity={0.05} />
               </linearGradient>
             </defs>
@@ -94,7 +98,7 @@ const VitalMetricCard: React.FC<VitalMetricCardProps> = ({ metric, chartData, on
               type="monotone"
               dataKey="value"
               stroke={metric.color}
-              strokeWidth={2}
+              strokeWidth={2.5}
               fill={`url(#${gradientId})`}
               isAnimationActive={false}
               connectNulls

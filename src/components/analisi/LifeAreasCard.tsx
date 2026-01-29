@@ -16,22 +16,33 @@ const LifeAreasCard: React.FC<LifeAreasCardProps> = ({ areas, onClick }) => {
   };
 
   return (
-    <div className="bg-card rounded-3xl shadow-premium p-6">
-      <div className="flex items-center gap-2 mb-5">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl p-6",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10 flex items-center gap-2 mb-5">
         <span className="text-lg">⚖️</span>
         <h3 className="font-semibold text-foreground">Aree della Vita</h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="relative z-10 grid grid-cols-2 gap-3">
         {areas.map(area => {
-          // area.average is already in 1-10 scale from unified source
           const score10 = area.average !== null ? Math.round(area.average) : null;
           
           return (
             <button
               key={area.key}
               onClick={() => onClick(area.key)}
-              className="bg-muted/50 rounded-2xl p-4 text-left transition-all hover:bg-muted active:scale-[0.98]"
+              className={cn(
+                "rounded-2xl p-4 text-left transition-all",
+                "bg-glass-subtle backdrop-blur-lg border border-transparent",
+                "hover:border-border/50 hover:shadow-soft",
+                "active:scale-[0.98]"
+              )}
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">{area.icon}</span>
