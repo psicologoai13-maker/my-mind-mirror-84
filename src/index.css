@@ -88,126 +88,167 @@
 
   :root {
     /* ========================================
-       PREMIUM 2025 DESIGN SYSTEM
-       Soft, Clean, Premium (Headspace/Flo style)
+       LIQUID GLASS 2026 DESIGN SYSTEM
+       iOS 26 inspired - Depth, Light, Motion
     ======================================== */
     
-    /* Base - Ice gray, almost white */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    /* Base - Subtle warm gray */
+    --background: 220 15% 97%;
+    --foreground: 220 25% 10%;
 
     /* Card - Pure white with depth */
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 220 25% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 220 25% 10%;
 
     /* Primary - Sage Green (modern, calming) */
-    --primary: 155 30% 45%;
+    --primary: 155 35% 42%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 155 25% 95%;
-    --primary-glow: 155 35% 55%;
+    --primary-light: 155 30% 95%;
+    --primary-glow: 155 45% 55%;
+    --primary-rgb: 86, 145, 120;
 
     /* Secondary - Soft slate */
-    --secondary: 210 15% 96%;
-    --secondary-foreground: 215 20% 35%;
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 20% 35%;
 
     /* Accent - Warm lavender */
-    --accent: 250 30% 96%;
-    --accent-foreground: 250 25% 35%;
+    --accent: 260 25% 96%;
+    --accent-foreground: 260 25% 35%;
 
     /* Muted - Gentle grays */
-    --muted: 210 15% 96%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 220 15% 95%;
+    --muted-foreground: 220 12% 50%;
 
     /* Destructive */
-    --destructive: 0 65% 55%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     /* Borders - Ultra subtle */
-    --border: 210 20% 92%;
-    --input: 210 20% 94%;
-    --ring: 155 30% 45%;
+    --border: 220 15% 90%;
+    --input: 220 15% 92%;
+    --ring: 155 35% 42%;
 
     --radius: 1.25rem;
 
-    /* Status Colors - Soft pastels */
-    --mood-excellent: 155 50% 45%;
-    --mood-good: 95 45% 50%;
-    --mood-neutral: 45 60% 55%;
-    --mood-low: 25 65% 55%;
-    --mood-bad: 0 55% 55%;
+    /* Status Colors - Vibrant pastels */
+    --mood-excellent: 155 55% 42%;
+    --mood-good: 95 50% 48%;
+    --mood-neutral: 45 70% 52%;
+    --mood-low: 25 75% 52%;
+    --mood-bad: 0 65% 52%;
 
     /* Life Areas - Modern pastels */
-    --area-friendship: 200 65% 55%;
-    --area-love: 340 60% 60%;
-    --area-work: 40 70% 55%;
-    --area-wellness: 155 45% 48%;
+    --area-friendship: 200 70% 52%;
+    --area-love: 340 65% 58%;
+    --area-work: 40 75% 52%;
+    --area-wellness: 155 50% 45%;
 
-    /* Premium Shadows - Ultra diffuse */
+    /* ========================================
+       LIQUID GLASS TOKENS 2026
+    ======================================== */
+    
+    /* Glass surfaces */
+    --glass-blur: 24px;
+    --glass-saturation: 180%;
+    --glass-bg: 0 0% 100% / 0.75;
+    --glass-bg-subtle: 0 0% 100% / 0.5;
+    --glass-border: 0 0% 100% / 0.4;
+    
+    /* Premium Shadows - Ultra diffuse with color */
     --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.02);
-    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.03);
-    --shadow-premium: 0 8px 30px rgba(0, 0, 0, 0.04);
-    --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.06);
-    --shadow-glow: 0 0 40px hsl(155 35% 55% / 0.12);
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-premium: 0 8px 30px rgba(0, 0, 0, 0.06);
+    --shadow-elevated: 0 16px 50px rgba(0, 0, 0, 0.08);
+    --shadow-glow: 0 0 40px hsl(155 45% 55% / 0.15);
+    
+    /* Glass shadows with inner light */
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --shadow-glass-glow: 0 8px 32px rgba(86, 145, 120, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-glass-elevated: 0 16px 48px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+    /* Gradient mesh backgrounds */
+    --gradient-mesh: 
+      radial-gradient(ellipse 80% 50% at 20% 20%, hsl(155 40% 90% / 0.5), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, hsl(260 30% 90% / 0.4), transparent);
+    
+    /* Mood-adaptive glow colors */
+    --mood-glow-positive: 155 50% 55%;
+    --mood-glow-neutral: 45 60% 60%;
+    --mood-glow-attention: 25 65% 55%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 99%;
-    --sidebar-foreground: 215 25% 15%;
-    --sidebar-primary: 155 30% 45%;
+    --sidebar-foreground: 220 25% 10%;
+    --sidebar-primary: 155 35% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 155 25% 95%;
-    --sidebar-accent-foreground: 155 30% 30%;
-    --sidebar-border: 210 20% 92%;
-    --sidebar-ring: 155 30% 45%;
+    --sidebar-accent-foreground: 155 35% 28%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-ring: 155 35% 42%;
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 210 15% 95%;
+    --background: 225 20% 6%;
+    --foreground: 220 15% 95%;
 
-    --card: 220 18% 11%;
-    --card-foreground: 210 15% 95%;
+    --card: 225 18% 10%;
+    --card-foreground: 220 15% 95%;
 
-    --popover: 220 18% 11%;
-    --popover-foreground: 210 15% 95%;
+    --popover: 225 18% 10%;
+    --popover-foreground: 220 15% 95%;
 
-    --primary: 155 40% 50%;
-    --primary-foreground: 220 20% 8%;
-    --primary-light: 155 25% 15%;
-    --primary-glow: 155 45% 60%;
+    --primary: 155 45% 48%;
+    --primary-foreground: 225 20% 6%;
+    --primary-light: 155 30% 12%;
+    --primary-glow: 155 50% 58%;
+    --primary-rgb: 86, 175, 130;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 12% 75%;
+    --secondary: 225 15% 14%;
+    --secondary-foreground: 220 12% 75%;
 
-    --accent: 250 20% 18%;
-    --accent-foreground: 250 20% 85%;
+    --accent: 260 20% 16%;
+    --accent-foreground: 260 20% 85%;
 
-    --muted: 220 15% 15%;
-    --muted-foreground: 210 12% 55%;
+    --muted: 225 15% 14%;
+    --muted-foreground: 220 12% 55%;
 
-    --destructive: 0 55% 50%;
+    --destructive: 0 60% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 155 40% 50%;
+    --border: 225 15% 16%;
+    --input: 225 15% 16%;
+    --ring: 155 45% 48%;
 
-    --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.15);
-    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.2);
-    --shadow-premium: 0 8px 30px rgba(0, 0, 0, 0.25);
-    --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.35);
-    --shadow-glow: 0 0 40px hsl(155 45% 60% / 0.15);
+    /* Glass surfaces - dark mode */
+    --glass-bg: 225 18% 12% / 0.8;
+    --glass-bg-subtle: 225 18% 12% / 0.5;
+    --glass-border: 225 15% 25% / 0.5;
 
-    --sidebar-background: 220 18% 9%;
-    --sidebar-foreground: 210 15% 95%;
-    --sidebar-primary: 155 40% 50%;
-    --sidebar-primary-foreground: 220 20% 8%;
-    --sidebar-accent: 155 20% 15%;
-    --sidebar-accent-foreground: 155 35% 85%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 155 40% 50%;
+    --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.2);
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-premium: 0 8px 30px rgba(0, 0, 0, 0.3);
+    --shadow-elevated: 0 16px 50px rgba(0, 0, 0, 0.4);
+    --shadow-glow: 0 0 40px hsl(155 50% 58% / 0.2);
+    
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-glass-glow: 0 8px 32px rgba(86, 175, 130, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --shadow-glass-elevated: 0 16px 48px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    --gradient-mesh: 
+      radial-gradient(ellipse 80% 50% at 20% 20%, hsl(155 40% 20% / 0.3), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, hsl(260 30% 20% / 0.25), transparent);
+
+    --sidebar-background: 225 18% 8%;
+    --sidebar-foreground: 220 15% 95%;
+    --sidebar-primary: 155 45% 48%;
+    --sidebar-primary-foreground: 225 20% 6%;
+    --sidebar-accent: 155 25% 12%;
+    --sidebar-accent-foreground: 155 40% 85%;
+    --sidebar-border: 225 15% 16%;
+    --sidebar-ring: 155 45% 48%;
   }
 }
 
@@ -239,10 +280,34 @@
     letter-spacing: -0.025em;
   }
 
+  /* Glass surfaces */
+  .bg-glass {
+    background: hsl(var(--glass-bg));
+  }
+  
+  .bg-glass-subtle {
+    background: hsl(var(--glass-bg-subtle));
+  }
+  
+  .border-glass-border {
+    border-color: hsl(var(--glass-border));
+  }
+  
+  .glass-surface {
+    @apply bg-glass backdrop-blur-xl border border-glass-border;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  }
+
   /* Premium card surface */
   .card-premium {
     @apply bg-card rounded-3xl;
     box-shadow: var(--shadow-premium);
+  }
+  
+  .card-glass {
+    @apply bg-glass rounded-3xl backdrop-blur-xl border border-glass-border;
+    box-shadow: var(--shadow-glass);
   }
 
   /* Premium shadows */
@@ -265,6 +330,23 @@
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
+  
+  .shadow-glass {
+    box-shadow: var(--shadow-glass);
+  }
+  
+  .shadow-glass-glow {
+    box-shadow: var(--shadow-glass-glow);
+  }
+  
+  .shadow-glass-elevated {
+    box-shadow: var(--shadow-glass-elevated);
+  }
+
+  /* Gradient mesh background */
+  .bg-gradient-mesh {
+    background: var(--gradient-mesh);
+  }
 
   .text-balance {
     text-wrap: balance;
@@ -274,6 +356,12 @@
   .btn-pill {
     @apply rounded-full px-6 py-3 font-medium transition-all duration-300;
     @apply hover:shadow-elevated active:scale-[0.98];
+  }
+  
+  /* Liquid shimmer effect */
+  .animate-liquid-shimmer {
+    animation: liquid-shimmer 3s ease-in-out infinite;
+    background-size: 200% 100%;
   }
 }
 
@@ -372,6 +460,36 @@ select:focus {
 @keyframes progress-fill {
   from { width: 0%; }
   to { width: 100%; }
+}
+
+/* Liquid Glass 2026 Animations */
+@keyframes liquid-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(0.5deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(var(--primary-rgb), 0.25);
+  }
+}
+
+@keyframes ring-fill {
+  from { stroke-dashoffset: var(--circumference); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
 }
 
 /* Zen Voice Modal - Breathing Gradients */

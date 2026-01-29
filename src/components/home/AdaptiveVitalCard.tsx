@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { AnimatedRing } from '@/components/ui/animated-ring';
 
 export type MetricKey = 
   | 'mood' | 'anxiety' | 'energy' | 'sleep' 
@@ -17,111 +18,65 @@ interface AdaptiveVitalCardProps {
 // Negative metrics: lower is BETTER
 const NEGATIVE_METRICS = ['anxiety', 'sadness', 'anger', 'fear', 'apathy', 'stress', 'loneliness'];
 
-// Smart color/label logic based on metric type
-const getMetricStatus = (key: MetricKey, value: number): { 
-  color: string; 
-  bgColor: string; 
-  label: string;
-  ringColor: string;
-} => {
+// Smart color logic based on metric type
+const getMetricColor = (key: MetricKey, value: number): string => {
   const isNegative = NEGATIVE_METRICS.includes(key);
-  const normalized = value / 10; // Convert to 0-10 scale
+  const normalized = value / 10;
   
   if (isNegative) {
     // For negative metrics: LOW = GOOD (green), HIGH = BAD (red)
-    if (normalized <= 3) {
-      return {
-        color: 'text-emerald-600',
-        bgColor: 'bg-emerald-500',
-        ringColor: 'ring-emerald-200',
-        label: key === 'anxiety' ? 'Calma' : key === 'stress' ? 'Rilassato' : key === 'loneliness' ? 'Connesso' : 'Basso',
-      };
-    }
-    if (normalized <= 6) {
-      return {
-        color: 'text-amber-600',
-        bgColor: 'bg-amber-500',
-        ringColor: 'ring-amber-200',
-        label: 'Gestibile',
-      };
-    }
-    return {
-      color: 'text-red-600',
-      bgColor: 'bg-red-500',
-      ringColor: 'ring-red-200',
-      label: key === 'anxiety' ? 'Alta' : key === 'stress' ? 'Elevato' : key === 'loneliness' ? 'Isolato' : 'Elevato',
-    };
+    if (normalized <= 3) return 'hsl(var(--mood-excellent))';
+    if (normalized <= 6) return 'hsl(var(--mood-neutral))';
+    return 'hsl(var(--mood-bad))';
   } else {
     // For positive metrics: HIGH = GOOD (green), LOW = BAD (red)
-    if (normalized >= 7) {
-      return {
-        color: 'text-emerald-600',
-        bgColor: 'bg-emerald-500',
-        ringColor: 'ring-emerald-200',
-        label: getHighLabel(key),
-      };
-    }
-    if (normalized >= 4) {
-      return {
-        color: 'text-amber-600',
-        bgColor: 'bg-amber-500',
-        ringColor: 'ring-amber-200',
-        label: getMediumLabel(key),
-      };
-    }
-    return {
-      color: 'text-red-600',
-      bgColor: 'bg-red-500',
-      ringColor: 'ring-red-200',
-      label: getLowLabel(key),
-    };
+    if (normalized >= 7) return 'hsl(var(--mood-excellent))';
+    if (normalized >= 4) return 'hsl(var(--mood-neutral))';
+    return 'hsl(var(--mood-low))';
   }
 };
 
-const getHighLabel = (key: MetricKey): string => {
-  const labels: Partial<Record<MetricKey, string>> = {
-    mood: 'Ottimo',
-    energy: 'Carico',
-    sleep: 'Riposato',
-    joy: 'Gioioso',
-    love: 'Appagato',
-    social: 'Connesso',
-    friendship: 'Sociale',
-    work: 'Produttivo',
-    growth: 'In crescita',
-    health: 'In forma',
-    calmness: 'Sereno',
-    emotional_clarity: 'Lucido',
+// Get status label
+const getStatusLabel = (key: MetricKey, value: number): string => {
+  const isNegative = NEGATIVE_METRICS.includes(key);
+  const normalized = value / 10;
+  
+  const positiveLabels: Partial<Record<MetricKey, [string, string, string]>> = {
+    mood: ['Basso', 'Neutro', 'Ottimo'],
+    energy: ['Scarso', 'Normale', 'Carico'],
+    sleep: ['Stanco', 'Ok', 'Riposato'],
+    joy: ['Assente', 'Presente', 'Gioioso'],
+    love: ['Carente', 'Stabile', 'Appagato'],
+    work: ['Difficile', 'Nella media', 'Produttivo'],
+    growth: ['Stagnante', 'In corso', 'In crescita'],
+    health: ['Debole', 'Stabile', 'In forma'],
+    calmness: ['Agitato', 'Neutro', 'Sereno'],
+    social: ['Isolato', 'Neutro', 'Connesso'],
+    friendship: ['Solo', 'Neutro', 'Sociale'],
+    emotional_clarity: ['Confuso', 'Neutro', 'Lucido'],
   };
-  return labels[key] || 'Buono';
-};
 
-const getMediumLabel = (key: MetricKey): string => {
-  const labels: Partial<Record<MetricKey, string>> = {
-    mood: 'Neutro',
-    energy: 'Normale',
-    sleep: 'Ok',
-    love: 'Stabile',
-    social: 'Neutro',
-    work: 'Nella media',
+  const negativeLabels: Partial<Record<MetricKey, [string, string, string]>> = {
+    anxiety: ['Calma', 'Gestibile', 'Alta'],
+    stress: ['Rilassato', 'Gestibile', 'Elevato'],
+    loneliness: ['Connesso', 'Neutro', 'Isolato'],
+    sadness: ['Sereno', 'Presente', 'Intensa'],
+    anger: ['Calmo', 'Presente', 'Intensa'],
+    fear: ['Sicuro', 'Presente', 'Elevata'],
+    apathy: ['Motivato', 'Neutro', 'Elevata'],
   };
-  return labels[key] || 'Medio';
-};
 
-const getLowLabel = (key: MetricKey): string => {
-  const labels: Partial<Record<MetricKey, string>> = {
-    mood: 'Basso',
-    energy: 'Scarso',
-    sleep: 'Stanco',
-    joy: 'Assente',
-    love: 'Carente',
-    social: 'Isolato',
-    friendship: 'Solo',
-    work: 'Difficile',
-    growth: 'Stagnante',
-    health: 'Debole',
-  };
-  return labels[key] || 'Critico';
+  if (isNegative) {
+    const labels = negativeLabels[key] || ['Basso', 'Medio', 'Alto'];
+    if (normalized <= 3) return labels[0];
+    if (normalized <= 6) return labels[1];
+    return labels[2];
+  } else {
+    const labels = positiveLabels[key] || ['Basso', 'Medio', 'Buono'];
+    if (normalized >= 7) return labels[2];
+    if (normalized >= 4) return labels[1];
+    return labels[0];
+  }
 };
 
 // Configuration for ALL possible metrics
@@ -151,7 +106,7 @@ const METRIC_CONFIG: Record<MetricKey, {
   calmness: { icon: '🧘', label: 'Calma' },
   social: { icon: '🤝', label: 'Socialità' },
   loneliness: { icon: '🏝️', label: 'Solitudine' },
-  emotional_clarity: { icon: '🔮', label: 'Chiarezza Emotiva' },
+  emotional_clarity: { icon: '🔮', label: 'Chiarezza' },
 };
 
 const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
@@ -165,35 +120,32 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   
   const isNegative = NEGATIVE_METRICS.includes(metricKey);
   
-  // INVERSION LOGIC for negative metrics:
-  // User votes 10 ("I feel great!") -> stored 100 -> inverted visual = 0 (no anxiety)
-  // User votes 2 ("I feel bad") -> stored 20 -> inverted visual = 80 (high anxiety)
+  // INVERSION LOGIC for negative metrics
   const invertedValue = isNegative ? (100 - value) : value;
-  
-  // Status is calculated on the INVERTED value for negative metrics
-  const status = getMetricStatus(metricKey, invertedValue);
-  
-  // Convert 0-100 scale to 0-10 scale for display (using inverted value)
-  const displayValue = (invertedValue / 10).toFixed(1);
-  
-  // Calculate circle progress (0-100 for stroke-dashoffset)
-  // For negative metrics: show inverted progress (low anxiety = mostly empty ring)
-  const radius = isSecondary ? 24 : 32;
-  const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(100, Math.max(0, invertedValue));
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-  const viewBoxSize = isSecondary ? 60 : 80;
-  const center = viewBoxSize / 2;
+  const color = getMetricColor(metricKey, invertedValue);
+  const statusLabel = getStatusLabel(metricKey, invertedValue);
 
   return (
     <div className={cn(
-      "rounded-3xl bg-card shadow-premium hover:shadow-elevated transition-all duration-300",
+      "relative overflow-hidden rounded-3xl",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass hover:shadow-glass-elevated",
+      "transition-all duration-300 ease-out",
+      "hover:-translate-y-0.5 active:translate-y-0",
       isSecondary ? "p-4" : "p-5"
     )}>
-      <div className="flex flex-col h-full">
+      {/* Inner light reflection */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center gap-2 mb-3">
-          <span className={isSecondary ? "text-base" : "text-lg"}>{config.icon}</span>
+          <span className={cn(
+            "transition-transform duration-300 hover:scale-110",
+            isSecondary ? "text-xl" : "text-2xl"
+          )}>
+            {config.icon}
+          </span>
           <span className={cn(
             "font-medium text-muted-foreground",
             isSecondary ? "text-xs" : "text-sm"
@@ -202,59 +154,26 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
           </span>
         </div>
         
-        {/* Custom SVG Circle Chart */}
+        {/* Animated Ring */}
         <div className="flex items-center justify-center">
-          <div className={cn(
-            "relative",
-            isSecondary ? "w-14 h-14" : "w-20 h-20"
-          )}>
-            <svg 
-              viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
-              className="w-full h-full transform -rotate-90"
-            >
-              {/* Background circle */}
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                stroke="hsl(var(--muted))"
-                strokeWidth={isSecondary ? 5 : 6}
-                fill="none"
-              />
-              {/* Progress circle */}
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                stroke="currentColor"
-                strokeWidth={isSecondary ? 5 : 6}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                className={cn("transition-all duration-500", status.color)}
-              />
-            </svg>
-            
-            {/* Center value */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="flex items-baseline gap-0.5">
-                <span 
-                  className={cn(
-                    "font-semibold leading-none",
-                    status.color,
-                    isSecondary ? "text-base" : "text-xl"
-                  )}
-                >
-                  {displayValue}
-                </span>
-                <span className={cn(
-                  "text-muted-foreground leading-none",
-                  isSecondary ? "text-[8px]" : "text-[10px]"
-                )}>/10</span>
-              </div>
-            </div>
-          </div>
+          <AnimatedRing
+            value={invertedValue}
+            size={isSecondary ? "md" : "lg"}
+            thickness={isSecondary ? 5 : 7}
+            color={color}
+            glowColor={color}
+            showValue={true}
+          />
+        </div>
+        
+        {/* Status label */}
+        <div className="mt-3 text-center">
+          <span className={cn(
+            "font-medium",
+            isSecondary ? "text-xs" : "text-sm"
+          )} style={{ color }}>
+            {statusLabel}
+          </span>
         </div>
       </div>
     </div>
