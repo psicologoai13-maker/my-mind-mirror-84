@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import type { ObjectiveInputMethod, ObjectiveCategory } from '@/lib/objectiveTypes';
 
-export type ObjectiveCategory = 'mind' | 'body' | 'study' | 'work' | 'relationships' | 'growth' | 'finance';
+export type { ObjectiveCategory } from '@/lib/objectiveTypes';
 export type ObjectiveStatus = 'active' | 'achieved' | 'paused' | 'abandoned';
 
 export interface Objective {
@@ -14,7 +15,7 @@ export interface Objective {
   description?: string;
   target_value?: number;
   current_value?: number;
-  starting_value?: number; // NEW: Initial value when objective was created
+  starting_value?: number;
   unit?: string;
   deadline?: string;
   status: ObjectiveStatus;
@@ -22,6 +23,14 @@ export interface Objective {
   progress_history: Array<{ date: string; value: number; note?: string }>;
   created_at: string;
   updated_at: string;
+  // New sync fields
+  input_method?: ObjectiveInputMethod;
+  linked_habit?: string;
+  linked_body_metric?: string;
+  preset_type?: string;
+  auto_sync_enabled?: boolean;
+  last_auto_sync_at?: string;
+  progress_source?: 'habit' | 'session' | 'checkin' | 'manual';
 }
 
 // Helper to calculate true progress considering starting point
@@ -57,6 +66,12 @@ export interface CreateObjectiveInput {
   current_value?: number;
   unit?: string;
   deadline?: string;
+  // New sync fields
+  input_method?: ObjectiveInputMethod;
+  linked_habit?: string;
+  linked_body_metric?: string;
+  preset_type?: string;
+  auto_sync_enabled?: boolean;
 }
 
 export interface UpdateObjectiveInput {
@@ -68,6 +83,7 @@ export interface UpdateObjectiveInput {
   description?: string;
   target_value?: number;
   deadline?: string;
+  starting_value?: number;
 }
 
 export const CATEGORY_CONFIG: Record<ObjectiveCategory, { label: string; emoji: string; color: string }> = {
@@ -97,7 +113,13 @@ export const useObjectives = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Objective[];
+      // Map JSON progress_history to proper type
+      return (data || []).map(obj => ({
+        ...obj,
+        progress_history: Array.isArray(obj.progress_history) 
+          ? obj.progress_history as Array<{ date: string; value: number; note?: string }>
+          : [],
+      })) as Objective[];
     },
     enabled: !!user?.id,
   });

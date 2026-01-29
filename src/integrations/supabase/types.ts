@@ -667,13 +667,20 @@ export type Database = {
       user_objectives: {
         Row: {
           ai_feedback: string | null
+          auto_sync_enabled: boolean | null
           category: string
           created_at: string | null
           current_value: number | null
           deadline: string | null
           description: string | null
           id: string
+          input_method: string | null
+          last_auto_sync_at: string | null
+          linked_body_metric: string | null
+          linked_habit: string | null
+          preset_type: string | null
           progress_history: Json | null
+          progress_source: string | null
           starting_value: number | null
           status: string | null
           target_value: number | null
@@ -684,13 +691,20 @@ export type Database = {
         }
         Insert: {
           ai_feedback?: string | null
+          auto_sync_enabled?: boolean | null
           category: string
           created_at?: string | null
           current_value?: number | null
           deadline?: string | null
           description?: string | null
           id?: string
+          input_method?: string | null
+          last_auto_sync_at?: string | null
+          linked_body_metric?: string | null
+          linked_habit?: string | null
+          preset_type?: string | null
           progress_history?: Json | null
+          progress_source?: string | null
           starting_value?: number | null
           status?: string | null
           target_value?: number | null
@@ -701,13 +715,20 @@ export type Database = {
         }
         Update: {
           ai_feedback?: string | null
+          auto_sync_enabled?: boolean | null
           category?: string
           created_at?: string | null
           current_value?: number | null
           deadline?: string | null
           description?: string | null
           id?: string
+          input_method?: string | null
+          last_auto_sync_at?: string | null
+          linked_body_metric?: string | null
+          linked_habit?: string | null
+          preset_type?: string | null
           progress_history?: Json | null
+          progress_source?: string | null
           starting_value?: number | null
           status?: string | null
           target_value?: number | null

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, Target, Trophy, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, Target, Trophy, AlertTriangle, Loader2, Zap, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ObjectiveCard } from '@/components/objectives/ObjectiveCard';
-import { NewObjectiveModal } from '@/components/objectives/NewObjectiveModal';
+import { ObjectiveQuizModal } from '@/components/objectives/ObjectiveQuizModal';
 import { useObjectives, CATEGORY_CONFIG } from '@/hooks/useObjectives';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Card } from '@/components/ui/card';
+import { isAutoSyncObjective, isAIDetectable } from '@/lib/objectiveTypes';
 
 const ObjectivesTabContent: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
@@ -141,7 +141,7 @@ const ObjectivesTabContent: React.FC = () => {
         </section>
       )}
 
-      <NewObjectiveModal
+      <ObjectiveQuizModal
         isOpen={showNewModal}
         onClose={() => setShowNewModal(false)}
         onSubmit={(input) => createObjective.mutate(input)}
