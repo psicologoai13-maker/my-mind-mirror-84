@@ -252,6 +252,69 @@ serve(async (req) => {
       }
     }
 
+    // ============= SYNC HABITS → OBJECTIVES =============
+    // Fetch active objectives with auto_sync enabled
+    const { data: objectives } = await supabase
+      .from('user_objectives')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('status', 'active')
+      .eq('auto_sync_enabled', true);
+
+    const objectivesUpdated: string[] = [];
+
+    if (objectives && objectives.length > 0) {
+      for (const objective of objectives) {
+        let newValue: number | null = null;
+        let progressSource = 'habit';
+
+        // Check linked_habit
+        if (objective.linked_habit) {
+          const habit = (habits || []).find(h => h.habit_type === objective.linked_habit);
+          if (habit && habit.value !== null) {
+            newValue = habit.value;
+          }
+        }
+
+        // Check linked_body_metric
+        if (objective.linked_body_metric && bodyMetrics) {
+          if (objective.linked_body_metric === 'weight' && bodyMetrics.weight) {
+            newValue = bodyMetrics.weight;
+          } else if (objective.linked_body_metric === 'sleep_hours' && bodyMetrics.sleep_hours) {
+            newValue = bodyMetrics.sleep_hours;
+          }
+        }
+
+        // Update objective if we have a new value
+        if (newValue !== null && newValue !== objective.current_value) {
+          const progressEntry = {
+            date: new Date().toISOString(),
+            value: newValue,
+            note: `Auto-sync da ${objective.linked_habit || objective.linked_body_metric}`,
+          };
+
+          const currentHistory = Array.isArray(objective.progress_history) 
+            ? objective.progress_history 
+            : [];
+
+          const { error: updateError } = await supabase
+            .from('user_objectives')
+            .update({
+              current_value: newValue,
+              progress_history: [...currentHistory, progressEntry],
+              last_auto_sync_at: new Date().toISOString(),
+              progress_source: progressSource,
+            })
+            .eq('id', objective.id);
+
+          if (!updateError) {
+            objectivesUpdated.push(objective.title);
+            console.log('[sync-habits-to-brain] Updated objective:', objective.title, 'to', newValue);
+          }
+        }
+      }
+    }
+
     // Calculate aggregate scores for AI context
     const aggregateScores = {
       physical_health_score: calculateAggregateScore([
@@ -296,6 +359,7 @@ serve(async (req) => {
       habitsCount: habits?.length || 0,
       brainMetrics,
       aggregateScores,
+      objectivesUpdated,
     });
 
     return new Response(
@@ -303,6 +367,7 @@ serve(async (req) => {
         success: true,
         date: targetDate,
         habits_processed: habits?.length || 0,
+        objectives_updated: objectivesUpdated,
         brain_metrics: brainMetrics,
         aggregate_scores: aggregateScores,
         summary: habitsSummary,
