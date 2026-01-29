@@ -6,12 +6,16 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Smile, Brain, Zap, Moon, Heart, Briefcase, Users, Sprout, Activity,
   Flame, CloudRain, Wind, Eye, Battery, Frown, ThumbsUp, AlertCircle,
-  Sparkles, TrendingDown, Coffee, Sun, Target
+  Sparkles, TrendingDown, Coffee, Sun, Target,
+  // Habit Icons
+  Footprints, Dumbbell, Scale, Droplets, Pill, Timer, Ban, Wine, Cigarette,
+  BookOpen, GraduationCap, Phone, UserCheck, Salad, Apple, Focus, Bed,
+  PersonStanding, Bike, Waves, HeartPulse, Stethoscope, PenLine, Leaf
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology' | 'objective';
-export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric';
+export type CheckinItemType = 'vital' | 'life_area' | 'emotion' | 'psychology' | 'objective' | 'habit';
+export type ResponseType = 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric' | 'toggle' | 'abstain' | 'counter' | 'timer';
 
 export interface CheckinItem {
   key: string;
@@ -25,6 +29,11 @@ export interface CheckinItem {
   priority: number;
   reason?: string;
   unit?: string;
+  target?: number;
+  step?: number;
+  // For habits
+  habitType?: string;
+  // For objectives
   objectiveId?: string;
 }
 
@@ -46,14 +55,17 @@ export const responseTypeConfig = {
     options: ['1', '2', '3', '4', '5'],
     labels: ['Minimo', '', '', '', 'Massimo'],
   },
-  numeric: {
-    options: [],
-    labels: [],
-  },
+  numeric: { options: [], labels: [] },
+  toggle: { options: [], labels: [] },
+  abstain: { options: [], labels: [] },
+  counter: { options: [], labels: [] },
+  timer: { options: [], labels: [] },
 };
 
-// Icon and color mapping for items from AI
-const iconMap: Record<string, LucideIcon> = {
+// ============================================
+// ICON MAPPING - Standard check-ins
+// ============================================
+const standardIconMap: Record<string, LucideIcon> = {
   mood: Smile, anxiety: Brain, energy: Zap, sleep: Moon,
   love: Heart, work: Briefcase, social: Users, growth: Sprout, health: Activity,
   sadness: CloudRain, anger: Flame, fear: AlertCircle, joy: Sparkles,
@@ -62,28 +74,116 @@ const iconMap: Record<string, LucideIcon> = {
   coping_ability: Coffee, sunlight_exposure: Sun,
 };
 
+// ============================================
+// HABIT ICON MAPPING - Lucide icons for habits
+// ============================================
+const habitIconMap: Record<string, LucideIcon> = {
+  // Fitness
+  steps: Footprints,
+  exercise: Dumbbell,
+  stretching: PersonStanding,
+  strength: Dumbbell,
+  cardio: HeartPulse,
+  yoga: PersonStanding,
+  swimming: Waves,
+  cycling: Bike,
+  // Health
+  sleep: Bed,
+  water: Droplets,
+  weight: Scale,
+  heart_rate: HeartPulse,
+  vitamins: Pill,
+  medication: Pill,
+  sunlight: Sun,
+  doctor_visit: Stethoscope,
+  // Mental
+  meditation: Leaf,
+  journaling: PenLine,
+  breathing: Wind,
+  gratitude: ThumbsUp,
+  therapy: Brain,
+  mindfulness: Leaf,
+  affirmations: Sparkles,
+  digital_detox: Ban,
+  // Nutrition
+  healthy_meals: Salad,
+  no_junk_food: Ban,
+  fruits_veggies: Apple,
+  meal_prep: Salad,
+  no_sugar: Ban,
+  intermittent_fasting: Timer,
+  // Bad habits
+  cigarettes: Cigarette,
+  alcohol: Wine,
+  caffeine: Coffee,
+  social_media: Ban,
+  nail_biting: Ban,
+  late_snacking: Moon,
+  // Productivity
+  reading: BookOpen,
+  learning: GraduationCap,
+  deep_work: Focus,
+  no_procrastination: Target,
+  morning_routine: Sun,
+  // Social
+  social_interaction: Users,
+  call_loved_one: Phone,
+  quality_time: Heart,
+  kindness: Heart,
+  networking: UserCheck,
+};
+
+// ============================================
+// COLOR MAPPING
+// ============================================
 const colorMap: Record<string, { color: string; bgColor: string }> = {
+  // Standard vitals
   mood: { color: 'text-primary', bgColor: 'bg-primary/10' },
-  anxiety: { color: 'text-rose-500', bgColor: 'bg-rose-50' },
-  energy: { color: 'text-amber-500', bgColor: 'bg-amber-50' },
-  sleep: { color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
-  love: { color: 'text-rose-500', bgColor: 'bg-rose-50' },
-  work: { color: 'text-blue-500', bgColor: 'bg-blue-50' },
-  social: { color: 'text-amber-500', bgColor: 'bg-amber-50' },
-  growth: { color: 'text-purple-500', bgColor: 'bg-purple-50' },
-  health: { color: 'text-emerald-500', bgColor: 'bg-emerald-50' },
-  sadness: { color: 'text-blue-400', bgColor: 'bg-blue-50' },
-  anger: { color: 'text-red-500', bgColor: 'bg-red-50' },
-  fear: { color: 'text-orange-500', bgColor: 'bg-orange-50' },
-  joy: { color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
-  rumination: { color: 'text-slate-500', bgColor: 'bg-slate-50' },
-  burnout_level: { color: 'text-red-400', bgColor: 'bg-red-50' },
-  loneliness_perceived: { color: 'text-purple-400', bgColor: 'bg-purple-50' },
-  gratitude: { color: 'text-emerald-500', bgColor: 'bg-emerald-50' },
-  mental_clarity: { color: 'text-cyan-500', bgColor: 'bg-cyan-50' },
-  somatic_tension: { color: 'text-orange-400', bgColor: 'bg-orange-50' },
-  coping_ability: { color: 'text-teal-500', bgColor: 'bg-teal-50' },
-  sunlight_exposure: { color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
+  anxiety: { color: 'text-rose-500', bgColor: 'bg-rose-50 dark:bg-rose-950/30' },
+  energy: { color: 'text-amber-500', bgColor: 'bg-amber-50 dark:bg-amber-950/30' },
+  sleep: { color: 'text-indigo-500', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30' },
+  // Life areas
+  love: { color: 'text-rose-500', bgColor: 'bg-rose-50 dark:bg-rose-950/30' },
+  work: { color: 'text-blue-500', bgColor: 'bg-blue-50 dark:bg-blue-950/30' },
+  social: { color: 'text-amber-500', bgColor: 'bg-amber-50 dark:bg-amber-950/30' },
+  growth: { color: 'text-purple-500', bgColor: 'bg-purple-50 dark:bg-purple-950/30' },
+  health: { color: 'text-emerald-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  // Emotions
+  sadness: { color: 'text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/30' },
+  anger: { color: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-950/30' },
+  fear: { color: 'text-orange-500', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
+  joy: { color: 'text-yellow-500', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30' },
+  // Psychology
+  rumination: { color: 'text-slate-500', bgColor: 'bg-slate-50 dark:bg-slate-950/30' },
+  burnout_level: { color: 'text-red-400', bgColor: 'bg-red-50 dark:bg-red-950/30' },
+  loneliness_perceived: { color: 'text-purple-400', bgColor: 'bg-purple-50 dark:bg-purple-950/30' },
+  gratitude: { color: 'text-emerald-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  mental_clarity: { color: 'text-cyan-500', bgColor: 'bg-cyan-50 dark:bg-cyan-950/30' },
+  somatic_tension: { color: 'text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
+  coping_ability: { color: 'text-teal-500', bgColor: 'bg-teal-50 dark:bg-teal-950/30' },
+  sunlight_exposure: { color: 'text-yellow-500', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30' },
+};
+
+// Habit-specific colors
+const habitColorMap: Record<string, { color: string; bgColor: string }> = {
+  // Fitness - Blue tones
+  steps: { color: 'text-blue-500', bgColor: 'bg-blue-50 dark:bg-blue-950/30' },
+  exercise: { color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/30' },
+  cardio: { color: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-950/30' },
+  yoga: { color: 'text-purple-500', bgColor: 'bg-purple-50 dark:bg-purple-950/30' },
+  // Health - Green tones
+  water: { color: 'text-cyan-500', bgColor: 'bg-cyan-50 dark:bg-cyan-950/30' },
+  weight: { color: 'text-emerald-600', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  vitamins: { color: 'text-orange-500', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
+  sunlight: { color: 'text-yellow-500', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30' },
+  // Mental - Purple tones
+  meditation: { color: 'text-violet-500', bgColor: 'bg-violet-50 dark:bg-violet-950/30' },
+  journaling: { color: 'text-indigo-500', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30' },
+  breathing: { color: 'text-sky-500', bgColor: 'bg-sky-50 dark:bg-sky-950/30' },
+  // Bad habits - Red/warning tones
+  cigarettes: { color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30' },
+  alcohol: { color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30' },
+  no_junk_food: { color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
 };
 
 interface AICheckinResponse {
@@ -94,7 +194,11 @@ interface AICheckinResponse {
   responseType: string;
   reason?: string;
   unit?: string;
+  target?: number;
+  step?: number;
+  habitType?: string;
   objectiveId?: string;
+  icon?: string;
 }
 
 interface CachedCheckinsData {
@@ -103,11 +207,10 @@ interface CachedCheckinsData {
   aiGenerated: boolean;
   cachedAt: string;
   cachedDate: string;
-  // The FIXED daily list that never changes throughout the day
   fixedDailyList?: AICheckinResponse[];
 }
 
-// Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
+// Get current date in Rome timezone
 function getRomeDateString(): string {
   const now = new Date();
   return new Intl.DateTimeFormat('sv-SE', {
@@ -115,7 +218,7 @@ function getRomeDateString(): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).format(now); // Returns 'YYYY-MM-DD'
+  }).format(now);
 }
 
 export const usePersonalizedCheckins = () => {
@@ -126,7 +229,7 @@ export const usePersonalizedCheckins = () => {
   const backgroundRefreshTriggered = useRef(false);
   const [cachedData, setCachedData] = useState<CachedCheckinsData | null>(null);
 
-  // 🎯 STEP 1: Instantly load from profile cache (no loading state for user!)
+  // 🎯 STEP 1: Instantly load from profile cache
   const { data: profileCache, isLoading: profileLoading } = useQuery({
     queryKey: ['profile-checkins-cache', user?.id],
     queryFn: async (): Promise<CachedCheckinsData | null> => {
@@ -140,7 +243,6 @@ export const usePersonalizedCheckins = () => {
       
       const cache = data?.ai_checkins_cache as unknown as CachedCheckinsData | null;
       
-      // Only return cache if it's from today (Rome timezone)
       if (cache?.cachedDate === today) {
         console.log('[usePersonalizedCheckins] Using cached checkins from profile');
         return cache;
@@ -149,18 +251,17 @@ export const usePersonalizedCheckins = () => {
       return null;
     },
     enabled: !!user,
-    staleTime: Infinity, // Never auto-refetch - we control refresh
+    staleTime: Infinity,
     gcTime: 1000 * 60 * 30,
   });
 
-  // Set cached data when profile cache loads
   useEffect(() => {
     if (profileCache) {
       setCachedData(profileCache);
     }
   }, [profileCache]);
 
-  // 🎯 STEP 2: Background refresh - fetch fresh data from AI
+  // 🎯 STEP 2: Background refresh
   const { data: freshAIData, isLoading: aiLoading, refetch: refetchAI } = useQuery({
     queryKey: ['ai-checkins-fresh', user?.id, today],
     queryFn: async (): Promise<{ checkins: AICheckinResponse[]; allCompleted: boolean; aiGenerated: boolean }> => {
@@ -189,7 +290,6 @@ export const usePersonalizedCheckins = () => {
 
         const data = await response.json();
         
-        // 🎯 Save to profile cache for instant loading next time
         const cachePayload: CachedCheckinsData = {
           checkins: data.checkins || [],
           allCompleted: data.allCompleted || false,
@@ -203,9 +303,6 @@ export const usePersonalizedCheckins = () => {
           .update({ ai_checkins_cache: cachePayload as unknown as null })
           .eq('user_id', user.id);
         
-        console.log('[usePersonalizedCheckins] Cached new checkins to profile');
-        
-        // Update local state immediately
         setCachedData(cachePayload);
         
         return {
@@ -218,23 +315,20 @@ export const usePersonalizedCheckins = () => {
         return { checkins: [], allCompleted: false, aiGenerated: false };
       }
     },
-    enabled: false, // Manual trigger only
+    enabled: false,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
-  // 🎯 STEP 3: Trigger background refresh if no cache or cache is stale
+  // 🎯 STEP 3: Trigger background refresh
   useEffect(() => {
     if (!user || !session?.access_token || backgroundRefreshTriggered.current) return;
     
     const hasValidCache = cachedData && cachedData.cachedDate === today;
     
-    // If we have cache, use it immediately but still refresh in background
-    // If no cache, we need to fetch (but won't show loading to user)
     if (!profileLoading) {
       backgroundRefreshTriggered.current = true;
       
-      // Small delay to not block initial render
       const timer = setTimeout(() => {
         refetchAI();
       }, hasValidCache ? 2000 : 100);
@@ -243,22 +337,24 @@ export const usePersonalizedCheckins = () => {
     }
   }, [user, session, profileLoading, cachedData, today, refetchAI]);
 
-  // Fetch today's completed data for local tracking
+  // Fetch today's completed data
   const { data: todayAllData, refetch: refetchTodayData } = useQuery({
     queryKey: ['today-all-sources', user?.id, today],
     queryFn: async () => {
-      if (!user) return { lifeAreas: [], emotions: [], psychology: [] };
+      if (!user) return { lifeAreas: [], emotions: [], psychology: [], habits: [] };
 
-      const [lifeAreasResult, emotionsResult, psychologyResult] = await Promise.all([
+      const [lifeAreasResult, emotionsResult, psychologyResult, habitsResult] = await Promise.all([
         supabase.from('daily_life_areas').select('*').eq('user_id', user.id).eq('date', today),
         supabase.from('daily_emotions').select('*').eq('user_id', user.id).eq('date', today),
         supabase.from('daily_psychology').select('*').eq('user_id', user.id).eq('date', today),
+        supabase.from('daily_habits').select('*').eq('user_id', user.id).eq('date', today),
       ]);
 
       return {
         lifeAreas: lifeAreasResult.data || [],
         emotions: emotionsResult.data || [],
         psychology: psychologyResult.data || [],
+        habits: habitsResult.data || [],
       };
     },
     enabled: !!user,
@@ -316,11 +412,18 @@ export const usePersonalizedCheckins = () => {
       });
     }
 
+    // Mark completed habits
+    if (todayAllData?.habits) {
+      todayAllData.habits.forEach((record: any) => {
+        if (record.value > 0) {
+          completed[`habit_${record.habit_type}`] = record.value;
+        }
+      });
+    }
+
     return completed;
   }, [todayCheckin, todayAllData]);
 
-  // 🎯 Use cached data OR fresh data (prefer cached for instant render)
-  // Use fixedDailyList if available (the immutable daily list)
   const aiData = cachedData || (freshAIData ? {
     checkins: freshAIData.checkins,
     allCompleted: freshAIData.allCompleted,
@@ -330,22 +433,38 @@ export const usePersonalizedCheckins = () => {
     fixedDailyList: freshAIData.checkins,
   } : null);
 
-  // Convert AI response to CheckinItem format
-  // 🎯 Use the FIXED daily list and filter by completed items locally
+  // Convert AI response to CheckinItem format with proper icons
   const dailyCheckins = useMemo<CheckinItem[]>(() => {
-    // Use fixedDailyList if available, otherwise fall back to checkins
     const sourceList = aiData?.fixedDailyList || aiData?.checkins;
     if (!sourceList) return [];
 
     return sourceList
       .filter(item => !(item.key in completedToday))
       .map((item, index) => {
-        // Dynamic colors for objectives
-        const isObjective = item.key.startsWith('objective_');
-        const colors = isObjective 
-          ? { color: 'text-emerald-500', bgColor: 'bg-emerald-50' }
-          : (colorMap[item.key] || { color: 'text-gray-500', bgColor: 'bg-gray-50' });
-        const Icon = isObjective ? Target : (iconMap[item.key] || Sparkles);
+        const isHabit = item.type === 'habit' || item.key.startsWith('habit_');
+        const isObjective = item.type === 'objective' || item.key.startsWith('objective_');
+        
+        // Determine icon
+        let Icon: LucideIcon = Sparkles;
+        if (isHabit) {
+          const habitType = item.habitType || item.key.replace('habit_', '');
+          Icon = habitIconMap[habitType] || Activity;
+        } else if (isObjective) {
+          Icon = Target;
+        } else {
+          Icon = standardIconMap[item.key] || Sparkles;
+        }
+
+        // Determine colors
+        let colors = { color: 'text-gray-500', bgColor: 'bg-gray-50 dark:bg-gray-900/30' };
+        if (isHabit) {
+          const habitType = item.habitType || item.key.replace('habit_', '');
+          colors = habitColorMap[habitType] || { color: 'text-primary', bgColor: 'bg-primary/10' };
+        } else if (isObjective) {
+          colors = { color: 'text-emerald-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30' };
+        } else {
+          colors = colorMap[item.key] || colors;
+        }
 
         return {
           key: item.key,
@@ -359,6 +478,9 @@ export const usePersonalizedCheckins = () => {
           priority: 100 - index,
           reason: item.reason,
           unit: item.unit,
+          target: item.target,
+          step: item.step,
+          habitType: item.habitType || (isHabit ? item.key.replace('habit_', '') : undefined),
           objectiveId: item.objectiveId,
         };
       });
@@ -367,8 +489,6 @@ export const usePersonalizedCheckins = () => {
   const completedCount = Object.keys(completedToday).length;
   const allCompleted = aiData?.allCompleted || false;
   const aiGenerated = aiData?.aiGenerated || false;
-  
-  // 🎯 CRITICAL: isLoading is false if we have ANY cached data (instant render!)
   const isLoading = !cachedData && profileLoading && !freshAIData;
 
   return {

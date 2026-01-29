@@ -6,7 +6,6 @@ import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
-import HabitTrackerSection from '@/components/habits/HabitTrackerSection';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -117,10 +116,7 @@ const Index: React.FC = () => {
       </header>
 
       <div className="px-6 pb-8 space-y-5">
-        {/* Habit Tracker Section */}
-        <HabitTrackerSection />
-        
-        {/* AI-Ordered Widgets */}
+        {/* AI-Ordered Widgets - habits now integrated in SmartCheckinSection */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
 
         {/* AI Insight Card - Moved below Focus */}
