@@ -1,449 +1,400 @@
 
-# Piano: Ristrutturazione Habits + Architettura Dati Unificata al "Cervello"
+# Piano: Sistema Obiettivi Pre-impostati + Sincronizzazione Cervello
 
-## Analisi del Problema Attuale
+## Problema Attuale
 
-### Problemi Identificati nelle Habits
+Attualmente gli obiettivi:
+- **Sono completamente liberi** → L'utente deve inventare tutto
+- **Nessuna libreria predefinita** → Confusione su cosa tracciare
+- **Input dati non intelligente** → Tutti usano lo stesso slider generico
+- **Nessuna sincronizzazione cervello** → I dati non fluiscono automaticamente
 
-1. **Input Method Non Intelligente**
-   - Tutte le habits usano +/- indiscriminatamente
-   - "Tempo con altri" chiede di incrementare minuti manualmente → assurdo
-   - Nessuna differenziazione per tipo di dato
+## Soluzione: Pattern Parallelo alle Habits
 
-2. **Habits Poco Sensate per Categoria**
-   - `social_time`: "30 minuti" come target giornaliero con +/- è innaturale
-   - `steps`: dovrebbe essere auto-sync, non manuale
-   - `weight`: dovrebbe essere numerico diretto, non +/-
-   - `sleep`: ore con decimali, non +/-
-
-3. **Mancanza di Input Methods Intelligenti**
-   - Non esistono: toggle (sì/no), input numerico diretto, sincronizzazione automatica
-   - Tutto è ricondotto a +/- o slider
-
-4. **Nessuna Integrazione con Dati Esterni**
-   - Predisposizione DB esiste (`data_source`, `auto_sync_enabled`) ma mai implementata
-   - Nessun collegamento con Apple Health / Google Fit / wearables
+Come per le habits, creiamo un sistema con:
+1. **Libreria pre-impostata** di 40+ obiettivi tipici
+2. **InputMethod intelligente** per ogni obiettivo
+3. **Auto-aggiornamento dal cervello** dove possibile
+4. **Input manuali via check-in** con tipo appropriato
+5. **Quiz guidato** per obiettivi custom (l'AI determina il tipo)
 
 ---
 
-## Architettura Dati Attuale vs. Obiettivo
+## Architettura Dati degli Obiettivi
 
-### Flussi Dati ATTUALI (Già Collegati al Cervello ✅)
+### Input Methods per Obiettivi
+
+| InputMethod | Uso | Esempio Obiettivo |
+|-------------|-----|-------------------|
+| `auto_body` | Da habits peso/body_metrics | "Perdere 5kg" |
+| `auto_habit` | Da habits correlate | "Meditare 30min/giorno" |
+| `numeric` | Input diretto check-in | "Risparmiare 5000€" |
+| `milestone` | Check qualitativo | "Superare esame" |
+| `counter` | Conteggio progressivo | "Leggere 12 libri" |
+| `time_based` | Timer/durata | "Correre 5km" |
+| `session_detected` | Rilevato da Aria | "Migliorare autostima" |
+
+### Flusso Dati: Cervello → Obiettivi
+
 ```
-                    ┌─────────────────────────────────────┐
-                    │         UNIFIED BRAIN              │
-                    │    (process-session Edge Fn)       │
-                    └─────────────────────────────────────┘
-                              ▲        ▲        ▲
-                              │        │        │
-              ┌───────────────┼────────┼────────┼───────────────┐
-              │               │        │        │               │
-        ╔═══════════╗   ╔══════════╗   ╔═══════════╗   ╔═══════════╗
-        ║ Sessions  ║   ║ Diaries  ║   ║ Check-ins ║   ║ Real-Time ║
-        ║ (Chat/    ║   ║ Tematici ║   ║ (Home)    ║   ║ Context   ║
-        ║  Voice)   ║   ╚══════════╝   ╚═══════════╝   ║ (Meteo/   ║
-        ╚═══════════╝                                   ║ News/Loc) ║
-              │               │              │         ╚═══════════╝
-              ▼               ▼              ▼               │
-        ┌─────────────────────────────────────┐              │
-        │    Tabelle Unificate (daily_*)      │◄─────────────┘
-        │ - daily_emotions                    │
-        │ - daily_life_areas                  │
-        │ - daily_psychology                  │
-        │ - sessions                          │
-        └─────────────────────────────────────┘
-```
-
-### Flussi Dati MANCANTI (Da Collegare ❌)
-```
-    ╔═══════════════════════════════════╗
-    ║     DATI NON COLLEGATI AL         ║
-    ║     CERVELLO ATTUALMENTE          ║
-    ╠═══════════════════════════════════╣
-    ║ • daily_habits (abitudini)        ║  ← Non elaborati da AI
-    ║ • body_metrics (peso, sonno)      ║  ← Non elaborati da AI
-    ║ • user_objectives (progressi)     ║  ← Parzialmente collegati
-    ║ • External APIs (Health/Fit)      ║  ← Non esistono
-    ╚═══════════════════════════════════╝
-```
-
----
-
-## Soluzione Strutturale: Input Methods Intelligenti
-
-### Nuovo Sistema di Input per Habits
-
-Ogni habit deve avere un `inputMethod` appropriato:
-
-| Input Method | Uso | Esempio |
-|--------------|-----|---------|
-| `toggle` | Sì/No binario | "Hai meditato oggi?", "Hai preso le vitamine?" |
-| `numeric` | Valore diretto | "Quanto pesi?", "Ore dormite?" |
-| `counter` | +/- con target | "Bicchieri d'acqua" (0→8) |
-| `abstain` | Obiettivo zero | "Sigarette fumate" (0 = successo) |
-| `timer` | Avvio/Stop tempo | "Tempo meditazione" |
-| `auto_sync` | Da fonte esterna | "Passi" (da Apple Health) |
-
-### Libreria Habits Ristrutturata (40+ habits)
-
-**FITNESS - Con Input Intelligente**
-```typescript
-steps: { 
-  inputMethod: 'auto_sync',  // ← Da Health app
-  fallbackMethod: 'numeric', // ← Manuale se no permessi
-  label: 'Passi',
-  unit: 'passi',
-  defaultTarget: 10000,
-  autoSyncSource: 'health_kit|google_fit'
-}
-
-exercise: {
-  inputMethod: 'timer',  // ← Avvia/ferma cronometro
-  label: 'Esercizio',
-  unit: 'min',
-  defaultTarget: 30
-}
-```
-
-**HEALTH - Valori Numerici Diretti**
-```typescript
-sleep: {
-  inputMethod: 'numeric',  // ← Input ore diretto (es. 7.5)
-  label: 'Ore Sonno',
-  unit: 'ore',
-  defaultTarget: 8,
-  step: 0.5,  // incrementi di mezz'ora
-  min: 0,
-  max: 14
-}
-
-weight: {
-  inputMethod: 'numeric',
-  label: 'Peso',
-  unit: 'kg',
-  defaultTarget: null,  // no target giornaliero
-  syncToObjective: true  // collega automaticamente a obiettivi body
-}
-```
-
-**SOCIAL - Toggle e Contatori**
-```typescript
-social_interaction: {
-  inputMethod: 'toggle',  // ← "Hai socializzato oggi?" Sì/No
-  label: 'Interazione Sociale',
-  question: 'Hai trascorso tempo con qualcuno oggi?'
-}
-
-call_friend: {
-  inputMethod: 'counter',  // ← +1 ogni chiamata
-  label: 'Chiamate',
-  unit: 'chiamate',
-  defaultTarget: 1
-}
-```
-
-**BAD HABITS - Astinenza con Celebrazione**
-```typescript
-cigarettes: {
-  inputMethod: 'abstain',  // ← Default 0, bottone "Ho fumato" se slip
-  label: 'Sigarette',
-  unit: 'sigarette',
-  defaultTarget: 0,
-  streakCelebration: true  // Mostra "🔥 7 giorni senza!" 
-}
+┌─────────────────────────────────────────────────────────────┐
+│                    FLUSSO DATI OBIETTIVI                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │   HABITS     │    │   SESSIONS   │    │   CHECK-INS  │  │
+│  │ (peso, passi │    │ (chat/voice) │    │  (manuali)   │  │
+│  │  sonno, ...)│    │              │    │              │  │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
+│         │                   │                   │          │
+│         ▼                   ▼                   ▼          │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │            CERVELLO (process-session)               │   │
+│  │  • Rileva menzioni obiettivi                        │   │
+│  │  • Estrae valori numerici                           │   │
+│  │  • Aggiorna current_value automaticamente           │   │
+│  └─────────────────────────┬───────────────────────────┘   │
+│                            │                               │
+│                            ▼                               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                  user_objectives                     │   │
+│  │  • current_value aggiornato                          │   │
+│  │  • progress_history con timestamp                    │   │
+│  │  • source: 'habit' | 'session' | 'checkin'          │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Nuova Architettura: Tutto al Cervello
+## Libreria Obiettivi Pre-impostati (OBJECTIVE_TYPES)
 
-### Fase 1: Habits → Cervello
-
-Creare edge function `sync-habits-to-brain` che:
-1. Legge `daily_habits` dell'utente
-2. Traduce in metriche comprensibili dall'AI
-3. Salva in formato processabile (o invia a `process-session`)
+### Struttura Tipo Obiettivo
 
 ```typescript
-// Mapping habits → metriche cervello
-const HABITS_TO_BRAIN_METRICS = {
-  sleep: { type: 'vital', metric: 'sleep_quality' },
-  water: { type: 'health', metric: 'hydration' },
-  exercise: { type: 'health', metric: 'physical_activity' },
-  meditation: { type: 'psychology', metric: 'mindfulness_practice' },
-  cigarettes: { type: 'behavior', metric: 'smoking_status' },
-  steps: { type: 'fitness', metric: 'daily_activity' }
+export type ObjectiveInputMethod = 
+  | 'auto_body'        // Sync da weight/body_metrics
+  | 'auto_habit'       // Sync da habit correlata
+  | 'numeric'          // Input numerico diretto
+  | 'milestone'        // Traguardo qualitativo (sì/raggiunto)
+  | 'counter'          // Conteggio incrementale
+  | 'time_based'       // Tempo/durata
+  | 'session_detected'; // Rilevato da AI nelle conversazioni
+
+export interface ObjectiveMeta {
+  label: string;
+  icon: string;
+  category: ObjectiveCategory;
+  description: string;
+  inputMethod: ObjectiveInputMethod;
+  unit?: string;
+  defaultTarget?: number;
+  // Sincronizzazione
+  linkedHabit?: string;       // Es: 'weight' per obiettivo peso
+  linkedBodyMetric?: string;  // Es: 'weight' da body_metrics
+  brainDetectable?: boolean;  // L'AI può rilevare progressi
+  // Validazione
+  requiresStartingValue?: boolean;
+  step?: number;
+  min?: number;
+  max?: number;
+}
+```
+
+### Catalogo Obiettivi (40+)
+
+**BODY - Corpo (8 obiettivi)**
+- `lose_weight` - Perdere peso (auto_body, kg, requires starting)
+- `gain_weight` - Prendere peso (auto_body, kg, requires starting)  
+- `gain_muscle` - Aumentare massa muscolare (auto_body, kg)
+- `run_distance` - Correre X km (time_based, km)
+- `complete_marathon` - Completare maratona (milestone)
+- `flexibility_goal` - Migliorare flessibilità (session_detected)
+- `body_composition` - Ridurre % grasso (numeric, %)
+- `physical_strength` - Aumentare forza (counter, reps/peso)
+
+**MIND - Mente (8 obiettivi)**
+- `reduce_anxiety` - Ridurre ansia (session_detected)
+- `improve_sleep` - Dormire meglio (auto_habit → sleep)
+- `emotional_stability` - Stabilità emotiva (session_detected)
+- `meditation_habit` - Meditare regolarmente (auto_habit → meditation)
+- `stress_management` - Gestire stress (session_detected)
+- `self_esteem` - Migliorare autostima (session_detected)
+- `mindfulness` - Praticare mindfulness (auto_habit)
+- `therapy_progress` - Progresso in terapia (milestone)
+
+**STUDY - Studio (6 obiettivi)**
+- `pass_exam` - Superare esame (milestone)
+- `study_hours` - Studiare X ore/settimana (counter, ore)
+- `read_books` - Leggere X libri (counter, libri)
+- `learn_language` - Imparare lingua (milestone)
+- `complete_course` - Completare corso (milestone)
+- `academic_grade` - Raggiungere voto (numeric, voto)
+
+**WORK - Lavoro (6 obiettivi)**
+- `get_promotion` - Ottenere promozione (milestone)
+- `change_job` - Cambiare lavoro (milestone)
+- `productivity` - Aumentare produttività (session_detected)
+- `work_life_balance` - Bilanciare vita-lavoro (session_detected)
+- `project_completion` - Completare progetto (milestone)
+- `skill_development` - Sviluppare competenza (milestone)
+
+**FINANCE - Finanze (6 obiettivi)**
+- `save_money` - Risparmiare (numeric, €, requires starting)
+- `pay_debt` - Estinguere debito (numeric, €, requires starting)
+- `emergency_fund` - Fondo emergenza (numeric, €)
+- `investment_goal` - Obiettivo investimento (numeric, €)
+- `income_increase` - Aumentare entrate (numeric, €)
+- `spending_reduction` - Ridurre spese (numeric, €)
+
+**RELATIONSHIPS - Relazioni (4 obiettivi)**
+- `find_partner` - Trovare partner (milestone)
+- `improve_relationship` - Migliorare relazione (session_detected)
+- `social_connections` - Più connessioni sociali (counter)
+- `family_time` - Più tempo famiglia (auto_habit)
+
+**GROWTH - Crescita (4 obiettivi)**
+- `new_hobby` - Iniziare hobby (milestone)
+- `public_speaking` - Parlare in pubblico (milestone)
+- `creative_project` - Progetto creativo (milestone)
+- `personal_brand` - Costruire personal brand (milestone)
+
+---
+
+## Sincronizzazione Automatica dal Cervello
+
+### 1. Habits → Obiettivi (Automatico)
+
+Quando una habit ha `syncToObjective: true`, il valore aggiorna l'obiettivo correlato:
+
+```typescript
+// In sync-habits-to-brain o process-session
+if (habit.type === 'weight' && habit.value) {
+  // Trova obiettivo peso attivo
+  const weightObjective = activeObjectives.find(o => 
+    o.category === 'body' && 
+    (o.title.includes('peso') || o.linkedHabit === 'weight')
+  );
+  
+  if (weightObjective) {
+    await updateObjectiveProgress(weightObjective.id, habit.value, 'habit');
+  }
+}
+```
+
+### 2. Sessions → Obiettivi (AI Detection)
+
+Il cervello già rileva progressi nelle conversazioni. Espandiamo:
+
+- **Obiettivi `session_detected`**: L'AI valuta il progresso qualitativo
+- **Esempio**: "Mi sento meno ansioso" → aggiorna `reduce_anxiety` con +10 score
+
+### 3. Check-ins → Obiettivi (Manuale)
+
+Per obiettivi che richiedono input manuale:
+
+- `numeric`: Input diretto (es. "Quanto hai risparmiato oggi?")
+- `counter`: +1/-1 (es. "Libri letti questo mese")
+- `milestone`: Checkbox (es. "Hai superato l'esame?")
+
+---
+
+## Modifiche ai Check-in
+
+### Logica Intelligente per Tipo Input
+
+```typescript
+// In ai-checkins Edge Function
+const generateObjectiveCheckin = (objective: Objective, meta: ObjectiveMeta) => {
+  switch (meta.inputMethod) {
+    case 'auto_body':
+    case 'auto_habit':
+      // Non generare check-in, viene sincronizzato automaticamente
+      return null;
+      
+    case 'numeric':
+      return {
+        key: `obj_${objective.id}`,
+        question: getNumericQuestion(objective, meta),
+        responseType: 'numeric',
+        unit: meta.unit,
+      };
+      
+    case 'counter':
+      return {
+        key: `obj_${objective.id}`,
+        question: `Quanti ${meta.unit} per "${objective.title}"?`,
+        responseType: 'counter',
+      };
+      
+    case 'milestone':
+      return {
+        key: `obj_${objective.id}`,
+        question: `Hai fatto progressi su "${objective.title}"?`,
+        responseType: 'yesno',
+      };
+      
+    case 'session_detected':
+      // Nessun check-in, l'AI rileva nelle conversazioni
+      return null;
+  }
 };
 ```
 
-### Fase 2: External Data Sources
-
-1. **Apple Health (HealthKit)** - Richiede app nativa (Phase B)
-   - Passi, battito cardiaco, sonno, calorie
-
-2. **Google Fit** - Richiede app nativa (Phase B)
-   - Stesso set di dati
-
-3. **Web-Based Fallback** (Phase A - ORA)
-   - Input manuale intelligente
-   - Importazione CSV da export Health
-   - Integrazione Strava/Garmin via OAuth (futuro)
-
-### Fase 3: Unified Data Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    UNIFIED DATA HUB                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
-│  │ Sessions │ │ Diaries  │ │ Check-in │ │ External Sources │   │
-│  │ (Chat/   │ │ Tematici │ │ (Home)   │ │ • Health Apps    │   │
-│  │  Voice)  │ │          │ │          │ │ • Wearables      │   │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ │ • Manual Entry   │   │
-│       │            │            │       └────────┬─────────┘   │
-│       │            │            │                │             │
-│       ▼            ▼            ▼                ▼             │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              UNIFIED INGESTION LAYER                    │   │
-│  │  • Normalizza tutti i dati a formato comune             │   │
-│  │  • Tagga con timestamp, source, reliability_score       │   │
-│  │  • Deduplica (es. sonno da check-in E da Health)        │   │
-│  └─────────────────────────────┬───────────────────────────┘   │
-│                                │                               │
-│                                ▼                               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  AI BRAIN (process-session)             │   │
-│  │  • Analizza TUTTI i dati unificati                      │   │
-│  │  • Genera insights cross-category                       │   │
-│  │  • Aggiorna objectives progress                         │   │
-│  │  • Rileva pattern (es. "dormi poco = mood basso")       │   │
-│  └─────────────────────────────┬───────────────────────────┘   │
-│                                │                               │
-│                                ▼                               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    OUTPUT LAYERS                         │   │
-│  │  • Dashboard metrics (ai_dashboard_cache)                │   │
-│  │  • Radar chart life areas                                │   │
-│  │  • Objectives progress                                   │   │
-│  │  • Flash insights                                        │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
-## Implementazione Tecnica
+## Quiz per Obiettivi Custom
 
-### File da Modificare/Creare
+Quando l'utente vuole creare un obiettivo personalizzato:
 
-**1. Ristrutturazione HABIT_TYPES** (`src/hooks/useHabits.tsx`)
+### Flusso Quiz (5 step)
 
-Aggiungere `inputMethod` a ogni habit con logica intelligente:
+1. **Cosa vuoi raggiungere?** (Input libero)
+2. **In quale area?** (Selezione categoria)
+3. **È misurabile?** (Sì/No → determina inputMethod)
+4. **Qual è il target?** (Se numerico)
+5. **Punto di partenza?** (Se richiesto)
+
+### AI Determination
 
 ```typescript
-export type InputMethod = 
-  | 'toggle'      // Sì/No
-  | 'numeric'     // Input diretto (peso, ore sonno)
-  | 'counter'     // +/- con target (bicchieri acqua)
-  | 'abstain'     // Goal = 0 (sigarette)
-  | 'timer'       // Cronometro
-  | 'auto_sync';  // Da fonte esterna
-
-export interface HabitMeta {
-  label: string;
-  icon: string;
-  unit: string;
-  defaultTarget: number;
-  streakType: 'daily' | 'abstain';
-  category: HabitCategory;
-  description: string;
-  inputMethod: InputMethod;        // NUOVO
-  autoSyncSource?: string;         // NUOVO
-  fallbackMethod?: InputMethod;    // NUOVO
-  step?: number;                   // Per numeric (es. 0.5 ore)
-  min?: number;                    // Validazione
-  max?: number;                    // Validazione
-  question?: string;               // Per toggle (domanda)
-  syncToObjective?: boolean;       // Collega a obiettivi
-}
+// L'AI analizza l'input libero e suggerisce:
+const analyzeCustomObjective = async (description: string) => {
+  // Prompt AI per determinare:
+  return {
+    suggestedCategory: 'body' | 'mind' | ...,
+    suggestedInputMethod: 'numeric' | 'milestone' | ...,
+    suggestedUnit: 'kg' | '€' | null,
+    needsStartingValue: true | false,
+    matchingPreset: 'lose_weight' | null, // Se esiste preset simile
+  };
+};
 ```
-
-**2. Nuovo HabitCard Intelligente** (`src/components/habits/HabitCard.tsx`)
-
-Renderizza UI diversa in base a `inputMethod`:
-
-- `toggle` → Switch grande con testo "Sì/No"
-- `numeric` → Input campo numerico con unità
-- `counter` → +/- con display centrale
-- `abstain` → Grande check "✓ Oggi OK" + pulsante "Ho ceduto"
-- `timer` → Play/Pause con contatore
-
-**3. Edge Function Habits Sync** (`supabase/functions/sync-habits-to-brain/index.ts`)
-
-Nuova funzione che:
-1. Raccoglie `daily_habits` del giorno
-2. Li converte in formato compatibile con il cervello
-3. Aggiorna `daily_psychology`, `body_metrics`, o tabelle appropriate
-4. Triggera refresh degli insights
-
-**4. Modifiche a process-session** (`supabase/functions/process-session/index.ts`)
-
-Aggiungere sezione che legge anche:
-- `daily_habits` per contesto comportamentale
-- `body_metrics` per dati fisici
-- Correla con stato emotivo
-
-**5. Database Migration**
-
-Aggiungere colonne a `user_habits_config`:
-```sql
-ALTER TABLE user_habits_config 
-ADD COLUMN input_method text DEFAULT 'counter',
-ADD COLUMN sync_source text,
-ADD COLUMN last_external_value numeric;
-```
-
-### Lista Habits Definitiva (40+)
-
-**FITNESS (8 habits)**
-- `steps` - Passi (auto_sync/numeric)
-- `exercise` - Esercizio (timer)
-- `stretching` - Stretching (timer)
-- `strength` - Pesi (timer)
-- `cardio` - Cardio (timer)
-- `yoga` - Yoga (timer)
-- `swimming` - Nuoto (numeric minuti)
-- `cycling` - Ciclismo (numeric km)
-
-**HEALTH (8 habits)**
-- `sleep` - Ore sonno (numeric)
-- `water` - Acqua litri (counter con step 0.25)
-- `weight` - Peso (numeric, sync to objectives)
-- `heart_rate` - Battito (auto_sync/numeric)
-- `vitamins` - Vitamine (toggle)
-- `medication` - Farmaci (toggle)
-- `sunlight` - Sole 15min (toggle)
-- `doctor_visit` - Visite mediche (toggle)
-
-**MENTAL (8 habits)**
-- `meditation` - Meditazione (timer)
-- `journaling` - Diario (toggle - "Hai scritto?")
-- `breathing` - Respirazione (timer)
-- `gratitude` - Gratitudine (counter 1-3 cose)
-- `therapy` - Terapia (toggle)
-- `mindfulness` - Mindfulness (timer)
-- `affirmations` - Affermazioni (toggle)
-- `digital_detox` - No smartphone (toggle)
-
-**NUTRITION (6 habits)**
-- `healthy_meals` - Pasti sani (counter)
-- `no_junk_food` - No cibo spazzatura (abstain)
-- `fruits_veggies` - Frutta/verdura (counter porzioni)
-- `meal_prep` - Pasti preparati (toggle)
-- `no_sugar` - No zuccheri (abstain)
-- `intermittent_fasting` - Digiuno (toggle)
-
-**BAD_HABITS (6 habits)**
-- `cigarettes` - Sigarette (abstain)
-- `alcohol` - Alcol (abstain)
-- `caffeine` - Caffeina (counter max 2)
-- `social_media` - Social (timer max 60min)
-- `nail_biting` - Unghie (abstain)
-- `late_snacking` - Snack notturni (abstain)
-
-**PRODUCTIVITY (5 habits)**
-- `reading` - Lettura (timer)
-- `learning` - Studio (timer)
-- `deep_work` - Focus (timer)
-- `no_procrastination` - Task completati (counter)
-- `morning_routine` - Routine mattutina (toggle)
-
-**SOCIAL (5 habits)**
-- `social_interaction` - Socializzato? (toggle)
-- `call_loved_one` - Chiamata affetti (toggle)
-- `quality_time` - Tempo qualità (toggle)
-- `kindness` - Atto gentilezza (toggle)
-- `networking` - Networking (toggle)
-
-**SELF_CARE (5 habits)**
-- `skincare` - Skincare (toggle)
-- `hobby` - Hobby (timer)
-- `nature` - Natura (toggle)
-- `self_care_routine` - Self-care (toggle)
-- `creative_time` - Creatività (timer)
 
 ---
 
-## Collegamento Completo al Cervello
+## Modifiche Database
 
-### Dati che Arrivano al Cervello (DOPO questa implementazione)
+### Colonne da Aggiungere a user_objectives
 
-| Fonte | Tipo Dato | Frequenza | Già Collegato? |
-|-------|-----------|-----------|----------------|
-| Sessions (Chat) | Trascritto + Emozioni | Per sessione | ✅ |
-| Sessions (Voice) | Trascritto + Voce | Per sessione | ✅ |
-| Diari Tematici | Messaggi + Contesto | Continuo | ✅ |
-| Check-ins Home | Vitali + Emozioni | Giornaliero | ✅ |
-| Real-Time Context | Meteo/News/Posizione | Caching 2h | ✅ |
-| **Habits** | Comportamenti giornalieri | Giornaliero | ❌ → ✅ |
-| **Body Metrics** | Peso, Sonno, Battito | Giornaliero | ❌ → ✅ |
-| **External Health** | Steps, Sleep, Heart | Auto-sync | ❌ (Phase B) |
+```sql
+ALTER TABLE user_objectives 
+ADD COLUMN input_method text DEFAULT 'numeric',
+ADD COLUMN linked_habit text,
+ADD COLUMN linked_body_metric text,
+ADD COLUMN preset_type text,  -- Es: 'lose_weight', null se custom
+ADD COLUMN auto_sync_enabled boolean DEFAULT false,
+ADD COLUMN last_auto_sync_at timestamptz,
+ADD COLUMN progress_source text DEFAULT 'manual'; -- 'habit' | 'session' | 'checkin' | 'manual'
+```
 
-### Correlazioni che l'AI Potrà Fare
+---
 
-Con tutti i dati unificati, il cervello potrà:
+## File da Modificare/Creare
 
-1. **Correlazione Sonno-Mood**
-   - "Quando dormi <6 ore, il tuo umore cala del 30% il giorno dopo"
+### Core Sistema Obiettivi
 
-2. **Correlazione Esercizio-Ansia**
-   - "Nei giorni in cui fai esercizio, la tua ansia è 40% più bassa"
+1. **`src/hooks/useObjectives.tsx`**
+   - Aggiungere `OBJECTIVE_TYPES` (libreria predefinita)
+   - Aggiungere `ObjectiveMeta` interface
+   - Funzione `getObjectiveMeta(type)` 
+   - Logica per sync da habits
 
-3. **Pattern Sigarette-Stress**
-   - "Fumi di più quando il lavoro va male (correlazione 0.7)"
+2. **`src/components/objectives/NewObjectiveModal.tsx`** → **Rifare completamente**
+   - Step 1: Scegli da libreria O "Personalizzato"
+   - Step 2: Se libreria → configura target
+   - Step 3: Se custom → quiz guidato
+   - Design quiz-style con animazioni
 
-4. **Trend Peso-Obiettivo**
-   - "Stai guadagnando 0.3kg/settimana, a questo ritmo raggiungi l'obiettivo in 12 settimane"
+3. **`src/components/objectives/ObjectiveCard.tsx`**
+   - Mostrare badge "Auto-sync" se collegato a habit
+   - UI diversa in base a `inputMethod`
+
+4. **`src/components/objectives/ObjectiveSelectionGrid.tsx`** (NUOVO)
+   - Griglia selezione obiettivi predefiniti
+   - Filtri per categoria
+   - Ricerca
+
+### Check-in Integration
+
+5. **`supabase/functions/ai-checkins/index.ts`**
+   - Saltare obiettivi `auto_body` e `auto_habit`
+   - Generare check-in appropriati per `numeric`, `counter`, `milestone`
+
+### Cervello / Sync
+
+6. **`supabase/functions/sync-habits-to-brain/index.ts`**
+   - Aggiungere logica sync habits → objectives
+   - Es: peso da habit → obiettivo peso
+
+7. **`supabase/functions/process-session/index.ts`**
+   - Migliorare rilevamento progressi `session_detected`
+   - Aggiornare obiettivi qualitativi (ansia, autostima)
+
+### Database
+
+8. **Migration SQL**
+   - Nuove colonne su `user_objectives`
 
 ---
 
 ## Priorità Implementazione
 
-1. **FASE 1 - Input Methods** (Immediato)
-   - Aggiungere `inputMethod` a HABIT_TYPES
-   - Modificare HabitCard per renderizzare UI diversa
-   - Migliorare UX input
+### Fase 1: Libreria + Modal Quiz
+- Creare `OBJECTIVE_TYPES` in useObjectives
+- Rifare NewObjectiveModal come quiz
+- Griglia selezione obiettivi
 
-2. **FASE 2 - Habits → Cervello** (Dopo Fase 1)
-   - Edge function `sync-habits-to-brain`
-   - Integrazione in `process-session`
-   - Aggiornamento dashboard insights
+### Fase 2: Auto-sync Habits → Objectives  
+- Modificare sync-habits-to-brain
+- Collegare peso/sonno/esercizio a obiettivi
 
-3. **FASE 3 - Body Metrics → Cervello** (Dopo Fase 2)
-   - Collegare `body_metrics` al processo
-   - Correlazioni peso/sonno
+### Fase 3: Check-in Intelligenti
+- Aggiornare ai-checkins per skip auto-sync
+- Input appropriati per ogni tipo
 
-4. **FASE 4 - External Sources** (Phase B - Post Native)
-   - Apple Health via Capacitor
-   - Google Fit via Capacitor
-   - Wearables API
+### Fase 4: Session Detection Migliorato
+- Espandere process-session per obiettivi qualitativi
+- Progressi per ansia, autostima, relazioni
 
 ---
 
-## Note Tecniche
+## Esempio Flusso Utente
 
-**Performance**
-- Sync habits → brain eseguito 1x/giorno a mezzanotte Roma
-- Caching aggressivo per non rallentare UI
-- Batch processing per multiple habits
+### Scenario 1: Obiettivo Peso (Auto-sync)
 
-**Accessibilità**
-- Input numerici con stepper accessibili
-- Toggle con etichette chiare
-- Feedback haptic su completamento
+1. Utente seleziona "Perdere peso" dalla libreria
+2. Sistema chiede: "Quanto pesi ora?" → 80kg
+3. Sistema chiede: "Obiettivo?" → 70kg
+4. Obiettivo creato con `input_method: 'auto_body'`
+5. Quando utente registra peso nella habit → obiettivo si aggiorna automaticamente
+6. Check-in NON chiede il peso (già sincronizzato)
 
-**Retrocompatibilità**
-- Habits esistenti mantengono funzionamento
-- `inputMethod` fallback a 'counter' se non specificato
-- Migrazione graduale utenti esistenti
+### Scenario 2: Obiettivo Studio (Counter)
+
+1. Utente seleziona "Leggere X libri"
+2. Sistema chiede: "Quanti libri?" → 12
+3. Obiettivo creato con `input_method: 'counter'`
+4. Check-in mostra: "Hai finito un libro?" con +1
+5. Aria nelle sessioni: "Ho finito di leggere..." → +1 automatico
+
+### Scenario 3: Obiettivo Ansia (Session Detected)
+
+1. Utente seleziona "Ridurre ansia"
+2. Nessun target numerico richiesto
+3. Obiettivo creato con `input_method: 'session_detected'`
+4. Nelle sessioni, Aria rileva: "Mi sento più calmo" → progresso aggiornato
+5. Check-in NON chiede (troppo intrusivo)
+
+---
+
+## Risultato Finale
+
+- **40+ obiettivi predefiniti** organizzati per categoria
+- **6 tipi di input** intelligenti per ogni obiettivo
+- **Auto-sync** da habits e body_metrics dove possibile
+- **AI detection** per obiettivi qualitativi
+- **Check-in** solo dove necessario, con tipo appropriato
+- **Quiz guidato** per obiettivi custom
+- **Tutto collegato al cervello** per insights cross-category
