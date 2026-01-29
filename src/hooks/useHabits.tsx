@@ -42,7 +42,14 @@ export type InputMethod =
   | 'counter'     // +/- with target (bicchieri acqua)
   | 'abstain'     // Goal = 0 (sigarette, alcol)
   | 'timer'       // Start/Stop timer (meditazione)
-  | 'auto_sync';  // External source (passi da Health)
+  | 'auto_sync'   // External source (passi da Health)
+  | 'range';      // Preset range options (sigarette: 0, 1-5, 6-10...)
+
+export interface RangeOption {
+  label: string;
+  value: number;
+  emoji?: string;
+}
 
 export interface HabitMeta {
   label: string;
@@ -63,6 +70,10 @@ export interface HabitMeta {
   question?: string;       // For toggle (display question)
   syncToObjective?: boolean; // Auto-link to objectives
   brainMetric?: string;    // Maps to AI brain analysis
+  // NEW: External sync and range options
+  requiresExternalSync?: boolean;  // Hide on web, requires native app
+  webFallback?: InputMethod;       // Use this method on web instead
+  rangeOptions?: RangeOption[];    // For 'range' input method
 }
 
 export type HabitCategory = 
@@ -97,7 +108,9 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     min: 0,
     max: 50000,
     brainMetric: 'physical_activity',
-    suggestedFor: ['boost_energy']
+    suggestedFor: ['boost_energy'],
+    requiresExternalSync: true, // Needs phone step counter
+    // No webFallback = hidden on web
   },
   exercise: { 
     label: 'Esercizio', 
@@ -107,9 +120,12 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'fitness',
     description: 'Corsa, palestra, sport',
-    inputMethod: 'timer',
+    inputMethod: 'auto_sync',
     brainMetric: 'physical_activity',
-    suggestedFor: ['boost_energy', 'reduce_anxiety', 'work_stress']
+    suggestedFor: ['boost_energy', 'reduce_anxiety', 'work_stress'],
+    requiresExternalSync: true,
+    webFallback: 'toggle', // On web: "Hai fatto esercizio oggi?"
+    question: 'Hai fatto esercizio oggi?',
   },
   stretching: { 
     label: 'Stretching', 
@@ -248,7 +264,9 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     min: 40,
     max: 200,
     brainMetric: 'resting_heart_rate',
-    suggestedFor: []
+    suggestedFor: [],
+    requiresExternalSync: true, // Needs smartwatch
+    // No webFallback = hidden on web
   },
   vitamins: { 
     label: 'Vitamine', 
@@ -493,11 +511,18 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 0, 
     streakType: 'abstain',
     category: 'bad_habits',
-    description: 'Giorni senza fumare',
-    inputMethod: 'abstain',
-    question: 'Non hai fumato oggi?',
+    description: 'Quante sigarette oggi?',
+    inputMethod: 'range',
+    question: 'Quante sigarette hai fumato oggi?',
     brainMetric: 'smoking_status',
-    suggestedFor: ['reduce_anxiety', 'boost_energy']
+    suggestedFor: ['reduce_anxiety', 'boost_energy'],
+    rangeOptions: [
+      { label: 'Nessuna', value: 0, emoji: '🎉' },
+      { label: '1-5', value: 3 },
+      { label: '6-10', value: 8 },
+      { label: '11-20', value: 15 },
+      { label: '20+', value: 25 },
+    ],
   },
   alcohol: { 
     label: 'Alcol', 
@@ -533,10 +558,12 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'bad_habits',
     description: 'Tempo sui social (limite)',
-    inputMethod: 'numeric',
+    inputMethod: 'auto_sync',
     min: 0,
     max: 480,
-    suggestedFor: ['reduce_anxiety', 'loneliness', 'self_esteem']
+    suggestedFor: ['reduce_anxiety', 'loneliness', 'self_esteem'],
+    requiresExternalSync: true, // Needs Screen Time API
+    // No webFallback = hidden on web (user can't know exact minutes)
   },
   nail_biting: { 
     label: 'Mangiarsi Unghie', 
@@ -760,6 +787,67 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     brainMetric: 'creative_expression',
     suggestedFor: ['express_feelings', 'reduce_anxiety']
   },
+};
+
+// ============================================
+// HABIT ALIASES - Map variant names to standard habit types
+// For backward compatibility with different naming conventions
+// ============================================
+export const HABIT_ALIASES: Record<string, string> = {
+  'social_time': 'social_media',
+  'new_connection': 'networking',
+  'no_smoking': 'cigarettes',
+  'no_nail_biting': 'nail_biting',
+  'no-smoking': 'cigarettes',
+  'no-nail-biting': 'nail_biting',
+  'smettere_fumare': 'cigarettes',
+  'sigarette': 'cigarettes',
+  'alcool': 'alcohol',
+  'screen_time': 'social_media',
+};
+
+// ============================================
+// HELPER FUNCTION - Get habit metadata with alias resolution
+// ============================================
+export const getHabitMeta = (habitType: string): HabitMeta | null => {
+  // Direct match
+  if (HABIT_TYPES[habitType as keyof typeof HABIT_TYPES]) {
+    return HABIT_TYPES[habitType as keyof typeof HABIT_TYPES];
+  }
+  
+  // Check aliases
+  const aliased = HABIT_ALIASES[habitType];
+  if (aliased && HABIT_TYPES[aliased as keyof typeof HABIT_TYPES]) {
+    return HABIT_TYPES[aliased as keyof typeof HABIT_TYPES];
+  }
+  
+  console.warn(`[Habits] Unknown habit type: ${habitType}`);
+  return null;
+};
+
+// ============================================
+// HELPER - Get effective input method for web
+// ============================================
+export const getWebInputMethod = (habitType: string): InputMethod | null => {
+  const meta = getHabitMeta(habitType);
+  if (!meta) return null;
+  
+  // If requires external sync and has web fallback, use that
+  if (meta.requiresExternalSync) {
+    return meta.webFallback || null; // null = hide on web
+  }
+  
+  return meta.inputMethod;
+};
+
+// ============================================
+// HELPER - Check if habit should be hidden on web
+// ============================================
+export const shouldHideOnWeb = (habitType: string): boolean => {
+  const meta = getHabitMeta(habitType);
+  if (!meta) return true; // Unknown habits are hidden
+  
+  return meta.requiresExternalSync === true && !meta.webFallback;
 };
 
 // Category labels for UI grouping

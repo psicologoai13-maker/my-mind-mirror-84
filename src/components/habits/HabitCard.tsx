@@ -4,8 +4,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Flame, Plus, Minus, Check, Play, Pause, RotateCcw } from 'lucide-react';
-import { HabitWithStreak, HABIT_TYPES, InputMethod } from '@/hooks/useHabits';
+import { Flame, Plus, Minus, Check, Play, Pause, RotateCcw, Smartphone } from 'lucide-react';
+import { HabitWithStreak, HABIT_TYPES, InputMethod, getHabitMeta, getWebInputMethod, RangeOption } from '@/hooks/useHabits';
 
 interface HabitCardProps {
   habit: HabitWithStreak;
@@ -14,7 +14,86 @@ interface HabitCardProps {
 }
 
 // ============================================
-// TOGGLE INPUT COMPONENT
+// RANGE INPUT COMPONENT
+// For preset options (sigarette: 0, 1-5, 6-10, etc.)
+// ============================================
+const RangeInput: React.FC<{
+  habit: HabitWithStreak;
+  habitMeta: typeof HABIT_TYPES[string];
+  onLog: (value: number) => void;
+  isLogging?: boolean;
+}> = ({ habit, habitMeta, onLog, isLogging }) => {
+  const rangeOptions = habitMeta?.rangeOptions || [];
+  const [selectedValue, setSelectedValue] = useState<number | null>(
+    habit.todayValue > 0 ? habit.todayValue : null
+  );
+  
+  // Find which option matches current value
+  const currentOption = rangeOptions.find(opt => opt.value === habit.todayValue);
+  
+  if (habit.todayValue !== null && habit.lastEntry !== null && currentOption) {
+    return (
+      <div className={cn(
+        "flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium",
+        habit.todayValue === 0 
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+      )}>
+        <Check className="w-4 h-4" />
+        {currentOption.emoji && <span>{currentOption.emoji}</span>}
+        {currentOption.label}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground text-center">
+        {habitMeta?.question || habitMeta?.label}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {rangeOptions.map((option) => (
+          <Button
+            key={option.value}
+            variant={selectedValue === option.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setSelectedValue(option.value);
+              onLog(option.value);
+            }}
+            disabled={isLogging}
+            className={cn(
+              "h-12 rounded-xl flex flex-col gap-0.5 text-xs",
+              option.value === 0 && selectedValue !== option.value && "border-emerald-300 dark:border-emerald-800",
+              selectedValue === option.value && option.value === 0 && "bg-emerald-500 hover:bg-emerald-600"
+            )}
+          >
+            {option.emoji && <span className="text-base">{option.emoji}</span>}
+            <span>{option.label}</span>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// EXTERNAL SYNC MESSAGE COMPONENT
+// For habits that require native app/external data
+// ============================================
+const ExternalSyncMessage: React.FC<{
+  habitMeta: typeof HABIT_TYPES[string];
+}> = ({ habitMeta }) => {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-dashed border-muted-foreground/30">
+      <Smartphone className="w-5 h-5 text-muted-foreground shrink-0" />
+      <div className="text-xs text-muted-foreground">
+        <p className="font-medium">Sincronizzazione automatica</p>
+        <p>Questa habit si sincronizza con {habitMeta?.autoSyncSource === 'health_kit' ? 'Apple Health' : 'Google Fit'}</p>
+      </div>
+    </div>
+  );
+};
 // For yes/no habits (vitamine, diario, etc.)
 // ============================================
 const ToggleInput: React.FC<{
@@ -400,22 +479,33 @@ const AutoSyncInput: React.FC<{
 // MAIN HABIT CARD COMPONENT
 // ============================================
 const HabitCard: React.FC<HabitCardProps> = ({ habit, onLog, isLogging }) => {
-  const habitMeta = HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
-  const inputMethod: InputMethod = habitMeta?.inputMethod || 'counter';
+  // Use getHabitMeta for proper alias resolution
+  const habitMeta = getHabitMeta(habit.habit_type) || HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
+  
+  // Determine effective input method for web
+  const webInputMethod = getWebInputMethod(habit.habit_type);
+  const inputMethod: InputMethod = webInputMethod || habitMeta?.inputMethod || 'counter';
+  
   const target = habit.daily_target || habitMeta?.defaultTarget || 1;
   const isAbstain = habit.streak_type === 'abstain';
+  const isRange = inputMethod === 'range';
   
   // Progress calculation
-  const progress = isAbstain
+  const progress = isAbstain || isRange
     ? (habit.todayValue === 0 && habit.lastEntry ? 100 : 0)
     : Math.min(100, (habit.todayValue / target) * 100);
   
-  const isComplete = isAbstain 
+  const isComplete = isAbstain || isRange
     ? (habit.todayValue === 0 && habit.lastEntry !== null) 
     : habit.todayValue >= target;
 
   // Render input based on inputMethod
   const renderInput = () => {
+    // If requires external sync with no web fallback, show message
+    if (habitMeta?.requiresExternalSync && !habitMeta?.webFallback) {
+      return <ExternalSyncMessage habitMeta={habitMeta} />;
+    }
+    
     switch (inputMethod) {
       case 'toggle':
         return <ToggleInput habit={habit} habitMeta={habitMeta} onLog={onLog} isLogging={isLogging} />;
@@ -427,6 +517,8 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, onLog, isLogging }) => {
         return <AbstainInput habit={habit} habitMeta={habitMeta} onLog={onLog} isLogging={isLogging} />;
       case 'timer':
         return <TimerInput habit={habit} habitMeta={habitMeta} onLog={onLog} isLogging={isLogging} />;
+      case 'range':
+        return <RangeInput habit={habit} habitMeta={habitMeta} onLog={onLog} isLogging={isLogging} />;
       case 'auto_sync':
         return <AutoSyncInput habit={habit} habitMeta={habitMeta} onLog={onLog} isLogging={isLogging} />;
       default:
