@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, Sparkles, Send } from 'lucide-react';
+import { Check, X, Sparkles, Plus, Minus, Play, Pause, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePersonalizedCheckins, CheckinItem, responseTypeConfig } from '@/hooks/usePersonalizedCheckins';
 import { useCheckins } from '@/hooks/useCheckins';
@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 
 // Get current date in Rome timezone
 function getRomeDateString(): string {
@@ -42,6 +44,9 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const [activeItem, setActiveItem] = useState<CheckinItem | null>(null);
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
   const [numericValue, setNumericValue] = useState<string>('');
+  const [counterValue, setCounterValue] = useState<number>(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locallyCompleted, setLocallyCompleted] = useState<Record<string, number>>({});
 
@@ -50,21 +55,62 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const handleItemClick = (item: CheckinItem) => {
     if (item.key in allCompleted_) return;
     
-    // Start 24h timer when user clicks on first check-in item
     startCheckinTimer();
     onStartCheckin?.();
     
     if (activeItem?.key === item.key) {
       setActiveItem(null);
-      setSelectedValue(null);
-      setNumericValue('');
+      resetInputState();
     } else {
       setActiveItem(item);
-      setSelectedValue(null);
-      setNumericValue('');
+      resetInputState();
+      // Initialize counter with 0 or existing value
+      if (item.responseType === 'counter') {
+        setCounterValue(0);
+      }
     }
   };
 
+  const resetInputState = () => {
+    setSelectedValue(null);
+    setNumericValue('');
+    setCounterValue(0);
+    setTimerRunning(false);
+    setTimerSeconds(0);
+  };
+
+  // ============================================
+  // SAVE HANDLERS FOR DIFFERENT INPUT TYPES
+  // ============================================
+
+  const saveHabitValue = async (habitType: string, value: number) => {
+    const { error } = await supabase
+      .from('daily_habits')
+      .upsert({
+        user_id: profile?.user_id,
+        date: today,
+        habit_type: habitType,
+        value: value,
+        target_value: activeItem?.target,
+        unit: activeItem?.unit,
+      }, { onConflict: 'user_id,date,habit_type' });
+    
+    if (error) throw error;
+  };
+
+  const saveObjectiveValue = async (objectiveId: string, value: number) => {
+    const { error } = await supabase
+      .from('user_objectives')
+      .update({ 
+        current_value: value,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', objectiveId);
+    
+    if (error) throw error;
+  };
+
+  // Handle 5-option selections (emoji, yesno, intensity, slider)
   const handleSelectValue = async (value: number) => {
     if (!activeItem || isSubmitting) return;
     
@@ -113,6 +159,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
         if (error) throw error;
         
       } else {
+        // Standard vital - save to daily_checkins
         let existingNotes: Record<string, number> = {};
         if (todayCheckin?.notes) {
           try {
@@ -140,18 +187,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
         }
       }
 
-      setLocallyCompleted(prev => ({ ...prev, [activeItem.key]: scaledValue }));
-      
-      invalidateMetrics();
-      queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
-      refetchTodayData();
-      
-      toast.success(`${activeItem.label} registrato!`);
-      
-      setActiveItem(null);
-      setSelectedValue(null);
-      setNumericValue('');
-      setIsSubmitting(false);
+      completeCheckin(activeItem.key, scaledValue);
       
     } catch (error) {
       console.error('Error saving check-in:', error);
@@ -160,7 +196,72 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     }
   };
 
-  // Handle numeric input submission (for objectives with units like Kg)
+  // Handle TOGGLE input (Yes/No switch)
+  const handleToggleSubmit = async (value: boolean) => {
+    if (!activeItem || isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        await saveHabitValue(activeItem.habitType, value ? 1 : 0);
+      } else if (activeItem.type === 'objective' && activeItem.objectiveId) {
+        await saveObjectiveValue(activeItem.objectiveId, value ? 1 : 0);
+      }
+
+      completeCheckin(activeItem.key, value ? 1 : 0);
+      toast.success(value ? '✓ Completato!' : 'Registrato');
+      
+    } catch (error) {
+      console.error('Error saving toggle:', error);
+      toast.error('Errore nel salvataggio');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle ABSTAIN input (Today OK / Gave In)
+  const handleAbstainSubmit = async (succeeded: boolean) => {
+    if (!activeItem || isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        // 0 = succeeded (didn't do bad habit), 1 = failed (did the bad habit)
+        await saveHabitValue(activeItem.habitType, succeeded ? 0 : 1);
+      }
+
+      completeCheckin(activeItem.key, succeeded ? 0 : 1);
+      toast.success(succeeded ? '🎉 Ottimo lavoro!' : 'Nessun problema, riprova domani!');
+      
+    } catch (error) {
+      console.error('Error saving abstain:', error);
+      toast.error('Errore nel salvataggio');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle COUNTER input (+/- buttons)
+  const handleCounterSubmit = async () => {
+    if (!activeItem || isSubmitting || counterValue < 0) return;
+    setIsSubmitting(true);
+
+    try {
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        await saveHabitValue(activeItem.habitType, counterValue);
+      } else if (activeItem.type === 'objective' && activeItem.objectiveId) {
+        await saveObjectiveValue(activeItem.objectiveId, counterValue);
+      }
+
+      completeCheckin(activeItem.key, counterValue);
+      toast.success(`${activeItem.label}: ${counterValue} ${activeItem.unit || ''}`);
+      
+    } catch (error) {
+      console.error('Error saving counter:', error);
+      toast.error('Errore nel salvataggio');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle NUMERIC input
   const handleNumericSubmit = async () => {
     if (!activeItem || isSubmitting || !numericValue) return;
     
@@ -173,73 +274,93 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     setIsSubmitting(true);
 
     try {
-      // Update the objective's current_value directly
-      if (activeItem.objectiveId) {
-        const { error } = await supabase
-          .from('user_objectives')
-          .update({ 
-            current_value: numValue,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', activeItem.objectiveId);
-        
-        if (error) throw error;
-        
-        // Also save to daily checkin notes for tracking
-        let existingNotes: Record<string, number> = {};
-        if (todayCheckin?.notes) {
-          try {
-            existingNotes = JSON.parse(todayCheckin.notes);
-          } catch (e) {}
-        }
-        
-        const updatedNotes = {
-          ...existingNotes,
-          [activeItem.key]: numValue,
-        };
-        
-        await saveCheckin.mutateAsync({
-          mood_value: todayCheckin?.mood_value ?? 3,
-          mood_emoji: todayCheckin?.mood_emoji ?? '😐',
-          notes: JSON.stringify(updatedNotes),
-        });
-        
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        await saveHabitValue(activeItem.habitType, numValue);
+      } else if (activeItem.type === 'objective' && activeItem.objectiveId) {
+        await saveObjectiveValue(activeItem.objectiveId, numValue);
+        // Also update progress history
         queryClient.invalidateQueries({ queryKey: ['user-objectives'] });
       }
 
-      setLocallyCompleted(prev => ({ ...prev, [activeItem.key]: numValue }));
-      
-      invalidateMetrics();
-      queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
-      refetchTodayData();
-      
-      toast.success(`${activeItem.label}: ${numValue} ${activeItem.unit || ''} registrato!`);
-      
-      setActiveItem(null);
-      setSelectedValue(null);
-      setNumericValue('');
-      setIsSubmitting(false);
+      completeCheckin(activeItem.key, numValue);
+      toast.success(`${activeItem.label}: ${numValue} ${activeItem.unit || ''}`);
       
     } catch (error) {
-      console.error('Error saving numeric check-in:', error);
+      console.error('Error saving numeric:', error);
       toast.error('Errore nel salvataggio');
       setIsSubmitting(false);
     }
   };
 
+  // Handle TIMER input (for now, save minutes)
+  const handleTimerSubmit = async () => {
+    if (!activeItem || isSubmitting) return;
+    
+    const minutes = Math.round(timerSeconds / 60);
+    if (minutes === 0) {
+      toast.error('Avvia il timer prima di salvare');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setTimerRunning(false);
+
+    try {
+      if (activeItem.type === 'habit' && activeItem.habitType) {
+        await saveHabitValue(activeItem.habitType, minutes);
+      }
+
+      completeCheckin(activeItem.key, minutes);
+      toast.success(`${activeItem.label}: ${minutes} min`);
+      
+    } catch (error) {
+      console.error('Error saving timer:', error);
+      toast.error('Errore nel salvataggio');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Common completion logic
+  const completeCheckin = (key: string, value: number) => {
+    setLocallyCompleted(prev => ({ ...prev, [key]: value }));
+    invalidateMetrics();
+    queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
+    refetchTodayData();
+    setActiveItem(null);
+    resetInputState();
+    setIsSubmitting(false);
+  };
+
   const handleClose = () => {
     setActiveItem(null);
-    setSelectedValue(null);
-    setNumericValue('');
+    resetInputState();
+    setTimerRunning(false);
   };
 
   const getResponseOptions = (item: CheckinItem) => {
-    return responseTypeConfig[item.responseType].options;
+    return responseTypeConfig[item.responseType]?.options || [];
+  };
+
+  // Timer effect
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setTimerSeconds(s => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted_));
 
-  // Loading state - show skeleton, not text message
+  // Loading state
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -259,7 +380,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     );
   }
 
-  // All completed state - return null, the header icon will show summary modal
+  // All completed - return null
   if (visibleCheckins.length === 0 && (completedCount > 0 || allCompleted)) {
     return null;
   }
@@ -267,6 +388,265 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   if (visibleCheckins.length === 0) {
     return null;
   }
+
+  // ============================================
+  // RENDER INPUT BASED ON RESPONSE TYPE
+  // ============================================
+  const renderActiveInput = () => {
+    if (!activeItem) return null;
+
+    const responseType = activeItem.responseType;
+
+    // TOGGLE - Yes/No Switch
+    if (responseType === 'toggle') {
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm text-muted-foreground text-center">{activeItem.question}</p>
+          <div className="flex items-center gap-6">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => handleToggleSubmit(false)}
+              disabled={isSubmitting}
+              className="h-14 px-8 rounded-2xl border-2 hover:border-muted-foreground/50"
+            >
+              <XCircle className="w-5 h-5 mr-2 text-muted-foreground" />
+              No
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => handleToggleSubmit(true)}
+              disabled={isSubmitting}
+              className="h-14 px-8 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Sì
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // ABSTAIN - "Today OK" / "Gave In"
+    if (responseType === 'abstain') {
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm text-muted-foreground text-center">{activeItem.question}</p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => handleAbstainSubmit(false)}
+              disabled={isSubmitting}
+              className="h-14 px-6 rounded-2xl border-2 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/50"
+            >
+              <XCircle className="w-5 h-5 mr-2 text-red-500" />
+              Ho ceduto
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => handleAbstainSubmit(true)}
+              disabled={isSubmitting}
+              className="h-14 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Oggi OK!
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // COUNTER - +/- buttons
+    if (responseType === 'counter') {
+      const step = activeItem.step || 1;
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCounterValue(Math.max(0, counterValue - step))}
+              disabled={isSubmitting || counterValue <= 0}
+              className="h-14 w-14 rounded-2xl"
+            >
+              <Minus className="w-6 h-6" />
+            </Button>
+            <div className="flex items-center gap-2 min-w-[100px] justify-center">
+              <span className="text-3xl font-bold">{counterValue}</span>
+              {activeItem.unit && (
+                <span className="text-lg text-muted-foreground">{activeItem.unit}</span>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCounterValue(counterValue + step)}
+              disabled={isSubmitting}
+              className="h-14 w-14 rounded-2xl"
+            >
+              <Plus className="w-6 h-6" />
+            </Button>
+          </div>
+          {activeItem.target && (
+            <p className="text-xs text-muted-foreground">
+              Obiettivo: {activeItem.target} {activeItem.unit}
+            </p>
+          )}
+          <Button
+            onClick={handleCounterSubmit}
+            disabled={isSubmitting}
+            className="h-12 px-8 rounded-2xl"
+          >
+            <Check className="w-5 h-5 mr-2" />
+            Salva
+          </Button>
+        </div>
+      );
+    }
+
+    // TIMER - Play/Pause + time display
+    if (responseType === 'timer') {
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-4xl font-mono font-bold tabular-nums">
+            {formatTime(timerSeconds)}
+          </div>
+          <div className="flex items-center gap-4">
+            <Button
+              variant={timerRunning ? "outline" : "default"}
+              size="lg"
+              onClick={() => setTimerRunning(!timerRunning)}
+              disabled={isSubmitting}
+              className="h-14 w-14 rounded-full"
+            >
+              {timerRunning ? (
+                <Pause className="w-6 h-6" />
+              ) : (
+                <Play className="w-6 h-6 ml-1" />
+              )}
+            </Button>
+            {timerSeconds > 0 && (
+              <Button
+                onClick={handleTimerSubmit}
+                disabled={isSubmitting}
+                className="h-14 px-6 rounded-2xl"
+              >
+                <Check className="w-5 h-5 mr-2" />
+                Salva ({Math.round(timerSeconds / 60)} min)
+              </Button>
+            )}
+          </div>
+          {activeItem.target && (
+            <p className="text-xs text-muted-foreground">
+              Obiettivo: {activeItem.target} min
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // NUMERIC - Direct number input
+    if (responseType === 'numeric') {
+      return (
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center gap-2 w-full max-w-xs">
+            <div className="flex items-center gap-0 flex-1">
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={numericValue}
+                onChange={(e) => setNumericValue(e.target.value)}
+                placeholder="0"
+                className={cn(
+                  "h-14 text-xl font-bold text-center bg-glass backdrop-blur-sm border-2 border-primary/20 focus:border-primary rounded-l-2xl",
+                  activeItem.unit ? "rounded-r-none border-r-0 w-24" : "rounded-2xl w-full"
+                )}
+                disabled={isSubmitting}
+                autoFocus
+                step={activeItem.step || "0.1"}
+                min="0"
+              />
+              {activeItem.unit && (
+                <div className="h-14 px-4 flex items-center justify-center bg-glass backdrop-blur-sm border-2 border-primary/20 border-l-0 rounded-r-2xl">
+                  <span className="text-base font-semibold text-muted-foreground">
+                    {activeItem.unit}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={handleNumericSubmit}
+              disabled={isSubmitting || !numericValue}
+              className={cn(
+                "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0",
+                "bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow hover:shadow-lg",
+                "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              )}
+            >
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : (
+                <Check className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // DEFAULT: 5-option grid (emoji, yesno, intensity, slider)
+    return (
+      <>
+        <div className="grid grid-cols-5 gap-2">
+          {getResponseOptions(activeItem).map((option, index) => {
+            const isEmoji = activeItem.responseType === 'emoji';
+            
+            return (
+              <button
+                key={index}
+                onClick={() => handleSelectValue(index)}
+                disabled={isSubmitting}
+                className={cn(
+                  "h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-300",
+                  "hover:scale-105 active:scale-95 backdrop-blur-sm",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                  selectedValue === index 
+                    ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
+                    : "bg-glass border border-glass-border hover:bg-glass-hover"
+                )}
+              >
+                {selectedValue === index ? (
+                  <Check className="w-5 h-5" />
+                ) : isEmoji ? (
+                  <span className="text-2xl">{option}</span>
+                ) : (
+                  <span className={cn(
+                    "text-xs font-medium text-center px-1 leading-tight",
+                    selectedValue === index ? "text-primary-foreground" : "text-foreground"
+                  )}>
+                    {option}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-between mt-3 px-1">
+          <span className="text-xs text-muted-foreground">
+            {activeItem.responseType === 'emoji' ? 'Peggio' : 
+             activeItem.responseType === 'slider' ? 'Minimo' : 'Meno'}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {activeItem.responseType === 'emoji' ? 'Meglio' : 
+             activeItem.responseType === 'slider' ? 'Massimo' : 'Più'}
+          </span>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -305,7 +685,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
                   <activeItem.icon className={cn("w-5 h-5", activeItem.color)} />
                 </div>
                 <div>
-                  <span className="font-semibold text-foreground">{activeItem.question}</span>
+                  <span className="font-semibold text-foreground">{activeItem.label}</span>
                   {activeItem.reason && (
                     <p className="text-xs text-primary mt-0.5">✨ {activeItem.reason}</p>
                   )}
@@ -319,103 +699,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               </button>
             </div>
 
-            {/* Numeric input for objectives with units */}
-            {activeItem.responseType === 'numeric' ? (
-              <div className="flex flex-col items-center gap-4">
-                {/* Unified input row with unit and confirm button */}
-                <div className="flex items-center justify-center gap-2 w-full max-w-xs">
-                  <div className="flex items-center gap-0 flex-1">
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      value={numericValue}
-                      onChange={(e) => setNumericValue(e.target.value)}
-                      placeholder="0"
-                      className={cn(
-                        "h-14 text-xl font-bold text-center bg-glass backdrop-blur-sm border-2 border-primary/20 focus:border-primary rounded-l-2xl",
-                        activeItem.unit ? "rounded-r-none border-r-0 w-24" : "rounded-2xl w-full"
-                      )}
-                      disabled={isSubmitting}
-                      autoFocus
-                      step="0.1"
-                      min="0"
-                    />
-                    {activeItem.unit && (
-                      <div className="h-14 px-4 flex items-center justify-center bg-glass backdrop-blur-sm border-2 border-primary/20 border-l-0 rounded-r-2xl">
-                        <span className="text-base font-semibold text-muted-foreground">
-                          {activeItem.unit}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Confirm button - same height as input */}
-                  <button
-                    onClick={handleNumericSubmit}
-                    disabled={isSubmitting || !numericValue}
-                    className={cn(
-                      "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0",
-                      "bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow hover:shadow-lg",
-                      "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                    )}
-                  >
-                    {isSubmitting ? (
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    ) : (
-                      <Check className="w-6 h-6" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-5 gap-2">
-                  {getResponseOptions(activeItem).map((option, index) => {
-                    const isEmoji = activeItem.responseType === 'emoji';
-                    
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => handleSelectValue(index)}
-                        disabled={isSubmitting}
-                        className={cn(
-                          "h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-300",
-                          "hover:scale-105 active:scale-95 backdrop-blur-sm",
-                          "disabled:opacity-50 disabled:cursor-not-allowed",
-                          selectedValue === index 
-                            ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
-                            : "bg-glass border border-glass-border hover:bg-glass-hover"
-                        )}
-                      >
-                        {selectedValue === index ? (
-                          <Check className="w-5 h-5" />
-                        ) : isEmoji ? (
-                          <span className="text-2xl">{option}</span>
-                        ) : (
-                          <span className={cn(
-                            "text-xs font-medium text-center px-1 leading-tight",
-                            selectedValue === index ? "text-primary-foreground" : "text-foreground"
-                          )}>
-                            {option}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex justify-between mt-3 px-1">
-                  <span className="text-xs text-muted-foreground">
-                    {activeItem.responseType === 'emoji' ? 'Peggio' : 
-                     activeItem.responseType === 'slider' ? 'Minimo' : 'Meno'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {activeItem.responseType === 'emoji' ? 'Meglio' : 
-                     activeItem.responseType === 'slider' ? 'Massimo' : 'Più'}
-                  </span>
-                </div>
-              </>
-            )}
+            {renderActiveInput()}
           </div>
         </div>
       )}
@@ -423,7 +707,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
       {/* Check-in grid - Glass cards */}
       {!activeItem && (
         <div className="grid grid-cols-4 gap-2">
-          {visibleCheckins.slice(0, 4).map((item, index) => (
+          {visibleCheckins.slice(0, 8).map((item, index) => (
             <button
               key={item.key}
               onClick={() => handleItemClick(item)}

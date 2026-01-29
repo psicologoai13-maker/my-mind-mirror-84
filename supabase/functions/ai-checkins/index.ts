@@ -6,8 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// All available check-in items
-const ALL_CHECKIN_ITEMS = [
+// ============================================
+// UNIFIED CHECK-IN ITEMS
+// Vitals, Life Areas, Psychology, Emotions
+// ============================================
+const STANDARD_CHECKIN_ITEMS = [
   { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji" },
   { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity" },
   { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider" },
@@ -31,16 +34,87 @@ const ALL_CHECKIN_ITEMS = [
   { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno" },
 ];
 
-// Generate objective check-in items dynamically
-interface ObjectiveCheckin {
-  key: string;
+// ============================================
+// HABIT METADATA (synced with useHabits.tsx)
+// Maps habit_type -> input method and questions
+// ============================================
+const HABIT_METADATA: Record<string, {
   label: string;
-  question: string;
-  type: string;
-  responseType: string;
-  objectiveId: string;
+  icon: string;
+  inputMethod: string;
+  question?: string;
   unit?: string;
-}
+  defaultTarget?: number;
+  step?: number;
+}> = {
+  // Toggle habits
+  vitamins: { label: 'Vitamine', icon: '💊', inputMethod: 'toggle', question: 'Hai preso le vitamine?' },
+  medication: { label: 'Farmaci', icon: '💉', inputMethod: 'toggle', question: 'Hai preso i farmaci?' },
+  sunlight: { label: 'Sole', icon: '☀️', inputMethod: 'toggle', question: 'Sei uscito alla luce del sole?' },
+  journaling: { label: 'Diario', icon: '📝', inputMethod: 'toggle', question: 'Hai scritto nel diario?' },
+  therapy: { label: 'Terapia', icon: '💬', inputMethod: 'toggle', question: 'Sessione terapia completata?' },
+  affirmations: { label: 'Affermazioni', icon: '✨', inputMethod: 'toggle', question: 'Affermazioni positive fatte?' },
+  digital_detox: { label: 'Digital Detox', icon: '📵', inputMethod: 'toggle', question: 'Pausa digitale fatta?' },
+  meal_prep: { label: 'Meal Prep', icon: '🍱', inputMethod: 'toggle', question: 'Pasti preparati in anticipo?' },
+  intermittent_fasting: { label: 'Digiuno', icon: '⏰', inputMethod: 'toggle', question: 'Finestra digiuno rispettata?' },
+  morning_routine: { label: 'Routine Mattina', icon: '🌅', inputMethod: 'toggle', question: 'Routine mattutina completata?' },
+  social_interaction: { label: 'Socializzato', icon: '👥', inputMethod: 'toggle', question: 'Tempo con qualcuno oggi?' },
+  call_loved_one: { label: 'Chiamata Affetti', icon: '📞', inputMethod: 'toggle', question: 'Chiamato qualcuno caro?' },
+  quality_time: { label: 'Tempo Qualità', icon: '💑', inputMethod: 'toggle', question: 'Tempo qualità con chi ami?' },
+  kindness: { label: 'Gentilezza', icon: '💝', inputMethod: 'toggle', question: 'Gesto gentile fatto oggi?' },
+  networking: { label: 'Networking', icon: '🤝', inputMethod: 'toggle', question: 'Fatto networking?' },
+  doctor_visit: { label: 'Visita Medica', icon: '🏥', inputMethod: 'toggle', question: 'Visita medica fatta?' },
+  
+  // Abstain habits
+  cigarettes: { label: 'Sigarette', icon: '🚭', inputMethod: 'abstain', question: 'Non hai fumato oggi?' },
+  alcohol: { label: 'Alcol', icon: '🍷', inputMethod: 'abstain', question: 'Non hai bevuto alcolici?' },
+  nail_biting: { label: 'Unghie', icon: '💅', inputMethod: 'abstain', question: 'Non ti sei mangiato le unghie?' },
+  no_junk_food: { label: 'No Junk Food', icon: '🍔', inputMethod: 'abstain', question: 'Evitato cibo spazzatura?' },
+  no_sugar: { label: 'No Zuccheri', icon: '🍬', inputMethod: 'abstain', question: 'Evitato zuccheri aggiunti?' },
+  late_snacking: { label: 'Snack Notturni', icon: '🌙', inputMethod: 'abstain', question: 'Evitato snack notturni?' },
+  
+  // Counter habits
+  water: { label: 'Acqua', icon: '💧', inputMethod: 'counter', unit: 'L', defaultTarget: 2, step: 0.25 },
+  gratitude: { label: 'Gratitudine', icon: '🙏', inputMethod: 'counter', unit: 'cose', defaultTarget: 3 },
+  healthy_meals: { label: 'Pasti Sani', icon: '🥗', inputMethod: 'counter', unit: 'pasti', defaultTarget: 3 },
+  fruits_veggies: { label: 'Frutta/Verdura', icon: '🍎', inputMethod: 'counter', unit: 'porzioni', defaultTarget: 5 },
+  caffeine: { label: 'Caffeina', icon: '☕', inputMethod: 'counter', unit: 'tazze', defaultTarget: 2 },
+  no_procrastination: { label: 'Task Completati', icon: '✅', inputMethod: 'counter', unit: 'task', defaultTarget: 3 },
+  
+  // Numeric habits
+  sleep: { label: 'Ore Sonno', icon: '😴', inputMethod: 'numeric', unit: 'ore', defaultTarget: 8, step: 0.5 },
+  weight: { label: 'Peso', icon: '⚖️', inputMethod: 'numeric', unit: 'kg', step: 0.1 },
+  steps: { label: 'Passi', icon: '👟', inputMethod: 'numeric', unit: 'passi', defaultTarget: 10000 },
+  social_media: { label: 'Social Media', icon: '📱', inputMethod: 'numeric', unit: 'min', defaultTarget: 60 },
+  swimming: { label: 'Nuoto', icon: '🏊', inputMethod: 'numeric', unit: 'min', defaultTarget: 30 },
+  cycling: { label: 'Ciclismo', icon: '🚴', inputMethod: 'numeric', unit: 'km', defaultTarget: 10 },
+  deep_work: { label: 'Focus', icon: '🎯', inputMethod: 'numeric', unit: 'ore', defaultTarget: 4, step: 0.5 },
+  
+  // Timer habits
+  exercise: { label: 'Esercizio', icon: '🏃', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
+  stretching: { label: 'Stretching', icon: '🧘‍♂️', inputMethod: 'timer', unit: 'min', defaultTarget: 10 },
+  strength: { label: 'Pesi', icon: '💪', inputMethod: 'timer', unit: 'min', defaultTarget: 45 },
+  cardio: { label: 'Cardio', icon: '🫀', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
+  yoga: { label: 'Yoga', icon: '🧘', inputMethod: 'timer', unit: 'min', defaultTarget: 20 },
+  meditation: { label: 'Meditazione', icon: '🧘', inputMethod: 'timer', unit: 'min', defaultTarget: 10 },
+  breathing: { label: 'Respirazione', icon: '🌬️', inputMethod: 'timer', unit: 'min', defaultTarget: 5 },
+  mindfulness: { label: 'Mindfulness', icon: '🌸', inputMethod: 'timer', unit: 'min', defaultTarget: 10 },
+  reading: { label: 'Lettura', icon: '📚', inputMethod: 'timer', unit: 'min', defaultTarget: 20 },
+  learning: { label: 'Studio', icon: '🎓', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
+};
+
+// ============================================
+// OBJECTIVE INPUT METHOD MAPPING
+// ============================================
+const OBJECTIVE_INPUT_METHODS: Record<string, string> = {
+  auto_body: 'skip', // Don't generate check-in, synced automatically
+  auto_habit: 'skip',
+  numeric: 'numeric',
+  counter: 'counter',
+  milestone: 'toggle',
+  session_detected: 'skip', // AI detects in sessions
+  time_based: 'timer',
+};
 
 interface CachedCheckinsData {
   checkins: any[];
@@ -48,7 +122,6 @@ interface CachedCheckinsData {
   aiGenerated: boolean;
   cachedAt: string;
   cachedDate: string;
-  // 🎯 NEW: Store the FIXED daily list that never changes
   fixedDailyList: any[];
 }
 
@@ -90,7 +163,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Service client for updating profile (bypasses RLS for cache update)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify user
@@ -106,7 +178,7 @@ serve(async (req) => {
     const userId = claimsData.user.id;
     const today = getRomeDateString();
 
-    // 🎯 STEP 1: Check if we have a FIXED daily list already cached for today
+    // Check for cached fixed list
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("ai_checkins_cache, selected_goals, onboarding_answers")
@@ -115,231 +187,256 @@ serve(async (req) => {
 
     const existingCache = profile?.ai_checkins_cache as CachedCheckinsData | null;
     
-    // 🎯 If we have a fixed list for today, use it - DON'T regenerate
     if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
       console.log("[ai-checkins] Using FIXED daily list from cache");
       
-      // Get completed keys to filter out completed items from the fixed list
       const completedKeys = await getCompletedKeys(supabase, userId, today);
-      
-      // Filter the FIXED list by what's been completed
       const remainingCheckins = existingCache.fixedDailyList.filter(
         (item: any) => !completedKeys.has(item.key)
       );
       
-      const allCompleted = remainingCheckins.length === 0;
-      
       return new Response(JSON.stringify({ 
         checkins: remainingCheckins, 
-        allCompleted,
+        allCompleted: remainingCheckins.length === 0,
         aiGenerated: existingCache.aiGenerated || false 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 🎯 STEP 2: Generate a NEW fixed list for today (only runs once per day)
-    console.log("[ai-checkins] Generating NEW fixed daily list for", today);
+    console.log("[ai-checkins] Generating UNIFIED daily list for", today);
 
-    // Get active objectives for personalized check-ins
-    const { data: activeObjectives } = await supabase
-      .from("user_objectives")
-      .select("id, title, category, target_value, current_value, unit")
-      .eq("user_id", userId)
-      .eq("status", "active");
+    // ============================================
+    // FETCH ALL DATA IN PARALLEL
+    // ============================================
+    const [
+      activeHabitsRes,
+      activeObjectivesRes,
+      todayHabitsRes,
+      recentSessionsRes
+    ] = await Promise.all([
+      supabase.from("user_habits_config").select("*").eq("user_id", userId).eq("is_active", true),
+      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type").eq("user_id", userId).eq("status", "active"),
+      supabase.from("daily_habits").select("habit_type, value").eq("user_id", userId).eq("date", today),
+      supabase.from("sessions").select("ai_summary, emotion_tags").eq("user_id", userId).eq("status", "completed").order("start_time", { ascending: false }).limit(3),
+    ]);
 
-    // Generate dynamic objective check-ins
-    const objectiveCheckins: ObjectiveCheckin[] = (activeObjectives || []).map((obj: any) => {
-      const unitLabel = obj.unit ? ` (${obj.unit})` : '';
-      let question = `Com'è andato il progresso su "${obj.title}"?`;
-      let responseType = 'slider';
-      
-      if (obj.unit) {
-        responseType = 'numeric';
-        if (obj.category === 'body' && (obj.unit === 'Kg' || obj.unit === 'kg')) {
-          question = `Quanto pesi oggi${unitLabel}?`;
-        } else if (obj.category === 'finance') {
-          question = `Quanto hai risparmiato oggi${unitLabel}?`;
-        } else if (obj.category === 'study') {
-          question = `Quante ore hai studiato oggi${unitLabel}?`;
-        } else {
-          question = `Inserisci il valore per "${obj.title}"${unitLabel}`;
+    const activeHabits = activeHabitsRes.data || [];
+    const activeObjectives = activeObjectivesRes.data || [];
+    const todayHabits = todayHabitsRes.data || [];
+    const recentSessions = recentSessionsRes.data || [];
+
+    // Build completed keys (includes today's habits)
+    const completedKeys = await getCompletedKeys(supabase, userId, today);
+    
+    // Add completed habits
+    todayHabits.forEach((h: any) => {
+      const meta = HABIT_METADATA[h.habit_type];
+      if (meta) {
+        const isAbstain = meta.inputMethod === 'abstain';
+        const target = meta.defaultTarget || 1;
+        const isComplete = isAbstain ? h.value === 0 : h.value >= target;
+        if (isComplete || h.value > 0) {
+          completedKeys.add(`habit_${h.habit_type}`);
         }
-      } else if (obj.category === 'study') {
-        question = `Quanto hai studiato oggi per "${obj.title}"?`;
-      } else if (obj.category === 'finance') {
-        question = `Hai risparmiato oggi per "${obj.title}"?`;
-        responseType = 'yesno';
       }
+    });
+
+    // ============================================
+    // BUILD UNIFIED CHECK-IN ITEMS
+    // ============================================
+    const allItems: any[] = [];
+
+    // 1. HABITS - Convert active habits to check-in items
+    activeHabits.forEach((config: any) => {
+      const key = `habit_${config.habit_type}`;
+      if (completedKeys.has(key)) return;
       
-      return {
-        key: `objective_${obj.id}`,
+      const meta = HABIT_METADATA[config.habit_type];
+      if (!meta) return;
+      
+      // Skip auto_sync habits that need external data
+      if (meta.inputMethod === 'auto_sync') return;
+
+      allItems.push({
+        key,
+        label: meta.label,
+        question: meta.question || `${meta.label}?`,
+        type: 'habit',
+        responseType: meta.inputMethod, // toggle, abstain, counter, numeric, timer
+        habitType: config.habit_type,
+        icon: meta.icon,
+        unit: meta.unit || config.unit,
+        target: config.daily_target || meta.defaultTarget,
+        step: meta.step,
+        priority: 80, // Habits have high priority
+      });
+    });
+
+    // 2. OBJECTIVES - Convert to check-in items (skip auto-sync)
+    activeObjectives.forEach((obj: any) => {
+      const inputMethod = obj.input_method || 'numeric';
+      const mappedType = OBJECTIVE_INPUT_METHODS[inputMethod];
+      
+      // Skip objectives that sync automatically or via sessions
+      if (mappedType === 'skip') return;
+      
+      const key = `objective_${obj.id}`;
+      if (completedKeys.has(key)) return;
+
+      let question = `Progresso "${obj.title}"?`;
+      if (inputMethod === 'numeric' && obj.unit) {
+        if (obj.category === 'body' && obj.unit.toLowerCase() === 'kg') {
+          question = `Quanto pesi oggi? (${obj.unit})`;
+        } else if (obj.category === 'finance') {
+          question = `Quanto hai risparmiato? (${obj.unit})`;
+        } else {
+          question = `Valore per "${obj.title}"? (${obj.unit})`;
+        }
+      } else if (inputMethod === 'counter') {
+        question = `Quanti ${obj.unit || 'progressi'} per "${obj.title}"?`;
+      } else if (inputMethod === 'milestone') {
+        question = `Progressi su "${obj.title}"?`;
+      }
+
+      allItems.push({
+        key,
         label: obj.title,
         question,
         type: 'objective',
-        responseType,
+        responseType: mappedType,
         objectiveId: obj.id,
         unit: obj.unit,
-      };
+        target: obj.target_value,
+        priority: 90, // Objectives have highest priority
+      });
     });
 
-    // Get already completed keys (from earlier today, e.g. sessions/diaries)
-    const completedKeys = await getCompletedKeys(supabase, userId, today);
-
-    // Filter available items
-    const availableStandardItems = ALL_CHECKIN_ITEMS.filter(item => !completedKeys.has(item.key));
-    const availableObjectiveItems = objectiveCheckins.filter(item => !completedKeys.has(item.key));
-    
-    // Objectives at top (max 4), then AI selects the rest
-    const forcedObjectives = availableObjectiveItems.slice(0, 4);
-    const remainingSlots = 8 - forcedObjectives.length;
-    const allAvailableItems = availableStandardItems;
-
-    if (forcedObjectives.length === 0 && allAvailableItems.length === 0) {
-      // Save empty cache
-      await supabaseAdmin
-        .from("user_profiles")
-        .update({ 
-          ai_checkins_cache: {
-            checkins: [],
-            allCompleted: true,
-            aiGenerated: false,
-            cachedAt: new Date().toISOString(),
-            cachedDate: today,
-            fixedDailyList: [],
-          }
-        })
-        .eq("user_id", userId);
-
-      return new Response(JSON.stringify({ checkins: [], allCompleted: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // 3. STANDARD CHECK-INS (vitals, life_areas, etc.)
+    STANDARD_CHECKIN_ITEMS.forEach((item) => {
+      if (completedKeys.has(item.key)) return;
+      allItems.push({
+        ...item,
+        priority: item.type === 'vital' ? 70 : 50,
       });
-    }
+    });
 
-    // Get recent sessions for AI context
-    const { data: recentSessions } = await supabase
-      .from("sessions")
-      .select("ai_summary, emotion_tags")
-      .eq("user_id", userId)
-      .eq("status", "completed")
-      .order("start_time", { ascending: false })
-      .limit(3);
-
-    const goals = profile?.selected_goals || [];
-    const sessionContext = recentSessions?.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
-    const emotionTags = recentSessions?.flatMap((s: any) => s.emotion_tags || []) || [];
-
-    const systemPrompt = `Sei uno psicologo clinico esperto che sceglie quali domande fare a un utente per il suo check-in giornaliero.
-
-Obiettivo: Scegli le ${remainingSlots} domande PIÙ RILEVANTI da porre oggi, ORDINATE per importanza.
-
-REGOLE:
-- Scegli ESATTAMENTE ${remainingSlots} domande dalla lista disponibile
-- ORDINA per importanza: le prime sono le più urgenti/rilevanti
-- Fornisci una breve motivazione (max 5 parole) per ogni scelta
-- Rispondi SOLO con JSON valido, senza markdown
-
-Formato risposta:
-[
-  {"key": "...", "reason": "..."}
-]`;
-
-    const availableItemsText = allAvailableItems.map((i: any) => `- ${i.key}: "${i.question}" (${i.type})`).join("\n");
-
-    const userPrompt = `Obiettivi utente: ${goals.length > 0 ? goals.join(", ") : "Non specificati"}
-
-Contesto sessioni recenti: ${sessionContext || "Nessuna sessione recente"}
-
-Emozioni recenti: ${emotionTags.length > 0 ? emotionTags.join(", ") : "Non rilevate"}
-
-Domande disponibili:
-${availableItemsText}
-
-Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
-
-    // Call Lovable AI
-    let aiSelectedCheckins: any[] = [];
+    // ============================================
+    // AI SELECTION - Pick most relevant items
+    // ============================================
+    const MAX_ITEMS = 8;
+    
+    // Sort by priority then use AI to refine selection
+    const sortedItems = allItems.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    
+    // Take top items by priority, then let AI reorder
+    const candidateItems = sortedItems.slice(0, 12);
+    
+    let finalItems: any[] = [];
     let aiGenerated = false;
 
-    try {
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.5,
-          max_tokens: 300,
-        }),
-      });
+    if (candidateItems.length > 0) {
+      const goals = profile?.selected_goals || [];
+      const sessionContext = recentSessions.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
+      const emotionTags = recentSessions.flatMap((s: any) => s.emotion_tags || []) || [];
 
-      if (aiResponse.ok) {
-        const aiData = await aiResponse.json();
-        const content = aiData.choices?.[0]?.message?.content || "[]";
+      const systemPrompt = `Sei uno psicologo che sceglie quali check-in mostrare oggi. 
+      
+REGOLE:
+- Scegli MAX ${MAX_ITEMS} items dalla lista, ORDINATI per importanza
+- Prioritizza: obiettivi personali > habits con streak a rischio > vitali importanti
+- Se l'utente ha sessioni recenti con emozioni negative, includi check-in correlati
+- Rispondi SOLO con JSON array di "key" nell'ordine giusto
 
-        try {
-          const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-          const aiSelection = JSON.parse(cleanContent);
+Esempio: ["habit_meditation", "objective_123", "mood", "anxiety"]`;
+
+      const itemsText = candidateItems.map((i: any) => 
+        `- ${i.key}: "${i.label}" (${i.type}, ${i.responseType})`
+      ).join("\n");
+
+      const userPrompt = `Obiettivi utente: ${goals.join(", ") || "Non specificati"}
+Contesto sessioni: ${sessionContext || "Nessuna"}
+Emozioni recenti: ${emotionTags.join(", ") || "Non rilevate"}
+
+Check-in disponibili:
+${itemsText}
+
+Scegli i ${MAX_ITEMS} più importanti IN ORDINE:`;
+
+      try {
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.3,
+            max_tokens: 200,
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          const content = aiData.choices?.[0]?.message?.content || "[]";
           
-          aiSelectedCheckins = aiSelection
-            .slice(0, remainingSlots)
-            .map((sel: any) => {
-              const item = allAvailableItems.find((i: any) => i.key === sel.key);
-              if (!item) return null;
-              return { ...item, reason: sel.reason };
-            })
-            .filter(Boolean);
-          
-          aiGenerated = true;
-        } catch (parseError) {
-          console.error("[ai-checkins] Failed to parse AI response:", content);
+          try {
+            const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            const selectedKeys: string[] = JSON.parse(cleanContent);
+            
+            finalItems = selectedKeys
+              .slice(0, MAX_ITEMS)
+              .map((key: string) => candidateItems.find((i: any) => i.key === key))
+              .filter(Boolean);
+            
+            aiGenerated = finalItems.length > 0;
+          } catch (parseError) {
+            console.error("[ai-checkins] Parse error:", content);
+          }
         }
-      }
-    } catch (aiError) {
-      console.error("[ai-checkins] AI call failed:", aiError);
-    }
-
-    // Fallback: fill remaining slots
-    while (aiSelectedCheckins.length < remainingSlots && allAvailableItems.length > aiSelectedCheckins.length) {
-      const nextItem = allAvailableItems.find((i: any) => !aiSelectedCheckins.some((s: any) => s.key === i.key));
-      if (nextItem) {
-        aiSelectedCheckins.push({ ...nextItem, reason: "Suggerimento" });
-      } else {
-        break;
+      } catch (aiError) {
+        console.error("[ai-checkins] AI error:", aiError);
       }
     }
 
-    // 🎯 BUILD THE FIXED DAILY LIST - This list NEVER changes for the rest of the day
-    const fixedDailyList = [
-      ...forcedObjectives.map((item: any) => ({ ...item, reason: "Obiettivo personale" })),
-      ...aiSelectedCheckins,
-    ];
+    // Fallback: use priority-sorted items
+    if (finalItems.length === 0) {
+      finalItems = candidateItems.slice(0, MAX_ITEMS);
+    }
 
-    console.log("[ai-checkins] Created FIXED daily list with", fixedDailyList.length, "items");
+    // Add reasons for display
+    finalItems = finalItems.map((item: any, index: number) => ({
+      ...item,
+      reason: item.type === 'habit' ? 'Habit attiva' : 
+              item.type === 'objective' ? 'Obiettivo personale' : 
+              index === 0 ? 'Priorità oggi' : undefined,
+    }));
 
-    // 🎯 Save to cache with the FIXED list
+    console.log("[ai-checkins] Created unified list with", finalItems.length, "items");
+
+    // Cache the fixed list
+    const cachePayload: CachedCheckinsData = {
+      checkins: finalItems,
+      allCompleted: false,
+      aiGenerated,
+      cachedAt: new Date().toISOString(),
+      cachedDate: today,
+      fixedDailyList: finalItems,
+    };
+
     await supabaseAdmin
       .from("user_profiles")
-      .update({ 
-        ai_checkins_cache: {
-          checkins: fixedDailyList,
-          allCompleted: false,
-          aiGenerated,
-          cachedAt: new Date().toISOString(),
-          cachedDate: today,
-          fixedDailyList, // The immutable list for today
-        }
-      })
+      .update({ ai_checkins_cache: cachePayload })
       .eq("user_id", userId);
 
     return new Response(JSON.stringify({ 
-      checkins: fixedDailyList, 
+      checkins: finalItems, 
+      allCompleted: false,
       aiGenerated 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -354,7 +451,7 @@ Scegli le ${remainingSlots} domande più rilevanti IN ORDINE DI IMPORTANZA:`;
   }
 });
 
-// Helper function to get completed keys
+// Helper function to get completed keys from all sources
 async function getCompletedKeys(supabase: any, userId: string, today: string): Promise<Set<string>> {
   const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
     supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
