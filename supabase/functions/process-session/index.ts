@@ -1101,12 +1101,38 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.log('[process-session] Updated goals list:', updatedGoals);
     }
 
+    // 🎯 Post-processing: Validate and correct categories for custom objectives
+    // Keywords that MUST map to body category
+    const BODY_KEYWORDS = /peso|kg|dimagr|ingrassare|palestra|sport|muscol|fisico|corpo|chili|massa/i;
+    const FINANCE_KEYWORDS = /risparm|soldi|euro|€|debito|guadagn|invest|stipendio|budget|denaro/i;
+    const STUDY_KEYWORDS = /esam|laure|studi|corso|scuola|università|voto|materia/i;
+    const WORK_KEYWORDS = /lavoro|carriera|promozion|azienda|ufficio|stipendio|progetto|cliente/i;
+    
     // 🎯 NEW: Save custom objectives detected by AI to user_objectives table
     const customObjectives = (analysis as any).custom_objectives_detected || [];
     if (customObjectives.length > 0) {
       console.log('[process-session] AI detected custom objectives:', customObjectives);
       
       for (const obj of customObjectives) {
+        // 🎯 FIX: Validate and correct category based on keywords
+        let correctedCategory = obj.category || 'growth';
+        const titleLower = (obj.title || '').toLowerCase();
+        
+        // Override incorrect categories
+        if (BODY_KEYWORDS.test(titleLower) && correctedCategory !== 'body') {
+          console.log(`[process-session] Corrected category from ${correctedCategory} to body for: ${obj.title}`);
+          correctedCategory = 'body';
+        } else if (FINANCE_KEYWORDS.test(titleLower) && correctedCategory !== 'finance') {
+          console.log(`[process-session] Corrected category from ${correctedCategory} to finance for: ${obj.title}`);
+          correctedCategory = 'finance';
+        } else if (STUDY_KEYWORDS.test(titleLower) && correctedCategory !== 'study') {
+          console.log(`[process-session] Corrected category from ${correctedCategory} to study for: ${obj.title}`);
+          correctedCategory = 'study';
+        } else if (WORK_KEYWORDS.test(titleLower) && correctedCategory !== 'work') {
+          console.log(`[process-session] Corrected category from ${correctedCategory} to work for: ${obj.title}`);
+          correctedCategory = 'work';
+        }
+        
         // Check if similar objective already exists
         const { data: existingObj } = await supabase
           .from('user_objectives')
@@ -1121,11 +1147,24 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           const startingVal = obj.starting_value || null;
           const currentVal = startingVal || 0; // current starts at starting_value if provided
           
+          // Determine appropriate ai_feedback based on what's missing
+          let aiFeedback = obj.ai_feedback || null;
+          const needsStartingValue = (correctedCategory === 'body' || correctedCategory === 'finance') && !startingVal;
+          const needsTargetValue = (correctedCategory === 'body' || correctedCategory === 'finance') && !obj.target_value;
+          
+          if (needsStartingValue && needsTargetValue) {
+            aiFeedback = 'Dimmi da dove parti e qual è il tuo obiettivo finale!';
+          } else if (needsStartingValue) {
+            aiFeedback = 'Qual è il tuo punto di partenza?';
+          } else if (needsTargetValue) {
+            aiFeedback = 'Qual è il tuo obiettivo finale?';
+          }
+          
           const { error: objError } = await supabase
             .from('user_objectives')
             .insert({
               user_id: user_id,
-              category: obj.category || 'growth',
+              category: correctedCategory,  // Use corrected category
               title: obj.title,
               description: obj.description || null,
               starting_value: startingVal,
@@ -1133,16 +1172,14 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               unit: obj.unit || null,
               current_value: currentVal,
               status: 'active',
-              ai_feedback: obj.ai_feedback || ((!obj.target_value || !startingVal) && (obj.category === 'body' || obj.category === 'finance') 
-                ? 'Definisci il punto di partenza e l\'obiettivo finale per tracciare i progressi!' 
-                : null),
+              ai_feedback: aiFeedback,
               progress_history: []
             });
           
           if (objError) {
             console.error('[process-session] Error creating custom objective:', objError);
           } else {
-            console.log('[process-session] Created custom objective:', obj.title);
+            console.log('[process-session] Created custom objective:', obj.title, 'category:', correctedCategory);
           }
         } else {
           console.log('[process-session] Objective already exists:', obj.title);
