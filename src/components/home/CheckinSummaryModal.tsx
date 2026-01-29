@@ -39,9 +39,9 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto rounded-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-sm mx-auto rounded-[32px] max-h-[80vh] overflow-y-auto bg-glass backdrop-blur-2xl border border-glass-border shadow-glass-elevated">
         <DialogHeader>
-          <DialogTitle className="text-center">Riepilogo Check-in</DialogTitle>
+          <DialogTitle className="text-center font-display">Riepilogo Check-in</DialogTitle>
           <DialogDescription className="text-center text-sm">
             Il tuo progresso di oggi
           </DialogDescription>
@@ -51,7 +51,7 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
           {/* Case 1: No check-ins done yet - Prompt to start */}
           {!hasAnyData && (
             <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-glass backdrop-blur-sm border border-primary/20 flex items-center justify-center shadow-soft">
                 <ClipboardList className="w-8 h-8 text-primary" />
               </div>
               <div>
@@ -62,7 +62,7 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
               </div>
               <Button 
                 onClick={() => onOpenChange(false)}
-                className="rounded-xl"
+                className="rounded-2xl shadow-soft"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Vai al Check-in
@@ -73,10 +73,10 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
           {/* Case 2: Some or all check-ins done - Show list */}
           {hasAnyData && (
             <>
-              {/* Countdown to midnight section */}
-              <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+              {/* Countdown to midnight section - Glass card */}
+              <div className="bg-glass backdrop-blur-xl rounded-2xl p-4 border border-primary/20 shadow-soft">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 backdrop-blur-sm flex items-center justify-center border border-primary/20">
                     <Clock className="w-5 h-5 text-primary" />
                   </div>
                   <div>
@@ -94,28 +94,30 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
                   {completedCount} parametri registrati
                 </span>
                 {isAllDone && (
-                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
+                  <span className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 font-medium">
                     ✓ Completato
                   </span>
                 )}
                 {!isAllDone && pendingCount > 0 && (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                  <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-full border border-amber-500/20 font-medium">
                     {pendingCount} rimanenti
                   </span>
                 )}
               </div>
 
-              {/* Completed items list */}
+              {/* Completed items list - Glass cards */}
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground px-2">Parametri registrati oggi</p>
                 <div className="space-y-1.5">
                   {completedItems.map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center justify-between px-4 py-3 bg-muted/50 rounded-xl"
+                      className="flex items-center justify-between px-4 py-3 bg-glass backdrop-blur-sm rounded-2xl border border-glass-border"
                     >
                       <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500" />
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        </div>
                         <span className="text-sm font-medium">{item.label}</span>
                       </div>
                       <span className="text-sm text-muted-foreground">{item.displayValue}</span>
@@ -129,7 +131,7 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
                 <div className="px-2">
                   <Button 
                     variant="outline" 
-                    className="w-full rounded-xl"
+                    className="w-full rounded-2xl bg-glass backdrop-blur-sm border-glass-border hover:bg-glass-hover"
                     onClick={() => onOpenChange(false)}
                   >
                     Continua Check-in ({pendingCount} rimanenti)
