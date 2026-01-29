@@ -1,400 +1,226 @@
 
-# Piano: Sistema Obiettivi Pre-impostati + Sincronizzazione Cervello
 
-## Problema Attuale
+# Piano: Unificazione Check-in + Habits + Objectives in Griglia Unica Intelligente
 
-Attualmente gli obiettivi:
-- **Sono completamente liberi** → L'utente deve inventare tutto
-- **Nessuna libreria predefinita** → Confusione su cosa tracciare
-- **Input dati non intelligente** → Tutti usano lo stesso slider generico
-- **Nessuna sincronizzazione cervello** → I dati non fluiscono automaticamente
+## Analisi dei Problemi Attuali
 
-## Soluzione: Pattern Parallelo alle Habits
+### Problemi Identificati dalla Screenshot
 
-Come per le habits, creiamo un sistema con:
-1. **Libreria pre-impostata** di 40+ obiettivi tipici
-2. **InputMethod intelligente** per ogni obiettivo
-3. **Auto-aggiornamento dal cervello** dove possibile
-4. **Input manuali via check-in** con tipo appropriato
-5. **Quiz guidato** per obiettivi custom (l'AI determina il tipo)
+1. **"Focus" incrementa a ogni click** - Il `HabitTrackerSection` ignora l'`inputMethod` e fa sempre `+1`
+2. **"social_time" e "no_nail_biting"** - Mostrano icone a barre generiche (📊) invece di icone sensate
+3. **Griglia Home ha elementi misti senza senso** - Mix di check-in AI, habits e obiettivi senza coerenza
+4. **Separazione artificiale** - Utente vede sezioni diverse ma sono tutti "check-in" per lui
 
----
+### Architettura Attuale (Frammentata)
 
-## Architettura Dati degli Obiettivi
-
-### Input Methods per Obiettivi
-
-| InputMethod | Uso | Esempio Obiettivo |
-|-------------|-----|-------------------|
-| `auto_body` | Da habits peso/body_metrics | "Perdere 5kg" |
-| `auto_habit` | Da habits correlate | "Meditare 30min/giorno" |
-| `numeric` | Input diretto check-in | "Risparmiare 5000€" |
-| `milestone` | Check qualitativo | "Superare esame" |
-| `counter` | Conteggio progressivo | "Leggere 12 libri" |
-| `time_based` | Timer/durata | "Correre 5km" |
-| `session_detected` | Rilevato da Aria | "Migliorare autostima" |
-
-### Flusso Dati: Cervello → Obiettivi
-
+```text
+HOME PAGE
+├── SmartCheckinSection (Check-in AI)
+│   └── mood, anxiety, life_areas, psychology...
+│
+├── HabitTrackerSection (Habits)
+│   └── Tutte le habits attive (BUG: sempre +1)
+│
+└── (Objectives non mostrati in Home)
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    FLUSSO DATI OBIETTIVI                    │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   HABITS     │    │   SESSIONS   │    │   CHECK-INS  │  │
-│  │ (peso, passi │    │ (chat/voice) │    │  (manuali)   │  │
-│  │  sonno, ...)│    │              │    │              │  │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
-│         │                   │                   │          │
-│         ▼                   ▼                   ▼          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │            CERVELLO (process-session)               │   │
-│  │  • Rileva menzioni obiettivi                        │   │
-│  │  • Estrae valori numerici                           │   │
-│  │  • Aggiorna current_value automaticamente           │   │
-│  └─────────────────────────┬───────────────────────────┘   │
-│                            │                               │
-│                            ▼                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                  user_objectives                     │   │
-│  │  • current_value aggiornato                          │   │
-│  │  • progress_history con timestamp                    │   │
-│  │  • source: 'habit' | 'session' | 'checkin'          │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+
+### Architettura Target (Unificata)
+
+```text
+HOME PAGE
+└── UnifiedCheckinGrid (SINGOLA SEZIONE)
+    ├── AI seleziona 4-8 item prioritari tra:
+    │   ├── Vitals (mood, anxiety, sleep...)
+    │   ├── Habits attive dell'utente
+    │   ├── Objectives attivi dell'utente
+    │   └── Life areas / Psychology
+    │
+    └── Ogni item ha inputMethod appropriato:
+        ├── toggle → Switch Sì/No
+        ├── numeric → Input numerico
+        ├── counter → +/-
+        ├── timer → Play/Stop
+        ├── emoji → 5 emoji
+        └── abstain → "Oggi OK" / "Ho ceduto"
 ```
 
 ---
 
-## Libreria Obiettivi Pre-impostati (OBJECTIVE_TYPES)
+## Modifiche Tecniche
 
-### Struttura Tipo Obiettivo
+### 1. Eliminare `HabitTrackerSection` dalla Home
+
+La sezione habits separata viene rimossa. Le habits vengono integrate nei check-in AI.
+
+**File**: `src/pages/Index.tsx`
+- Rimuovere import e rendering di `HabitTrackerSection`
+- Solo `SmartCheckinSection` rimane
+
+### 2. Aggiornare Edge Function `ai-checkins`
+
+L'AI deve includere habits e objectives nella generazione della lista giornaliera.
+
+**File**: `supabase/functions/ai-checkins/index.ts`
 
 ```typescript
-export type ObjectiveInputMethod = 
-  | 'auto_body'        // Sync da weight/body_metrics
-  | 'auto_habit'       // Sync da habit correlata
-  | 'numeric'          // Input numerico diretto
-  | 'milestone'        // Traguardo qualitativo (sì/raggiunto)
-  | 'counter'          // Conteggio incrementale
-  | 'time_based'       // Tempo/durata
-  | 'session_detected'; // Rilevato da AI nelle conversazioni
+// Aggiungere:
+// 1. Leggere user_habits_config per habits attive
+// 2. Leggere user_objectives per obiettivi attivi
+// 3. Convertire habits a formato CheckinItem con inputMethod
+// 4. AI decide quali mostrare (max 8 items)
 
-export interface ObjectiveMeta {
+// Nuovo formato item:
+interface UnifiedCheckinItem {
+  key: string;
   label: string;
-  icon: string;
-  category: ObjectiveCategory;
-  description: string;
-  inputMethod: ObjectiveInputMethod;
+  question: string;
+  type: 'vital' | 'life_area' | 'emotion' | 'psychology' | 'habit' | 'objective';
+  responseType: 'emoji' | 'yesno' | 'intensity' | 'slider' | 'numeric' | 'counter' | 'toggle' | 'timer' | 'abstain';
+  // Per habits:
+  habitType?: string;
+  inputMethod?: string;
+  target?: number;
   unit?: string;
-  defaultTarget?: number;
-  // Sincronizzazione
-  linkedHabit?: string;       // Es: 'weight' per obiettivo peso
-  linkedBodyMetric?: string;  // Es: 'weight' da body_metrics
-  brainDetectable?: boolean;  // L'AI può rilevare progressi
-  // Validazione
-  requiresStartingValue?: boolean;
-  step?: number;
-  min?: number;
-  max?: number;
+  // Per objectives:
+  objectiveId?: string;
 }
 ```
 
-### Catalogo Obiettivi (40+)
+### 3. Aggiornare `usePersonalizedCheckins.tsx`
 
-**BODY - Corpo (8 obiettivi)**
-- `lose_weight` - Perdere peso (auto_body, kg, requires starting)
-- `gain_weight` - Prendere peso (auto_body, kg, requires starting)  
-- `gain_muscle` - Aumentare massa muscolare (auto_body, kg)
-- `run_distance` - Correre X km (time_based, km)
-- `complete_marathon` - Completare maratona (milestone)
-- `flexibility_goal` - Migliorare flessibilità (session_detected)
-- `body_composition` - Ridurre % grasso (numeric, %)
-- `physical_strength` - Aumentare forza (counter, reps/peso)
+Il hook deve gestire i nuovi tipi di item (habits, objectives).
 
-**MIND - Mente (8 obiettivi)**
-- `reduce_anxiety` - Ridurre ansia (session_detected)
-- `improve_sleep` - Dormire meglio (auto_habit → sleep)
-- `emotional_stability` - Stabilità emotiva (session_detected)
-- `meditation_habit` - Meditare regolarmente (auto_habit → meditation)
-- `stress_management` - Gestire stress (session_detected)
-- `self_esteem` - Migliorare autostima (session_detected)
-- `mindfulness` - Praticare mindfulness (auto_habit)
-- `therapy_progress` - Progresso in terapia (milestone)
+**File**: `src/hooks/usePersonalizedCheckins.tsx`
+- Aggiungere icone per habits (da HABIT_TYPES)
+- Mappare inputMethod corretto per ogni habit
+- Gestire salvataggio in `daily_habits` invece di `daily_checkins`
 
-**STUDY - Studio (6 obiettivi)**
-- `pass_exam` - Superare esame (milestone)
-- `study_hours` - Studiare X ore/settimana (counter, ore)
-- `read_books` - Leggere X libri (counter, libri)
-- `learn_language` - Imparare lingua (milestone)
-- `complete_course` - Completare corso (milestone)
-- `academic_grade` - Raggiungere voto (numeric, voto)
+### 4. Aggiornare `SmartCheckinSection.tsx`
 
-**WORK - Lavoro (6 obiettivi)**
-- `get_promotion` - Ottenere promozione (milestone)
-- `change_job` - Cambiare lavoro (milestone)
-- `productivity` - Aumentare produttività (session_detected)
-- `work_life_balance` - Bilanciare vita-lavoro (session_detected)
-- `project_completion` - Completare progetto (milestone)
-- `skill_development` - Sviluppare competenza (milestone)
+Rendere la UI per tutti i tipi di input.
 
-**FINANCE - Finanze (6 obiettivi)**
-- `save_money` - Risparmiare (numeric, €, requires starting)
-- `pay_debt` - Estinguere debito (numeric, €, requires starting)
-- `emergency_fund` - Fondo emergenza (numeric, €)
-- `investment_goal` - Obiettivo investimento (numeric, €)
-- `income_increase` - Aumentare entrate (numeric, €)
-- `spending_reduction` - Ridurre spese (numeric, €)
+**File**: `src/components/home/SmartCheckinSection.tsx`
 
-**RELATIONSHIPS - Relazioni (4 obiettivi)**
-- `find_partner` - Trovare partner (milestone)
-- `improve_relationship` - Migliorare relazione (session_detected)
-- `social_connections` - Più connessioni sociali (counter)
-- `family_time` - Più tempo famiglia (auto_habit)
+Aggiungere rendering per:
+- `toggle` → Switch grande con label
+- `counter` → Bottoni +/- con valore centrale
+- `timer` → Play/Pause con cronometro
+- `abstain` → "Oggi OK" verde + "Ho ceduto" grigio
+- `numeric` → (già esiste)
+- `emoji` → (già esiste)
 
-**GROWTH - Crescita (4 obiettivi)**
-- `new_hobby` - Iniziare hobby (milestone)
-- `public_speaking` - Parlare in pubblico (milestone)
-- `creative_project` - Progetto creativo (milestone)
-- `personal_brand` - Costruire personal brand (milestone)
+### 5. Aggiornare Salvataggio Dati
 
----
-
-## Sincronizzazione Automatica dal Cervello
-
-### 1. Habits → Obiettivi (Automatico)
-
-Quando una habit ha `syncToObjective: true`, il valore aggiorna l'obiettivo correlato:
+Quando l'utente risponde a un check-in di tipo habit, salvare in `daily_habits`:
 
 ```typescript
-// In sync-habits-to-brain o process-session
-if (habit.type === 'weight' && habit.value) {
-  // Trova obiettivo peso attivo
-  const weightObjective = activeObjectives.find(o => 
-    o.category === 'body' && 
-    (o.title.includes('peso') || o.linkedHabit === 'weight')
-  );
-  
-  if (weightObjective) {
-    await updateObjectiveProgress(weightObjective.id, habit.value, 'habit');
-  }
+// In SmartCheckinSection.tsx
+if (activeItem.type === 'habit') {
+  await supabase.from('daily_habits').upsert({
+    user_id: profile?.user_id,
+    date: today,
+    habit_type: activeItem.habitType,
+    value: value,
+    target_value: activeItem.target,
+    unit: activeItem.unit,
+  }, { onConflict: 'user_id,date,habit_type' });
 }
 ```
 
-### 2. Sessions → Obiettivi (AI Detection)
-
-Il cervello già rileva progressi nelle conversazioni. Espandiamo:
-
-- **Obiettivi `session_detected`**: L'AI valuta il progresso qualitativo
-- **Esempio**: "Mi sento meno ansioso" → aggiorna `reduce_anxiety` con +10 score
-
-### 3. Check-ins → Obiettivi (Manuale)
-
-Per obiettivi che richiedono input manuale:
-
-- `numeric`: Input diretto (es. "Quanto hai risparmiato oggi?")
-- `counter`: +1/-1 (es. "Libri letti questo mese")
-- `milestone`: Checkbox (es. "Hai superato l'esame?")
-
 ---
 
-## Modifiche ai Check-in
+## Icone Corrette per Habits
 
-### Logica Intelligente per Tipo Input
+Le habits devono usare icone Lucide coerenti con il design system, non emoji random.
+
+**Mappatura in `usePersonalizedCheckins.tsx`**:
 
 ```typescript
-// In ai-checkins Edge Function
-const generateObjectiveCheckin = (objective: Objective, meta: ObjectiveMeta) => {
-  switch (meta.inputMethod) {
-    case 'auto_body':
-    case 'auto_habit':
-      // Non generare check-in, viene sincronizzato automaticamente
-      return null;
-      
-    case 'numeric':
-      return {
-        key: `obj_${objective.id}`,
-        question: getNumericQuestion(objective, meta),
-        responseType: 'numeric',
-        unit: meta.unit,
-      };
-      
-    case 'counter':
-      return {
-        key: `obj_${objective.id}`,
-        question: `Quanti ${meta.unit} per "${objective.title}"?`,
-        responseType: 'counter',
-      };
-      
-    case 'milestone':
-      return {
-        key: `obj_${objective.id}`,
-        question: `Hai fatto progressi su "${objective.title}"?`,
-        responseType: 'yesno',
-      };
-      
-    case 'session_detected':
-      // Nessun check-in, l'AI rileva nelle conversazioni
-      return null;
-  }
+const habitIconMap: Record<string, LucideIcon> = {
+  // Fitness
+  steps: Footprints,
+  exercise: Dumbbell,
+  stretching: Stretch,
+  yoga: Activity,
+  // Health
+  sleep: Moon,
+  water: Droplet,
+  weight: Scale,
+  vitamins: Pill,
+  sunlight: Sun,
+  // Mental
+  meditation: Brain,
+  journaling: PenLine,
+  gratitude: Heart,
+  breathing: Wind,
+  // Bad habits
+  cigarettes: Ban,
+  alcohol: Wine,
+  no_junk_food: Salad,
+  // Social
+  social_interaction: Users,
+  call_loved_one: Phone,
+  // ... etc
 };
 ```
 
 ---
 
-## Quiz per Obiettivi Custom
+## Logica AI per Selezione Giornaliera
 
-Quando l'utente vuole creare un obiettivo personalizzato:
+L'AI deve scegliere i check-in più rilevanti per l'utente oggi:
 
-### Flusso Quiz (5 step)
+**Priorità**:
+1. **Obiettivi attivi** con `input_method != auto_*` (max 2)
+2. **Habits non completate oggi** (max 3)
+3. **Vitali** (mood sempre, altri in base a contesto)
+4. **Life areas/Psychology** in base a sessioni recenti
 
-1. **Cosa vuoi raggiungere?** (Input libero)
-2. **In quale area?** (Selezione categoria)
-3. **È misurabile?** (Sì/No → determina inputMethod)
-4. **Qual è il target?** (Se numerico)
-5. **Punto di partenza?** (Se richiesto)
-
-### AI Determination
-
-```typescript
-// L'AI analizza l'input libero e suggerisce:
-const analyzeCustomObjective = async (description: string) => {
-  // Prompt AI per determinare:
-  return {
-    suggestedCategory: 'body' | 'mind' | ...,
-    suggestedInputMethod: 'numeric' | 'milestone' | ...,
-    suggestedUnit: 'kg' | '€' | null,
-    needsStartingValue: true | false,
-    matchingPreset: 'lose_weight' | null, // Se esiste preset simile
-  };
-};
-```
+**Criteri AI**:
+- Se utente ha obiettivo peso → mostrare peso come check-in
+- Se streak habit sta per rompersi → prioritizzare quella habit
+- Se sessione recente parlava di ansia → mostrare check-in ansia
+- Limitare a 4-8 items totali
 
 ---
 
-## Modifiche Database
+## Struttura File Modificati
 
-### Colonne da Aggiungere a user_objectives
-
-```sql
-ALTER TABLE user_objectives 
-ADD COLUMN input_method text DEFAULT 'numeric',
-ADD COLUMN linked_habit text,
-ADD COLUMN linked_body_metric text,
-ADD COLUMN preset_type text,  -- Es: 'lose_weight', null se custom
-ADD COLUMN auto_sync_enabled boolean DEFAULT false,
-ADD COLUMN last_auto_sync_at timestamptz,
-ADD COLUMN progress_source text DEFAULT 'manual'; -- 'habit' | 'session' | 'checkin' | 'manual'
-```
+| File | Azione |
+|------|--------|
+| `src/pages/Index.tsx` | Rimuovere HabitTrackerSection |
+| `supabase/functions/ai-checkins/index.ts` | Integrare habits e objectives |
+| `src/hooks/usePersonalizedCheckins.tsx` | Aggiungere supporto habits/objectives |
+| `src/components/home/SmartCheckinSection.tsx` | Aggiungere UI per toggle/counter/timer/abstain |
+| `src/components/habits/HabitTrackerSection.tsx` | Deprecare (usato solo in Progressi) |
 
 ---
 
-## File da Modificare/Creare
+## Flusso Utente Finale
 
-### Core Sistema Obiettivi
+### Prima (Confuso)
+1. Utente vede 8+ box check-in
+2. Alcuni sono vitali, alcuni habits, alcuni obiettivi
+3. Tutti con stesso comportamento click → non ha senso
+4. "Focus" incrementa a ogni click (??)
 
-1. **`src/hooks/useObjectives.tsx`**
-   - Aggiungere `OBJECTIVE_TYPES` (libreria predefinita)
-   - Aggiungere `ObjectiveMeta` interface
-   - Funzione `getObjectiveMeta(type)` 
-   - Logica per sync da habits
-
-2. **`src/components/objectives/NewObjectiveModal.tsx`** → **Rifare completamente**
-   - Step 1: Scegli da libreria O "Personalizzato"
-   - Step 2: Se libreria → configura target
-   - Step 3: Se custom → quiz guidato
-   - Design quiz-style con animazioni
-
-3. **`src/components/objectives/ObjectiveCard.tsx`**
-   - Mostrare badge "Auto-sync" se collegato a habit
-   - UI diversa in base a `inputMethod`
-
-4. **`src/components/objectives/ObjectiveSelectionGrid.tsx`** (NUOVO)
-   - Griglia selezione obiettivi predefiniti
-   - Filtri per categoria
-   - Ricerca
-
-### Check-in Integration
-
-5. **`supabase/functions/ai-checkins/index.ts`**
-   - Saltare obiettivi `auto_body` e `auto_habit`
-   - Generare check-in appropriati per `numeric`, `counter`, `milestone`
-
-### Cervello / Sync
-
-6. **`supabase/functions/sync-habits-to-brain/index.ts`**
-   - Aggiungere logica sync habits → objectives
-   - Es: peso da habit → obiettivo peso
-
-7. **`supabase/functions/process-session/index.ts`**
-   - Migliorare rilevamento progressi `session_detected`
-   - Aggiornare obiettivi qualitativi (ansia, autostima)
-
-### Database
-
-8. **Migration SQL**
-   - Nuove colonne su `user_objectives`
+### Dopo (Unificato e Intelligente)
+1. Utente vede 4-8 box personalizzati per LUI
+2. AI sceglie i più rilevanti oggi
+3. Click su box → apre input specifico:
+   - Peso → input numerico "Kg"
+   - Meditazione → timer
+   - Sigarette → "Oggi OK" / "Ho ceduto"
+   - Mood → 5 emoji
+4. Completato → box scompare, check verde
 
 ---
 
-## Priorità Implementazione
+## Risultato Atteso
 
-### Fase 1: Libreria + Modal Quiz
-- Creare `OBJECTIVE_TYPES` in useObjectives
-- Rifare NewObjectiveModal come quiz
-- Griglia selezione obiettivi
+- **Unica griglia** nella Home per tutti i tracciamenti
+- **Input intelligente** per ogni tipo di dato
+- **Personalizzazione AI** su quali mostrare
+- **Coerenza visiva** con icone Lucide e design Liquid Glass
+- **Nessuna duplicazione** - habits non appaiono due volte
 
-### Fase 2: Auto-sync Habits → Objectives  
-- Modificare sync-habits-to-brain
-- Collegare peso/sonno/esercizio a obiettivi
-
-### Fase 3: Check-in Intelligenti
-- Aggiornare ai-checkins per skip auto-sync
-- Input appropriati per ogni tipo
-
-### Fase 4: Session Detection Migliorato
-- Espandere process-session per obiettivi qualitativi
-- Progressi per ansia, autostima, relazioni
-
----
-
-## Esempio Flusso Utente
-
-### Scenario 1: Obiettivo Peso (Auto-sync)
-
-1. Utente seleziona "Perdere peso" dalla libreria
-2. Sistema chiede: "Quanto pesi ora?" → 80kg
-3. Sistema chiede: "Obiettivo?" → 70kg
-4. Obiettivo creato con `input_method: 'auto_body'`
-5. Quando utente registra peso nella habit → obiettivo si aggiorna automaticamente
-6. Check-in NON chiede il peso (già sincronizzato)
-
-### Scenario 2: Obiettivo Studio (Counter)
-
-1. Utente seleziona "Leggere X libri"
-2. Sistema chiede: "Quanti libri?" → 12
-3. Obiettivo creato con `input_method: 'counter'`
-4. Check-in mostra: "Hai finito un libro?" con +1
-5. Aria nelle sessioni: "Ho finito di leggere..." → +1 automatico
-
-### Scenario 3: Obiettivo Ansia (Session Detected)
-
-1. Utente seleziona "Ridurre ansia"
-2. Nessun target numerico richiesto
-3. Obiettivo creato con `input_method: 'session_detected'`
-4. Nelle sessioni, Aria rileva: "Mi sento più calmo" → progresso aggiornato
-5. Check-in NON chiede (troppo intrusivo)
-
----
-
-## Risultato Finale
-
-- **40+ obiettivi predefiniti** organizzati per categoria
-- **6 tipi di input** intelligenti per ogni obiettivo
-- **Auto-sync** da habits e body_metrics dove possibile
-- **AI detection** per obiettivi qualitativi
-- **Check-in** solo dove necessario, con tipo appropriato
-- **Quiz guidato** per obiettivi custom
-- **Tutto collegato al cervello** per insights cross-category
