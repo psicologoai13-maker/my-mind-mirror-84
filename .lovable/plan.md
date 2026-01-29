@@ -1,414 +1,317 @@
 
-
-# Piano: Integrazione Completa Valori Utente - Profilazione 360°
+# Piano: Sistema Interessi & Preferenze Utente - Profilazione Contestuale
 
 ## Obiettivo
-Aggiungere TUTTI i valori mancanti identificati e garantire che ogni singolo dato sia recuperabile attraverso almeno uno dei tre canali:
-1. **Aria** (sessioni vocali/chat, diari tematici)
-2. **Check-in** (domande dirette giornaliere)
-3. **Sync Esterno** (API Apple Health/Google Fit, sistema telefono)
+Raccogliere interessi statici dell'utente per permettere ad Aria di:
+1. Collegare eventi esterni (notizie, risultati sportivi, eventi) all'umore dell'utente
+2. Personalizzare conversazioni con riferimenti specifici
+3. Capire il contesto emotivo dietro certi stati d'animo
 
 ---
 
-## PARTE 1: Modifiche Database
+## PARTE 1: Categorie Interessi da Raccogliere
 
-### 1.1 Nuove Colonne `daily_emotions`
-Aggiungere 4 nuove emozioni:
+### 1.1 SPORT (sport_interests)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| follows_football | boolean | Segue calcio | true |
+| favorite_teams | text[] | Squadre del cuore | ["Juventus", "Italia"] |
+| favorite_athletes | text[] | Atleti preferiti | ["Sinner", "Verstappen"] |
+| sports_followed | text[] | Sport seguiti | ["calcio", "tennis", "F1", "basket"] |
 
-| Campo | Tipo | Descrizione | Canale Dati |
-|-------|------|-------------|-------------|
-| `nervousness` | integer | Nervosismo/agitazione | Aria, Check-in |
-| `overwhelm` | integer | Sopraffazione | Aria, Check-in |
-| `excitement` | integer | Eccitazione/entusiasmo | Aria |
-| `disappointment` | integer | Delusione | Aria |
+**USO CONTESTUALE:**
+- News: "Juventus perde 3-0" + utente nervoso → Aria: "Ho visto la partita della Juve... giornata dura, eh?"
+- News: "Sinner vince Australian Open" → Aria: "Hai visto Jannik?! Che partita!"
 
+### 1.2 INTRATTENIMENTO (entertainment_interests)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| favorite_genres | text[] | Generi preferiti | ["thriller", "sci-fi", "commedia"] |
+| current_shows | text[] | Serie che sta guardando | ["The Bear", "Succession"] |
+| favorite_artists | text[] | Artisti musicali | ["Coldplay", "Måneskin"] |
+| music_genres | text[] | Generi musicali | ["rock", "pop", "classica"] |
+| podcasts | text[] | Podcast seguiti | ["Muschio Selvaggio"] |
+| gaming_interests | text[] | Giochi/piattaforme | ["PS5", "FIFA", "RPG"] |
+
+**USO CONTESTUALE:**
+- Utente stanco → Aria: "Hai visto l'ultima puntata di The Bear? Perfetta per staccare!"
+- News: "Nuova stagione di X annunciata" → Aria menziona se è nella lista utente
+
+### 1.3 LAVORO & INTERESSI PROFESSIONALI (work_interests)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| industry | text | Settore lavorativo | "tech", "healthcare", "finance" |
+| role_type | text | Tipo ruolo | "manager", "creative", "technical" |
+| professional_interests | text[] | Interessi professionali | ["AI", "startups", "marketing"] |
+| career_goals | text[] | Aspirazioni | ["promozione", "cambio carriera"] |
+
+**USO CONTESTUALE:**
+- News su tech layoffs + utente nel tech ansioso → Aria capisce il contesto
+- Aria può chiedere follow-up su progetti menzionati
+
+### 1.4 LIFESTYLE & VALORI (lifestyle_values)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| pet_owner | boolean | Ha animali | true |
+| pets | jsonb | Dettagli animali | [{"type": "dog", "name": "Luna"}] |
+| dietary_preferences | text[] | Preferenze alimentari | ["vegetariano", "no latticini"] |
+| values | text[] | Valori importanti | ["famiglia", "ambiente", "carriera"] |
+| political_interest | boolean | Interesse politica | false |
+| religion_spirituality | text | Spiritualità | "praticante", "spirituale", "ateo", null |
+
+**USO CONTESTUALE:**
+- "Come sta Luna oggi?" (ricorda nome animale)
+- Non proporre ristoranti carne se vegetariano
+- News politiche → menziona solo se `political_interest = true`
+
+### 1.5 HOBBY & ATTIVITÀ (hobbies)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| creative_hobbies | text[] | Hobby creativi | ["fotografia", "cucina", "disegno"] |
+| outdoor_activities | text[] | Attività outdoor | ["trekking", "camping", "mare"] |
+| indoor_activities | text[] | Attività indoor | ["lettura", "gaming", "puzzle"] |
+| learning_interests | text[] | Cosa vuole imparare | ["chitarra", "spagnolo", "coding"] |
+| travel_style | text | Stile viaggi | "avventura", "relax", "cultura", "budget" |
+| dream_destinations | text[] | Mete desiderate | ["Giappone", "Islanda", "New York"] |
+
+### 1.6 RELAZIONI & SOCIALE (social_context)
+| Campo | Tipo | Descrizione | Esempio |
+|-------|------|-------------|---------|
+| relationship_status | text | Stato relazionale | "single", "relazione", "sposato" |
+| has_children | boolean | Ha figli | false |
+| children_count | integer | Numero figli | 0 |
+| living_situation | text | Situazione abitativa | "solo", "coinquilini", "famiglia" |
+| social_preference | text | Preferenza sociale | "introverso", "estroverso", "ambivert" |
+
+---
+
+## PARTE 2: Struttura Database
+
+### Opzione A: Nuova Tabella Dedicata (RACCOMANDATO)
 ```sql
-ALTER TABLE daily_emotions 
-ADD COLUMN IF NOT EXISTS nervousness integer,
-ADD COLUMN IF NOT EXISTS overwhelm integer,
-ADD COLUMN IF NOT EXISTS excitement integer,
-ADD COLUMN IF NOT EXISTS disappointment integer;
-```
+CREATE TABLE user_interests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Sport
+  follows_football boolean DEFAULT false,
+  favorite_teams text[] DEFAULT '{}',
+  favorite_athletes text[] DEFAULT '{}',
+  sports_followed text[] DEFAULT '{}',
+  
+  -- Entertainment
+  favorite_genres text[] DEFAULT '{}',
+  current_shows text[] DEFAULT '{}',
+  favorite_artists text[] DEFAULT '{}',
+  music_genres text[] DEFAULT '{}',
+  podcasts text[] DEFAULT '{}',
+  gaming_interests text[] DEFAULT '{}',
+  
+  -- Work
+  industry text,
+  role_type text,
+  professional_interests text[] DEFAULT '{}',
+  
+  -- Lifestyle
+  pet_owner boolean DEFAULT false,
+  pets jsonb DEFAULT '[]',
+  dietary_preferences text[] DEFAULT '{}',
+  values text[] DEFAULT '{}',
+  political_interest boolean DEFAULT false,
+  religion_spirituality text,
+  
+  -- Hobbies
+  creative_hobbies text[] DEFAULT '{}',
+  outdoor_activities text[] DEFAULT '{}',
+  indoor_activities text[] DEFAULT '{}',
+  learning_interests text[] DEFAULT '{}',
+  travel_style text,
+  dream_destinations text[] DEFAULT '{}',
+  
+  -- Social
+  relationship_status text,
+  has_children boolean DEFAULT false,
+  children_count integer DEFAULT 0,
+  living_situation text,
+  social_preference text,
+  
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-### 1.2 Nuove Colonne `daily_psychology`
-Aggiungere 4 nuovi parametri cognitivi:
-
-| Campo | Tipo | Descrizione | Canale Dati |
-|-------|------|-------------|-------------|
-| `concentration` | integer | Livello di concentrazione | Aria, Check-in |
-| `motivation` | integer | Livello di motivazione | Aria, Check-in |
-| `intrusive_thoughts` | integer | Pensieri intrusivi | Aria |
-| `self_worth` | integer | Autostima/valore di sé | Aria |
-
-```sql
-ALTER TABLE daily_psychology 
-ADD COLUMN IF NOT EXISTS concentration integer,
-ADD COLUMN IF NOT EXISTS motivation integer,
-ADD COLUMN IF NOT EXISTS intrusive_thoughts integer,
-ADD COLUMN IF NOT EXISTS self_worth integer;
-```
-
-### 1.3 Nuove Colonne `user_profiles`
-Aggiungere dati demografici mancanti:
-
-| Campo | Tipo | Descrizione | Canale Dati |
-|-------|------|-------------|-------------|
-| `height` | numeric | Altezza in cm | Onboarding, Manuale |
-| `birth_date` | date | Data di nascita | Onboarding |
-| `gender` | text | Genere (opzionale) | Onboarding |
-| `therapy_status` | text | Segue terapia? (none/past/current) | Onboarding |
-
-```sql
-ALTER TABLE user_profiles 
-ADD COLUMN IF NOT EXISTS height numeric,
-ADD COLUMN IF NOT EXISTS birth_date date,
-ADD COLUMN IF NOT EXISTS gender text,
-ADD COLUMN IF NOT EXISTS therapy_status text DEFAULT 'none';
-```
-
-### 1.4 Nuove Colonne `body_metrics`
-Aggiungere metriche fisiche mancanti:
-
-| Campo | Tipo | Descrizione | Canale Dati |
-|-------|------|-------------|-------------|
-| `body_fat_percentage` | numeric | Percentuale grasso corporeo | Sync/Manuale |
-| `muscle_mass` | numeric | Massa muscolare kg | Sync/Manuale |
-| `hydration_level` | numeric | Livello idratazione % | Sync |
-| `steps` | integer | Passi giornalieri | Sync |
-| `active_minutes` | integer | Minuti attività | Sync |
-| `calories_burned` | integer | Calorie bruciate | Sync |
-
-```sql
-ALTER TABLE body_metrics 
-ADD COLUMN IF NOT EXISTS body_fat_percentage numeric,
-ADD COLUMN IF NOT EXISTS muscle_mass numeric,
-ADD COLUMN IF NOT EXISTS hydration_level numeric,
-ADD COLUMN IF NOT EXISTS steps integer,
-ADD COLUMN IF NOT EXISTS active_minutes integer,
-ADD COLUMN IF NOT EXISTS calories_burned integer;
+-- RLS
+ALTER TABLE user_interests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their interests" ON user_interests
+  FOR ALL USING (auth.uid() = user_id);
 ```
 
 ---
 
-## PARTE 2: Aggiornamento Edge Function `process-session`
+## PARTE 3: Raccolta Dati - Multi-Canale
 
-### 2.1 Nuova Interfaccia Emozioni Estesa
+### 3.1 Onboarding (Nuovo Step Opzionale)
+**Step "Interessi" dopo "Lifestyle":**
+- Chip multi-select per sport seguiti
+- Input testo per squadra del cuore
+- Chip per generi intrattenimento
+- Quick picks per hobby principali
 
-```typescript
-interface SpecificEmotions {
-  // Primary (esistenti)
-  joy: number;
-  sadness: number;
-  anger: number;
-  fear: number;
-  apathy: number;
-  // Secondary (esistenti)
-  shame?: number;
-  jealousy?: number;
-  hope?: number;
-  frustration?: number;
-  nostalgia?: number;
-  // NEW - Aggiunte
-  nervousness?: number;   // Nervosismo
-  overwhelm?: number;     // Sopraffazione
-  excitement?: number;    // Eccitazione
-  disappointment?: number; // Delusione
-}
-```
+### 3.2 Pagina Profilo Dedicata "I Miei Interessi"
+- Sezione accessibile da Profilo
+- Form completo diviso per categorie
+- L'utente può aggiornare quando vuole
+- Suggerimenti: "Dici ad Aria che squadra tifi così può festeggiare con te!"
 
-### 2.2 Nuova Interfaccia DeepPsychology Estesa
+### 3.3 Estrazione da Aria (Passivo)
+Aria può rilevare e chiedere conferma:
+- "Ho notato che segui il calcio, che squadra tifi?"
+- "Stai guardando qualche serie interessante?"
+- Salva in long_term_memory prima, poi sincronizza
 
-```typescript
-interface DeepPsychology {
-  // Esistenti (12)
-  rumination: number | null;
-  self_efficacy: number | null;
-  mental_clarity: number | null;
-  burnout_level: number | null;
-  coping_ability: number | null;
-  loneliness_perceived: number | null;
-  somatic_tension: number | null;
-  appetite_changes: number | null;
-  sunlight_exposure: number | null;
-  guilt: number | null;
-  gratitude: number | null;
-  irritability: number | null;
-  // NEW - Aggiunte (4)
-  concentration: number | null;    // Concentrazione
-  motivation: number | null;       // Motivazione
-  intrusive_thoughts: number | null; // Pensieri intrusivi
-  self_worth: number | null;       // Autostima
-}
-```
+---
 
-### 2.3 Prompt AI Aggiornato per Estrarre Nuovi Valori
+## PARTE 4: Integrazione Aria + News
 
-Aggiungere al prompt di analisi:
-
+### 4.1 Nuovo Blocco Contesto per Aria
 ```text
 ═══════════════════════════════════════════════
-😰 EMOZIONI AGGIUNTIVE - ESTRAZIONE SEMANTICA
+🎯 INTERESSI UTENTE
 ═══════════════════════════════════════════════
 
-**NERVOSISMO (nervousness):**
-- "Sono nervoso", "agitato", "non riesco a stare fermo", "irrequieto" → 7-10
-- Movimento continuo, mani sudate, parlare veloce → inferisci 5-7
-- Diverso da ANSIA: il nervosismo è più fisico/superficiale, l'ansia è più profonda
+SPORT: Tifa Juventus, Inter (campionato), segue F1 e tennis
+SQUADRE CUORE: Juventus (calcio), Ferrari (F1)
+ATLETI: Sinner, Leclerc
+SERIE TV IN CORSO: The Bear, Succession  
+MUSICA: Rock, Coldplay, Måneskin
+HOBBY: Fotografia, trekking, gaming (PS5)
+LAVORO: Tech industry, software developer
+VALORI: Carriera, crescita personale
+ANIMALI: Cane chiamato Luna
+DIETA: Nessuna restrizione
 
-**SOPRAFFAZIONE (overwhelm):**
-- "Mi sento sopraffatto", "è troppo", "non ce la faccio", "troppe cose" → 7-10
-- Menzione di liste infinite, scadenze multiple, responsabilità eccessive → 6-8
-- CRITICO per burnout detection
-
-**ECCITAZIONE (excitement):**
-- "Sono elettrizzato", "non vedo l'ora", "entusiasta", "gasato" → 7-10
-- Nuove opportunità, eventi positivi imminenti → inferisci
-- Può coesistere con nervosismo (eccitazione nervosa)
-
-**DELUSIONE (disappointment):**
-- "Sono deluso", "mi aspettavo di più", "che peccato", "speravo meglio" → 7-10
-- Aspettative non soddisfatte, promesse non mantenute → 5-7
-
+USO:
+- Se nelle NEWS c'è "Juventus perde" e l'utente sembra giù → collega!
+- Se parla di weekend → proponi trekking/fotografia
+- Usa i nomi (Luna, squadre) per personalizzare
 ═══════════════════════════════════════════════
-🧠 PSICOLOGIA PROFONDA - NUOVI PARAMETRI
-═══════════════════════════════════════════════
-
-**CONCENTRAZIONE (concentration):**
-- "Riesco a concentrarmi", "focus", "mente lucida sul task" → 8-10
-- "Mi distraggo", "non riesco a focalizzarmi", "pensieri vagano" → 1-4
-- Inferisci anche da come l'utente parla (coerente vs frammentato)
-
-**MOTIVAZIONE (motivation):**
-- "Sono motivato", "voglio farlo", "ci credo" → 8-10
-- "Non ho voglia", "a che scopo", "perché dovrei" → 1-4
-- CORRELATO ma diverso da energia: uno può avere energia ma non motivazione
-
-**PENSIERI INTRUSIVI (intrusive_thoughts):**
-- "Non riesco a togliermi dalla testa...", "pensiero che torna", "ossessione" → 7-10
-- Diverso da RUMINAZIONE: i pensieri intrusivi sono ego-distonici (non li vuole)
-- La ruminazione è ego-sintonica (ci pensa perché "deve")
-
-**AUTOSTIMA (self_worth):**
-- "Mi sento inutile", "non valgo niente", "sono un fallimento" → 1-3
-- "Sono fiero di me", "ce l'ho fatta", "sono capace" → 8-10
-- CORRELATO a self_efficacy ma più ampio (valore personale vs capacità)
 ```
 
----
-
-## PARTE 3: Aggiornamento Frontend
-
-### 3.1 File `src/hooks/useDailyMetrics.tsx`
-
-Estendere le interfacce:
-
+### 4.2 Logica Matching News ↔ Interessi
 ```typescript
-export interface DeepPsychology {
-  // Esistenti...
-  // Nuovi
-  concentration: number | null;
-  motivation: number | null;
-  intrusive_thoughts: number | null;
-  self_worth: number | null;
-}
-```
-
-### 3.2 File `src/components/analisi/AnalisiTabContent.tsx`
-
-Aggiungere nuove emozioni nel mix emotivo e nuovi parametri psicologici nelle card.
-
-### 3.3 File `src/hooks/useProfile.tsx`
-
-Estendere l'interfaccia UserProfile:
-
-```typescript
-export interface UserProfile {
-  // Esistenti...
-  // Nuovi
-  height?: number | null;
-  birth_date?: string | null;
-  gender?: string | null;
-  therapy_status?: string | null;
-}
-```
-
-### 3.4 File `src/hooks/useBodyMetrics.tsx`
-
-Estendere l'interfaccia BodyMetric:
-
-```typescript
-export interface BodyMetric {
-  // Esistenti...
-  // Nuovi
-  body_fat_percentage: number | null;
-  muscle_mass: number | null;
-  hydration_level: number | null;
-  steps: number | null;
-  active_minutes: number | null;
-  calories_burned: number | null;
+function matchNewsToInterests(news: string[], interests: UserInterests): string[] {
+  const relevantNews: string[] = [];
+  
+  news.forEach(headline => {
+    const lowerHeadline = headline.toLowerCase();
+    
+    // Match squadre
+    interests.favorite_teams?.forEach(team => {
+      if (lowerHeadline.includes(team.toLowerCase())) {
+        relevantNews.push(`[🏆 ${team}] ${headline}`);
+      }
+    });
+    
+    // Match atleti
+    interests.favorite_athletes?.forEach(athlete => {
+      if (lowerHeadline.includes(athlete.toLowerCase())) {
+        relevantNews.push(`[⭐ ${athlete}] ${headline}`);
+      }
+    });
+    
+    // Match industry (se politica = true)
+    if (interests.industry && lowerHeadline.includes(interests.industry)) {
+      relevantNews.push(`[💼 Settore] ${headline}`);
+    }
+  });
+  
+  return relevantNews;
 }
 ```
 
 ---
 
-## PARTE 4: Aggiornamento Onboarding
+## PARTE 5: Altre Idee per Profilazione Avanzata
 
-### 4.1 Nuovi Campi `PhysicalDataStep.tsx`
+### 5.1 Contesto Temporale Personale
+| Campo | Descrizione | Uso |
+|-------|-------------|-----|
+| work_schedule | "9-18", "turni", "freelance" | Sapere quando è disponibile/stressato |
+| commute_time | Tempo commute giornaliero | "Come è andato il viaggio oggi?" |
+| important_dates | Compleanni, anniversari | Ricordare e festeggiare |
+| recurring_events | "Palestra lunedì", "Terapia giovedì" | Contesto settimanale |
 
-Aggiungere:
-- Campo `gender` con opzioni: "Preferisco non dire", "Maschio", "Femmina", "Altro"
-- Campo `birth_date` (già presente come birthYear, convertire a data completa)
+### 5.2 Preferenze Comunicazione
+| Campo | Descrizione | Uso |
+|-------|-------------|-----|
+| nickname | Come vuole essere chiamato | Personalizzazione |
+| humor_preference | "sarcastico", "gentile", "misto" | Adattare stile Aria |
+| response_length | "brevi", "dettagliate" | Calibrare risposte |
+| emoji_preference | "molti", "pochi", "nessuno" | Stile messaggi |
 
-### 4.2 Nuovo Step `TherapyStatusStep.tsx` (Opzionale)
-
-Domanda: "Stai seguendo o hai seguito una terapia psicologica?"
-- "No, mai"
-- "In passato"
-- "Attualmente"
-
----
-
-## PARTE 5: Aggiornamento RPC `get_daily_metrics`
-
-Estendere la funzione per includere le nuove colonne nelle query.
-
----
-
-## MAPPA COMPLETA VALORI → CANALI DATI
-
-### Legenda Canali:
-- 🗣️ **Aria** = Estratto da sessioni/diari tramite AI
-- ✅ **Check-in** = Domanda diretta all'utente
-- 📱 **Sync** = App esterne / Sistema telefono
-- 📝 **Manuale** = Input diretto utente (form)
-- 🎯 **Onboarding** = Raccolto durante registrazione
-
-### EMOZIONI (18 totali)
-
-| Emozione | 🗣️ Aria | ✅ Check-in | Descrizione |
-|----------|---------|-------------|-------------|
-| joy | ✅ | ✅ | Gioia |
-| sadness | ✅ | ✅ | Tristezza |
-| anger | ✅ | ✅ | Rabbia |
-| fear | ✅ | ✅ | Paura |
-| apathy | ✅ | ❌ | Apatia (solo se esplicita) |
-| shame | ✅ | ❌ | Vergogna |
-| jealousy | ✅ | ❌ | Gelosia |
-| hope | ✅ | ❌ | Speranza |
-| frustration | ✅ | ✅ | Frustrazione |
-| nostalgia | ✅ | ❌ | Nostalgia |
-| **nervousness** | ✅ | ✅ | Nervosismo (NUOVO) |
-| **overwhelm** | ✅ | ✅ | Sopraffazione (NUOVO) |
-| **excitement** | ✅ | ❌ | Eccitazione (NUOVO) |
-| **disappointment** | ✅ | ❌ | Delusione (NUOVO) |
-
-### VITALI (4 totali)
-
-| Vitale | 🗣️ Aria | ✅ Check-in | 📱 Sync |
-|--------|---------|-------------|---------|
-| mood | ✅ | ✅ | ❌ |
-| anxiety | ✅ | ✅ | ❌ |
-| energy | ✅ | ✅ | 📱 (inferito da attività) |
-| sleep | ✅ | ✅ | 📱 (Apple Health) |
-
-### AREE VITA (5 totali)
-
-| Area | 🗣️ Aria | ✅ Check-in |
-|------|---------|-------------|
-| love | ✅ | ✅ |
-| work | ✅ | ✅ |
-| health | ✅ | ✅ |
-| social | ✅ | ✅ |
-| growth | ✅ | ✅ |
-
-### PSICOLOGIA PROFONDA (16 totali)
-
-| Parametro | 🗣️ Aria | ✅ Check-in | Descrizione |
-|-----------|---------|-------------|-------------|
-| rumination | ✅ | ❌ | Pensieri ossessivi |
-| self_efficacy | ✅ | ❌ | Fiducia capacità |
-| mental_clarity | ✅ | ✅ | Chiarezza mentale |
-| burnout_level | ✅ | ✅ | Esaurimento |
-| coping_ability | ✅ | ❌ | Resilienza |
-| loneliness_perceived | ✅ | ✅ | Solitudine percepita |
-| somatic_tension | ✅ | ✅ | Tensione fisica |
-| appetite_changes | ✅ | ✅ | Cambi appetito |
-| sunlight_exposure | ✅ | ✅ | Esposizione luce |
-| guilt | ✅ | ❌ | Senso di colpa |
-| gratitude | ✅ | ✅ | Gratitudine |
-| irritability | ✅ | ✅ | Irritabilità |
-| **concentration** | ✅ | ✅ | Concentrazione (NUOVO) |
-| **motivation** | ✅ | ✅ | Motivazione (NUOVO) |
-| **intrusive_thoughts** | ✅ | ❌ | Pensieri intrusivi (NUOVO) |
-| **self_worth** | ✅ | ❌ | Autostima (NUOVO) |
-
-### DATI PROFILO (8 totali)
-
-| Campo | 🎯 Onboarding | 📝 Manuale | 🗣️ Aria |
-|-------|---------------|------------|---------|
-| name | ✅ | ✅ | ❌ |
-| email | ✅ (auto) | ❌ | ❌ |
-| **height** | ✅ | ✅ | ✅ (se menzionato) |
-| **birth_date** | ✅ | ✅ | ✅ (se menzionato) |
-| **gender** | ✅ | ✅ | ❌ |
-| **therapy_status** | ✅ | ✅ | ✅ (se menzionato) |
-
-### METRICHE CORPOREE (12 totali)
-
-| Metrica | 📝 Manuale | 📱 Sync | 🗣️ Aria |
-|---------|------------|---------|---------|
-| weight | ✅ | 📱 | ✅ |
-| waist_circumference | ✅ | ❌ | ❌ |
-| sleep_hours | ✅ | 📱 | ✅ |
-| resting_heart_rate | ❌ | 📱 | ❌ |
-| blood_pressure_systolic | ✅ | 📱 | ❌ |
-| blood_pressure_diastolic | ✅ | 📱 | ❌ |
-| **body_fat_percentage** | ✅ | 📱 | ❌ |
-| **muscle_mass** | ✅ | 📱 | ❌ |
-| **hydration_level** | ❌ | 📱 | ❌ |
-| **steps** | ❌ | 📱 | ❌ |
-| **active_minutes** | ❌ | 📱 | ❌ |
-| **calories_burned** | ❌ | 📱 | ❌ |
+### 5.3 Sensibilità & Trigger (Opzionale/Sensibile)
+| Campo | Descrizione | Uso |
+|-------|-------------|-----|
+| sensitive_topics | ["perdita lavoro", "ex partner"] | Evitare trigger involontari |
+| preferred_topics | ["futuro", "viaggi", "hobby"] | Safe topics per distrazione |
+| news_sensitivity | "solo positive", "tutto", "nessuna" | Filtrare news |
 
 ---
 
-## RIEPILOGO IMPLEMENTAZIONE
+## PARTE 6: Riepilogo Implementazione
 
-### File da Modificare:
+### File da Creare/Modificare:
+| File | Azione |
+|------|--------|
+| `supabase/migrations/xxx_user_interests.sql` | Nuova tabella |
+| `src/hooks/useUserInterests.tsx` | Hook CRUD |
+| `src/components/onboarding/InterestsStep.tsx` | Step onboarding |
+| `src/components/profile/InterestsSection.tsx` | Sezione profilo |
+| `supabase/functions/ai-chat/index.ts` | Blocco contesto interessi |
+| `supabase/functions/real-time-context/index.ts` | Match news-interessi |
 
-| File | Modifiche |
-|------|-----------|
-| `supabase/migrations/xxx_add_missing_values.sql` | Nuove colonne DB |
-| `supabase/functions/process-session/index.ts` | Estrazione AI nuovi valori |
-| `supabase/functions/ai-checkins/index.ts` | Nuove domande check-in |
-| `src/hooks/useDailyMetrics.tsx` | Interfacce estese |
-| `src/hooks/useProfile.tsx` | Campi profilo |
-| `src/hooks/useBodyMetrics.tsx` | Metriche corporee |
-| `src/components/onboarding/PhysicalDataStep.tsx` | Nuovi campi |
-| `src/components/analisi/AnalisiTabContent.tsx` | Visualizzazione |
-| RPC `get_daily_metrics` | Query estesa |
-
-### Ordine di Esecuzione:
-1. Migrazione DB (nuove colonne)
-2. Aggiornamento RPC
-3. Aggiornamento process-session (estrazione AI)
-4. Aggiornamento ai-checkins (domande)
-5. Aggiornamento frontend (interfacce + UI)
-6. Aggiornamento onboarding
+### Ordine Esecuzione:
+1. Migrazione DB (tabella `user_interests`)
+2. Hook `useUserInterests`
+3. Step Onboarding (opzionale, veloce)
+4. Pagina Profilo completa
+5. Integrazione Aria (contesto + estrazione passiva)
+6. News matching
 
 ---
 
-## TOTALE VALORI TRACCIABILI
+## TOTALE NUOVI VALORI PROFILAZIONE
 
-| Categoria | Attuali | Nuovi | Totale |
-|-----------|---------|-------|--------|
-| Emozioni | 14 | 4 | **18** |
-| Vitali | 4 | 0 | **4** |
-| Aree Vita | 5 | 0 | **5** |
-| Psicologia | 12 | 4 | **16** |
-| Profilo | 4 | 4 | **8** |
-| Corpo | 6 | 6 | **12** |
-| **TOTALE** | **45** | **18** | **63** |
+| Categoria | Campi | Tipo |
+|-----------|-------|------|
+| Sport | 4 | Statici |
+| Entertainment | 6 | Statici |
+| Work | 3 | Statici |
+| Lifestyle | 6 | Statici |
+| Hobbies | 6 | Statici |
+| Social | 5 | Statici |
+| Comunicazione | 4 | Preferenze |
+| Temporali | 4 | Contesto |
+| Sensibilità | 3 | Safety |
+| **TOTALE** | **41** | **Nuovi campi** |
 
-Con queste modifiche, l'app avrà **63 valori distinti** per la profilazione utente, tutti recuperabili attraverso almeno un canale.
+**PROFILAZIONE TOTALE:** 63 (metriche) + 41 (interessi) = **104 punti dati utente**
 
+---
+
+## Esempio Pratico: Scenario Juventus
+
+```text
+CONTESTO:
+- User interests: favorite_teams = ["Juventus"]
+- News di oggi: "Juventus perde 3-0 contro Inter nel derby d'Italia"
+- Utente scrive: "Giornata di merda"
+
+ARIA (con sistema attuale):
+"Mi dispiace sentire questo. Cosa è successo?"
+
+ARIA (con sistema interessi):
+"Uff, immagino che la partita non abbia aiutato... 3-0 brucia 😔 
+Vuoi parlare della giornata o preferisci pensare ad altro?"
+
+→ L'utente si sente CAPITO senza dover spiegare
+```
