@@ -21,9 +21,11 @@ const ObjectivesTabContent: React.FC = () => {
     deleteObjective,
   } = useObjectives();
 
-  // Count objectives with missing target
-  const objectivesWithMissingTarget = activeObjectives.filter(
-    o => o.target_value === null || o.target_value === undefined
+  // Count objectives with missing target/starting for categories that require them
+  const objectivesWithMissingData = activeObjectives.filter(
+    o => (o.category === 'body' || o.category === 'finance') && 
+         (o.target_value === null || o.target_value === undefined ||
+          o.starting_value === null || o.starting_value === undefined)
   );
 
   if (isLoading) {
@@ -36,17 +38,17 @@ const ObjectivesTabContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Warning for objectives with missing target */}
-      {objectivesWithMissingTarget.length > 0 && (
+      {/* Warning for objectives with missing data - only for body/finance */}
+      {objectivesWithMissingData.length > 0 && (
         <Card className="p-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-amber-800 dark:text-amber-200">
-                {objectivesWithMissingTarget.length} obiettiv{objectivesWithMissingTarget.length === 1 ? 'o' : 'i'} senza target
+                {objectivesWithMissingData.length} obiettiv{objectivesWithMissingData.length === 1 ? 'o' : 'i'} da completare
               </p>
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                Parla con Aria per definire i tuoi traguardi!
+                Definisci punto di partenza e target per tracciare i progressi
               </p>
             </div>
           </div>

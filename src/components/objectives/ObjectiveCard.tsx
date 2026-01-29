@@ -34,6 +34,9 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
   const hasStartingValue = objective.starting_value !== null && objective.starting_value !== undefined;
   
+  // Only body and finance categories REQUIRE starting_value for meaningful progress
+  const requiresStartingValue = objective.category === 'body' || objective.category === 'finance';
+  
   // Use new progress calculation that considers starting value
   const progress = hasTarget ? calculateProgress(objective) : 0;
 
@@ -130,7 +133,8 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
       )}
 
       {/* Missing target or starting value warning - with manual input button */}
-      {(!hasTarget || (hasTarget && !hasStartingValue && objective.unit)) && (
+      {/* Only show for categories that require numeric tracking (body, finance) */}
+      {(requiresStartingValue && (!hasTarget || !hasStartingValue)) && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
           <div className="flex items-start gap-2 mb-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
@@ -143,7 +147,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                     : 'Punto di partenza non definito'}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                Inserisci i valori per tracciare i progressi
+                Parla con Aria o inserisci manualmente
               </p>
             </div>
           </div>

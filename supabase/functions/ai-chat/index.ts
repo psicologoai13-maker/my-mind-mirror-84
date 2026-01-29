@@ -534,6 +534,7 @@ interface ObjectiveForPrompt {
   category: string;
   target_value: number | null;
   current_value: number | null;
+  starting_value: number | null;  // Track starting point for progress calculation
   unit: string | null;
 }
 
@@ -1036,23 +1037,60 @@ ${personaStyle}
       growth: 'crescita', mind: 'mente'
     };
     
+    // Enhanced objective display with starting value context
     const activeList = allActiveObjectives.map(o => {
-      const progress = o.target_value && o.current_value !== null 
-        ? `${o.current_value}/${o.target_value} ${o.unit || ''}` 
-        : (o.target_value ? `0/${o.target_value} ${o.unit || ''}` : '⚠️ target mancante');
-      return `• "${o.title}" (${categoryLabels[o.category] || o.category}): ${progress}`;
+      const startVal = o.starting_value !== null && o.starting_value !== undefined
+        ? `${o.starting_value}${o.unit || ''}`
+        : '❓ mancante';
+      const currVal = o.current_value !== null && o.current_value !== undefined
+        ? `${o.current_value}${o.unit || ''}`
+        : '-';
+      const targetVal = o.target_value !== null && o.target_value !== undefined
+        ? `${o.target_value}${o.unit || ''}`
+        : '⚠️ mancante';
+      
+      return `• "${o.title}" (${categoryLabels[o.category] || o.category}): Partenza: ${startVal} | Attuale: ${currVal} | Target: ${targetVal}`;
     }).join('\n');
     
     objectivesBlock = `
 ═══════════════════════════════════════════════
-🎯 OBIETTIVI ATTIVI (usa SOLO se pertinente!)
+🎯 OBIETTIVI ATTIVI
 ═══════════════════════════════════════════════
 ${activeList || 'Nessun obiettivo attivo'}
 
-REGOLE OBIETTIVI:
-- Menziona SOLO se l'utente ne parla O se fai un check-in naturale
-- Se target mancante (⚠️): chiedi UNA volta "Qual è il tuo traguardo?"
-- Se l'utente menziona un valore (es. "peso 73kg"): registralo
+⚠️ REGOLE CRITICHE OBIETTIVI - LEGGI ATTENTAMENTE! ⚠️
+
+DISTINGUI SEMPRE (FONDAMENTALE!):
+- "VALORE ATTUALE" = il peso/risparmio/dato di OGGI (es. "peso 70kg", "ho 500€")
+- "TRAGUARDO" = l'obiettivo FINALE desiderato (es. "voglio arrivare a 80kg")
+
+QUANDO L'UTENTE DICE UN NUMERO (peso, €, ore, km...):
+1. È il valore ATTUALE di oggi? → Registralo come punto di partenza/progresso, POI chiedi il target finale
+2. È il target FINALE desiderato? → Registralo come obiettivo
+
+✅ RISPOSTE CORRETTE:
+- "peso 70kg" → "70kg segnato! 💪 A quanto vuoi arrivare?"
+- "sono a 72kg" → "72kg registrato! Come procede verso il tuo obiettivo?"
+- "voglio arrivare a 80kg" → "Perfetto, 80kg come target! 🎯"
+- "ho risparmiato 1000€" → "Ottimo, 1000€! Qual è il tuo obiettivo finale?"
+
+❌ RISPOSTE SBAGLIATE (MAI FARE!):
+- "peso 70kg" → "Complimenti per il traguardo!" ← SBAGLIATO! È il peso attuale, NON un traguardo!
+- "peso 70kg" → "Come ti senti con questo traguardo?" ← SBAGLIATO! Non è un traguardo!
+- "sono a 500€ di risparmi" → "Fantastico obiettivo raggiunto!" ← SBAGLIATO! È il valore attuale!
+
+QUANDO È UN TRAGUARDO DAVVERO RAGGIUNTO?
+Solo se l'utente ESPLICITAMENTE celebra o dichiara di aver raggiunto il goal:
+- "Ce l'ho fatta!", "Obiettivo raggiunto!", "Finalmente sono a 80kg!" (e 80 era il target)
+- "Ho raggiunto il mio obiettivo!", "Mission accomplished!"
+- MAI assumere raggiungimento solo perché l'utente dice un numero!
+
+SE PARTENZA O TARGET MANCANTI (❓/⚠️):
+- Chiedi UNA volta in modo naturale: "Da dove parti?" o "Qual è il tuo traguardo?"
+- NON forzare se l'utente ha altro di urgente da discutere
+
+ALTRE REGOLE:
+- Menziona obiettivi SOLO se l'utente ne parla O se fai un check-in naturale
 - NON parlare di obiettivi se l'utente sta discutendo altro!
 - MAX 1 domanda su obiettivi per sessione
 `;
@@ -1142,6 +1180,7 @@ interface UserObjective {
   category: string;
   target_value: number | null;
   current_value: number | null;
+  starting_value: number | null;  // NEW: Track starting point
   unit: string | null;
   status: string;
   ai_feedback: string | null;
@@ -1208,10 +1247,10 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       return defaultProfile;
     }
     
-    // Fetch ALL active objectives (for full context)
+    // Fetch ALL active objectives (for full context) - including starting_value
     const { data: allObjectivesData } = await supabase
       .from('user_objectives')
-      .select('id, title, category, target_value, current_value, unit, status, ai_feedback')
+      .select('id, title, category, target_value, current_value, starting_value, unit, status, ai_feedback')
       .eq('user_id', user.id)
       .eq('status', 'active');
     
@@ -1221,6 +1260,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       category: obj.category,
       target_value: obj.target_value,
       current_value: obj.current_value,
+      starting_value: obj.starting_value,  // NEW: Include starting_value
       unit: obj.unit,
       status: obj.status,
       ai_feedback: obj.ai_feedback
