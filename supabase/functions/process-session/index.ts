@@ -218,56 +218,51 @@ DEVI analizzare la conversazione per rilevare NUOVI OBIETTIVI che l'utente potre
 - "Voglio stabilità emotiva" → emotional_stability
 - "Ho bisogno di sfogarmi" → express_feelings
 
-📌 OBIETTIVI CUSTOM (NUOVA FEATURE!) - Aggiungi a "custom_objectives_detected":
-L'utente può avere obiettivi NON MENTALI. DEVI rilevarli e restituirli in un array dedicato.
+📌 OBIETTIVI CUSTOM (IMPORTANTE!) - Aggiungi a "custom_objectives_detected":
+L'utente può avere obiettivi NON MENTALI. DEVI rilevarli e restituirli.
 
 CATEGORIE CUSTOM:
-- BODY (corpo): "Voglio dimagrire", "Perdere peso", "Fare più sport", "Smettere di fumare"
-  - Se specifica "5kg" → target_value: 5, unit: "kg"
-  - Se NON specifica → target_value: null (Aria chiederà)
+- BODY (corpo): "Voglio dimagrire", "Prendere peso", "Fare più sport"
+  ⚠️ REGOLA SPECIALE BODY/FINANCE: Se l'utente dice "voglio prendere 10kg":
+    - target_value: null (chiedi qual è il peso finale desiderato!)
+    - starting_value: peso_attuale (SE menzionato nella conversazione o memoria)
+    - ai_feedback: "Quanto pesi adesso? Così so da dove partiamo!"
+  
+  Se l'utente dice "peso 70kg e voglio arrivare a 80kg":
+    - starting_value: 70
+    - target_value: 80
+    - unit: "kg"
+    - ai_feedback: null (tutto completo!)
 
-- STUDY (studio): "Devo superare l'esame", "Voglio laurearmi", "Studiare per..."
-  - Se specifica l'esame → title: "Superare esame [nome]"
+- FINANCE (finanze): "Risparmiare 5000€"
+  - Se specifica cifra → target_value: 5000, unit: "€"
+  - Se NON specifica → target_value: null, ai_feedback: "Quanto vorresti risparmiare?"
 
-- WORK (lavoro): "Voglio una promozione", "Cambiare lavoro", "Guadagnare di più"
+- STUDY (studio): "Superare l'esame", "Studiare 20h/settimana"
+- WORK (lavoro): "Voglio una promozione"
+- RELATIONSHIPS (relazioni): "Trovare partner"
+- GROWTH (crescita): "Leggere di più", "Meditare"
 
-- FINANCE (finanze): "Risparmiare", "Mettere da parte soldi", "Comprare casa"
-  - Se specifica cifra "5000€" → target_value: 5000, unit: "€"
-
-- RELATIONSHIPS (relazioni): "Trovare partner", "Migliorare rapporto con..."
-
-- GROWTH (crescita): "Imparare a...", "Leggere di più", "Meditare ogni giorno"
-
-⚠️ FORMATO per custom_objectives_detected (array di oggetti):
+⚠️ FORMATO per custom_objectives_detected:
 {
   "category": "body|study|work|finance|relationships|growth",
-  "title": "Titolo breve dell'obiettivo",
+  "title": "Titolo breve",
   "description": "Descrizione opzionale",
-  "target_value": <numero o null se non specificato>,
-  "unit": "kg|€|ore|libri|ecc o null",
-  "ai_feedback": "Messaggio di Aria (es: 'Di quanti kg vuoi dimagrire?')"
+  "starting_value": <numero peso/risparmio attuale SE noto, altrimenti null>,
+  "target_value": <numero obiettivo finale SE specificato, altrimenti null>,
+  "unit": "kg|€|ore|null",
+  "ai_feedback": "Messaggio se manca starting_value O target_value"
 }
 
-ESEMPIO:
-- Utente dice: "Vorrei perdere peso, sono ingrassato troppo"
-  → custom_objectives_detected: [{
-       "category": "body",
-       "title": "Perdere peso",
-       "description": null,
-       "target_value": null,
-       "unit": "kg",
-       "ai_feedback": "Di quanti kg vorresti dimagrire?"
-     }]
+ESEMPI CORRETTI:
+1. Utente dice: "Vorrei prendere 10kg, peso 65"
+   → {"category": "body", "title": "Prendere peso", "starting_value": 65, "target_value": 75, "unit": "kg", "ai_feedback": null}
 
-- Utente dice: "Devo risparmiare 3000 euro per le vacanze"
-  → custom_objectives_detected: [{
-       "category": "finance",
-       "title": "Risparmiare per le vacanze",
-       "description": null,
-       "target_value": 3000,
-       "unit": "€",
-       "ai_feedback": null
-     }]
+2. Utente dice: "Devo dimagrire" (senza numeri)
+   → {"category": "body", "title": "Perdere peso", "starting_value": null, "target_value": null, "unit": "kg", "ai_feedback": "Quanto pesi adesso e qual è il tuo peso obiettivo?"}
+
+3. Utente dice: "Voglio risparmiare per le vacanze"
+   → {"category": "finance", "title": "Risparmiare per vacanze", "starting_value": null, "target_value": null, "unit": "€", "ai_feedback": "Che cifra hai in mente?"}
 
 ⚠️ NON inventare obiettivi. Solo se ESPLICITAMENTE menzionati.
 `);
@@ -1100,7 +1095,10 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           .maybeSingle();
         
         if (!existingObj) {
-          // Create new objective
+          // Create new objective with starting_value support
+          const startingVal = obj.starting_value || null;
+          const currentVal = startingVal || 0; // current starts at starting_value if provided
+          
           const { error: objError } = await supabase
             .from('user_objectives')
             .insert({
@@ -1108,11 +1106,14 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               category: obj.category || 'growth',
               title: obj.title,
               description: obj.description || null,
+              starting_value: startingVal,
               target_value: obj.target_value || null,
               unit: obj.unit || null,
-              current_value: 0,
+              current_value: currentVal,
               status: 'active',
-              ai_feedback: obj.ai_feedback || null,
+              ai_feedback: obj.ai_feedback || ((!obj.target_value || !startingVal) && (obj.category === 'body' || obj.category === 'finance') 
+                ? 'Definisci il punto di partenza e l\'obiettivo finale per tracciare i progressi!' 
+                : null),
               progress_history: []
             });
           

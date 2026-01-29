@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3 } from 'lucide-react';
 import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { TargetInputDialog } from './TargetInputDialog';
 
 interface ObjectiveCardProps {
   objective: Objective;
@@ -27,6 +28,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   onDelete,
   onAddProgress,
 }) => {
+  const [showTargetDialog, setShowTargetDialog] = useState(false);
   const categoryConfig = CATEGORY_CONFIG[objective.category];
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
@@ -127,20 +129,65 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         </p>
       )}
 
-      {/* Missing target or starting value warning */}
+      {/* Missing target or starting value warning - with manual input button */}
       {(!hasTarget || (hasTarget && !hasStartingValue && objective.unit)) && (
-        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-start gap-2">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              {!hasTarget ? 'Obiettivo finale non definito' : 'Punto di partenza non definito'}
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Parla con Aria per definirlo!
-            </p>
+        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {!hasTarget && !hasStartingValue 
+                  ? 'Definisci punto di partenza e obiettivo'
+                  : !hasTarget 
+                    ? 'Obiettivo finale non definito' 
+                    : 'Punto di partenza non definito'}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Inserisci i valori per tracciare i progressi
+              </p>
+            </div>
           </div>
+          {onUpdate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-1 bg-white/50 dark:bg-white/10 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+              onClick={() => setShowTargetDialog(true)}
+            >
+              <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+              Definisci traguardi
+            </Button>
+          )}
         </div>
       )}
+      
+      {/* Target Input Dialog */}
+      <TargetInputDialog
+        open={showTargetDialog}
+        onOpenChange={setShowTargetDialog}
+        objectiveTitle={objective.title}
+        unit={objective.unit}
+        hasStartingValue={hasStartingValue}
+        hasTargetValue={hasTarget}
+        onSave={(startingVal, targetVal) => {
+          if (onUpdate) {
+            const updates: Partial<Objective> = {};
+            if (startingVal !== null) {
+              updates.starting_value = startingVal;
+              // Also set current_value to starting if not set
+              if (objective.current_value === null || objective.current_value === 0) {
+                updates.current_value = startingVal;
+              }
+            }
+            if (targetVal !== null) {
+              updates.target_value = targetVal;
+            }
+            // Clear ai_feedback since user defined manually
+            updates.ai_feedback = null;
+            onUpdate(objective.id, updates);
+          }
+        }}
+      />
 
       {/* Progress bar (only if target is set) */}
       {hasTarget && (
