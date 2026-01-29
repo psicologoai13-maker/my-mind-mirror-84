@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
-import AIInsightCard from '@/components/home/AIInsightCard';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
@@ -10,6 +9,7 @@ import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
 import { useAIDashboard } from '@/hooks/useAIDashboard';
+import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { cn } from '@/lib/utils';
@@ -17,11 +17,16 @@ import { cn } from '@/lib/utils';
 const Index: React.FC = () => {
   const { profile, isLoading } = useProfile();
   const { layout, isLoading: isLoadingAI, isRefreshingInBackground } = useAIDashboard();
+  const { layout: analysisLayout } = useAIAnalysis('week');
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
+
+  // Get AI insights from analysis layout
+  const aiSummary = analysisLayout.ai_summary || '';
+  const focusInsight = analysisLayout.focus_insight || '';
 
   // Sort widgets by priority from AI
   const sortedWidgets = useMemo(() => {
@@ -102,12 +107,14 @@ const Index: React.FC = () => {
           </Button>
         </div>
 
-        {/* Wellness Score Box - Show cached data immediately */}
+        {/* Wellness Score Box with expandable AI insights */}
         <div className="mb-5">
           <WellnessScoreBox 
             score={layout.wellness_score} 
             message={layout.wellness_message}
             isLoading={isLoadingAI && layout.wellness_score === 5}
+            aiSummary={aiSummary}
+            focusInsight={focusInsight}
           />
         </div>
 
@@ -116,13 +123,8 @@ const Index: React.FC = () => {
       </header>
 
       <div className="px-6 pb-8 space-y-5">
-        {/* AI-Ordered Widgets - habits now integrated in SmartCheckinSection */}
+        {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
-
-        {/* AI Insight Card - Moved below Focus */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <AIInsightCard />
-        </div>
       </div>
 
       {/* Check-in Summary Modal */}

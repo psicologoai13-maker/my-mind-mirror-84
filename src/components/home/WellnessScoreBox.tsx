@@ -1,18 +1,32 @@
-import React from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, Lightbulb, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedRing } from '@/components/ui/animated-ring';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface WellnessScoreBoxProps {
   score?: number;
   message?: string;
   isLoading?: boolean;
+  aiSummary?: string;
+  focusInsight?: string;
 }
 
-const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ score, message, isLoading }) => {
+const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ 
+  score, 
+  message, 
+  isLoading,
+  aiSummary,
+  focusInsight 
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   // Default values if undefined
   const safeScore = score ?? 5;
   const safeMessage = message || 'Parla con me per iniziare a monitorare il tuo benessere.';
+
+  // Check if we have expandable content
+  const hasExpandableContent = aiSummary || focusInsight;
 
   // Get glow color based on score
   const getGlowColor = (value: number) => {
@@ -41,51 +55,119 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ score, message, isL
   }
 
   return (
-    <div className={cn(
-      "relative overflow-hidden rounded-[32px] p-6",
-      "bg-glass backdrop-blur-xl border border-glass-border",
-      "shadow-glass-glow",
-      "animate-scale-in"
-    )}>
+    <div 
+      className={cn(
+        "relative overflow-hidden rounded-[32px]",
+        "bg-glass backdrop-blur-xl border border-glass-border",
+        "shadow-glass-glow",
+        "animate-scale-in",
+        hasExpandableContent && "cursor-pointer"
+      )}
+      onClick={() => hasExpandableContent && setIsExpanded(!isExpanded)}
+    >
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-mesh opacity-50 pointer-events-none" />
       
       {/* Inner light reflection */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none rounded-[32px]" />
       
-      <div className="relative z-10 flex items-center gap-5">
-        {/* Animated Ring Score */}
-        <div className="relative shrink-0">
-          {/* Glow effect behind ring */}
-          <div 
-            className="absolute inset-0 rounded-full blur-xl opacity-40"
-            style={{ background: getGlowColor(safeScore) }}
-          />
-          <AnimatedRing
-            value={safeScore * 10}
-            size="lg"
-            thickness={8}
-            color={getGlowColor(safeScore)}
-            glowColor={getGlowColor(safeScore)}
-            showValue={true}
-          />
-        </div>
-
-        {/* Message */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-lg bg-primary/10 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <span className="text-xs font-semibold text-primary uppercase tracking-wide">
-              Il tuo stato
-            </span>
+      {/* Main Content */}
+      <div className="relative z-10 p-6">
+        <div className="flex items-center gap-5">
+          {/* Animated Ring Score */}
+          <div className="relative shrink-0">
+            {/* Glow effect behind ring */}
+            <div 
+              className="absolute inset-0 rounded-full blur-xl opacity-40"
+              style={{ background: getGlowColor(safeScore) }}
+            />
+            <AnimatedRing
+              value={safeScore * 10}
+              size="lg"
+              thickness={8}
+              color={getGlowColor(safeScore)}
+              glowColor={getGlowColor(safeScore)}
+              showValue={true}
+            />
           </div>
-          <p className="text-[15px] text-foreground leading-relaxed line-clamp-2 font-medium">
-            {safeMessage}
-          </p>
+
+          {/* Message */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-lg bg-primary/10 backdrop-blur-sm">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                Il tuo stato
+              </span>
+              {hasExpandableContent && (
+                <motion.div
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="ml-auto"
+                >
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </motion.div>
+              )}
+            </div>
+            <p className="text-[15px] text-foreground leading-relaxed font-medium">
+              {safeMessage}
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Expandable Insights Section */}
+      <AnimatePresence>
+        {isExpanded && hasExpandableContent && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="relative z-10 px-6 pb-6 space-y-4">
+              {/* Divider */}
+              <div className="h-px bg-border/50" />
+              
+              {/* AI Summary */}
+              {aiSummary && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
+                      Sintesi AI
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {aiSummary}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Focus Insight */}
+              {focusInsight && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                    <Lightbulb className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">
+                      Focus
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {focusInsight}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
