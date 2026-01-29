@@ -33,6 +33,11 @@ export interface UserProfile {
   // Settings fields
   notification_settings?: Record<string, unknown> | null;
   appearance_settings?: Record<string, unknown> | null;
+  // NEW: Profile 360° - Demographic data
+  height?: number | null;
+  birth_date?: string | null;
+  gender?: string | null;
+  therapy_status?: string | null;
 }
 
 export const useProfile = () => {

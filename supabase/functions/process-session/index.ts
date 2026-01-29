@@ -26,6 +26,11 @@ interface SpecificEmotions {
   hope?: number;
   frustration?: number;
   nostalgia?: number;
+  // NEW: Extended emotions (Profilazione 360°)
+  nervousness?: number;    // Nervosismo/agitazione
+  overwhelm?: number;      // Sopraffazione
+  excitement?: number;     // Eccitazione/entusiasmo
+  disappointment?: number; // Delusione
 }
 
 interface ClinicalIndices {
@@ -48,24 +53,29 @@ interface VoiceAnalysis {
   confidence: number;
 }
 
-// NEW: Deep Psychology Metrics Interface
+// NEW: Deep Psychology Metrics Interface (16 parametri totali)
 interface DeepPsychology {
-  // Cognitive
+  // Cognitive (4)
   rumination: number | null;
   self_efficacy: number | null;
   mental_clarity: number | null;
-  // Stress & Coping
+  concentration: number | null;    // NEW: Livello di concentrazione
+  // Stress & Coping (3)
   burnout_level: number | null;
   coping_ability: number | null;
   loneliness_perceived: number | null;
-  // Physiological
+  // Physiological (3)
   somatic_tension: number | null;
   appetite_changes: number | null;
   sunlight_exposure: number | null;
-  // Complex Emotional
+  // Complex Emotional (4)
   guilt: number | null;
   gratitude: number | null;
   irritability: number | null;
+  // NEW: Extended Psychology (Profilazione 360°)
+  motivation: number | null;        // Livello di motivazione
+  intrusive_thoughts: number | null; // Pensieri intrusivi
+  self_worth: number | null;        // Autostima/valore di sé
 }
 
 interface UserContext {
@@ -443,6 +453,9 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
   - Ripetizione dello stesso tema nella conversazione → segnale di ruminazione
 - self_efficacy (fiducia in sé): "ce la posso fare", "sono capace" → 8-10 | "non ne sono capace", "fallirò" → 1-4
 - mental_clarity: "ho le idee chiare", "so cosa fare" → 8-10 | "confuso", "non so", "nebbia mentale" → 1-4
+- concentration (NEW): "Riesco a concentrarmi", "focus", "mente lucida sul task" → 8-10
+  "Mi distraggo", "non riesco a focalizzarmi", "pensieri vagano" → 1-4
+  - Inferisci anche da come l'utente parla (coerente vs frammentato)
 
 **STRESS & COPING:**
 - burnout_level: "sono esausto", "non ce la faccio più", "svuotato", "logorato" → 8-10
@@ -463,6 +476,40 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
 - guilt (senso di colpa): "è colpa mia", "avrei dovuto", "mi sento in colpa", "ho deluso" → 7-10
 - gratitude: "sono grato", "apprezzo", "fortunato" → 7-10 | assenza di gratitudine in contesti positivi → 1-4
 - irritability: "mi dà fastidio", "sono irascibile", "mi innervosisco facilmente" → 7-10
+
+**NUOVI PARAMETRI PSICOLOGICI:**
+- motivation (NEW): "Sono motivato", "voglio farlo", "ci credo" → 8-10
+  "Non ho voglia", "a che scopo", "perché dovrei" → 1-4
+  - CORRELATO ma diverso da energia: uno può avere energia ma non motivazione
+- intrusive_thoughts (NEW): "Non riesco a togliermi dalla testa...", "pensiero che torna", "ossessione" → 7-10
+  - Diverso da RUMINAZIONE: i pensieri intrusivi sono ego-distonici (non li vuole)
+  - La ruminazione è ego-sintonica (ci pensa perché "deve")
+- self_worth (NEW): "Mi sento inutile", "non valgo niente", "sono un fallimento" → 1-3
+  "Sono fiero di me", "ce l'ho fatta", "sono capace" → 8-10
+  - CORRELATO a self_efficacy ma più ampio (valore personale vs capacità)
+
+═══════════════════════════════════════════════
+😰 EMOZIONI AGGIUNTIVE - ESTRAZIONE SEMANTICA
+═══════════════════════════════════════════════
+
+**NERVOSISMO (nervousness):**
+- "Sono nervoso", "agitato", "non riesco a stare fermo", "irrequieto" → 7-10
+- Movimento continuo, mani sudate, parlare veloce → inferisci 5-7
+- Diverso da ANSIA: il nervosismo è più fisico/superficiale, l'ansia è più profonda
+
+**SOPRAFFAZIONE (overwhelm):**
+- "Mi sento sopraffatto", "è troppo", "non ce la faccio", "troppe cose" → 7-10
+- Menzione di liste infinite, scadenze multiple, responsabilità eccessive → 6-8
+- CRITICO per burnout detection
+
+**ECCITAZIONE (excitement):**
+- "Sono elettrizzato", "non vedo l'ora", "entusiasta", "gasato" → 7-10
+- Nuove opportunità, eventi positivi imminenti → inferisci
+- Può coesistere con nervosismo (eccitazione nervosa)
+
+**DELUSIONE (disappointment):**
+- "Sono deluso", "mi aspettavo di più", "che peccato", "speravo meglio" → 7-10
+- Aspettative non soddisfatte, promesse non mantenute → 5-7
 
 ⚠️ ANTI-HALLUCINATION: Se NON ci sono indizi, il valore DEVE essere null.
 Solo valori ESPLICITI o FORTEMENTE INFERIBILI → assegna punteggio.
@@ -587,7 +634,11 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "jealousy": <0-10, gelosia/invidia>,
     "hope": <0-10, speranza/ottimismo>,
     "frustration": <0-10, frustrazione/impazienza>,
-    "nostalgia": <0-10, nostalgia/malinconia del passato>
+    "nostalgia": <0-10, nostalgia/malinconia del passato>,
+    "nervousness": <0-10, nervosismo/agitazione - diverso da ansia, più fisico>,
+    "overwhelm": <0-10, sopraffazione - troppo da gestire>,
+    "excitement": <0-10, eccitazione/entusiasmo positivo>,
+    "disappointment": <0-10, delusione da aspettative non soddisfatte>
   },
   "life_areas": {
     "work": <1-10 o null>,
@@ -600,6 +651,7 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "rumination": <1-10 o null, pensieri ossessivi ricorrenti>,
     "self_efficacy": <1-10 o null, fiducia nelle proprie capacità>,
     "mental_clarity": <1-10 o null, chiarezza mentale>,
+    "concentration": <1-10 o null, livello di concentrazione/focus>,
     "burnout_level": <1-10 o null, esaurimento professionale/emotivo>,
     "coping_ability": <1-10 o null, capacità di gestire lo stress>,
     "loneliness_perceived": <1-10 o null, solitudine percepita anche in compagnia>,
@@ -608,7 +660,10 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "sunlight_exposure": <1-10 o null, esposizione alla luce/uscite>,
     "guilt": <1-10 o null, senso di colpa>,
     "gratitude": <1-10 o null, gratitudine espressa>,
-    "irritability": <1-10 o null, irritabilità>
+    "irritability": <1-10 o null, irritabilità>,
+    "motivation": <1-10 o null, livello di motivazione - diverso da energia>,
+    "intrusive_thoughts": <1-10 o null, pensieri intrusivi ego-distonici>,
+    "self_worth": <1-10 o null, autostima/valore di sé>
   },
   "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
   "emotion_tags": ["#Tag1", "#Tag2"],
@@ -770,6 +825,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           rumination: null,
           self_efficacy: null,
           mental_clarity: null,
+          concentration: null,
           burnout_level: null,
           coping_ability: null,
           loneliness_perceived: null,
@@ -778,7 +834,10 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           sunlight_exposure: null,
           guilt: null,
           gratitude: null,
-          irritability: null
+          irritability: null,
+          motivation: null,
+          intrusive_thoughts: null,
+          self_worth: null
         };
       }
     } catch (parseError) {
@@ -792,6 +851,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           rumination: null,
           self_efficacy: null,
           mental_clarity: null,
+          concentration: null,
           burnout_level: null,
           coping_ability: null,
           loneliness_perceived: null,
@@ -800,7 +860,10 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           sunlight_exposure: null,
           guilt: null,
           gratitude: null,
-          irritability: null
+          irritability: null,
+          motivation: null,
+          intrusive_thoughts: null,
+          self_worth: null
         },
         voice_analysis: null,
         emotion_tags: [],
@@ -930,25 +993,30 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       throw new Error(`Failed to update session: ${sessionError.message}`);
     }
 
-    // 2. SAVE TO daily_emotions (upsert) - including secondary emotions
-    console.log('[process-session] Saving to daily_emotions with secondary emotions...');
+    // 2. SAVE TO daily_emotions (upsert) - including all 18 emotions
+    console.log('[process-session] Saving to daily_emotions with all 18 emotions...');
     const { error: emotionsError } = await supabase
       .from('daily_emotions')
       .upsert({
         user_id: user_id,
         date: today,
-        // Primary emotions
+        // Primary emotions (5)
         joy: analysis.emotions.joy || 0,
         sadness: analysis.emotions.sadness || 0,
         anger: analysis.emotions.anger || 0,
         fear: analysis.emotions.fear || 0,
         apathy: analysis.emotions.apathy || 0,
-        // Secondary emotions
+        // Secondary emotions (5)
         shame: analysis.emotions.shame || null,
         jealousy: analysis.emotions.jealousy || null,
         hope: analysis.emotions.hope || null,
         frustration: analysis.emotions.frustration || null,
         nostalgia: analysis.emotions.nostalgia || null,
+        // NEW: Extended emotions (4) - Profilazione 360°
+        nervousness: analysis.emotions.nervousness || null,
+        overwhelm: analysis.emotions.overwhelm || null,
+        excitement: analysis.emotions.excitement || null,
+        disappointment: analysis.emotions.disappointment || null,
         source: 'session',
         session_id: session_id
       }, { onConflict: 'user_id,date,source' });
@@ -980,31 +1048,36 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       }
     }
 
-    // 4. NEW: SAVE TO daily_psychology (upsert) - only if any deep psychology metric was detected
+    // 4. NEW: SAVE TO daily_psychology (upsert) - all 16 parameters
     const hasDeepPsychology = Object.values(analysis.deep_psychology).some(v => v !== null);
     if (hasDeepPsychology) {
-      console.log('[process-session] Saving to daily_psychology...');
+      console.log('[process-session] Saving to daily_psychology with all 16 parameters...');
       const { error: psychologyError } = await supabase
         .from('daily_psychology')
         .upsert({
           user_id: user_id,
           date: today,
-          // Cognitive
+          // Cognitive (4)
           rumination: analysis.deep_psychology.rumination,
           self_efficacy: analysis.deep_psychology.self_efficacy,
           mental_clarity: analysis.deep_psychology.mental_clarity,
-          // Stress & Coping
+          concentration: analysis.deep_psychology.concentration,
+          // Stress & Coping (3)
           burnout_level: analysis.deep_psychology.burnout_level,
           coping_ability: analysis.deep_psychology.coping_ability,
           loneliness_perceived: analysis.deep_psychology.loneliness_perceived,
-          // Physiological
+          // Physiological (3)
           somatic_tension: analysis.deep_psychology.somatic_tension,
           appetite_changes: analysis.deep_psychology.appetite_changes,
           sunlight_exposure: analysis.deep_psychology.sunlight_exposure,
-          // Complex Emotional
+          // Complex Emotional (3)
           guilt: analysis.deep_psychology.guilt,
           gratitude: analysis.deep_psychology.gratitude,
           irritability: analysis.deep_psychology.irritability,
+          // NEW: Extended Psychology (3) - Profilazione 360°
+          motivation: analysis.deep_psychology.motivation,
+          intrusive_thoughts: analysis.deep_psychology.intrusive_thoughts,
+          self_worth: analysis.deep_psychology.self_worth,
           // Metadata
           source: 'session',
           session_id: session_id

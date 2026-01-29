@@ -15,6 +15,13 @@ export interface BodyMetric {
   blood_pressure_diastolic: number | null;
   notes: string | null;
   created_at: string;
+  // NEW: Extended body metrics (Profilazione 360°)
+  body_fat_percentage: number | null;
+  muscle_mass: number | null;
+  hydration_level: number | null;
+  steps: number | null;
+  active_minutes: number | null;
+  calories_burned: number | null;
 }
 
 export interface BodyMetricsTrend {
