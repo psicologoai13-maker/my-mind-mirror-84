@@ -33,6 +33,17 @@ export interface HabitWithStreak extends HabitConfig {
   daily_target: number;
 }
 
+// ============================================
+// INPUT METHODS - Intelligent Input Types
+// ============================================
+export type InputMethod = 
+  | 'toggle'      // Sì/No binary (vitamine, diario)
+  | 'numeric'     // Direct value input (peso, ore sonno)
+  | 'counter'     // +/- with target (bicchieri acqua)
+  | 'abstain'     // Goal = 0 (sigarette, alcol)
+  | 'timer'       // Start/Stop timer (meditazione)
+  | 'auto_sync';  // External source (passi da Health)
+
 export interface HabitMeta {
   label: string;
   icon: string;
@@ -41,7 +52,17 @@ export interface HabitMeta {
   streakType: 'daily' | 'abstain';
   category: HabitCategory;
   description: string;
-  suggestedFor?: string[]; // Which user challenges/goals this habit helps
+  suggestedFor?: string[];
+  // NEW: Intelligent Input
+  inputMethod: InputMethod;
+  fallbackMethod?: InputMethod;
+  autoSyncSource?: 'health_kit' | 'google_fit' | 'manual';
+  step?: number;           // For numeric (e.g., 0.5 for hours)
+  min?: number;            // Validation min
+  max?: number;            // Validation max
+  question?: string;       // For toggle (display question)
+  syncToObjective?: boolean; // Auto-link to objectives
+  brainMetric?: string;    // Maps to AI brain analysis
 }
 
 export type HabitCategory = 
@@ -55,29 +76,40 @@ export type HabitCategory =
   | 'self_care';
 
 // ============================================
-// COMPLETE HABIT LIBRARY (25+ habits)
+// COMPLETE HABIT LIBRARY (45+ habits)
+// With intelligent input methods
 // ============================================
 export const HABIT_TYPES: Record<string, HabitMeta> = {
-  // 🏃 FITNESS (Attività Fisica)
-  exercise: { 
-    label: 'Esercizio Fisico', 
-    icon: '🏃', 
-    unit: 'min', 
-    defaultTarget: 30, 
-    streakType: 'daily',
-    category: 'fitness',
-    description: 'Qualsiasi attività fisica: corsa, palestra, yoga...',
-    suggestedFor: ['boost_energy', 'reduce_anxiety', 'work_stress']
-  },
+  // ══════════════════════════════════════════
+  // 🏃 FITNESS (8 habits)
+  // ══════════════════════════════════════════
   steps: { 
-    label: 'Passi Giornalieri', 
+    label: 'Passi', 
     icon: '👟', 
     unit: 'passi', 
     defaultTarget: 10000, 
     streakType: 'daily',
     category: 'fitness',
-    description: 'Conteggio passi quotidiano',
+    description: 'Passi giornalieri (sync con Health)',
+    inputMethod: 'auto_sync',
+    fallbackMethod: 'numeric',
+    autoSyncSource: 'health_kit',
+    min: 0,
+    max: 50000,
+    brainMetric: 'physical_activity',
     suggestedFor: ['boost_energy']
+  },
+  exercise: { 
+    label: 'Esercizio', 
+    icon: '🏃', 
+    unit: 'min', 
+    defaultTarget: 30, 
+    streakType: 'daily',
+    category: 'fitness',
+    description: 'Corsa, palestra, sport',
+    inputMethod: 'timer',
+    brainMetric: 'physical_activity',
+    suggestedFor: ['boost_energy', 'reduce_anxiety', 'work_stress']
   },
   stretching: { 
     label: 'Stretching', 
@@ -86,81 +118,89 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 10, 
     streakType: 'daily',
     category: 'fitness',
-    description: 'Allungamento muscolare e mobilità',
+    description: 'Mobilità e allungamento',
+    inputMethod: 'timer',
     suggestedFor: ['work_stress', 'boost_energy']
   },
   strength: { 
-    label: 'Allenamento Forza', 
+    label: 'Pesi', 
     icon: '💪', 
     unit: 'min', 
     defaultTarget: 45, 
     streakType: 'daily',
     category: 'fitness',
-    description: 'Pesi, calisthenics, resistenza',
+    description: 'Allenamento forza',
+    inputMethod: 'timer',
     suggestedFor: ['boost_energy', 'self_esteem']
   },
-
-  // 🧠 MENTAL (Salute Mentale)
-  meditation: { 
-    label: 'Meditazione', 
+  cardio: { 
+    label: 'Cardio', 
+    icon: '🫀', 
+    unit: 'min', 
+    defaultTarget: 30, 
+    streakType: 'daily',
+    category: 'fitness',
+    description: 'Corsa, bici, nuoto',
+    inputMethod: 'timer',
+    brainMetric: 'physical_activity',
+    suggestedFor: ['boost_energy', 'reduce_anxiety']
+  },
+  yoga: { 
+    label: 'Yoga', 
     icon: '🧘', 
     unit: 'min', 
+    defaultTarget: 20, 
+    streakType: 'daily',
+    category: 'fitness',
+    description: 'Pratica yoga',
+    inputMethod: 'timer',
+    brainMetric: 'mindfulness_practice',
+    suggestedFor: ['reduce_anxiety', 'improve_sleep']
+  },
+  swimming: { 
+    label: 'Nuoto', 
+    icon: '🏊', 
+    unit: 'min', 
+    defaultTarget: 30, 
+    streakType: 'daily',
+    category: 'fitness',
+    description: 'Sessione di nuoto',
+    inputMethod: 'numeric',
+    min: 0,
+    max: 180,
+    suggestedFor: ['boost_energy']
+  },
+  cycling: { 
+    label: 'Ciclismo', 
+    icon: '🚴', 
+    unit: 'km', 
     defaultTarget: 10, 
     streakType: 'daily',
-    category: 'mental',
-    description: 'Mindfulness, meditazione guidata, respirazione',
-    suggestedFor: ['reduce_anxiety', 'general_anxiety', 'improve_sleep', 'work_stress']
-  },
-  journaling: { 
-    label: 'Diario Personale', 
-    icon: '📝', 
-    unit: 'min', 
-    defaultTarget: 10, 
-    streakType: 'daily',
-    category: 'mental',
-    description: 'Scrivere pensieri ed emozioni',
-    suggestedFor: ['express_feelings', 'self_esteem', 'general_anxiety']
-  },
-  gratitude: { 
-    label: 'Gratitudine', 
-    icon: '🙏', 
-    unit: 'cose', 
-    defaultTarget: 3, 
-    streakType: 'daily',
-    category: 'mental',
-    description: 'Annotare cose per cui sei grato',
-    suggestedFor: ['reduce_anxiety', 'self_esteem', 'loneliness']
-  },
-  therapy: { 
-    label: 'Sessione Terapia', 
-    icon: '💬', 
-    unit: 'sessione', 
-    defaultTarget: 1, 
-    streakType: 'daily',
-    category: 'mental',
-    description: 'Sessioni con professionista o app',
-    suggestedFor: ['general_anxiety', 'relationships', 'self_esteem']
-  },
-  breathing: { 
-    label: 'Esercizi Respirazione', 
-    icon: '🌬️', 
-    unit: 'min', 
-    defaultTarget: 5, 
-    streakType: 'daily',
-    category: 'mental',
-    description: 'Tecniche di respirazione calmante',
-    suggestedFor: ['reduce_anxiety', 'general_anxiety', 'work_stress']
+    category: 'fitness',
+    description: 'Chilometri pedalati',
+    inputMethod: 'numeric',
+    min: 0,
+    max: 200,
+    step: 1,
+    suggestedFor: ['boost_energy']
   },
 
-  // 💤 HEALTH (Salute Generale)
+  // ══════════════════════════════════════════
+  // ❤️ HEALTH (8 habits)
+  // ══════════════════════════════════════════
   sleep: { 
-    label: 'Ore di Sonno', 
+    label: 'Ore Sonno', 
     icon: '😴', 
     unit: 'ore', 
     defaultTarget: 8, 
     streakType: 'daily',
     category: 'health',
-    description: 'Traccia le ore dormite',
+    description: 'Ore dormite stanotte',
+    inputMethod: 'numeric',
+    step: 0.5,
+    min: 0,
+    max: 14,
+    brainMetric: 'sleep_quality',
     suggestedFor: ['improve_sleep', 'boost_energy']
   },
   water: { 
@@ -170,41 +210,203 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 2, 
     streakType: 'daily',
     category: 'health',
-    description: 'Litri di acqua bevuti',
-    suggestedFor: ['boost_energy']
-  },
-  sunlight: { 
-    label: 'Esposizione Solare', 
-    icon: '☀️', 
-    unit: 'min', 
-    defaultTarget: 15, 
-    streakType: 'daily',
-    category: 'health',
-    description: 'Tempo passato alla luce naturale',
-    suggestedFor: ['improve_sleep', 'reduce_anxiety', 'loneliness']
-  },
-  vitamins: { 
-    label: 'Vitamine/Integratori', 
-    icon: '💊', 
-    unit: 'dose', 
-    defaultTarget: 1, 
-    streakType: 'daily',
-    category: 'health',
-    description: 'Assunzione vitamine giornaliere',
+    description: 'Litri di acqua',
+    inputMethod: 'counter',
+    step: 0.25,
+    min: 0,
+    max: 5,
+    brainMetric: 'hydration',
     suggestedFor: ['boost_energy']
   },
   weight: { 
-    label: 'Peso Corporeo', 
+    label: 'Peso', 
     icon: '⚖️', 
     unit: 'kg', 
     defaultTarget: 0, 
     streakType: 'daily',
     category: 'health',
-    description: 'Traccia il tuo peso giornalmente',
+    description: 'Peso corporeo',
+    inputMethod: 'numeric',
+    step: 0.1,
+    min: 30,
+    max: 250,
+    syncToObjective: true,
+    brainMetric: 'body_weight',
+    suggestedFor: []
+  },
+  heart_rate: { 
+    label: 'Battito', 
+    icon: '💓', 
+    unit: 'bpm', 
+    defaultTarget: 0, 
+    streakType: 'daily',
+    category: 'health',
+    description: 'Frequenza cardiaca a riposo',
+    inputMethod: 'auto_sync',
+    fallbackMethod: 'numeric',
+    autoSyncSource: 'health_kit',
+    min: 40,
+    max: 200,
+    brainMetric: 'resting_heart_rate',
+    suggestedFor: []
+  },
+  vitamins: { 
+    label: 'Vitamine', 
+    icon: '💊', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'health',
+    description: 'Hai preso le vitamine?',
+    inputMethod: 'toggle',
+    question: 'Hai preso le vitamine oggi?',
+    suggestedFor: ['boost_energy']
+  },
+  medication: { 
+    label: 'Farmaci', 
+    icon: '💉', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'health',
+    description: 'Hai preso i farmaci?',
+    inputMethod: 'toggle',
+    question: 'Hai preso i farmaci prescritti?',
+    suggestedFor: []
+  },
+  sunlight: { 
+    label: 'Sole', 
+    icon: '☀️', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'health',
+    description: 'Almeno 15 min di luce naturale',
+    inputMethod: 'toggle',
+    question: 'Sei uscito alla luce del sole oggi?',
+    brainMetric: 'sunlight_exposure',
+    suggestedFor: ['improve_sleep', 'reduce_anxiety', 'loneliness']
+  },
+  doctor_visit: { 
+    label: 'Visite Mediche', 
+    icon: '🏥', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'health',
+    description: 'Appuntamento medico completato',
+    inputMethod: 'toggle',
+    question: 'Hai fatto una visita medica oggi?',
     suggestedFor: []
   },
 
-  // 🍎 NUTRITION (Alimentazione)
+  // ══════════════════════════════════════════
+  // 🧠 MENTAL (8 habits)
+  // ══════════════════════════════════════════
+  meditation: { 
+    label: 'Meditazione', 
+    icon: '🧘', 
+    unit: 'min', 
+    defaultTarget: 10, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Mindfulness e meditazione',
+    inputMethod: 'timer',
+    brainMetric: 'mindfulness_practice',
+    suggestedFor: ['reduce_anxiety', 'general_anxiety', 'improve_sleep', 'work_stress']
+  },
+  journaling: { 
+    label: 'Diario', 
+    icon: '📝', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Hai scritto nel diario?',
+    inputMethod: 'toggle',
+    question: 'Hai scritto i tuoi pensieri oggi?',
+    brainMetric: 'emotional_expression',
+    suggestedFor: ['express_feelings', 'self_esteem', 'general_anxiety']
+  },
+  breathing: { 
+    label: 'Respirazione', 
+    icon: '🌬️', 
+    unit: 'min', 
+    defaultTarget: 5, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Esercizi di respirazione',
+    inputMethod: 'timer',
+    brainMetric: 'stress_relief',
+    suggestedFor: ['reduce_anxiety', 'general_anxiety', 'work_stress']
+  },
+  gratitude: { 
+    label: 'Gratitudine', 
+    icon: '🙏', 
+    unit: 'cose', 
+    defaultTarget: 3, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Cose per cui sei grato',
+    inputMethod: 'counter',
+    min: 0,
+    max: 10,
+    brainMetric: 'gratitude',
+    suggestedFor: ['reduce_anxiety', 'self_esteem', 'loneliness']
+  },
+  therapy: { 
+    label: 'Terapia', 
+    icon: '💬', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Sessione terapia completata',
+    inputMethod: 'toggle',
+    question: 'Hai fatto una sessione di terapia?',
+    suggestedFor: ['general_anxiety', 'relationships', 'self_esteem']
+  },
+  mindfulness: { 
+    label: 'Mindfulness', 
+    icon: '🌸', 
+    unit: 'min', 
+    defaultTarget: 10, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Pratica di consapevolezza',
+    inputMethod: 'timer',
+    brainMetric: 'mindfulness_practice',
+    suggestedFor: ['reduce_anxiety', 'work_stress']
+  },
+  affirmations: { 
+    label: 'Affermazioni', 
+    icon: '✨', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Affermazioni positive',
+    inputMethod: 'toggle',
+    question: 'Hai fatto affermazioni positive oggi?',
+    brainMetric: 'self_efficacy',
+    suggestedFor: ['self_esteem']
+  },
+  digital_detox: { 
+    label: 'Digital Detox', 
+    icon: '📵', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'mental',
+    description: 'Tempo senza smartphone',
+    inputMethod: 'toggle',
+    question: 'Hai fatto una pausa digitale oggi?',
+    suggestedFor: ['reduce_anxiety', 'improve_sleep']
+  },
+
+  // ══════════════════════════════════════════
+  // 🍎 NUTRITION (6 habits)
+  // ══════════════════════════════════════════
   healthy_meals: { 
     label: 'Pasti Sani', 
     icon: '🥗', 
@@ -212,49 +414,89 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     defaultTarget: 3, 
     streakType: 'daily',
     category: 'nutrition',
-    description: 'Pasti equilibrati e salutari',
+    description: 'Pasti equilibrati',
+    inputMethod: 'counter',
+    min: 0,
+    max: 5,
+    brainMetric: 'nutrition_quality',
     suggestedFor: ['boost_energy']
   },
   no_junk_food: { 
-    label: 'No Cibo Spazzatura', 
+    label: 'No Junk Food', 
     icon: '🍔', 
-    unit: 'giorno', 
+    unit: '', 
     defaultTarget: 0, 
     streakType: 'abstain',
     category: 'nutrition',
-    description: 'Evitare fast food e snack industriali',
+    description: 'Evitare cibo spazzatura',
+    inputMethod: 'abstain',
+    question: 'Hai evitato il cibo spazzatura?',
     suggestedFor: ['boost_energy']
   },
   fruits_veggies: { 
-    label: 'Frutta e Verdura', 
+    label: 'Frutta/Verdura', 
     icon: '🍎', 
     unit: 'porzioni', 
     defaultTarget: 5, 
     streakType: 'daily',
     category: 'nutrition',
     description: 'Porzioni di frutta e verdura',
+    inputMethod: 'counter',
+    min: 0,
+    max: 10,
     suggestedFor: ['boost_energy']
   },
   meal_prep: { 
-    label: 'Preparazione Pasti', 
+    label: 'Meal Prep', 
     icon: '🍱', 
-    unit: 'pasti', 
-    defaultTarget: 5, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'nutrition',
     description: 'Pasti preparati in anticipo',
+    inputMethod: 'toggle',
+    question: 'Hai preparato i pasti in anticipo?',
     suggestedFor: ['work_stress']
   },
+  no_sugar: { 
+    label: 'No Zuccheri', 
+    icon: '🍬', 
+    unit: '', 
+    defaultTarget: 0, 
+    streakType: 'abstain',
+    category: 'nutrition',
+    description: 'Evitare zuccheri aggiunti',
+    inputMethod: 'abstain',
+    question: 'Hai evitato zuccheri aggiunti?',
+    suggestedFor: ['boost_energy']
+  },
+  intermittent_fasting: { 
+    label: 'Digiuno', 
+    icon: '⏰', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'nutrition',
+    description: 'Digiuno intermittente rispettato',
+    inputMethod: 'toggle',
+    question: 'Hai rispettato la finestra di digiuno?',
+    suggestedFor: []
+  },
 
-  // 🚭 BAD HABITS (Cattive Abitudini da Eliminare)
+  // ══════════════════════════════════════════
+  // 🚭 BAD HABITS (6 habits)
+  // ══════════════════════════════════════════
   cigarettes: { 
     label: 'Sigarette', 
     icon: '🚭', 
-    unit: 'pezzi', 
+    unit: 'sigarette', 
     defaultTarget: 0, 
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Giorni senza fumare',
+    inputMethod: 'abstain',
+    question: 'Non hai fumato oggi?',
+    brainMetric: 'smoking_status',
     suggestedFor: ['reduce_anxiety', 'boost_energy']
   },
   alcohol: { 
@@ -265,6 +507,9 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Giorni senza alcol',
+    inputMethod: 'abstain',
+    question: 'Non hai bevuto alcolici oggi?',
+    brainMetric: 'alcohol_status',
     suggestedFor: ['improve_sleep', 'reduce_anxiety']
   },
   caffeine: { 
@@ -273,42 +518,54 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     unit: 'tazze', 
     defaultTarget: 2, 
     streakType: 'daily',
-    category: 'nutrition',
-    description: 'Limita caffè e bevande con caffeina',
+    category: 'bad_habits',
+    description: 'Limita caffè (max 2)',
+    inputMethod: 'counter',
+    min: 0,
+    max: 10,
     suggestedFor: ['improve_sleep', 'reduce_anxiety']
   },
-  sugar: { 
-    label: 'Zuccheri Aggiunti', 
-    icon: '🍬', 
-    unit: 'porzioni', 
-    defaultTarget: 0, 
-    streakType: 'abstain',
-    category: 'bad_habits',
-    description: 'Evita zuccheri aggiunti e dolci',
-    suggestedFor: ['boost_energy']
-  },
   social_media: { 
-    label: 'Tempo Social Media', 
+    label: 'Social Media', 
     icon: '📱', 
     unit: 'min', 
     defaultTarget: 60, 
     streakType: 'daily',
     category: 'bad_habits',
-    description: 'Limita tempo sui social',
+    description: 'Tempo sui social (limite)',
+    inputMethod: 'numeric',
+    min: 0,
+    max: 480,
     suggestedFor: ['reduce_anxiety', 'loneliness', 'self_esteem']
   },
   nail_biting: { 
-    label: 'Mangiarsi le Unghie', 
+    label: 'Mangiarsi Unghie', 
     icon: '💅', 
-    unit: 'giorno', 
+    unit: '', 
     defaultTarget: 0, 
     streakType: 'abstain',
     category: 'bad_habits',
     description: 'Giorni senza mangiarsi le unghie',
+    inputMethod: 'abstain',
+    question: 'Non ti sei mangiato le unghie?',
     suggestedFor: ['reduce_anxiety']
   },
+  late_snacking: { 
+    label: 'Snack Notturni', 
+    icon: '🌙', 
+    unit: '', 
+    defaultTarget: 0, 
+    streakType: 'abstain',
+    category: 'bad_habits',
+    description: 'Evitare cibo dopo le 21',
+    inputMethod: 'abstain',
+    question: 'Hai evitato gli snack notturni?',
+    suggestedFor: ['improve_sleep']
+  },
 
-  // 📚 PRODUCTIVITY (Produttività)
+  // ══════════════════════════════════════════
+  // 📚 PRODUCTIVITY (5 habits)
+  // ══════════════════════════════════════════
   reading: { 
     label: 'Lettura', 
     icon: '📚', 
@@ -317,144 +574,204 @@ export const HABIT_TYPES: Record<string, HabitMeta> = {
     streakType: 'daily',
     category: 'productivity',
     description: 'Tempo dedicato alla lettura',
+    inputMethod: 'timer',
     suggestedFor: ['reduce_anxiety', 'improve_sleep']
   },
   learning: { 
-    label: 'Studio/Apprendimento', 
+    label: 'Studio', 
     icon: '🎓', 
     unit: 'min', 
     defaultTarget: 30, 
     streakType: 'daily',
     category: 'productivity',
     description: 'Imparare qualcosa di nuovo',
+    inputMethod: 'timer',
+    brainMetric: 'learning_activity',
     suggestedFor: ['self_esteem', 'work_stress']
   },
   deep_work: { 
-    label: 'Lavoro Concentrato', 
+    label: 'Focus', 
     icon: '🎯', 
     unit: 'ore', 
     defaultTarget: 4, 
     streakType: 'daily',
     category: 'productivity',
-    description: 'Ore di lavoro senza distrazioni',
+    description: 'Lavoro concentrato senza distrazioni',
+    inputMethod: 'numeric',
+    step: 0.5,
+    min: 0,
+    max: 12,
     suggestedFor: ['work_stress']
   },
   no_procrastination: { 
-    label: 'No Procrastinazione', 
-    icon: '⏰', 
+    label: 'Task Completati', 
+    icon: '✅', 
     unit: 'task', 
     defaultTarget: 3, 
     streakType: 'daily',
     category: 'productivity',
-    description: 'Task completati senza rimandare',
+    description: 'Compiti portati a termine',
+    inputMethod: 'counter',
+    min: 0,
+    max: 20,
     suggestedFor: ['work_stress', 'self_esteem']
   },
+  morning_routine: { 
+    label: 'Routine Mattina', 
+    icon: '🌅', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'productivity',
+    description: 'Routine mattutina completata',
+    inputMethod: 'toggle',
+    question: 'Hai completato la tua routine mattutina?',
+    suggestedFor: ['boost_energy', 'work_stress']
+  },
 
-  // 👥 SOCIAL (Relazioni)
-  social_time: { 
-    label: 'Tempo con Altri', 
+  // ══════════════════════════════════════════
+  // 👥 SOCIAL (5 habits)
+  // ══════════════════════════════════════════
+  social_interaction: { 
+    label: 'Socializzato', 
     icon: '👥', 
-    unit: 'min', 
-    defaultTarget: 30, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'social',
-    description: 'Tempo di qualità con amici/famiglia',
+    description: 'Tempo con altre persone',
+    inputMethod: 'toggle',
+    question: 'Hai trascorso tempo con qualcuno oggi?',
+    brainMetric: 'social_connection',
     suggestedFor: ['loneliness', 'find_love', 'relationships']
   },
-  call_friend: { 
-    label: 'Chiamata Amico/Familiare', 
+  call_loved_one: { 
+    label: 'Chiamata Affetti', 
     icon: '📞', 
-    unit: 'chiamate', 
+    unit: '', 
     defaultTarget: 1, 
     streakType: 'daily',
     category: 'social',
     description: 'Chiamare qualcuno a cui tieni',
+    inputMethod: 'toggle',
+    question: 'Hai chiamato qualcuno che ami?',
+    brainMetric: 'social_connection',
     suggestedFor: ['loneliness', 'relationships']
   },
-  new_connection: { 
-    label: 'Nuova Conoscenza', 
-    icon: '🤝', 
-    unit: 'persone', 
+  quality_time: { 
+    label: 'Tempo Qualità', 
+    icon: '💑', 
+    unit: '', 
     defaultTarget: 1, 
     streakType: 'daily',
     category: 'social',
-    description: 'Conoscere nuove persone',
-    suggestedFor: ['loneliness', 'find_love']
+    description: 'Tempo di qualità con partner/famiglia',
+    inputMethod: 'toggle',
+    question: 'Hai passato tempo di qualità con chi ami?',
+    brainMetric: 'relationship_quality',
+    suggestedFor: ['relationships', 'find_love']
   },
   kindness: { 
-    label: 'Atto di Gentilezza', 
+    label: 'Gentilezza', 
     icon: '💝', 
-    unit: 'atti', 
+    unit: '', 
     defaultTarget: 1, 
     streakType: 'daily',
     category: 'social',
-    description: 'Fare qualcosa di gentile per altri',
+    description: 'Atto di gentilezza verso altri',
+    inputMethod: 'toggle',
+    question: 'Hai fatto qualcosa di gentile per qualcuno?',
+    brainMetric: 'prosocial_behavior',
     suggestedFor: ['self_esteem', 'loneliness']
   },
+  networking: { 
+    label: 'Networking', 
+    icon: '🤝', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'social',
+    description: 'Nuove connessioni professionali',
+    inputMethod: 'toggle',
+    question: 'Hai fatto networking oggi?',
+    suggestedFor: ['work_stress']
+  },
 
-  // 🛁 SELF CARE (Cura di Sé)
+  // ══════════════════════════════════════════
+  // 🛁 SELF CARE (5 habits)
+  // ══════════════════════════════════════════
   skincare: { 
     label: 'Skincare', 
     icon: '🧴', 
-    unit: 'routine', 
-    defaultTarget: 2, 
+    unit: '', 
+    defaultTarget: 1, 
     streakType: 'daily',
     category: 'self_care',
     description: 'Routine cura della pelle',
+    inputMethod: 'toggle',
+    question: 'Hai fatto la tua skincare routine?',
     suggestedFor: ['self_esteem']
   },
   hobby: { 
-    label: 'Tempo per Hobby', 
+    label: 'Hobby', 
     icon: '🎨', 
     unit: 'min', 
     defaultTarget: 30, 
     streakType: 'daily',
     category: 'self_care',
-    description: 'Dedicare tempo ai tuoi hobby',
+    description: 'Tempo dedicato ai tuoi hobby',
+    inputMethod: 'timer',
     suggestedFor: ['reduce_anxiety', 'express_feelings', 'work_stress']
   },
   nature: { 
-    label: 'Tempo nella Natura', 
+    label: 'Natura', 
     icon: '🌳', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'self_care',
+    description: 'Tempo all\'aperto nella natura',
+    inputMethod: 'toggle',
+    question: 'Sei stato nella natura oggi?',
+    brainMetric: 'nature_exposure',
+    suggestedFor: ['reduce_anxiety', 'boost_energy', 'loneliness']
+  },
+  self_care_routine: { 
+    label: 'Self-Care', 
+    icon: '🛁', 
+    unit: '', 
+    defaultTarget: 1, 
+    streakType: 'daily',
+    category: 'self_care',
+    description: 'Routine di cura personale',
+    inputMethod: 'toggle',
+    question: 'Ti sei preso cura di te oggi?',
+    suggestedFor: ['reduce_anxiety', 'self_esteem']
+  },
+  creative_time: { 
+    label: 'Creatività', 
+    icon: '🎭', 
     unit: 'min', 
     defaultTarget: 20, 
     streakType: 'daily',
     category: 'self_care',
-    description: 'Passeggiate o tempo all\'aperto',
-    suggestedFor: ['reduce_anxiety', 'boost_energy', 'loneliness']
-  },
-  screen_free: { 
-    label: 'Tempo Senza Schermi', 
-    icon: '📵', 
-    unit: 'ore', 
-    defaultTarget: 1, 
-    streakType: 'daily',
-    category: 'self_care',
-    description: 'Ore senza dispositivi elettronici',
-    suggestedFor: ['improve_sleep', 'reduce_anxiety']
-  },
-  self_care_routine: { 
-    label: 'Routine Self-Care', 
-    icon: '🛁', 
-    unit: 'routine', 
-    defaultTarget: 1, 
-    streakType: 'daily',
-    category: 'self_care',
-    description: 'Bagno caldo, maschere, relax...',
-    suggestedFor: ['reduce_anxiety', 'self_esteem']
+    description: 'Attività creative',
+    inputMethod: 'timer',
+    brainMetric: 'creative_expression',
+    suggestedFor: ['express_feelings', 'reduce_anxiety']
   },
 };
 
 // Category labels for UI grouping
 export const HABIT_CATEGORIES: Record<HabitCategory, { label: string; icon: string }> = {
   health: { label: 'Salute', icon: '❤️' },
-  fitness: { label: 'Attività Fisica', icon: '🏃' },
-  mental: { label: 'Benessere Mentale', icon: '🧠' },
-  nutrition: { label: 'Alimentazione', icon: '🍎' },
-  bad_habits: { label: 'Cattive Abitudini', icon: '🚫' },
+  fitness: { label: 'Fitness', icon: '🏃' },
+  mental: { label: 'Mente', icon: '🧠' },
+  nutrition: { label: 'Nutrizione', icon: '🍎' },
+  bad_habits: { label: 'Vizi', icon: '🚫' },
   productivity: { label: 'Produttività', icon: '📚' },
-  social: { label: 'Relazioni', icon: '👥' },
-  self_care: { label: 'Cura di Sé', icon: '🛁' },
+  social: { label: 'Sociale', icon: '👥' },
+  self_care: { label: 'Self-Care', icon: '🛁' },
 };
 
 // Get habits suggested for user based on their onboarding answers
@@ -502,6 +819,13 @@ export const getHabitsByCategory = (): Record<HabitCategory, Array<{ key: string
   });
   
   return grouped;
+};
+
+// Get habits by input method
+export const getHabitsByInputMethod = (method: InputMethod): string[] => {
+  return Object.entries(HABIT_TYPES)
+    .filter(([_, habit]) => habit.inputMethod === method)
+    .map(([key]) => key);
 };
 
 export const useHabits = () => {
