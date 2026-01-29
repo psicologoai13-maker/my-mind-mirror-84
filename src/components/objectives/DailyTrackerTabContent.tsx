@@ -79,10 +79,11 @@ const DailyTrackerTabContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Quick Stats */}
+      {/* Quick Stats - Glass card */}
       {habits.length > 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/10">
-          <div className="flex items-center justify-between">
+        <div className="relative overflow-hidden rounded-3xl p-4 bg-glass backdrop-blur-xl border border-primary/20 shadow-glass">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Completate oggi</p>
               <p className="text-2xl font-bold text-foreground">
@@ -107,7 +108,7 @@ const DailyTrackerTabContent: React.FC = () => {
                 Aggiungi
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+            <SheetContent side="bottom" className="h-[85vh] rounded-t-[32px] bg-glass backdrop-blur-2xl border-t border-glass-border shadow-glass-elevated">
               <SheetHeader className="pb-2">
                 <SheetTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
@@ -147,14 +148,15 @@ const DailyTrackerTabContent: React.FC = () => {
                       key={key}
                       onClick={() => handleToggleHabit(key)}
                       className={cn(
-                        "relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all min-h-[80px]",
+                        "relative flex flex-col items-center justify-center p-3 rounded-2xl transition-all min-h-[80px]",
+                        "bg-glass backdrop-blur-sm border",
                         isActive 
-                          ? "border-primary bg-primary/10" 
-                          : "border-border bg-card hover:border-muted-foreground/30"
+                          ? "border-primary bg-primary/10 shadow-glow" 
+                          : "border-glass-border hover:border-muted-foreground/30 hover:bg-glass-hover"
                       )}
                     >
                       {isActive && (
-                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center shadow-soft">
                           <Check className="w-2.5 h-2.5 text-primary-foreground" />
                         </div>
                       )}
@@ -171,16 +173,19 @@ const DailyTrackerTabContent: React.FC = () => {
         </div>
 
         {habits.length === 0 ? (
-          <div className="p-8 rounded-3xl bg-card border border-border/50 text-center">
-            <span className="text-4xl mb-3 block">📊</span>
-            <h3 className="font-semibold text-foreground mb-1">Nessuna habit attiva</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Aggiungi le abitudini che vuoi tracciare
-            </p>
-            <Button onClick={() => setIsManageOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Aggiungi Habit
-            </Button>
+          <div className="relative overflow-hidden p-8 rounded-3xl bg-glass backdrop-blur-xl border border-glass-border text-center shadow-soft">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+            <div className="relative z-10">
+              <span className="text-4xl mb-3 block">📊</span>
+              <h3 className="font-semibold text-foreground mb-1">Nessuna habit attiva</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Aggiungi le abitudini che vuoi tracciare
+              </p>
+              <Button onClick={() => setIsManageOpen(true)} className="rounded-xl">
+                <Plus className="w-4 h-4 mr-2" />
+                Aggiungi Habit
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">

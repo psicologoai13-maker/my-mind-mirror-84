@@ -41,6 +41,7 @@ const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({
 
   return (
     <div
+      ref={ref}
       className={cn(
         'flex gap-2 animate-slide-up',
         isUser ? 'justify-end' : 'justify-start'
@@ -48,8 +49,8 @@ const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({
     >
       {/* AI Avatar - Left side */}
       {!isUser && showAvatar && (
-        <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-          <Sparkles className="w-4 h-4 text-primary" />
+        <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow">
+          <Sparkles className="w-4 h-4 text-white" />
         </div>
       )}
 
@@ -58,18 +59,17 @@ const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({
         className={cn(
           'max-w-[80%] px-4 py-3',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-none'
+            ? 'bg-glass backdrop-blur-xl border border-glass-border shadow-soft text-foreground rounded-2xl rounded-tr-none'
             : 'bg-gradient-aria-subtle text-foreground rounded-2xl rounded-tl-none shadow-glass border border-aria-violet/20'
         )}
       >
         {/* Markdown Content */}
         <div className={cn(
           'text-sm leading-relaxed prose prose-sm max-w-none',
-          isUser ? 'prose-invert' : 'prose-gray',
+          isUser ? 'prose-gray dark:prose-invert' : 'prose-gray',
           // Override prose styles for cleaner look
           '[&>p]:m-0 [&>p:not(:last-child)]:mb-2',
-          '[&_strong]:font-semibold',
-          isUser ? '[&_strong]:text-white' : '[&_strong]:text-gray-900'
+          '[&_strong]:font-semibold'
         )}>
           <ReactMarkdown components={markdownComponents}>
             {content}
@@ -91,8 +91,8 @@ const ChatBubble = memo(forwardRef<HTMLDivElement, ChatBubbleProps>(({
 
       {/* User Avatar - Right side */}
       {isUser && showAvatar && (
-        <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-          <User className="w-4 h-4 text-primary-foreground" />
+        <div className="shrink-0 w-8 h-8 rounded-full bg-glass backdrop-blur-sm border border-glass-border flex items-center justify-center shadow-soft">
+          <User className="w-4 h-4 text-foreground" />
         </div>
       )}
     </div>

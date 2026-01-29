@@ -285,130 +285,142 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
         )}
       </div>
 
-      {/* Active check-in */}
+      {/* Active check-in - Glass card */}
       {activeItem && (
-        <div className="bg-card rounded-3xl shadow-elevated p-5 animate-scale-in border border-border/50">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={cn("w-11 h-11 rounded-2xl flex items-center justify-center", activeItem.bgColor)}>
-                <activeItem.icon className={cn("w-5 h-5", activeItem.color)} />
-              </div>
-              <div>
-                <span className="font-semibold text-foreground">{activeItem.question}</span>
-                {activeItem.reason && (
-                  <p className="text-xs text-primary mt-0.5">✨ {activeItem.reason}</p>
-                )}
-              </div>
-            </div>
-            <button 
-              onClick={handleClose}
-              className="w-8 h-8 rounded-full bg-muted/80 flex items-center justify-center hover:bg-muted transition-colors"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Numeric input for objectives with units */}
-          {activeItem.responseType === 'numeric' ? (
-            <div className="flex flex-col items-center gap-4">
-              {/* Unified input row with unit and confirm button */}
-              <div className="flex items-center justify-center gap-2 w-full max-w-xs">
-                <div className="flex items-center gap-0 flex-1">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    value={numericValue}
-                    onChange={(e) => setNumericValue(e.target.value)}
-                    placeholder="0"
-                    className={cn(
-                      "h-14 text-xl font-bold text-center bg-muted/30 border-2 border-primary/20 focus:border-primary",
-                      activeItem.unit ? "rounded-l-2xl rounded-r-none border-r-0 w-24" : "rounded-2xl w-full"
-                    )}
-                    disabled={isSubmitting}
-                    autoFocus
-                    step="0.1"
-                    min="0"
-                  />
-                  {activeItem.unit && (
-                    <div className="h-14 px-4 flex items-center justify-center bg-muted/50 border-2 border-primary/20 border-l-0 rounded-r-2xl">
-                      <span className="text-base font-semibold text-muted-foreground">
-                        {activeItem.unit}
-                      </span>
-                    </div>
+        <div className={cn(
+          "relative overflow-hidden rounded-3xl p-5 animate-scale-in",
+          "bg-glass backdrop-blur-2xl border border-glass-border",
+          "shadow-glass-elevated"
+        )}>
+          {/* Inner glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none rounded-3xl" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-11 h-11 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-glass-border shadow-soft",
+                  activeItem.bgColor
+                )}>
+                  <activeItem.icon className={cn("w-5 h-5", activeItem.color)} />
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">{activeItem.question}</span>
+                  {activeItem.reason && (
+                    <p className="text-xs text-primary mt-0.5">✨ {activeItem.reason}</p>
                   )}
                 </div>
-                
-                {/* Confirm button - same height as input */}
-                <button
-                  onClick={handleNumericSubmit}
-                  disabled={isSubmitting || !numericValue}
-                  className={cn(
-                    "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0",
-                    "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg",
-                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                  )}
-                >
-                  {isSubmitting ? (
-                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  ) : (
-                    <Check className="w-6 h-6" />
-                  )}
-                </button>
               </div>
+              <button 
+                onClick={handleClose}
+                className="w-8 h-8 rounded-full bg-glass backdrop-blur-sm border border-glass-border flex items-center justify-center hover:bg-glass-hover transition-colors"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-5 gap-2">
-                {getResponseOptions(activeItem).map((option, index) => {
-                  const isEmoji = activeItem.responseType === 'emoji';
-                  
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleSelectValue(index)}
-                      disabled={isSubmitting}
-                      className={cn(
-                        "h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-300",
-                        "hover:scale-105 active:scale-95",
-                        "disabled:opacity-50 disabled:cursor-not-allowed",
-                        selectedValue === index 
-                          ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
-                          : "bg-muted/60 hover:bg-muted"
-                      )}
-                    >
-                      {selectedValue === index ? (
-                        <Check className="w-5 h-5" />
-                      ) : isEmoji ? (
-                        <span className="text-2xl">{option}</span>
-                      ) : (
-                        <span className={cn(
-                          "text-xs font-medium text-center px-1 leading-tight",
-                          selectedValue === index ? "text-primary-foreground" : "text-foreground"
-                        )}>
-                          {option}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
 
-              <div className="flex justify-between mt-3 px-1">
-                <span className="text-xs text-muted-foreground">
-                  {activeItem.responseType === 'emoji' ? 'Peggio' : 
-                   activeItem.responseType === 'slider' ? 'Minimo' : 'Meno'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {activeItem.responseType === 'emoji' ? 'Meglio' : 
-                   activeItem.responseType === 'slider' ? 'Massimo' : 'Più'}
-                </span>
+            {/* Numeric input for objectives with units */}
+            {activeItem.responseType === 'numeric' ? (
+              <div className="flex flex-col items-center gap-4">
+                {/* Unified input row with unit and confirm button */}
+                <div className="flex items-center justify-center gap-2 w-full max-w-xs">
+                  <div className="flex items-center gap-0 flex-1">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={numericValue}
+                      onChange={(e) => setNumericValue(e.target.value)}
+                      placeholder="0"
+                      className={cn(
+                        "h-14 text-xl font-bold text-center bg-glass backdrop-blur-sm border-2 border-primary/20 focus:border-primary rounded-l-2xl",
+                        activeItem.unit ? "rounded-r-none border-r-0 w-24" : "rounded-2xl w-full"
+                      )}
+                      disabled={isSubmitting}
+                      autoFocus
+                      step="0.1"
+                      min="0"
+                    />
+                    {activeItem.unit && (
+                      <div className="h-14 px-4 flex items-center justify-center bg-glass backdrop-blur-sm border-2 border-primary/20 border-l-0 rounded-r-2xl">
+                        <span className="text-base font-semibold text-muted-foreground">
+                          {activeItem.unit}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Confirm button - same height as input */}
+                  <button
+                    onClick={handleNumericSubmit}
+                    disabled={isSubmitting || !numericValue}
+                    className={cn(
+                      "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow hover:shadow-lg",
+                      "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    ) : (
+                      <Check className="w-6 h-6" />
+                    )}
+                  </button>
+                </div>
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="grid grid-cols-5 gap-2">
+                  {getResponseOptions(activeItem).map((option, index) => {
+                    const isEmoji = activeItem.responseType === 'emoji';
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleSelectValue(index)}
+                        disabled={isSubmitting}
+                        className={cn(
+                          "h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-300",
+                          "hover:scale-105 active:scale-95 backdrop-blur-sm",
+                          "disabled:opacity-50 disabled:cursor-not-allowed",
+                          selectedValue === index 
+                            ? "bg-primary text-primary-foreground shadow-glow scale-105 ring-2 ring-primary/30" 
+                            : "bg-glass border border-glass-border hover:bg-glass-hover"
+                        )}
+                      >
+                        {selectedValue === index ? (
+                          <Check className="w-5 h-5" />
+                        ) : isEmoji ? (
+                          <span className="text-2xl">{option}</span>
+                        ) : (
+                          <span className={cn(
+                            "text-xs font-medium text-center px-1 leading-tight",
+                            selectedValue === index ? "text-primary-foreground" : "text-foreground"
+                          )}>
+                            {option}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-between mt-3 px-1">
+                  <span className="text-xs text-muted-foreground">
+                    {activeItem.responseType === 'emoji' ? 'Peggio' : 
+                     activeItem.responseType === 'slider' ? 'Minimo' : 'Meno'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {activeItem.responseType === 'emoji' ? 'Meglio' : 
+                     activeItem.responseType === 'slider' ? 'Massimo' : 'Più'}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Check-in grid - always show exactly 4 boxes in a row */}
+      {/* Check-in grid - Glass cards */}
       {!activeItem && (
         <div className="grid grid-cols-4 gap-2">
           {visibleCheckins.slice(0, 4).map((item, index) => (
@@ -417,13 +429,15 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               onClick={() => handleItemClick(item)}
               className={cn(
                 "relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all duration-300",
-                "bg-card shadow-sm hover:shadow-md hover:scale-[1.03] active:scale-[0.97] border border-border/30",
+                "bg-glass backdrop-blur-sm hover:bg-glass-hover",
+                "shadow-soft hover:shadow-glass hover:scale-[1.03] active:scale-[0.97]",
+                "border border-glass-border",
                 "animate-slide-up"
               )}
               style={{ animationDelay: `${index * 0.03}s` }}
             >
               <div className={cn(
-                "w-9 h-9 rounded-lg flex items-center justify-center",
+                "w-9 h-9 rounded-lg flex items-center justify-center backdrop-blur-sm border border-glass-border",
                 item.bgColor
               )}>
                 <item.icon className={cn("w-4 h-4", item.color)} />

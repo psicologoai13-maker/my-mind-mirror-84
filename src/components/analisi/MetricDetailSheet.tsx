@@ -120,12 +120,12 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl">
+      <SheetContent side="bottom" className="h-[70vh] rounded-t-[32px] bg-glass backdrop-blur-2xl border-t border-glass-border shadow-glass-elevated">
         <SheetHeader className="pb-4">
           <div className="flex items-center gap-3">
             <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${metric.color}20` }}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-glass backdrop-blur-sm border border-glass-border shadow-soft"
+              style={{ background: `linear-gradient(135deg, ${metric.color}15, ${metric.color}05)` }}
             >
               <span className="text-2xl">{metric.icon}</span>
             </div>
@@ -139,15 +139,15 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* Summary Stats */}
+          {/* Summary Stats - Glass cards */}
           <div className="flex gap-4">
-            <div className="flex-1 bg-muted/50 rounded-xl p-4">
+            <div className="flex-1 bg-glass backdrop-blur-xl rounded-2xl p-4 border border-glass-border shadow-soft">
               <p className="text-xs text-muted-foreground mb-1">Media</p>
               <p className="text-2xl font-bold" style={{ color: metric.color }}>
                 {displayValue}
               </p>
             </div>
-            <div className="flex-1 bg-muted/50 rounded-xl p-4">
+            <div className="flex-1 bg-glass backdrop-blur-xl rounded-2xl p-4 border border-glass-border shadow-soft">
               <p className="text-xs text-muted-foreground mb-1">Trend</p>
               <div className="flex items-center gap-2">
                 <TrendIcon className={cn("w-5 h-5", trendColor)} />
@@ -156,8 +156,8 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
             </div>
           </div>
 
-          {/* Chart */}
-          <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/20">
+          {/* Chart - Glass container */}
+          <div className="bg-glass backdrop-blur-xl rounded-3xl p-4 border border-glass-border shadow-soft">
             {chartData.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
                 Nessun dato disponibile per questo periodo
@@ -186,11 +186,13 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '12px',
+                        backgroundColor: 'hsl(var(--card) / 0.95)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid hsl(var(--border) / 0.3)',
+                        borderRadius: '16px',
                         fontSize: '12px',
-                        padding: '8px 12px'
+                        padding: '12px 16px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
                       }}
                       formatter={(value: number) => [
                         `${(value / 10).toFixed(1)}/10`,
@@ -205,7 +207,7 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
                       strokeWidth={2.5}
                       fill={`url(#gradient-${metric.key})`}
                       dot={{ fill: metric.color, strokeWidth: 0, r: 3 }}
-                      activeDot={{ r: 5, fill: metric.color }}
+                      activeDot={{ r: 5, fill: metric.color, filter: `drop-shadow(0 0 6px ${metric.color})` }}
                       connectNulls
                     />
                   </AreaChart>
