@@ -1,37 +1,83 @@
-# Piano: Fix Habits - COMPLETATO ✅
+# Piano: Wellness Hub 360° - Analisi Unificata
 
-## Implementazioni Completate
+## Stato: ✅ COMPLETATO
 
-### 1. ✅ HABIT_ALIASES per retrocompatibilità
-- Mappatura nomi varianti: `no_smoking` → `cigarettes`, `social_time` → `social_media`, etc.
-- Funzione `getHabitMeta()` con risoluzione alias
+## Architettura Implementata
 
-### 2. ✅ Range inputMethod per sigarette
-- Nuovo tipo `range` con opzioni preimpostate: 0, 1-5, 6-10, 11-20, 20+
-- UI con bottoni per selezione rapida
+### 1. ✅ Tab Navigation in Analisi
+- **4 Tab orizzontali**: Mente 🧠, Corpo 💪, Abitudini 📊, Obiettivi 🎯
+- Design responsivo con emoji sempre visibili, label visibili su desktop
+- Time range selector funziona su tutti i tab
 
-### 3. ✅ Flag requiresExternalSync
-- Habits che richiedono dati esterni (passi, battito, social_time) nascoste su web
-- `webFallback` per esercizio → toggle "Hai fatto esercizio oggi?"
+### 2. ✅ Tab Mente (Mental Health)
+- Parametri Vitali (mood, ansia, energia, sonno)
+- Mix Emotivo (barra emozioni)
+- Radar Aree della Vita
+- Psicologia Profonda (accordion espandibile)
 
-### 4. ✅ HabitCard aggiornato
-- Nuovo `RangeInput` component
-- Usa `getHabitMeta()` per alias resolution
-- Messaggio per habits che richiedono sync nativo
+### 3. ✅ Tab Corpo (Body Metrics)
+- Grafico peso con trend
+- Grafico ore sonno
+- Grafico battito cardiaco
+- Calcolo automatico trend (up/down/stable)
 
-### 5. ✅ SmartCheckinSection aggiornato
-- Supporto per responseType `range`
-- Handler `handleRangeSubmit`
+### 4. ✅ Tab Abitudini (Habits Analytics)
+- `useHabitsAnalytics` hook per aggregazione dati
+- `HabitTrendCard` component con:
+  - Grafico a barre per habits countable (sigarette, acqua)
+  - Grafico area per habits toggle (yoga, meditazione)
+  - Stats: streak corrente, record, % successo o media
+- Sezioni organizzate per tipo:
+  - 📊 Misurazioni (counter, numeric, range)
+  - 🚫 Vizi da evitare (abstain)
+  - ✅ Attività quotidiane (toggle)
 
-### 6. ✅ Edge function ai-checkins aggiornata
-- Filtro `shouldShowHabitOnWeb()`
-- Risoluzione alias con `resolveHabitType()`
-- Metadata aggiornati per sigarette con rangeOptions
+### 5. ✅ Tab Obiettivi
+- Progress bar con % completamento
+- Grafico storico progressi
+- Countdown deadline
+- Sezione obiettivi completati
+
+## File Creati/Modificati
+
+| File | Azione |
+|------|--------|
+| `src/hooks/useHabitsAnalytics.tsx` | ✅ Nuovo |
+| `src/components/analisi/AnalisiTabContent.tsx` | ✅ Nuovo (MenteTab) |
+| `src/components/analisi/CorpoTab.tsx` | ✅ Nuovo |
+| `src/components/analisi/AbitudiniTab.tsx` | ✅ Nuovo |
+| `src/components/analisi/ObiettiviTab.tsx` | ✅ Nuovo |
+| `src/pages/Analisi.tsx` | ✅ Refactored con tab |
+
+## Flusso Dati Unificato
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DATA SOURCES                             │
+├─────────────────────────────────────────────────────────────┤
+│ Sessions │ Check-ins │ Daily Habits │ Body Metrics │ Obiett │
+└────┬─────────┬───────────┬──────────────┬────────────┬──────┘
+     │         │           │              │            │
+     ▼         ▼           ▼              ▼            ▼
+┌─────────────────────────────────────────────────────────────┐
+│               HOOKS (Single Source of Truth)                 │
+├─────────────────────────────────────────────────────────────┤
+│ useDailyMetrics │ useHabitsAnalytics │ useBodyMetrics │ ... │
+└────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  ANALISI PAGE (Tabs)                        │
+├─────────────────────────────────────────────────────────────┤
+│ [Mente🧠]  [Corpo💪]  [Abitudini📊]  [Obiettivi🎯]         │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Risultato
+
 | Prima | Dopo |
 |-------|------|
-| social_time con 📊 e +/- | Nascosto (richiede sync esterno) |
-| no_smoking con counter | Range: 0, 1-5, 6-10, 11-20, 20+ |
-| Esercizio con timer | Toggle "Hai fatto esercizio?" |
-| Icone fallback 📊 | Alias resolution + icone corrette |
+| Solo metriche mental health | 4 tab: Mente, Corpo, Abitudini, Obiettivi |
+| Nessun grafico habits | Grafici sigarette, esercizio, streak, etc. |
+| Nessun body metric | Peso, sonno ore, battito con trend |
+| Obiettivi non visualizzati | Progress bar + storico con grafico |
