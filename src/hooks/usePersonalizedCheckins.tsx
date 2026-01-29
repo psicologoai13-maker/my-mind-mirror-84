@@ -261,16 +261,28 @@ export const usePersonalizedCheckins = () => {
     }
   }, [profileCache]);
 
-  // 🎯 STEP 2: Background refresh
+  // 🎯 STEP 2: Background refresh - ONLY if no valid cache exists
+  // Once fixedDailyList is set, we DON'T regenerate it
   const { data: freshAIData, isLoading: aiLoading, refetch: refetchAI } = useQuery({
     queryKey: ['ai-checkins-fresh', user?.id, today],
-    queryFn: async (): Promise<{ checkins: AICheckinResponse[]; allCompleted: boolean; aiGenerated: boolean }> => {
+    queryFn: async (): Promise<{ checkins: AICheckinResponse[]; fixedDailyList?: AICheckinResponse[]; allCompleted: boolean; aiGenerated: boolean }> => {
       if (!user || !session?.access_token) {
         return { checkins: [], allCompleted: false, aiGenerated: false };
       }
 
+      // CRITICAL: If we already have a valid fixedDailyList, DON'T fetch again
+      if (cachedData?.cachedDate === today && cachedData?.fixedDailyList?.length > 0) {
+        console.log('[usePersonalizedCheckins] Already have fixedDailyList, skipping API call');
+        return { 
+          checkins: cachedData.fixedDailyList, 
+          fixedDailyList: cachedData.fixedDailyList,
+          allCompleted: false, 
+          aiGenerated: cachedData.aiGenerated 
+        };
+      }
+
       try {
-        console.log('[usePersonalizedCheckins] Fetching fresh checkins from AI...');
+        console.log('[usePersonalizedCheckins] Fetching fresh checkins from AI (first time today)...');
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-checkins`,
           {
@@ -290,12 +302,16 @@ export const usePersonalizedCheckins = () => {
 
         const data = await response.json();
         
+        // Store the FIXED daily list
+        const fixedList = data.fixedDailyList || data.checkins || [];
+        
         const cachePayload: CachedCheckinsData = {
-          checkins: data.checkins || [],
-          allCompleted: data.allCompleted || false,
+          checkins: fixedList,
+          allCompleted: false,
           aiGenerated: data.aiGenerated || false,
           cachedAt: new Date().toISOString(),
           cachedDate: today,
+          fixedDailyList: fixedList, // This is the IMMUTABLE list for the day
         };
         
         await supabase
@@ -306,8 +322,9 @@ export const usePersonalizedCheckins = () => {
         setCachedData(cachePayload);
         
         return {
-          checkins: data.checkins || [],
-          allCompleted: data.allCompleted || false,
+          checkins: fixedList,
+          fixedDailyList: fixedList,
+          allCompleted: false,
           aiGenerated: data.aiGenerated || false,
         };
       } catch (err) {
@@ -316,7 +333,7 @@ export const usePersonalizedCheckins = () => {
       }
     },
     enabled: false,
-    staleTime: 1000 * 60 * 5,
+    staleTime: Infinity, // Never stale - list is fixed for the day
     refetchOnWindowFocus: false,
   });
 
@@ -424,14 +441,17 @@ export const usePersonalizedCheckins = () => {
     return completed;
   }, [todayCheckin, todayAllData]);
 
-  const aiData = cachedData || (freshAIData ? {
-    checkins: freshAIData.checkins,
-    allCompleted: freshAIData.allCompleted,
-    aiGenerated: freshAIData.aiGenerated,
-    cachedAt: '',
+  // Use the FIXED daily list - filtering happens here, not in the API
+  const fixedDailyList = cachedData?.fixedDailyList || freshAIData?.fixedDailyList || cachedData?.checkins || freshAIData?.checkins;
+  
+  const aiData = {
+    checkins: fixedDailyList || [],
+    fixedDailyList: fixedDailyList || [],
+    allCompleted: false, // Calculated from completedToday
+    aiGenerated: cachedData?.aiGenerated || freshAIData?.aiGenerated || false,
+    cachedAt: cachedData?.cachedAt || '',
     cachedDate: today,
-    fixedDailyList: freshAIData.checkins,
-  } : null);
+  };
 
   // Convert AI response to CheckinItem format with proper icons
   const dailyCheckins = useMemo<CheckinItem[]>(() => {
@@ -486,8 +506,11 @@ export const usePersonalizedCheckins = () => {
       });
   }, [aiData, completedToday]);
 
+  const totalItemsInFixedList = (fixedDailyList || []).length;
   const completedCount = Object.keys(completedToday).length;
-  const allCompleted = aiData?.allCompleted || false;
+  
+  // All completed = all items in fixed list are in completedToday
+  const allCompleted = totalItemsInFixedList > 0 && dailyCheckins.length === 0;
   const aiGenerated = aiData?.aiGenerated || false;
   const isLoading = !cachedData && profileLoading && !freshAIData;
 
@@ -501,13 +524,14 @@ export const usePersonalizedCheckins = () => {
     isLoading,
     aiGenerated,
     allCompleted,
+    // IMPORTANT: Only refresh completed data, NOT the fixed list
     refetchTodayData: useCallback(() => {
       refetchTodayData();
-      backgroundRefreshTriggered.current = false;
-      refetchAI();
-      queryClient.invalidateQueries({ queryKey: ['ai-checkins-fresh'] });
-      queryClient.invalidateQueries({ queryKey: ['profile-checkins-cache'] });
-    }, [refetchTodayData, refetchAI, queryClient]),
+      // DON'T refetch AI - the list is FIXED for the day
+      // Only invalidate the completed data queries
+      queryClient.invalidateQueries({ queryKey: ['today-all-sources'] });
+      queryClient.invalidateQueries({ queryKey: ['checkin-today'] });
+    }, [refetchTodayData, queryClient]),
   };
 };
 

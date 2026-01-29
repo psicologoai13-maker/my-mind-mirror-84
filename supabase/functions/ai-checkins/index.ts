@@ -187,18 +187,20 @@ serve(async (req) => {
 
     const existingCache = profile?.ai_checkins_cache as CachedCheckinsData | null;
     
+    // ============================================
+    // FIXED DAILY LIST - Return UNCHANGED for entire day
+    // Filtering of completed items happens CLIENT-SIDE
+    // ============================================
     if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
-      console.log("[ai-checkins] Using FIXED daily list from cache");
+      console.log("[ai-checkins] Returning FIXED daily list (immutable for 24h)");
       
-      const completedKeys = await getCompletedKeys(supabase, userId, today);
-      const remainingCheckins = existingCache.fixedDailyList.filter(
-        (item: any) => !completedKeys.has(item.key)
-      );
-      
+      // Return the COMPLETE fixed list - client handles filtering
       return new Response(JSON.stringify({ 
-        checkins: remainingCheckins, 
-        allCompleted: remainingCheckins.length === 0,
-        aiGenerated: existingCache.aiGenerated || false 
+        checkins: existingCache.fixedDailyList,
+        fixedDailyList: existingCache.fixedDailyList, // Explicit fixed list
+        allCompleted: false, // Client determines this
+        aiGenerated: existingCache.aiGenerated || false,
+        cachedDate: existingCache.cachedDate,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
