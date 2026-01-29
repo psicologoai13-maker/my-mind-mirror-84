@@ -23,26 +23,47 @@ const BottomNav: React.FC = () => {
   }
 
   return (
-    <nav className="bottom-nav-fixed">
-      <div className="flex items-center justify-around py-2.5 px-3 max-w-md mx-auto">
+    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm">
+      {/* Floating Glass Dock */}
+      <div className={cn(
+        "relative flex items-center justify-around",
+        "py-2 px-2 rounded-[28px]",
+        "bg-glass backdrop-blur-xl backdrop-saturate-150",
+        "border border-glass-border",
+        "shadow-glass-elevated",
+        // Safe area padding
+        "pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]"
+      )}>
+        {/* Inner glow */}
+        <div className="absolute inset-0 rounded-[28px] bg-gradient-to-t from-transparent via-white/5 to-white/10 pointer-events-none" />
+        
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
 
           if (item.isMain) {
             return (
-              <div key="main-button" className="relative -mt-8">
+              <div key="main-button" className="relative -mt-6 mx-2">
+                {/* Glow behind button */}
+                <div className={cn(
+                  "absolute inset-0 rounded-2xl blur-xl transition-opacity duration-500",
+                  "bg-gradient-to-br from-primary via-primary to-primary-glow",
+                  isActive ? "opacity-60" : "opacity-30"
+                )} />
+                
                 <button
                   onClick={() => navigate(item.path!)}
                   className={cn(
-                    "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200",
-                    "bg-gradient-to-br from-primary via-primary to-purple-500 shadow-lg hover:scale-105",
-                    "relative overflow-hidden",
-                    isActive && "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                    "relative w-14 h-14 rounded-2xl flex items-center justify-center",
+                    "bg-gradient-to-br from-primary via-primary to-primary-glow",
+                    "shadow-glass-glow",
+                    "transition-all duration-300 ease-out",
+                    "hover:scale-105 active:scale-95",
+                    isActive && "animate-breathe"
                   )}
                 >
-                  {/* Glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-white/0 to-white/20 rounded-2xl" />
+                  {/* Inner light reflection */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent via-transparent to-white/25 pointer-events-none" />
                   <Icon className="w-7 h-7 text-primary-foreground relative z-10" />
                 </button>
               </div>
@@ -54,14 +75,30 @@ const BottomNav: React.FC = () => {
               key={item.path}
               onClick={() => item.path && navigate(item.path)}
               className={cn(
-                "flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all duration-300",
-                isActive 
-                  ? "text-primary bg-primary-light" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                "relative flex flex-col items-center gap-0.5 py-2 px-4 rounded-2xl",
+                "transition-all duration-300 ease-out",
+                "group"
               )}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              {/* Active indicator glow */}
+              {isActive && (
+                <div className="absolute inset-0 rounded-2xl bg-primary/10 animate-fade-in" />
+              )}
+              
+              <Icon className={cn(
+                "w-5 h-5 transition-all duration-300",
+                isActive 
+                  ? "text-primary scale-110" 
+                  : "text-muted-foreground group-hover:text-foreground group-hover:scale-105"
+              )} />
+              <span className={cn(
+                "text-[10px] font-medium transition-colors duration-300",
+                isActive 
+                  ? "text-primary" 
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}>
+                {item.label}
+              </span>
             </button>
           );
         })}

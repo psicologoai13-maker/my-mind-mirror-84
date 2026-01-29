@@ -102,6 +102,15 @@ export default {
         'premium': 'var(--shadow-premium)',
         'elevated': 'var(--shadow-elevated)',
         'glow': 'var(--shadow-glow)',
+        'glass': 'var(--shadow-glass)',
+        'glass-glow': 'var(--shadow-glass-glow)',
+        'glass-elevated': 'var(--shadow-glass-elevated)',
+      },
+      backdropBlur: {
+        'glass': 'var(--glass-blur)',
+      },
+      backdropSaturate: {
+        'glass': 'var(--glass-saturation)',
       },
       keyframes: {
         "accordion-down": {
@@ -115,6 +124,10 @@ export default {
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-8px)" },
+        },
+        "float-subtle": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "50%": { transform: "translateY(-4px) rotate(0.5deg)" },
         },
         "pulse-soft": {
           "0%, 100%": { opacity: "1" },
@@ -140,17 +153,33 @@ export default {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
         },
+        "liquid-shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(var(--primary-rgb), 0.1)" },
+          "50%": { boxShadow: "0 0 40px rgba(var(--primary-rgb), 0.25)" },
+        },
+        "breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.8" },
+          "50%": { transform: "scale(1.05)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "float": "float 4s ease-in-out infinite",
+        "float-subtle": "float-subtle 6s ease-in-out infinite",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
         "slide-up": "slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "slide-in-right": "slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "fade-in": "fade-in 0.4s ease-out forwards",
         "scale-in": "scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "spin-slow": "spin-slow 3s linear infinite",
+        "liquid-shimmer": "liquid-shimmer 3s ease-in-out infinite",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "breathe": "breathe 4s ease-in-out infinite",
       },
     },
   },

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3 } from 'lucide-react';
@@ -44,209 +43,218 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
     ? differenceInDays(new Date(objective.deadline), new Date())
     : null;
 
-  const getProgressColor = () => {
-    if (progress >= 80) return 'bg-emerald-500';
-    if (progress >= 50) return 'bg-primary';
-    if (progress >= 25) return 'bg-amber-500';
-    return 'bg-muted-foreground';
-  };
-
   const getProgressGradient = () => {
     if (progress >= 80) return 'from-emerald-500 to-teal-400';
-    if (progress >= 50) return 'from-primary to-blue-400';
+    if (progress >= 50) return 'from-primary to-primary-glow';
     if (progress >= 25) return 'from-amber-500 to-orange-400';
     return 'from-slate-400 to-slate-300';
   };
 
   return (
-    <Card className="p-5 bg-card border-border shadow-premium hover:shadow-elevated transition-all duration-300 rounded-2xl">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center text-2xl",
-            "bg-gradient-to-br shadow-sm",
-            categoryConfig.color.includes('purple') ? 'from-purple-100 to-purple-50' :
-            categoryConfig.color.includes('orange') ? 'from-orange-100 to-orange-50' :
-            categoryConfig.color.includes('blue') ? 'from-blue-100 to-blue-50' :
-            categoryConfig.color.includes('slate') ? 'from-slate-100 to-slate-50' :
-            categoryConfig.color.includes('pink') ? 'from-pink-100 to-pink-50' :
-            categoryConfig.color.includes('emerald') ? 'from-emerald-100 to-emerald-50' :
-            categoryConfig.color.includes('yellow') ? 'from-yellow-100 to-yellow-50' :
-            'from-gray-100 to-gray-50'
-          )}>
-            {categoryConfig.emoji}
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground line-clamp-1">{objective.title}</h3>
-            <Badge variant="secondary" className={cn("text-xs mt-1", categoryConfig.color)}>
-              {categoryConfig.label}
-            </Badge>
-          </div>
-        </div>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onAddProgress && hasTarget && (
-              <DropdownMenuItem onClick={() => onAddProgress(objective.id)}>
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Aggiorna progresso
-              </DropdownMenuItem>
-            )}
-            {onUpdate && objective.status === 'active' && (
-              <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'achieved' })}>
-                <Target className="h-4 w-4 mr-2" />
-                Segna come raggiunto
-              </DropdownMenuItem>
-            )}
-            {onUpdate && objective.status === 'active' && (
-              <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'paused' })}>
-                Metti in pausa
-              </DropdownMenuItem>
-            )}
-            {onUpdate && objective.status === 'paused' && (
-              <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'active' })}>
-                Riattiva
-              </DropdownMenuItem>
-            )}
-            {onDelete && (
-              <DropdownMenuItem 
-                onClick={() => onDelete(objective.id)}
-                className="text-destructive"
-              >
-                Elimina
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {objective.description && (
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-          {objective.description}
-        </p>
-      )}
-
-      {/* Missing target or starting value warning - with manual input button */}
-      {/* Only show for categories that require numeric tracking (body, finance) */}
-      {(requiresStartingValue && (!hasTarget || !hasStartingValue)) && (
-        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
-          <div className="flex items-start gap-2 mb-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                {!hasTarget && !hasStartingValue 
-                  ? 'Definisci punto di partenza e obiettivo'
-                  : !hasTarget 
-                    ? 'Obiettivo finale non definito' 
-                    : 'Punto di partenza non definito'}
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-300">
-                Parla con Aria o inserisci manualmente
-              </p>
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl p-5",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass hover:shadow-glass-elevated",
+      "transition-all duration-300 ease-out",
+      "hover:-translate-y-0.5"
+    )}>
+      {/* Inner light reflection */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "w-14 h-14 rounded-2xl flex items-center justify-center text-2xl",
+              "bg-gradient-to-br shadow-soft",
+              categoryConfig.color.includes('purple') ? 'from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-900/10' :
+              categoryConfig.color.includes('orange') ? 'from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-900/10' :
+              categoryConfig.color.includes('blue') ? 'from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/10' :
+              categoryConfig.color.includes('slate') ? 'from-slate-100 to-slate-50 dark:from-slate-800/30 dark:to-slate-800/10' :
+              categoryConfig.color.includes('pink') ? 'from-pink-100 to-pink-50 dark:from-pink-900/30 dark:to-pink-900/10' :
+              categoryConfig.color.includes('emerald') ? 'from-emerald-100 to-emerald-50 dark:from-emerald-900/30 dark:to-emerald-900/10' :
+              categoryConfig.color.includes('yellow') ? 'from-yellow-100 to-yellow-50 dark:from-yellow-900/30 dark:to-yellow-900/10' :
+              'from-gray-100 to-gray-50 dark:from-gray-800/30 dark:to-gray-800/10'
+            )}>
+              {categoryConfig.emoji}
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground line-clamp-1 text-base">{objective.title}</h3>
+              <Badge variant="secondary" className={cn("text-xs mt-1", categoryConfig.color)}>
+                {categoryConfig.label}
+              </Badge>
             </div>
           </div>
-          {onUpdate && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-1 bg-white/50 dark:bg-white/10 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40"
-              onClick={() => setShowTargetDialog(true)}
-            >
-              <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-              Definisci traguardi
-            </Button>
-          )}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border">
+              {onAddProgress && hasTarget && (
+                <DropdownMenuItem onClick={() => onAddProgress(objective.id)}>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Aggiorna progresso
+                </DropdownMenuItem>
+              )}
+              {onUpdate && objective.status === 'active' && (
+                <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'achieved' })}>
+                  <Target className="h-4 w-4 mr-2" />
+                  Segna come raggiunto
+                </DropdownMenuItem>
+              )}
+              {onUpdate && objective.status === 'active' && (
+                <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'paused' })}>
+                  Metti in pausa
+                </DropdownMenuItem>
+              )}
+              {onUpdate && objective.status === 'paused' && (
+                <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'active' })}>
+                  Riattiva
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem 
+                  onClick={() => onDelete(objective.id)}
+                  className="text-destructive"
+                >
+                  Elimina
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
-      
-      {/* Target Input Dialog */}
-      <TargetInputDialog
-        open={showTargetDialog}
-        onOpenChange={setShowTargetDialog}
-        objectiveTitle={objective.title}
-        unit={objective.unit}
-        hasStartingValue={hasStartingValue}
-        hasTargetValue={hasTarget}
-        onSave={(startingVal, targetVal) => {
-          if (onUpdate) {
-            const updates: Partial<Objective> = {};
-            if (startingVal !== null) {
-              updates.starting_value = startingVal;
-              // Also set current_value to starting if not set
-              if (objective.current_value === null || objective.current_value === 0) {
-                updates.current_value = startingVal;
-              }
-            }
-            if (targetVal !== null) {
-              updates.target_value = targetVal;
-            }
-            // Clear ai_feedback since user defined manually
-            updates.ai_feedback = null;
-            onUpdate(objective.id, updates);
-          }
-        }}
-      />
 
-      {/* Progress bar (only if target is set) */}
-      {hasTarget && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Progresso</span>
-            <span className="font-semibold text-foreground">
-              {objective.current_value ?? objective.starting_value ?? 0}
-              {hasStartingValue ? ` (da ${objective.starting_value})` : ''} → {objective.target_value} {objective.unit}
-            </span>
-          </div>
-          <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
-            <div 
-              className={cn("h-full transition-all duration-500 bg-gradient-to-r", getProgressGradient())}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="text-right text-xs font-medium text-muted-foreground mt-1">
-            {Math.round(progress)}% completato
-          </div>
-        </div>
-      )}
-
-      {/* AI Feedback */}
-      {objective.ai_feedback && (
-        <div className="mb-4 p-3 bg-primary/5 rounded-xl">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Aria</span>
-          </div>
-          <p className="text-sm text-foreground italic">
-            "{objective.ai_feedback}"
+        {objective.description && (
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+            {objective.description}
           </p>
-        </div>
-      )}
+        )}
 
-      {/* Footer with deadline */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        {objective.deadline && (
-          <div className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-full",
-            daysRemaining !== null && daysRemaining < 7 
-              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-              : "bg-muted"
-          )}>
-            <Calendar className="h-3 w-3" />
-            <span>
-              {daysRemaining !== null && daysRemaining >= 0 
-                ? `${daysRemaining} giorni rimasti`
-                : format(new Date(objective.deadline), 'd MMM yyyy', { locale: it })
-              }
-            </span>
+        {/* Missing target or starting value warning - with manual input button */}
+        {/* Only show for categories that require numeric tracking (body, finance) */}
+        {(requiresStartingValue && (!hasTarget || !hasStartingValue)) && (
+          <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-start gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  {!hasTarget && !hasStartingValue 
+                    ? 'Definisci punto di partenza e obiettivo'
+                    : !hasTarget 
+                      ? 'Obiettivo finale non definito' 
+                      : 'Punto di partenza non definito'}
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Parla con Aria o inserisci manualmente
+                </p>
+              </div>
+            </div>
+            {onUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-1 bg-card/50 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl"
+                onClick={() => setShowTargetDialog(true)}
+              >
+                <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+                Definisci traguardi
+              </Button>
+            )}
           </div>
         )}
+        
+        {/* Target Input Dialog */}
+        <TargetInputDialog
+          open={showTargetDialog}
+          onOpenChange={setShowTargetDialog}
+          objectiveTitle={objective.title}
+          unit={objective.unit}
+          hasStartingValue={hasStartingValue}
+          hasTargetValue={hasTarget}
+          onSave={(startingVal, targetVal) => {
+            if (onUpdate) {
+              const updates: Partial<Objective> = {};
+              if (startingVal !== null) {
+                updates.starting_value = startingVal;
+                // Also set current_value to starting if not set
+                if (objective.current_value === null || objective.current_value === 0) {
+                  updates.current_value = startingVal;
+                }
+              }
+              if (targetVal !== null) {
+                updates.target_value = targetVal;
+              }
+              // Clear ai_feedback since user defined manually
+              updates.ai_feedback = null;
+              onUpdate(objective.id, updates);
+            }
+          }}
+        />
+
+        {/* Progress bar (only if target is set) */}
+        {hasTarget && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-muted-foreground">Progresso</span>
+              <span className="font-semibold text-foreground">
+                {objective.current_value ?? objective.starting_value ?? 0}
+                {hasStartingValue ? ` (da ${objective.starting_value})` : ''} → {objective.target_value} {objective.unit}
+              </span>
+            </div>
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 backdrop-blur-sm">
+              <div 
+                className={cn(
+                  "h-full transition-all duration-700 ease-out bg-gradient-to-r rounded-full",
+                  getProgressGradient(),
+                  "shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]"
+                )}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="text-right text-xs font-medium text-muted-foreground mt-1">
+              {Math.round(progress)}% completato
+            </div>
+          </div>
+        )}
+
+        {/* AI Feedback */}
+        {objective.ai_feedback && (
+          <div className="mb-4 p-3 rounded-2xl bg-primary/5 border border-primary/10">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary">Aria</span>
+            </div>
+            <p className="text-sm text-foreground italic">
+              "{objective.ai_feedback}"
+            </p>
+          </div>
+        )}
+
+        {/* Footer with deadline */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          {objective.deadline && (
+            <div className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+              "bg-glass backdrop-blur-sm border border-glass-border",
+              daysRemaining !== null && daysRemaining < 7 
+                ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
+                : ""
+            )}>
+              <Calendar className="h-3 w-3" />
+              <span className="font-medium">
+                {daysRemaining !== null && daysRemaining >= 0 
+                  ? `${daysRemaining} giorni rimasti`
+                  : format(new Date(objective.deadline), 'd MMM yyyy', { locale: it })
+                }
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 };

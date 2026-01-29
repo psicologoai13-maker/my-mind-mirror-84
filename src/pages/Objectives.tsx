@@ -1,49 +1,56 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Target, BarChart3 } from 'lucide-react';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import ObjectivesTabContent from '@/components/objectives/ObjectivesTabContent';
 import DailyTrackerTabContent from '@/components/objectives/DailyTrackerTabContent';
 
 const Objectives: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('objectives');
+
+  const tabs = [
+    { 
+      value: 'objectives', 
+      label: 'Traguardi',
+      icon: <Target className="w-4 h-4" />
+    },
+    { 
+      value: 'daily', 
+      label: 'Daily Tracker',
+      icon: <BarChart3 className="w-4 h-4" />
+    },
+  ];
+
   return (
     <MobileLayout>
       <div className="p-4 pb-28">
         {/* Header */}
-        <header className="mb-4">
-          <h1 className="text-2xl font-bold text-foreground">I Tuoi Progressi</h1>
-          <p className="text-sm text-muted-foreground">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+            I Tuoi Progressi
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Traguardi a lungo termine e abitudini quotidiane
           </p>
         </header>
 
-        {/* Tabs */}
-        <Tabs defaultValue="objectives" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-6 h-12 p-1 bg-muted/60 rounded-2xl mx-auto max-w-sm">
-            <TabsTrigger 
-              value="objectives" 
-              className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
-            >
-              <Target className="w-4 h-4" />
-              Traguardi
-            </TabsTrigger>
-            <TabsTrigger 
-              value="daily" 
-              className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-xl text-sm font-medium"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Daily Tracker
-            </TabsTrigger>
-          </TabsList>
+        {/* Pill Tabs */}
+        <div className="flex justify-center mb-6">
+          <PillTabs
+            tabs={tabs}
+            value={activeTab}
+            onValueChange={setActiveTab}
+          />
+        </div>
 
-          <TabsContent value="objectives" className="mt-0">
+        {/* Tab Content */}
+        <div className="animate-fade-in">
+          {activeTab === 'objectives' ? (
             <ObjectivesTabContent />
-          </TabsContent>
-
-          <TabsContent value="daily" className="mt-0">
+          ) : (
             <DailyTrackerTabContent />
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
     </MobileLayout>
   );
