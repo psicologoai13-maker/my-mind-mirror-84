@@ -39,8 +39,15 @@ const LifeBalanceRadar: React.FC = () => {
   );
 
   return (
-    <div className="rounded-3xl p-6 bg-card shadow-premium">
-      <div className="flex items-center justify-between mb-4">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl p-6",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10 flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
             <Compass className="w-5 h-5 text-primary" />
@@ -59,7 +66,7 @@ const LifeBalanceRadar: React.FC = () => {
       </div>
 
       {/* Always show the radar chart - with or without data */}
-      <div className="h-64">
+      <div className="relative z-10 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart 
             data={radarData} 
@@ -131,7 +138,7 @@ const LifeBalanceRadar: React.FC = () => {
       </div>
 
       {/* Legend with icons and values */}
-      <div className="grid grid-cols-5 gap-2 mt-4">
+      <div className="relative z-10 grid grid-cols-5 gap-2 mt-4">
         {LIFE_AREAS.map(area => {
           const value = lifeAreasScores?.[area.key as keyof typeof lifeAreasScores];
           const Icon = area.icon;
@@ -142,7 +149,9 @@ const LifeBalanceRadar: React.FC = () => {
               key={area.key} 
               className={cn(
                 "flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all",
-                hasValue ? "bg-muted/50" : "bg-muted/20 opacity-60"
+                hasValue 
+                  ? "bg-glass-subtle backdrop-blur-sm" 
+                  : "bg-muted/20 opacity-60"
               )}
             >
               <Icon 
@@ -162,7 +171,7 @@ const LifeBalanceRadar: React.FC = () => {
 
       {/* Empty state hint - only if no data at all */}
       {!hasData && !isLoading && (
-        <div className="flex items-center justify-center gap-2 mt-4 py-3 bg-muted/30 rounded-xl">
+        <div className="relative z-10 flex items-center justify-center gap-2 mt-4 py-3 bg-muted/30 rounded-xl">
           <MessageCircle className="w-4 h-4 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Parla con l'AI per riempire il radar

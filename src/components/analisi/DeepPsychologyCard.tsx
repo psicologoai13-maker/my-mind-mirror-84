@@ -111,12 +111,19 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
 
   if (displayMetrics.length === 0) {
     return (
-      <div className="bg-card rounded-3xl shadow-premium p-6">
-        <div className="flex items-center gap-2 mb-4">
+      <div className={cn(
+        "relative overflow-hidden rounded-3xl p-6",
+        "bg-glass backdrop-blur-xl border border-glass-border",
+        "shadow-glass"
+      )}>
+        {/* Inner light */}
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="relative z-10 flex items-center gap-2 mb-4">
           <span className="text-lg">🧠</span>
           <h3 className="font-semibold text-foreground">Psicologia Profonda</h3>
         </div>
-        <div className="text-center py-6 text-muted-foreground">
+        <div className="relative z-10 text-center py-6 text-muted-foreground">
           <p className="text-sm">Parla con l'AI per sbloccare metriche avanzate</p>
         </div>
       </div>
@@ -124,16 +131,23 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
   }
 
   return (
-    <div className="bg-card rounded-3xl shadow-premium p-6">
-      <div className="flex items-center gap-2 mb-5">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl p-6",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10 flex items-center gap-2 mb-5">
         <span className="text-lg">🧠</span>
         <h3 className="font-semibold text-foreground">Psicologia Profonda</h3>
-        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full ml-auto">
+        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full ml-auto">
           AI
         </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="relative z-10 space-y-2">
         {displayMetrics.map((key) => {
           const meta = PSYCHOLOGY_META[key];
           const value = psychologyData[key];
@@ -146,7 +160,10 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
               onClick={() => handleClick(key)}
               className={cn(
                 "w-full p-3 rounded-2xl transition-all text-left",
-                highlighted ? "bg-primary/5 border border-primary/20" : "bg-muted/50 hover:bg-muted"
+                "bg-glass-subtle backdrop-blur-lg",
+                highlighted 
+                  ? "border border-aria-violet/30 shadow-aria-glow" 
+                  : "border border-transparent hover:border-border/50 hover:bg-muted/50"
               )}
             >
               <div className="flex items-center justify-between">

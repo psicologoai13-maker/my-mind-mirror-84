@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Crown, Sparkles, CreditCard, Gem, ChevronRight, Check } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
 import { useRewardPoints } from '@/hooks/useRewardPoints';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const PremiumCard: React.FC = () => {
   const navigate = useNavigate();
@@ -18,11 +19,20 @@ const PremiumCard: React.FC = () => {
 
   if (isPremium) {
     return (
-      <Card className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-rose-950/20 rounded-3xl border border-amber-200/50 dark:border-amber-800/30 shadow-premium overflow-hidden">
-        <CardContent className="p-5">
+      <div className={cn(
+        "relative overflow-hidden rounded-3xl",
+        "bg-glass backdrop-blur-xl border border-amber-200/50 dark:border-amber-800/30",
+        "shadow-glass"
+      )}>
+        {/* Golden gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-100/80 via-orange-50/60 to-rose-50/40 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-rose-950/20 rounded-3xl" />
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-transparent to-white/20 pointer-events-none" />
+        
+        <CardContent className="relative z-10 p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
-              <Crown className="w-6 h-6 text-white" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/25 pointer-events-none" />
+              <Crown className="w-6 h-6 text-white relative z-10" />
             </div>
             <div>
               <h3 className="font-semibold text-foreground flex items-center gap-2">
@@ -68,16 +78,28 @@ const PremiumCard: React.FC = () => {
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </CardContent>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-violet-950/40 dark:via-purple-950/30 dark:to-fuchsia-950/20 rounded-3xl border border-violet-200/50 dark:border-violet-800/30 shadow-premium overflow-hidden">
-      <CardContent className="p-5">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Aria gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-aria-subtle rounded-3xl" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-transparent to-white/20 pointer-events-none" />
+      
+      <CardContent className="relative z-10 p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <Sparkles className="w-6 h-6 text-white" />
+          <div className={cn(
+            "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg",
+            "bg-gradient-aria shadow-aria-glow"
+          )}>
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/25 pointer-events-none" />
+            <Sparkles className="w-6 h-6 text-white relative z-10" />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">Passa a Plus</h3>
@@ -90,22 +112,28 @@ const PremiumCard: React.FC = () => {
         {/* Two payment options */}
         <div className="space-y-3">
           {/* Points option */}
-          <div className="p-3 bg-white/50 dark:bg-card/30 rounded-xl border border-violet-200/30 dark:border-violet-700/30">
+          <div className={cn(
+            "p-3 rounded-xl",
+            "bg-glass-subtle backdrop-blur-sm border border-aria-violet/20"
+          )}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Gem className="w-4 h-4 text-violet-500" />
+                <Gem className="w-4 h-4 text-aria-violet" />
                 <span className="text-sm font-medium">Con i punti</span>
               </div>
               <span className="text-xs text-muted-foreground">1000 pts = 1 mese</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
-                Hai: <strong className="text-violet-600 dark:text-violet-400">{totalPoints}</strong> punti
+                Hai: <strong className="text-aria-violet">{totalPoints}</strong> punti
               </span>
               {canRedeemPremium ? (
                 <Button
                   size="sm"
-                  className="h-7 text-xs bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg"
+                  className={cn(
+                    "h-7 text-xs rounded-lg text-white",
+                    "bg-gradient-aria hover:opacity-90"
+                  )}
                   onClick={() => navigate('/plus')}
                 >
                   Riscatta
@@ -119,10 +147,13 @@ const PremiumCard: React.FC = () => {
           </div>
 
           {/* Card option */}
-          <div className="p-3 bg-white/50 dark:bg-card/30 rounded-xl border border-violet-200/30 dark:border-violet-700/30">
+          <div className={cn(
+            "p-3 rounded-xl",
+            "bg-glass-subtle backdrop-blur-sm border border-border/30"
+          )}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-violet-500" />
+                <CreditCard className="w-4 h-4 text-aria-violet" />
                 <span className="text-sm font-medium">Con carta</span>
               </div>
             </div>
@@ -135,7 +166,7 @@ const PremiumCard: React.FC = () => {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs rounded-lg border-violet-300 dark:border-violet-700"
+                className="h-7 text-xs rounded-lg border-aria-violet/30 text-aria-violet hover:bg-aria-violet/10"
                 onClick={() => navigate('/plus')}
               >
                 Abbonati
@@ -144,7 +175,7 @@ const PremiumCard: React.FC = () => {
           </div>
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 };
 

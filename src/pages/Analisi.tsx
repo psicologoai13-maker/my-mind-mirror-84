@@ -10,7 +10,7 @@ import DeepPsychologyCard from '@/components/analisi/DeepPsychologyCard';
 import LifeBalanceRadar from '@/components/home/LifeBalanceRadar';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
@@ -182,7 +182,10 @@ const Analisi: React.FC = () => {
               <h2 className="font-display font-semibold text-foreground flex items-center gap-2">
                 <span>📊</span> {section.title}
               </h2>
-              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">AI</span>
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                AI
+              </span>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {vitalMetrics.map((metric) => (
@@ -232,12 +235,12 @@ const Analisi: React.FC = () => {
             <p className="text-muted-foreground text-sm mt-1">La tua dashboard del benessere</p>
           </div>
           {isLoadingAI && (
-            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <Loader2 className="w-5 h-5 text-aria-violet animate-spin" />
           )}
         </div>
       </header>
 
-      {/* Time Range Selector */}
+      {/* Time Range Selector - Glass style */}
       <div className="px-4 mb-5">
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>

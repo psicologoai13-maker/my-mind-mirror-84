@@ -87,9 +87,16 @@ const Profile: React.FC = () => {
       </header>
 
       <div className="px-6 space-y-5 pb-8">
-        {/* Profile Header - Compact */}
-        <div className="bg-card rounded-3xl p-5 border border-border/50 shadow-premium">
-          <div className="flex items-start justify-between mb-4">
+        {/* Profile Header - Glass Card */}
+        <div className={cn(
+          "relative overflow-hidden rounded-3xl p-5",
+          "bg-glass backdrop-blur-xl border border-glass-border",
+          "shadow-glass"
+        )}>
+          {/* Inner light */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+          
+          <div className="relative z-10 flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="font-display text-xl font-semibold text-foreground truncate">
@@ -99,17 +106,17 @@ const Profile: React.FC = () => {
                   variant={isPremium ? "default" : "secondary"}
                   className={cn(
                     "shrink-0",
-                    isPremium && "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0"
+                    isPremium && "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 shadow-sm"
                   )}
                 >
                   {isPremium ? '✨ Plus' : 'Free'}
                 </Badge>
               </div>
               
-              {/* Points Display */}
-              <div className="flex items-center gap-1.5 mb-3">
-                <Gem className="w-4 h-4 text-violet-500" />
-                <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
+              {/* Points Display with glass effect */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-aria-subtle mb-3">
+                <Gem className="w-4 h-4 text-aria-violet" />
+                <span className="text-sm font-bold text-aria-violet">
                   {pointsLoading ? '...' : totalPoints.toLocaleString()}
                 </span>
                 <span className="text-sm text-muted-foreground">punti</span>
@@ -130,9 +137,16 @@ const Profile: React.FC = () => {
         {/* Points Progress Card */}
         <PointsProgressCard />
 
-        {/* Settings Menu */}
-        <div className="bg-card rounded-3xl shadow-premium border border-border/50 overflow-hidden">
-          <div className="px-5 py-3 border-b border-border/50">
+        {/* Settings Menu - Glass Card */}
+        <div className={cn(
+          "relative overflow-hidden rounded-3xl",
+          "bg-glass backdrop-blur-xl border border-glass-border",
+          "shadow-glass"
+        )}>
+          {/* Inner light */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+          
+          <div className="relative z-10 px-5 py-3 border-b border-border/30">
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Impostazioni
@@ -145,20 +159,20 @@ const Profile: React.FC = () => {
                 key={item.label}
                 onClick={() => handleSettingsClick(item.action)}
                 className={cn(
-                  "w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/50 transition-colors",
+                  "relative z-10 w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/30 transition-colors",
                   index !== settingsItems.length - 1 && "border-b border-border/30"
                 )}
               >
                 <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center",
+                  "w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-sm",
                   item.action === '/profile/clinical' 
-                    ? "bg-emerald-100 dark:bg-emerald-900/30" 
+                    ? "bg-primary/10" 
                     : "bg-muted/50"
                 )}>
                   <Icon className={cn(
                     "w-5 h-5",
                     item.action === '/profile/clinical' 
-                      ? "text-emerald-600 dark:text-emerald-400" 
+                      ? "text-primary" 
                       : "text-foreground"
                   )} />
                 </div>
@@ -172,10 +186,14 @@ const Profile: React.FC = () => {
           })}
         </div>
 
-        {/* Logout */}
+        {/* Logout - Glass style */}
         <Button 
           variant="outline" 
-          className="w-full rounded-2xl text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+          className={cn(
+            "w-full rounded-2xl",
+            "bg-glass backdrop-blur-xl border-destructive/30",
+            "text-destructive hover:bg-destructive/10 hover:text-destructive"
+          )}
           onClick={handleLogout}
         >
           <LogOut className="w-5 h-5 mr-2" />

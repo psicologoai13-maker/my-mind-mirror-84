@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useRewardPoints, STREAK_POINTS } from '@/hooks/useRewardPoints';
 import { useReferrals } from '@/hooks/useReferrals';
-import { Card, CardContent } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Check, Copy, Gift, Flame, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface StreakProgress {
   type: 'week' | 'month';
@@ -160,16 +161,27 @@ const PointsProgressCard: React.FC = () => {
   const monthProgress = streakProgress?.find(s => s.type === 'month');
 
   return (
-    <Card className="bg-card rounded-3xl border border-border/50 shadow-premium overflow-hidden">
-      <CardContent className="p-5">
+    <div className={cn(
+      "relative overflow-hidden rounded-3xl",
+      "bg-glass backdrop-blur-xl border border-glass-border",
+      "shadow-glass"
+    )}>
+      {/* Inner light */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      
+      <CardContent className="relative z-10 p-5">
         <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-          <Gift className="w-4 h-4 text-violet-500" />
+          <Gift className="w-4 h-4 text-aria-violet" />
           Guadagna Punti
         </h3>
 
         <div className="space-y-4">
-          {/* 7-Day Streak */}
-          <div className="p-4 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 rounded-2xl">
+          {/* 7-Day Streak - Glass card */}
+          <div className={cn(
+            "p-4 rounded-2xl",
+            "bg-gradient-to-br from-orange-50/80 to-amber-50/60 dark:from-orange-950/30 dark:to-amber-950/20",
+            "backdrop-blur-sm border border-orange-200/30 dark:border-orange-800/30"
+          )}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500" />
@@ -215,14 +227,18 @@ const PointsProgressCard: React.FC = () => {
             )}
           </div>
 
-          {/* 30-Day Streak */}
-          <div className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/20 rounded-2xl">
+          {/* 30-Day Streak - Aria glass card */}
+          <div className={cn(
+            "p-4 rounded-2xl",
+            "bg-gradient-aria-subtle",
+            "backdrop-blur-sm border border-aria-violet/20"
+          )}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-violet-500" />
+                <Flame className="w-4 h-4 text-aria-violet" />
                 <span className="text-sm font-medium text-foreground">30 giorni streak</span>
               </div>
-              <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
+              <span className="text-sm font-bold text-aria-violet">
                 +{STREAK_POINTS.month_streak} pts
               </span>
             </div>
@@ -232,7 +248,7 @@ const PointsProgressCard: React.FC = () => {
             <div className="flex items-center gap-3">
               <Progress 
                 value={((monthProgress?.currentDays || 0) / 30) * 100} 
-                className="h-2 flex-1 bg-violet-200/50 dark:bg-violet-800/30"
+                className="h-2 flex-1 bg-aria-violet/20"
               />
               <span className="text-xs font-medium text-muted-foreground min-w-[40px]">
                 {monthProgress?.currentDays || 0}/30
@@ -246,7 +262,10 @@ const PointsProgressCard: React.FC = () => {
             ) : monthProgress?.canClaim && (
               <Button
                 size="sm"
-                className="mt-3 w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl"
+                className={cn(
+                  "mt-3 w-full rounded-xl text-white",
+                  "bg-gradient-aria hover:opacity-90"
+                )}
                 onClick={() => handleClaimStreak('month')}
                 disabled={claimingStreak === 'month'}
               >
@@ -262,8 +281,12 @@ const PointsProgressCard: React.FC = () => {
             )}
           </div>
 
-          {/* Referral */}
-          <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 rounded-2xl">
+          {/* Referral - Glass card */}
+          <div className={cn(
+            "p-4 rounded-2xl",
+            "bg-gradient-to-br from-emerald-50/80 to-teal-50/60 dark:from-emerald-950/30 dark:to-teal-950/20",
+            "backdrop-blur-sm border border-emerald-200/30 dark:border-emerald-800/30"
+          )}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-500" />
@@ -279,7 +302,10 @@ const PointsProgressCard: React.FC = () => {
             
             {/* Referral Code */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 bg-white dark:bg-card/50 rounded-xl py-2 px-4 border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className={cn(
+                "flex-1 rounded-xl py-2 px-4",
+                "bg-glass-subtle backdrop-blur-sm border border-emerald-200/50 dark:border-emerald-800/30"
+              )}>
                 <span className="text-sm font-mono font-bold tracking-widest text-emerald-700 dark:text-emerald-300">
                   {referralCode || '------'}
                 </span>
@@ -314,7 +340,7 @@ const PointsProgressCard: React.FC = () => {
           </div>
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 };
 

@@ -44,27 +44,27 @@ const BottomNav: React.FC = () => {
           if (item.isMain) {
             return (
               <div key="main-button" className="relative -mt-6 mx-2">
-                {/* Glow behind button */}
+                {/* Aria Aurora Glow behind button */}
                 <div className={cn(
-                  "absolute inset-0 rounded-2xl blur-xl transition-opacity duration-500",
-                  "bg-gradient-to-br from-primary via-primary to-primary-glow",
-                  isActive ? "opacity-60" : "opacity-30"
+                  "absolute inset-0 rounded-2xl blur-xl transition-all duration-500",
+                  "bg-gradient-aria",
+                  isActive ? "opacity-70 scale-110" : "opacity-40"
                 )} />
                 
                 <button
                   onClick={() => navigate(item.path!)}
                   className={cn(
                     "relative w-14 h-14 rounded-2xl flex items-center justify-center",
-                    "bg-gradient-to-br from-primary via-primary to-primary-glow",
-                    "shadow-glass-glow",
+                    "bg-gradient-aria",
+                    "shadow-aria-glow",
                     "transition-all duration-300 ease-out",
                     "hover:scale-105 active:scale-95",
-                    isActive && "animate-breathe"
+                    isActive && "animate-aria-breathe"
                   )}
                 >
                   {/* Inner light reflection */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent via-transparent to-white/25 pointer-events-none" />
-                  <Icon className="w-7 h-7 text-primary-foreground relative z-10" />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent via-transparent to-white/30 pointer-events-none" />
+                  <Icon className="w-7 h-7 text-white relative z-10" />
                 </button>
               </div>
             );
