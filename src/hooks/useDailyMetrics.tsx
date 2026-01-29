@@ -3,24 +3,50 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { format, subDays } from 'date-fns';
 
-// Deep Psychology metrics interface
+// Deep Psychology metrics interface (16 parameters)
 export interface DeepPsychology {
-  // Cognitive
+  // Cognitive (4)
   rumination: number | null;
   self_efficacy: number | null;
   mental_clarity: number | null;
-  // Stress & Coping
+  concentration: number | null;
+  // Stress & Coping (3)
   burnout_level: number | null;
   coping_ability: number | null;
   loneliness_perceived: number | null;
-  // Physiological
+  // Physiological (3)
   somatic_tension: number | null;
   appetite_changes: number | null;
   sunlight_exposure: number | null;
-  // Complex Emotional
+  // Complex Emotional (3)
   guilt: number | null;
   gratitude: number | null;
   irritability: number | null;
+  // NEW: Extended Psychology (3)
+  motivation: number | null;
+  intrusive_thoughts: number | null;
+  self_worth: number | null;
+}
+
+// Extended Emotions interface (18 emotions)
+export interface ExtendedEmotions {
+  // Primary (5)
+  joy: number;
+  sadness: number;
+  anger: number;
+  fear: number;
+  apathy: number;
+  // Secondary (5)
+  shame?: number | null;
+  jealousy?: number | null;
+  hope?: number | null;
+  frustration?: number | null;
+  nostalgia?: number | null;
+  // NEW: Extended (4)
+  nervousness?: number | null;
+  overwhelm?: number | null;
+  excitement?: number | null;
+  disappointment?: number | null;
 }
 
 export interface DailyMetrics {
@@ -114,11 +140,12 @@ export const useDailyMetrics = (date?: Date) => {
     sleep: toPercentage(data.vitals.sleep),
   } : null;
 
-  // Default deep psychology object
+  // Default deep psychology object (16 parameters)
   const defaultDeepPsychology: DeepPsychology = {
     rumination: null,
     self_efficacy: null,
     mental_clarity: null,
+    concentration: null,
     burnout_level: null,
     coping_ability: null,
     loneliness_perceived: null,
@@ -128,6 +155,9 @@ export const useDailyMetrics = (date?: Date) => {
     guilt: null,
     gratitude: null,
     irritability: null,
+    motivation: null,
+    intrusive_thoughts: null,
+    self_worth: null,
   };
 
   return {

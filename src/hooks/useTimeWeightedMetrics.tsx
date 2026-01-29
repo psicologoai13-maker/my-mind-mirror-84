@@ -58,6 +58,11 @@ export interface TimeWeightedData {
     hope: number | null;
     frustration: number | null;
     nostalgia: number | null;
+    // NEW: Extended emotions
+    nervousness: number | null;
+    overwhelm: number | null;
+    excitement: number | null;
+    disappointment: number | null;
   };
   lifeAreas: {
     love: number | null;
@@ -191,14 +196,16 @@ export const useTimeWeightedMetrics = (
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
         emotions: { 
           joy: null, sadness: null, anger: null, fear: null, apathy: null,
-          shame: null, jealousy: null, hope: null, frustration: null, nostalgia: null
+          shame: null, jealousy: null, hope: null, frustration: null, nostalgia: null,
+          nervousness: null, overwhelm: null, excitement: null, disappointment: null
         },
         lifeAreas: { love: null, work: null, health: null, social: null, growth: null },
         deepPsychology: {
-          rumination: null, self_efficacy: null, mental_clarity: null,
+          rumination: null, self_efficacy: null, mental_clarity: null, concentration: null,
           burnout_level: null, coping_ability: null, loneliness_perceived: null,
           somatic_tension: null, appetite_changes: null, sunlight_exposure: null,
           guilt: null, gratitude: null, irritability: null,
+          motivation: null, intrusive_thoughts: null, self_worth: null,
         },
         hasData: false,
         daysWithData: 0,
@@ -228,7 +235,7 @@ export const useTimeWeightedMetrics = (
 
     // 🎯 EMOTIONS: Query diretta sulla tabella daily_emotions
     // Questo bypassa la RPC che perde dati aggregando per data
-    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'shame' | 'jealousy' | 'hope' | 'frustration' | 'nostalgia';
+    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'shame' | 'jealousy' | 'hope' | 'frustration' | 'nostalgia' | 'nervousness' | 'overwhelm' | 'excitement' | 'disappointment';
     
     const getMostRecentEmotionDirect = (key: EmotionKey): number | null => {
       if (!rawEmotionsData || rawEmotionsData.length === 0) return null;
@@ -244,18 +251,23 @@ export const useTimeWeightedMetrics = (
     };
 
     const emotions = {
-      // Primary emotions
+      // Primary emotions (5)
       joy: getMostRecentEmotionDirect('joy'),
       sadness: getMostRecentEmotionDirect('sadness'),
       anger: getMostRecentEmotionDirect('anger'),
       fear: getMostRecentEmotionDirect('fear'),
       apathy: getMostRecentEmotionDirect('apathy'),
-      // Secondary emotions
+      // Secondary emotions (5)
       shame: getMostRecentEmotionDirect('shame'),
       jealousy: getMostRecentEmotionDirect('jealousy'),
       hope: getMostRecentEmotionDirect('hope'),
       frustration: getMostRecentEmotionDirect('frustration'),
       nostalgia: getMostRecentEmotionDirect('nostalgia'),
+      // Extended emotions (4) - Profilazione 360°
+      nervousness: getMostRecentEmotionDirect('nervousness'),
+      overwhelm: getMostRecentEmotionDirect('overwhelm'),
+      excitement: getMostRecentEmotionDirect('excitement'),
+      disappointment: getMostRecentEmotionDirect('disappointment'),
     };
 
     // 🎯 LIFE AREAS: Usa il PUNTEGGIO PIÙ RECENTE, non la media!
@@ -287,11 +299,13 @@ export const useTimeWeightedMetrics = (
       growth: getMostRecentValue('growth'),
     };
 
-    // 🎯 DEEP PSYCHOLOGY: Usa il punteggio più recente
+    // 🎯 DEEP PSYCHOLOGY: Usa il punteggio più recente (16 parametri totali)
     const psychologyKeys: (keyof DeepPsychology)[] = [
-      'rumination', 'self_efficacy', 'mental_clarity', 'burnout_level',
-      'coping_ability', 'loneliness_perceived', 'somatic_tension',
-      'appetite_changes', 'sunlight_exposure', 'guilt', 'gratitude', 'irritability'
+      'rumination', 'self_efficacy', 'mental_clarity', 'concentration',
+      'burnout_level', 'coping_ability', 'loneliness_perceived',
+      'somatic_tension', 'appetite_changes', 'sunlight_exposure', 
+      'guilt', 'gratitude', 'irritability',
+      'motivation', 'intrusive_thoughts', 'self_worth'
     ];
 
     const getMostRecentPsychology = (key: keyof DeepPsychology): number | null => {

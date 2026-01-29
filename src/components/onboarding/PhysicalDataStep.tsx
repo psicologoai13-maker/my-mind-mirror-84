@@ -1,12 +1,14 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
-import { Scale, Ruler, Calendar } from 'lucide-react';
+import { Scale, Ruler, Calendar, User, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PhysicalData {
   weight?: number;
   height?: number;
   birthYear?: number;
+  gender?: string;
+  therapyStatus?: string;
 }
 
 interface PhysicalDataStepProps {
@@ -15,15 +17,19 @@ interface PhysicalDataStepProps {
 }
 
 const PhysicalDataStep: React.FC<PhysicalDataStepProps> = ({ value, onChange }) => {
-  const handleChange = (field: keyof PhysicalData, inputValue: string) => {
-    const numValue = inputValue ? parseFloat(inputValue) : undefined;
+  const handleChange = (field: keyof PhysicalData, inputValue: string | number | undefined) => {
     onChange({
       ...value,
-      [field]: numValue,
+      [field]: inputValue,
     });
   };
 
-  const fields = [
+  const handleNumericChange = (field: keyof PhysicalData, inputValue: string) => {
+    const numValue = inputValue ? parseFloat(inputValue) : undefined;
+    handleChange(field, numValue);
+  };
+
+  const numericFields = [
     {
       key: 'weight' as const,
       label: 'Peso attuale',
@@ -53,10 +59,23 @@ const PhysicalDataStep: React.FC<PhysicalDataStepProps> = ({ value, onChange }) 
     },
   ];
 
+  const genderOptions = [
+    { value: 'male', label: 'Maschio' },
+    { value: 'female', label: 'Femmina' },
+    { value: 'other', label: 'Altro' },
+    { value: 'prefer_not_say', label: 'Preferisco non dire' },
+  ];
+
+  const therapyOptions = [
+    { value: 'none', label: 'No, mai' },
+    { value: 'past', label: 'In passato' },
+    { value: 'current', label: 'Attualmente' },
+  ];
+
   return (
     <div className="flex-1 flex flex-col px-6 py-8 animate-fade-in">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground leading-tight mb-2">
           Dati fisici
         </h1>
@@ -66,8 +85,9 @@ const PhysicalDataStep: React.FC<PhysicalDataStepProps> = ({ value, onChange }) 
       </div>
 
       {/* Input Fields */}
-      <div className="flex-1 space-y-4">
-        {fields.map((field, index) => {
+      <div className="flex-1 space-y-4 overflow-auto">
+        {/* Numeric Fields */}
+        {numericFields.map((field, index) => {
           const Icon = field.icon;
           const hasValue = value[field.key] !== undefined;
           
@@ -99,7 +119,7 @@ const PhysicalDataStep: React.FC<PhysicalDataStepProps> = ({ value, onChange }) 
                 <Input
                   type="number"
                   value={value[field.key] ?? ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  onChange={(e) => handleNumericChange(field.key, e.target.value)}
                   placeholder={field.placeholder}
                   min={field.min}
                   max={field.max}
@@ -114,10 +134,92 @@ const PhysicalDataStep: React.FC<PhysicalDataStepProps> = ({ value, onChange }) 
             </div>
           );
         })}
+
+        {/* Gender Selection */}
+        <div
+          className={cn(
+            "p-4 rounded-2xl bg-card shadow-soft transition-all duration-300 animate-slide-up",
+            value.gender && "shadow-premium"
+          )}
+          style={{ animationDelay: `${numericFields.length * 0.1}s` }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+              value.gender ? "bg-primary/10" : "bg-muted"
+            )}>
+              <User className={cn(
+                "w-5 h-5 transition-colors",
+                value.gender ? "text-primary" : "text-muted-foreground"
+              )} />
+            </div>
+            <span className="text-sm font-medium text-foreground">
+              Genere
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {genderOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleChange('gender', option.value)}
+                className={cn(
+                  "py-3 px-4 rounded-xl text-sm font-medium transition-all",
+                  value.gender === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80 text-foreground"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Therapy Status */}
+        <div
+          className={cn(
+            "p-4 rounded-2xl bg-card shadow-soft transition-all duration-300 animate-slide-up",
+            value.therapyStatus && "shadow-premium"
+          )}
+          style={{ animationDelay: `${(numericFields.length + 1) * 0.1}s` }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+              value.therapyStatus ? "bg-primary/10" : "bg-muted"
+            )}>
+              <Heart className={cn(
+                "w-5 h-5 transition-colors",
+                value.therapyStatus ? "text-primary" : "text-muted-foreground"
+              )} />
+            </div>
+            <span className="text-sm font-medium text-foreground">
+              Segui una terapia psicologica?
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {therapyOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleChange('therapyStatus', option.value)}
+                className={cn(
+                  "py-3 px-3 rounded-xl text-sm font-medium transition-all",
+                  value.therapyStatus === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80 text-foreground"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Privacy Note */}
-      <p className="text-xs text-center text-muted-foreground mt-6">
+      <p className="text-xs text-center text-muted-foreground mt-4">
         🔒 I tuoi dati sono privati e sicuri. Puoi saltare questo step.
       </p>
     </div>

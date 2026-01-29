@@ -16,42 +16,60 @@ export type Database = {
     Tables: {
       body_metrics: {
         Row: {
+          active_minutes: number | null
           blood_pressure_diastolic: number | null
           blood_pressure_systolic: number | null
+          body_fat_percentage: number | null
+          calories_burned: number | null
           created_at: string
           date: string
+          hydration_level: number | null
           id: string
+          muscle_mass: number | null
           notes: string | null
           resting_heart_rate: number | null
           sleep_hours: number | null
+          steps: number | null
           updated_at: string
           user_id: string
           waist_circumference: number | null
           weight: number | null
         }
         Insert: {
+          active_minutes?: number | null
           blood_pressure_diastolic?: number | null
           blood_pressure_systolic?: number | null
+          body_fat_percentage?: number | null
+          calories_burned?: number | null
           created_at?: string
           date?: string
+          hydration_level?: number | null
           id?: string
+          muscle_mass?: number | null
           notes?: string | null
           resting_heart_rate?: number | null
           sleep_hours?: number | null
+          steps?: number | null
           updated_at?: string
           user_id: string
           waist_circumference?: number | null
           weight?: number | null
         }
         Update: {
+          active_minutes?: number | null
           blood_pressure_diastolic?: number | null
           blood_pressure_systolic?: number | null
+          body_fat_percentage?: number | null
+          calories_burned?: number | null
           created_at?: string
           date?: string
+          hydration_level?: number | null
           id?: string
+          muscle_mass?: number | null
           notes?: string | null
           resting_heart_rate?: number | null
           sleep_hours?: number | null
+          steps?: number | null
           updated_at?: string
           user_id?: string
           waist_circumference?: number | null
@@ -127,13 +145,17 @@ export type Database = {
           apathy: number | null
           created_at: string
           date: string
+          disappointment: number | null
+          excitement: number | null
           fear: number | null
           frustration: number | null
           hope: number | null
           id: string
           jealousy: number | null
           joy: number | null
+          nervousness: number | null
           nostalgia: number | null
+          overwhelm: number | null
           sadness: number | null
           session_id: string | null
           shame: number | null
@@ -146,13 +168,17 @@ export type Database = {
           apathy?: number | null
           created_at?: string
           date?: string
+          disappointment?: number | null
+          excitement?: number | null
           fear?: number | null
           frustration?: number | null
           hope?: number | null
           id?: string
           jealousy?: number | null
           joy?: number | null
+          nervousness?: number | null
           nostalgia?: number | null
+          overwhelm?: number | null
           sadness?: number | null
           session_id?: string | null
           shame?: number | null
@@ -165,13 +191,17 @@ export type Database = {
           apathy?: number | null
           created_at?: string
           date?: string
+          disappointment?: number | null
+          excitement?: number | null
           fear?: number | null
           frustration?: number | null
           hope?: number | null
           id?: string
           jealousy?: number | null
           joy?: number | null
+          nervousness?: number | null
           nostalgia?: number | null
+          overwhelm?: number | null
           sadness?: number | null
           session_id?: string | null
           shame?: number | null
@@ -285,17 +315,21 @@ export type Database = {
         Row: {
           appetite_changes: number | null
           burnout_level: number | null
+          concentration: number | null
           coping_ability: number | null
           created_at: string
           date: string
           gratitude: number | null
           guilt: number | null
           id: string
+          intrusive_thoughts: number | null
           irritability: number | null
           loneliness_perceived: number | null
           mental_clarity: number | null
+          motivation: number | null
           rumination: number | null
           self_efficacy: number | null
+          self_worth: number | null
           session_id: string | null
           somatic_tension: number | null
           source: string
@@ -306,17 +340,21 @@ export type Database = {
         Insert: {
           appetite_changes?: number | null
           burnout_level?: number | null
+          concentration?: number | null
           coping_ability?: number | null
           created_at?: string
           date?: string
           gratitude?: number | null
           guilt?: number | null
           id?: string
+          intrusive_thoughts?: number | null
           irritability?: number | null
           loneliness_perceived?: number | null
           mental_clarity?: number | null
+          motivation?: number | null
           rumination?: number | null
           self_efficacy?: number | null
+          self_worth?: number | null
           session_id?: string | null
           somatic_tension?: number | null
           source?: string
@@ -327,17 +365,21 @@ export type Database = {
         Update: {
           appetite_changes?: number | null
           burnout_level?: number | null
+          concentration?: number | null
           coping_ability?: number | null
           created_at?: string
           date?: string
           gratitude?: number | null
           guilt?: number | null
           id?: string
+          intrusive_thoughts?: number | null
           irritability?: number | null
           loneliness_perceived?: number | null
           mental_clarity?: number | null
+          motivation?: number | null
           rumination?: number | null
           self_efficacy?: number | null
+          self_worth?: number | null
           session_id?: string | null
           somatic_tension?: number | null
           source?: string
@@ -748,10 +790,13 @@ export type Database = {
           ai_dashboard_cache: Json | null
           ai_insights_cache: Json | null
           appearance_settings: Json | null
+          birth_date: string | null
           connection_code: string | null
           created_at: string
           dashboard_config: Json | null
           email: string | null
+          gender: string | null
+          height: number | null
           id: string
           last_data_change_at: string | null
           life_areas_scores: Json | null
@@ -767,6 +812,7 @@ export type Database = {
           realtime_context_updated_at: string | null
           referral_code: string | null
           selected_goals: string[] | null
+          therapy_status: string | null
           user_id: string
           wellness_score: number | null
         }
@@ -778,10 +824,13 @@ export type Database = {
           ai_dashboard_cache?: Json | null
           ai_insights_cache?: Json | null
           appearance_settings?: Json | null
+          birth_date?: string | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
           email?: string | null
+          gender?: string | null
+          height?: number | null
           id?: string
           last_data_change_at?: string | null
           life_areas_scores?: Json | null
@@ -797,6 +846,7 @@ export type Database = {
           realtime_context_updated_at?: string | null
           referral_code?: string | null
           selected_goals?: string[] | null
+          therapy_status?: string | null
           user_id: string
           wellness_score?: number | null
         }
@@ -808,10 +858,13 @@ export type Database = {
           ai_dashboard_cache?: Json | null
           ai_insights_cache?: Json | null
           appearance_settings?: Json | null
+          birth_date?: string | null
           connection_code?: string | null
           created_at?: string
           dashboard_config?: Json | null
           email?: string | null
+          gender?: string | null
+          height?: number | null
           id?: string
           last_data_change_at?: string | null
           life_areas_scores?: Json | null
@@ -827,6 +880,7 @@ export type Database = {
           realtime_context_updated_at?: string | null
           referral_code?: string | null
           selected_goals?: string[] | null
+          therapy_status?: string | null
           user_id?: string
           wellness_score?: number | null
         }
