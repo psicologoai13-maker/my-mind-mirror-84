@@ -1,11 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
-import WelcomeAriaModal from '@/components/home/WelcomeAriaModal';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -13,7 +12,6 @@ import { useAIDashboard } from '@/hooks/useAIDashboard';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
-import { useSessions } from '@/hooks/useSessions';
 import { cn } from '@/lib/utils';
 
 const Index: React.FC = () => {
@@ -22,23 +20,9 @@ const Index: React.FC = () => {
   const { layout: analysisLayout } = useAIAnalysis('week');
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
-  const { sessions } = useSessions();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
-
-  // Show welcome modal for new users (onboarding just completed, no sessions yet)
-  useEffect(() => {
-    if (!isLoading && profile?.onboarding_completed && sessions && sessions.length === 0) {
-      // Check if we already showed this modal
-      const hasSeenWelcome = localStorage.getItem('aria_welcome_shown');
-      if (!hasSeenWelcome) {
-        setShowWelcomeModal(true);
-        localStorage.setItem('aria_welcome_shown', 'true');
-      }
-    }
-  }, [isLoading, profile?.onboarding_completed, sessions]);
 
   // Get AI insights from analysis layout
   const aiSummary = analysisLayout.ai_summary || '';
@@ -147,13 +131,6 @@ const Index: React.FC = () => {
       <CheckinSummaryModal
         open={showSummaryModal}
         onOpenChange={setShowSummaryModal}
-      />
-
-      {/* Welcome Aria Modal for new users */}
-      <WelcomeAriaModal
-        open={showWelcomeModal}
-        onOpenChange={setShowWelcomeModal}
-        userName={userName}
       />
     </MobileLayout>
   );
