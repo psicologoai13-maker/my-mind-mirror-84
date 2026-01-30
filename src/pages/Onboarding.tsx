@@ -88,9 +88,9 @@ const Onboarding: React.FC = () => {
     therapyStatus: undefined,
   });
 
-  const stepOrder: Step[] = ['welcome', 'name', 'goals', 'aboutYou', 'ready'];
+  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'goals', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 3; // name, goals, aboutYou
+  const quizSteps = 3; // name, aboutYou, goals
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -122,8 +122,8 @@ const Onboarding: React.FC = () => {
   const getProgressStep = () => {
     const progressMap: Partial<Record<Step, number>> = {
       name: 1,
-      goals: 2,
-      aboutYou: 3,
+      aboutYou: 2,
+      goals: 3,
     };
     return progressMap[currentStep] || 0;
   };
