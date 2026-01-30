@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -101,113 +102,161 @@ const Auth: React.FC = () => {
   if (isRedirecting || (user && (authLoading || roleLoading || profileLoading))) {
     return (
       <div className="min-h-dvh bg-background flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Caricamento...</p>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+          <p className="text-muted-foreground">Caricamento...</p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6">
-      {/* Logo */}
-      <div className="mb-10 text-center animate-slide-up">
-        <div className="w-24 h-24 mx-auto mb-5 rounded-3xl bg-primary/10 flex items-center justify-center shadow-premium">
-          {isDoctor ? (
-            <Stethoscope className="w-12 h-12 text-primary" />
-          ) : (
-            <Sparkles className="w-12 h-12 text-primary" />
-          )}
-        </div>
-        <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          {isDoctor ? 'Portale Medico' : 'Serenity'}
-        </h1>
-        <p className="text-muted-foreground mt-2 text-base">
-          {isDoctor ? 'Accesso professionisti sanitari' : 'Il tuo spazio di benessere mentale'}
-        </p>
-      </div>
+    <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Aurora Background */}
+      <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+      
+      <div className="relative z-10 w-full max-w-sm">
+        {/* Logo */}
+        <motion.div 
+          className="mb-10 text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <motion.div 
+            className="w-24 h-24 mx-auto mb-5 rounded-3xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center shadow-glass"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+          >
+            {isDoctor ? (
+              <Stethoscope className="w-12 h-12 text-primary" />
+            ) : (
+              <Sparkles className="w-12 h-12 text-primary" />
+            )}
+          </motion.div>
+          <h1 className="font-display text-4xl font-bold text-foreground tracking-tight">
+            {isDoctor ? 'Portale Medico' : 'Serenity'}
+          </h1>
+          <p className="text-muted-foreground mt-2 text-base">
+            {isDoctor ? 'Accesso professionisti sanitari' : 'Il tuo spazio di benessere mentale'}
+          </p>
+        </motion.div>
 
-      {/* Auth Card */}
-      <div className="w-full max-w-sm bg-card rounded-3xl p-8 shadow-premium animate-slide-up" style={{ animationDelay: '0.1s' }}>
-        <h2 className="text-xl font-semibold text-foreground text-center mb-8">
-          {isLogin ? 'Bentornato!' : (isDoctor ? 'Registrazione Medico' : 'Crea il tuo account')}
-        </h2>
+        {/* Auth Card */}
+        <motion.div 
+          className="bg-glass backdrop-blur-xl rounded-3xl p-8 border border-glass-border shadow-glass"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+        >
+          <h2 className="text-xl font-semibold text-foreground text-center mb-8">
+            {isLogin ? 'Bentornato!' : (isDoctor ? 'Registrazione Medico' : 'Crea il tuo account')}
+          </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <motion.div 
+                className="relative"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </motion.div>
+            )}
+            
             <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
-                type="text"
-                placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
-          )}
-          
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
 
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="pl-12 h-14 rounded-2xl bg-muted/50 border-0 focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-
-          <Button 
-            type="submit" 
-            className="w-full h-14 rounded-full text-base font-medium shadow-premium hover:shadow-elevated transition-all duration-300 mt-6"
-            disabled={loading}
-          >
-            {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}
-          </Button>
-        </form>
-
-        <div className="mt-8 text-center space-y-4">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {isLogin ? 'Non hai un account? ' : 'Hai già un account? '}
-            <span className="text-primary font-medium">
-              {isLogin ? 'Registrati' : 'Accedi'}
-            </span>
-          </button>
-
-          {!isLogin && (
-            <div className="pt-4 border-t border-border">
-              <button
-                onClick={() => setIsDoctor(!isDoctor)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto"
-              >
-                <Stethoscope className="w-4 h-4" />
-                {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
-              </button>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+              />
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Footer */}
-      <p className="mt-10 text-xs text-muted-foreground text-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
-        Accedendo accetti i nostri Termini di Servizio e Privacy Policy
-      </p>
+            <Button 
+              type="submit" 
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 mt-6"
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              ) : null}
+              {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}
+            </Button>
+          </form>
+
+          <div className="mt-8 text-center space-y-4">
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isLogin ? 'Non hai un account? ' : 'Hai già un account? '}
+              <span className="text-primary font-medium">
+                {isLogin ? 'Registrati' : 'Accedi'}
+              </span>
+            </button>
+
+            {!isLogin && (
+              <motion.div 
+                className="pt-4 border-t border-glass-border"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <button
+                  onClick={() => setIsDoctor(!isDoctor)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto"
+                >
+                  <Stethoscope className="w-4 h-4" />
+                  {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Footer */}
+        <motion.p 
+          className="mt-10 text-xs text-muted-foreground text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          Accedendo accetti i nostri Termini di Servizio e Privacy Policy
+        </motion.p>
+      </div>
     </div>
   );
 };

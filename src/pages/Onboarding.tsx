@@ -7,10 +7,12 @@ import NameInputStep from '@/components/onboarding/NameInputStep';
 import MotivationStep from '@/components/onboarding/MotivationStep';
 import GoalsStep from '@/components/onboarding/GoalsStep';
 import AboutYouStep from '@/components/onboarding/AboutYouStep';
+import InterestsStep from '@/components/onboarding/InterestsStep';
 import ReadyScreen from '@/components/onboarding/ReadyScreen';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
+import { useUserInterests } from '@/hooks/useUserInterests';
 import { toast } from 'sonner';
 
 interface OnboardingData {
@@ -20,6 +22,7 @@ interface OnboardingData {
   currentMood: number;
   ageRange?: string;
   therapyStatus?: string;
+  interests: string[];
 }
 
 interface DashboardConfig {
@@ -75,11 +78,12 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
   };
 };
 
-type Step = 'welcome' | 'name' | 'aboutYou' | 'motivation' | 'goals' | 'ready';
+type Step = 'welcome' | 'name' | 'aboutYou' | 'motivation' | 'goals' | 'interests' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
+  const { updateInterests } = useUserInterests();
   
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [data, setData] = useState<OnboardingData>({
@@ -89,11 +93,12 @@ const Onboarding: React.FC = () => {
     currentMood: 2,
     ageRange: undefined,
     therapyStatus: undefined,
+    interests: [],
   });
 
-  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'motivation', 'goals', 'ready'];
+  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'motivation', 'goals', 'interests', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 4; // name, aboutYou, motivation, goals
+  const quizSteps = 5; // name, aboutYou, motivation, goals, interests
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -119,6 +124,8 @@ const Onboarding: React.FC = () => {
         return data.primaryGoals.length >= 1;
       case 'aboutYou':
         return true; // mood has default
+      case 'interests':
+        return true; // interests are optional
       default:
         return true;
     }
@@ -130,6 +137,7 @@ const Onboarding: React.FC = () => {
       aboutYou: 2,
       motivation: 3,
       goals: 4,
+      interests: 5,
     };
     return progressMap[currentStep] || 0;
   };
@@ -151,6 +159,7 @@ const Onboarding: React.FC = () => {
       
       const legacyGoals = data.primaryGoals.map(g => legacyGoalMap[g] || g);
       
+      // Save profile
       await updateProfile.mutateAsync({
         name: data.name,
         onboarding_completed: true,
@@ -161,6 +170,7 @@ const Onboarding: React.FC = () => {
           currentMood: data.currentMood,
           ageRange: data.ageRange,
           therapyStatus: data.therapyStatus,
+          interests: data.interests,
           // Keep empty for legacy compatibility
           lifeSituation: null,
           vices: [],
@@ -172,6 +182,61 @@ const Onboarding: React.FC = () => {
         active_dashboard_metrics: personalizedMetrics,
         selected_goals: legacyGoals,
       } as any);
+      
+      // Save interests to user_interests table
+      if (data.interests.length > 0) {
+        const interestMappings: Record<string, Partial<{ 
+          sports_followed: string[];
+          music_genres: string[];
+          learning_interests: string[];
+          dream_destinations: string[];
+          creative_hobbies: string[];
+          outdoor_activities: string[];
+          indoor_activities: string[];
+          gaming_interests: string[];
+          pet_owner: boolean;
+          favorite_genres: string[];
+          current_shows: string[];
+        }>> = {
+          sport: { sports_followed: ['Calcio', 'Sport in generale'] },
+          music: { music_genres: ['Musica'] },
+          reading: { learning_interests: ['Lettura'] },
+          travel: { dream_destinations: ['Viaggio'] },
+          cooking: { creative_hobbies: ['Cucina'] },
+          nature: { outdoor_activities: ['Natura'] },
+          art: { creative_hobbies: ['Arte'] },
+          gaming: { gaming_interests: ['Gaming'] },
+          fitness: { outdoor_activities: ['Fitness'] },
+          movies: { favorite_genres: ['Film'], current_shows: ['Serie TV'] },
+          pets: { pet_owner: true },
+          photography: { creative_hobbies: ['Fotografia'] },
+          yoga: { indoor_activities: ['Yoga', 'Meditazione'] },
+          tech: { learning_interests: ['Tecnologia'] },
+          fashion: { creative_hobbies: ['Moda'] },
+          social: { indoor_activities: ['Socializzare'] },
+        };
+        
+        const interestsUpdate: Record<string, any> = {};
+        data.interests.forEach(interest => {
+          const mapping = interestMappings[interest];
+          if (mapping) {
+            Object.entries(mapping).forEach(([key, value]) => {
+              if (typeof value === 'boolean') {
+                interestsUpdate[key] = value;
+              } else if (Array.isArray(value)) {
+                interestsUpdate[key] = [...(interestsUpdate[key] || []), ...value];
+              }
+            });
+          }
+        });
+        
+        try {
+          await updateInterests(interestsUpdate);
+        } catch (err) {
+          console.error('Error saving interests:', err);
+          // Non-blocking - continue anyway
+        }
+      }
       
       toast.success(`Benvenuto/a, ${data.name}! 🎉`);
       navigate('/', { replace: true });
@@ -290,6 +355,31 @@ const Onboarding: React.FC = () => {
               className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
             >
               Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
+      {/* Interests Step */}
+      {currentStep === 'interests' && (
+        <>
+          <InterestsStep
+            userName={data.name}
+            selectedInterests={data.interests}
+            onChange={(interests) => setData(prev => ({ ...prev, interests }))}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
+            >
+              {data.interests.length > 0 ? 'Continua' : 'Salta'}
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </motion.div>
