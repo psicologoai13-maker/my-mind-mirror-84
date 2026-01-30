@@ -73,12 +73,12 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-2xl font-bold text-foreground mb-2">
-          Su cosa vuoi concentrarti, {userName}?
-        </h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-sm mb-1">
           Seleziona tutte le aree che ti interessano
         </p>
+        <h1 className="text-2xl font-bold text-foreground">
+          Su cosa vuoi concentrarti, {userName}?
+        </h1>
       </motion.div>
 
       {/* Counter */}
