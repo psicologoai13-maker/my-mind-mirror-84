@@ -90,19 +90,44 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
   const progress = ((currentStep + 1) / TUTORIAL_STEPS.length) * 100;
 
-  // Find and measure the highlighted element
+  // Lock body scroll during tutorial
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${window.scrollY}px`;
+    }
+    
+    return () => {
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
+    };
+  }, [isVisible]);
+
+  // Find, scroll to, and measure the highlighted element
   useEffect(() => {
     if (step.highlightSelector) {
       const element = document.querySelector(step.highlightSelector);
       if (element) {
-        const rect = element.getBoundingClientRect();
-        const padding = 8;
-        setSpotlightRect({
-          top: rect.top - padding,
-          left: rect.left - padding,
-          width: rect.width + padding * 2,
-          height: rect.height + padding * 2,
-        });
+        // Scroll element into view first
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Wait for scroll to complete, then measure
+        setTimeout(() => {
+          const rect = element.getBoundingClientRect();
+          const padding = 12;
+          setSpotlightRect({
+            top: rect.top - padding,
+            left: rect.left - padding,
+            width: rect.width + padding * 2,
+            height: rect.height + padding * 2,
+          });
+        }, 350);
       } else {
         setSpotlightRect(null);
       }
@@ -127,10 +152,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
 
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
+    const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 280; // Approximate height of tooltip
-    const gap = 16;
-    const navBarHeight = 100; // Bottom nav + safe area
+    const tooltipHeight = 300; // Approximate height of tooltip
+    const tooltipWidth = Math.min(viewportWidth - 32, 360);
+    const gap = 20;
+    const navBarHeight = 120; // Bottom nav + safe area
     const safeBottom = viewportHeight - navBarHeight;
 
     if (!spotlightRect) {
@@ -140,7 +167,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: `calc(100% - 2rem)`,
+        width: tooltipWidth,
         maxWidth: '360px',
       };
     }
@@ -152,16 +179,18 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     // Determine if tooltip should go above (prefer above when spotlight is low)
     const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
     
+    // Center horizontally
+    const leftPos = (viewportWidth - tooltipWidth) / 2;
+    
     if (shouldGoAbove) {
       // Position above the spotlight
       const topPos = Math.max(20, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
         top: `${topPos}px`, 
-        left: '1rem', 
-        right: '1rem',
+        left: `${leftPos}px`,
+        width: tooltipWidth,
         maxWidth: '360px',
-        margin: '0 auto',
       };
     } else {
       // Position below the spotlight, but ensure it doesn't go below navbar
@@ -170,10 +199,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       return { 
         position: 'fixed',
         top: `${Math.max(20, adjustedTop)}px`, 
-        left: '1rem', 
-        right: '1rem',
+        left: `${leftPos}px`,
+        width: tooltipWidth,
         maxWidth: '360px',
-        margin: '0 auto',
       };
     }
   };
@@ -183,9 +211,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     if (!spotlightRect) return true;
     
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 280;
-    const gap = 16;
-    const navBarHeight = 100;
+    const tooltipHeight = 300;
+    const gap = 20;
+    const navBarHeight = 120;
     const safeBottom = viewportHeight - navBarHeight;
     
     const spaceAbove = spotlightRect.top;
