@@ -142,8 +142,7 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   };
 
   return (
-    <motion.div 
-      layout
+    <div 
       className={cn(
         "relative overflow-hidden rounded-3xl cursor-pointer select-none",
         "bg-glass backdrop-blur-xl border border-glass-border",
@@ -214,7 +213,7 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
