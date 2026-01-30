@@ -86,13 +86,13 @@ const BottomNav: React.FC = () => {
               )}
               
               <Icon className={cn(
-                "w-5 h-5 transition-all duration-300",
+                "w-6 h-6 transition-all duration-300",
                 isActive 
                   ? "text-primary scale-110" 
                   : "text-muted-foreground group-hover:text-foreground group-hover:scale-105"
               )} />
               <span className={cn(
-                "text-[10px] font-medium transition-colors duration-300",
+                "text-xs font-medium transition-colors duration-300",
                 isActive 
                   ? "text-primary" 
                   : "text-muted-foreground group-hover:text-foreground"
