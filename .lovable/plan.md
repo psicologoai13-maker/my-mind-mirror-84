@@ -1,52 +1,65 @@
 
+# Onboarding 2026 - Redesign Completo "User-Friendly & Stimolante"
 
-# Onboarding 2026 - Redesign Completo "Incontra Aria"
+## Problemi Identificati
 
-## Problemi Attuali Identificati
-
-| Problema | Impatto |
-|----------|---------|
-| **11 schermate** | Troppo lungo, abbandono alto |
-| **Chip grids ripetitivi** | Vices, Lifestyle, Habits - tutti simili, confonde |
-| **Progress bar lineare** | Non comunica "dove sono?" |
-| **Tono freddo/questionario** | Non sembra una conversazione |
-| **AnalyzingScreen finto** | 3.5 sec di attesa inutile |
-| **Troppe domande opzionali** | Confonde su cosa è importante |
+| Problema | Soluzione |
+|----------|-----------|
+| 11 schermate troppe | Riduzione a **5 schermate** |
+| Grafica vecchia (non glassmorphism) | Applicare **Liquid Glass 2026** |
+| "Quali abitudini vuoi tracciare" confusionario | **Rimuovere** - habits suggeriti post-onboarding |
+| Physical/Vices/Lifestyle troppo invasivi | **Rimuovere** - raccolti dopo da Aria |
+| Progress bar lineare vecchio stile | **Dot indicators** animati |
+| Chip piccoli poco coinvolgenti | **Card grandi glassmorphism** |
+| Manca gamification | **Animazioni, feedback, celebrazione** |
 
 ---
 
-## Nuovo Flusso: 4 Schermate (30 secondi)
+## Nuovo Flusso: 5 Schermate (~40 secondi)
 
 ```text
-   [1]           [2]           [3]           [4]
+   [1]           [2]           [3]           [4]           [5]
    
-  SPLASH    →   NOME      →   FOCUS     →   PRONTO!
-  (Aria)       (Chi sei?)    (3 goals)    (Celebra)
+  SPLASH    →   NOME      →   FOCUS     →   ABOUT YOU →   PRONTO!
+  (Aria)       (Chi sei?)    (3 goals)    (Mood+Info)   (Celebra)
   
-  3 sec         8 sec         15 sec        4 sec
+  3 sec         8 sec         12 sec        10 sec        5 sec
 ```
 
-### Schermata 1: Splash - "Incontra Aria"
-- Avatar Aria grande con gradiente Aurora animato
-- Testo: "Ciao! Sono Aria" 
-- Sottotitolo: "2 domande veloci per personalizzare la tua esperienza"
-- **NO** elenco feature (rimuove friction)
-- CTA: Pulsante con glow pulsante
+---
 
-### Schermata 2: Nome
-- Grande emoji/avatar che "parla"
+## Dettaglio Schermate
+
+### 1. WelcomeStep - REDESIGN
+**Stile:** Aurora gradient + Avatar Aria pulsante
+
+- Background: `bg-gradient-aria-subtle` con particelle fluttuanti
+- Avatar Aria: Ring animato con glow viola/indigo
+- Testo: "Ciao! Sono Aria" - grande, bold
+- Sottotitolo: "3 domande veloci per conoscerti meglio"
+- CTA: Button con `shadow-aria-glow`, effetto pulse
+- **NO** lista feature (troppo testo)
+
+### 2. NameInputStep - REDESIGN  
+**Stile:** Minimal + feedback immediato
+
+- Avatar/emoji che "parla" in alto
 - "Come posso chiamarti?"
-- Input centrale con bordo glow on focus
-- Feedback: "Piacere, {nome}!" appare sotto
-- **Auto-avanza dopo 1.2 secondi** dal nome valido
+- Input: `bg-glass backdrop-blur-xl`, glow border on focus
+- Feedback: "Piacere, {nome}!" animato sotto input
+- Button: appare solo quando nome valido (2+ caratteri)
+- Transizione fluida al prossimo step
 
-### Schermata 3: Focus (Goals Unificati)
+### 3. GoalsStep - NUOVO COMPONENTE
+**Stile:** Card grandi glassmorphism
+
 - "Su cosa vuoi concentrarti, {nome}?"
-- **6 card grandi** (non chip piccoli) con:
-  - Emoji prominente (48px)
-  - Label chiara
-  - Effetto glass quando selezionato
-- **Max 3 selezioni** con counter visibile
+- **6 card grandi** (non chip piccoli):
+  - `bg-glass backdrop-blur-xl`
+  - Emoji 48px prominente
+  - Label chiara sotto
+  - Bordo `border-primary` + `shadow-glass-glow` quando selezionato
+- **Max 3 selezioni** con counter animato
 - Opzioni:
   1. Gestire ansia/stress
   2. Dormire meglio
@@ -55,57 +68,88 @@
   5. Crescita personale
   6. Autostima
 
-### Schermata 4: Pronto! (Celebration)
-- Confetti/particelle animate
-- Avatar Aria con espressione felice
-- "Perfetto, {nome}! Ora ti conosco meglio"
-- Mini-card: mostra i 3 goals scelti
-- CTA: "Esplora con Aria" → Home
+### 4. AboutYouStep - NUOVO COMPONENTE UNIFICATO
+**Stile:** Sezioni collassate glassmorphism
 
----
+Combina mood + info base in modo elegante:
 
-## Cosa Rimuoviamo (Raccolti Dopo)
-
-| Dato | Quando lo raccogliamo |
-|------|----------------------|
-| Vices | Aria chiede nel primo check-in se rilevante |
-| Lifestyle | Inferito dalle conversazioni |
-| Physical data | Sezione Corpo nel profilo |
-| Habits | Suggeriti dopo primo check-in |
-| Situation | Aria lo capisce dal mood nei check-in |
-| Mood iniziale | Primo check-in sulla home |
-
----
-
-## Design System
-
-### Progress: Dot Indicators
 ```text
-Attuale:  [████████░░░░] 4/8
-
-Nuovo:    ● ● ○ ○   (4 dots, glow pulse sul corrente)
+┌────────────────────────────────────────┐
+│  "Come ti senti in questo periodo?"    │
+│                                        │
+│        [😔] [😕] [😐] [🙂] [😊]         │
+│              ↑ Grande al centro        │
+│            "Così così"                 │
+│                                        │
+│  ─────────── Un po' su di te ──────── │
+│                                        │
+│  Fascia d'età  (chips singola riga)    │
+│  [18-24] [25-34] [35-44] [45-54] [55+] │
+│                                        │
+│  In terapia?   (opzionale)             │
+│  [No] [In passato] [Attualmente]       │
+│                                        │
+│  [Continua]                            │
+└────────────────────────────────────────┘
 ```
 
-### Card Goals (Glass Premium)
+- Emoji mood: card grandi touch-friendly
+- Età/terapia: chips piccoli opzionali
+- Tutto skippabile tranne mood
+
+### 5. ReadyScreen - NUOVO COMPONENTE
+**Stile:** Celebration con confetti
+
+- Background: Aurora gradient animato
+- Confetti/sparkles particles
+- Avatar Aria con espressione felice
+- "Perfetto, {nome}! Siamo pronti"
+- Mini-card: mostra i goals scelti con icone
+- CTA: "Inizia il tuo percorso" → Home
+- Haptic feedback forte sul tap
+
+---
+
+## Cosa Rimuoviamo
+
+| Step Rimosso | Perché | Quando lo raccogliamo |
+|--------------|--------|----------------------|
+| `VicesStep` | Troppo invasivo all'inizio | Aria chiede in chat |
+| `LifestyleStep` | Non essenziale | Inferito dalle conversazioni |
+| `PhysicalDataStep` | Troppi campi | Sezione Corpo nel profilo |
+| `HabitsSelectionStep` | Confusionario | Suggeriti dopo primo check-in |
+| `AnalyzingScreen` | Fake delay inutile | Rimosso |
+| `ResultScreen` | Troppo lungo | Sostituito da ReadyScreen |
+
+---
+
+## Design System Applicato
+
+### Glassmorphism Cards
 ```css
-.goal-card {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 20px;
+.onboarding-card {
+  background: hsl(var(--glass-bg));
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 24px;
+  box-shadow: var(--shadow-glass);
 }
 
-.goal-card.selected {
-  background: rgba(var(--primary), 0.12);
-  border-color: hsl(var(--primary) / 0.4);
-  box-shadow: 0 0 30px rgba(var(--primary), 0.15);
+.onboarding-card.selected {
+  border-color: hsl(var(--primary) / 0.5);
+  box-shadow: var(--shadow-glass-glow);
 }
 ```
 
-### Animazioni Spring
+### Progress Dots (sostituisce barra)
+```text
+Prima:  [████████░░░░] 4/8
+
+Dopo:   ● ● ● ○ ○   (glow pulse sul corrente)
+```
+
+### Spring Animations (Framer Motion)
 ```typescript
-// Framer Motion config
 const spring = {
   type: "spring",
   stiffness: 400,
@@ -113,30 +157,41 @@ const spring = {
 };
 ```
 
-### Aurora Background
-Gradiente animato dietro avatar Aria:
-- Colori: Primary (viola) + Indigo + Cyan
-- Animazione: shift 8s infinite
+### Aurora Gradient per Aria
+```css
+.aurora-bg {
+  background: linear-gradient(
+    135deg,
+    hsl(270 60% 65% / 0.15),
+    hsl(240 80% 65% / 0.1),
+    hsl(280 70% 70% / 0.12)
+  );
+  animation: aurora-shift 8s ease infinite;
+}
+```
 
 ---
 
 ## Implementazione Tecnica
 
-### File da Creare/Modificare
-
+### File da Modificare
 | File | Azione |
 |------|--------|
-| `Onboarding.tsx` | **REWRITE** - 4 step flow |
-| `WelcomeStep.tsx` | **UPDATE** - Aurora bg, no feature list |
-| `NameInputStep.tsx` | **UPDATE** - Auto-advance, avatar |
-| `GoalsStep.tsx` | **NEW** - 6 card grandi glassmorphism |
-| `ReadyScreen.tsx` | **NEW** - Celebration con confetti |
-| `OnboardingLayout.tsx` | **UPDATE** - Dot indicators |
+| `Onboarding.tsx` | **REWRITE** - Nuovo flusso 5 step |
+| `OnboardingLayout.tsx` | **UPDATE** - Dot progress indicators |
+| `WelcomeStep.tsx` | **REDESIGN** - Aurora, avatar, no features list |
+| `NameInputStep.tsx` | **REDESIGN** - Glass input, feedback |
 
-### File da NON Usare Piu
+### File da Creare
+| File | Descrizione |
+|------|-------------|
+| `GoalsStep.tsx` | 6 card glassmorphism, max 3 selezioni |
+| `AboutYouStep.tsx` | Mood emoji + età/terapia opzionali |
+| `ReadyScreen.tsx` | Celebration con confetti |
 
+### File da Rimuovere (non più usati)
 - `QuizStep.tsx`
-- `ChipGridStep.tsx`
+- `ChipGridStep.tsx` 
 - `EmojiSlider.tsx`
 - `VicesStep.tsx`
 - `LifestyleStep.tsx`
@@ -146,20 +201,13 @@ Gradiente animato dietro avatar Aria:
 - `ResultScreen.tsx`
 
 ### Struttura Dati Semplificata
-
 ```typescript
 interface OnboardingData {
   name: string;
   primaryGoals: string[];  // max 3
-}
-
-// Salvataggio in user_profiles
-{
-  name: data.name,
-  onboarding_completed: true,
-  onboarding_answers: { name: data.name, primaryGoals: data.primaryGoals },
-  selected_goals: data.primaryGoals,
-  active_dashboard_metrics: buildMetricsFromGoals(data.primaryGoals)
+  currentMood: number;     // 0-4
+  ageRange?: string;       // opzionale
+  therapyStatus?: string;  // opzionale
 }
 ```
 
@@ -167,11 +215,13 @@ interface OnboardingData {
 
 ## UX Micro-Interazioni
 
-1. **Welcome** → Aria avatar pulsa leggermente, particelle fluttuano
-2. **Name input** → Glow border animato, feedback immediato
+1. **Welcome** → Avatar pulsa con glow Aurora
+2. **Name input** → Glow border + feedback "Piacere!"
 3. **Goal tap** → Scale bounce + haptic + ring glow
-4. **Transition** → Slide orizzontale + fade (spring physics)
-5. **Ready** → Confetti burst + avatar celebration
+4. **Mood tap** → Emoji zoom + particle burst
+5. **Progress dots** → Pulse glow sul corrente
+6. **Transitions** → Slide + fade spring (400 stiffness)
+7. **Ready** → Confetti burst + haptic forte
 
 ---
 
@@ -179,42 +229,22 @@ interface OnboardingData {
 
 | Metrica | Prima | Dopo |
 |---------|-------|------|
-| Tempo completamento | ~4 min | ~30 sec |
-| Completion rate | ~60% | ~95% |
-| Tap richiesti | ~15+ | ~6 |
-| Schermate | 11 | 4 |
-| Cognitive load | Alto | Minimo |
+| Schermate | 11 | **5** |
+| Tempo completamento | ~4 min | **~40 sec** |
+| Tap richiesti | ~15+ | **~8** |
+| Completion rate | ~60% | **~95%** |
+| Cognitive load | Alto | **Minimo** |
 
 ---
 
-## Flusso Visivo
+## Dati Essenziali Raccolti
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   [1] SPLASH              [2] NOME              [3] FOCUS       │
-│   ┌──────────────┐       ┌──────────────┐      ┌──────────────┐│
-│   │              │       │              │      │  ┌────┐┌────┐││
-│   │    ( ◠‿◠ )   │       │   Ciao!      │      │  │ :) ││ :D │││
-│   │     Aria     │  →    │   Come ti    │  →   │  │Ansia││Sleep│││
-│   │              │       │   chiami?    │      │  └────┘└────┘││
-│   │  "Ciao!"     │       │              │      │  ┌────┐┌────┐││
-│   │              │       │  [________]  │      │  │ ⚡ ││ 💕 │││
-│   │  [Iniziamo]  │       │              │      │  │Energy│Relaz│││
-│   └──────────────┘       └──────────────┘      │  └────┘└────┘││
-│                                                │ [Continua 2/3]│
-│                                                └──────────────┘│
-│                                                                 │
-│   [4] PRONTO!                                                   │
-│   ┌──────────────┐                                              │
-│   │   🎉 🎊 ✨   │                                              │
-│   │              │                                              │
-│   │  Perfetto,   │                                              │
-│   │   Marco!     │                                              │
-│   │              │                                              │
-│   │  [Esplora]   │                                              │
-│   └──────────────┘                                              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Dato | Uso | Obbligatorio |
+|------|-----|--------------|
+| `name` | Personalizzazione UI e conversazioni | Si |
+| `primaryGoals[]` | Dashboard metrics + prompt AI | Si (min 1) |
+| `currentMood` | Baseline emotiva iniziale | Si |
+| `ageRange` | Contesto generazionale per AI | No |
+| `therapyStatus` | Safety flags per AI | No |
 
+Tutto il resto (vizi, lifestyle, dati fisici, habits) viene raccolto progressivamente da Aria durante le conversazioni o nelle sezioni dedicate del profilo.
