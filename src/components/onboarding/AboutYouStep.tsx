@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,8 @@ interface AboutYouStepProps {
   onAgeChange: (age: string | undefined) => void;
   therapyStatus?: string;
   onTherapyChange: (status: string | undefined) => void;
+  moodSelected?: boolean;
+  onMoodSelected?: (selected: boolean) => void;
 }
 
 const moodEmojis = [
@@ -40,7 +42,14 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
   onAgeChange,
   therapyStatus,
   onTherapyChange,
+  moodSelected = false,
+  onMoodSelected,
 }) => {
+  const handleMoodSelect = (index: number) => {
+    onMoodChange(index);
+    onMoodSelected?.(true);
+  };
+
   return (
     <div className="flex-1 flex flex-col px-5 py-6 overflow-y-auto">
       {/* Mood Section */}
@@ -59,38 +68,53 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
 
         {/* Current Mood Display */}
         <div className="flex flex-col items-center mb-6">
+          <AnimatePresence mode="wait">
+            {moodSelected ? (
+              <motion.span
+                key={currentMood}
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={spring}
+                className="text-7xl mb-2"
+              >
+                {moodEmojis[currentMood].emoji}
+              </motion.span>
+            ) : (
+              <motion.div
+                key="placeholder"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="w-20 h-20 rounded-full bg-glass border-2 border-dashed border-aria-violet/30 flex items-center justify-center mb-2"
+              >
+                <span className="text-2xl text-muted-foreground">?</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <motion.span
-            key={currentMood}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={spring}
-            className="text-7xl mb-2"
-          >
-            {moodEmojis[currentMood].emoji}
-          </motion.span>
-          <motion.span
-            key={`label-${currentMood}`}
+            key={`label-${moodSelected ? currentMood : 'none'}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-lg font-medium text-foreground"
           >
-            {moodEmojis[currentMood].label}
+            {moodSelected ? moodEmojis[currentMood].label : 'Seleziona un\'emoji'}
           </motion.span>
         </div>
 
-        {/* Mood Selector */}
+        {/* Mood Selector with Aurora accent */}
         <div className="flex items-center justify-center gap-2">
           {moodEmojis.map((mood, index) => (
             <motion.button
               key={index}
-              onClick={() => onMoodChange(index)}
+              onClick={() => handleMoodSelect(index)}
               whileTap={{ scale: 0.9 }}
               className={cn(
                 "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl",
                 "transition-all duration-300 bg-glass backdrop-blur-xl border",
-                index === currentMood
-                  ? "border-primary/50 shadow-glass-glow scale-110 ring-2 ring-primary/30"
-                  : "border-glass-border shadow-glass hover:shadow-glass-elevated"
+                moodSelected && index === currentMood
+                  ? "border-aria-violet/50 shadow-aria-glow scale-110 ring-2 ring-aria-violet/30"
+                  : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
               )}
             >
               {mood.emoji}
@@ -135,8 +159,8 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
                 "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
                 "bg-glass backdrop-blur-xl border",
                 ageRange === age
-                  ? "border-primary/50 text-primary shadow-glass-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground"
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
+                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
               )}
             >
               {age}
@@ -162,8 +186,8 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
                 "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
                 "bg-glass backdrop-blur-xl border",
                 therapyStatus === option.id
-                  ? "border-primary/50 text-primary shadow-glass-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground"
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
+                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
               )}
             >
               {option.label}
@@ -174,24 +198,24 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
 
       {/* Feedback message */}
       <AnimatePresence>
-        {currentMood >= 3 && (
+        {moodSelected && currentMood >= 3 && (
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-center text-sm text-primary mt-6 font-medium"
+            className="text-center text-sm text-aria-violet mt-6 font-medium"
           >
             Che bello sentirti così! 🌟
           </motion.p>
         )}
-        {currentMood <= 1 && (
+        {moodSelected && currentMood <= 1 && (
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="text-center text-sm text-muted-foreground mt-6"
           >
-            Sono qui per aiutarti 💙
+            Sono qui per aiutarti 💜
           </motion.p>
         )}
       </AnimatePresence>

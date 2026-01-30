@@ -113,13 +113,13 @@ const Auth: React.FC = () => {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Ambient Background */}
+      {/* Aurora Ambient Background */}
       <div className="absolute inset-0 bg-gradient-mesh" />
-      <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40" />
+      <div className="absolute inset-0 bg-gradient-aria-subtle opacity-60" />
       
-      {/* Floating orbs */}
+      {/* Floating orbs with Aurora colors */}
       <motion.div 
-        className="absolute top-20 left-10 w-64 h-64 rounded-full bg-primary/10 blur-3xl"
+        className="absolute top-20 left-10 w-64 h-64 rounded-full bg-aria-violet/15 blur-3xl"
         animate={{ 
           x: [0, 30, 0],
           y: [0, -20, 0],
@@ -128,7 +128,7 @@ const Auth: React.FC = () => {
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div 
-        className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-aria-violet/10 blur-3xl"
+        className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-aria-indigo/15 blur-3xl"
         animate={{ 
           x: [0, -20, 0],
           y: [0, 30, 0],
@@ -137,7 +137,7 @@ const Auth: React.FC = () => {
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div 
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-aria-purple/10 blur-3xl"
         animate={{ 
           scale: [1, 1.2, 1],
           opacity: [0.3, 0.5, 0.3]
@@ -296,7 +296,7 @@ const Auth: React.FC = () => {
             >
               <Button 
                 type="submit" 
-                className="w-full h-14 rounded-full text-base font-semibold bg-primary hover:bg-primary/90 shadow-glass-glow hover:shadow-elevated transition-all duration-300 mt-6 group"
+                className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 mt-6 group"
                 disabled={loading}
               >
                 {loading ? (
@@ -322,7 +322,7 @@ const Auth: React.FC = () => {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {isLogin ? 'Non hai un account? ' : 'Hai già un account? '}
-              <span className="text-primary font-medium">
+              <span className="text-aria-violet font-medium">
                 {isLogin ? 'Registrati' : 'Accedi'}
               </span>
             </button>
@@ -340,7 +340,7 @@ const Auth: React.FC = () => {
                     onClick={() => setIsDoctor(!isDoctor)}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto group"
                   >
-                    <Stethoscope className="w-4 h-4 group-hover:text-primary transition-colors" />
+                    <Stethoscope className="w-4 h-4 group-hover:text-aria-violet transition-colors" />
                     {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
                   </button>
                 </motion.div>
@@ -357,11 +357,11 @@ const Auth: React.FC = () => {
           transition={{ delay: 0.9 }}
         >
           Accedendo accetti i nostri{' '}
-          <span className="text-primary/80 hover:text-primary cursor-pointer transition-colors">
+          <span className="text-aria-violet/80 hover:text-aria-violet cursor-pointer transition-colors">
             Termini di Servizio
           </span>
           {' '}e{' '}
-          <span className="text-primary/80 hover:text-primary cursor-pointer transition-colors">
+          <span className="text-aria-violet/80 hover:text-aria-violet cursor-pointer transition-colors">
             Privacy Policy
           </span>
         </motion.p>
