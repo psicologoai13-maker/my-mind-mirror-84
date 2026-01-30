@@ -706,6 +706,153 @@ export type Database = {
         }
         Relationships: []
       }
+      user_interests: {
+        Row: {
+          career_goals: string[] | null
+          children_count: number | null
+          commute_time: number | null
+          created_at: string | null
+          creative_hobbies: string[] | null
+          current_shows: string[] | null
+          dietary_preferences: string[] | null
+          dream_destinations: string[] | null
+          emoji_preference: string | null
+          favorite_artists: string[] | null
+          favorite_athletes: string[] | null
+          favorite_genres: string[] | null
+          favorite_teams: string[] | null
+          follows_football: boolean | null
+          gaming_interests: string[] | null
+          has_children: boolean | null
+          humor_preference: string | null
+          id: string
+          important_dates: Json | null
+          indoor_activities: string[] | null
+          industry: string | null
+          learning_interests: string[] | null
+          living_situation: string | null
+          music_genres: string[] | null
+          news_sensitivity: string | null
+          nickname: string | null
+          outdoor_activities: string[] | null
+          personal_values: string[] | null
+          pet_owner: boolean | null
+          pets: Json | null
+          podcasts: string[] | null
+          political_interest: boolean | null
+          preferred_topics: string[] | null
+          professional_interests: string[] | null
+          recurring_events: Json | null
+          relationship_status: string | null
+          religion_spirituality: string | null
+          response_length: string | null
+          role_type: string | null
+          sensitive_topics: string[] | null
+          social_preference: string | null
+          sports_followed: string[] | null
+          travel_style: string | null
+          updated_at: string | null
+          user_id: string
+          work_schedule: string | null
+        }
+        Insert: {
+          career_goals?: string[] | null
+          children_count?: number | null
+          commute_time?: number | null
+          created_at?: string | null
+          creative_hobbies?: string[] | null
+          current_shows?: string[] | null
+          dietary_preferences?: string[] | null
+          dream_destinations?: string[] | null
+          emoji_preference?: string | null
+          favorite_artists?: string[] | null
+          favorite_athletes?: string[] | null
+          favorite_genres?: string[] | null
+          favorite_teams?: string[] | null
+          follows_football?: boolean | null
+          gaming_interests?: string[] | null
+          has_children?: boolean | null
+          humor_preference?: string | null
+          id?: string
+          important_dates?: Json | null
+          indoor_activities?: string[] | null
+          industry?: string | null
+          learning_interests?: string[] | null
+          living_situation?: string | null
+          music_genres?: string[] | null
+          news_sensitivity?: string | null
+          nickname?: string | null
+          outdoor_activities?: string[] | null
+          personal_values?: string[] | null
+          pet_owner?: boolean | null
+          pets?: Json | null
+          podcasts?: string[] | null
+          political_interest?: boolean | null
+          preferred_topics?: string[] | null
+          professional_interests?: string[] | null
+          recurring_events?: Json | null
+          relationship_status?: string | null
+          religion_spirituality?: string | null
+          response_length?: string | null
+          role_type?: string | null
+          sensitive_topics?: string[] | null
+          social_preference?: string | null
+          sports_followed?: string[] | null
+          travel_style?: string | null
+          updated_at?: string | null
+          user_id: string
+          work_schedule?: string | null
+        }
+        Update: {
+          career_goals?: string[] | null
+          children_count?: number | null
+          commute_time?: number | null
+          created_at?: string | null
+          creative_hobbies?: string[] | null
+          current_shows?: string[] | null
+          dietary_preferences?: string[] | null
+          dream_destinations?: string[] | null
+          emoji_preference?: string | null
+          favorite_artists?: string[] | null
+          favorite_athletes?: string[] | null
+          favorite_genres?: string[] | null
+          favorite_teams?: string[] | null
+          follows_football?: boolean | null
+          gaming_interests?: string[] | null
+          has_children?: boolean | null
+          humor_preference?: string | null
+          id?: string
+          important_dates?: Json | null
+          indoor_activities?: string[] | null
+          industry?: string | null
+          learning_interests?: string[] | null
+          living_situation?: string | null
+          music_genres?: string[] | null
+          news_sensitivity?: string | null
+          nickname?: string | null
+          outdoor_activities?: string[] | null
+          personal_values?: string[] | null
+          pet_owner?: boolean | null
+          pets?: Json | null
+          podcasts?: string[] | null
+          political_interest?: boolean | null
+          preferred_topics?: string[] | null
+          professional_interests?: string[] | null
+          recurring_events?: Json | null
+          relationship_status?: string | null
+          religion_spirituality?: string | null
+          response_length?: string | null
+          role_type?: string | null
+          sensitive_topics?: string[] | null
+          social_preference?: string | null
+          sports_followed?: string[] | null
+          travel_style?: string | null
+          updated_at?: string | null
+          user_id?: string
+          work_schedule?: string | null
+        }
+        Relationships: []
+      }
       user_objectives: {
         Row: {
           ai_feedback: string | null
