@@ -1,9 +1,10 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff, X } from "lucide-react";
+import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
 import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ZenVoiceModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     stop
   } = useRealtimeVoice();
 
+  const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
@@ -41,7 +43,11 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     onClose();
   };
 
-  // Orb animation with canvas
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
+  // Orb animation with canvas - Aurora gradient (Aria's identity)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -50,29 +56,28 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const size = 280;
+    const size = 260;
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
     const animate = () => {
-      timeRef.current += 0.02;
+      timeRef.current += 0.015;
       const t = timeRef.current;
 
       ctx.clearRect(0, 0, size, size);
 
       const centerX = size / 2;
       const centerY = size / 2;
-      const baseRadius = 80;
+      const baseRadius = 70;
       
-      // Calculate dynamic values based on state
-      const intensity = isActive ? (isSpeaking ? 0.6 : audioLevel * 0.8) : 0.1;
-      const pulseSpeed = isSpeaking ? 3 : 2;
+      const intensity = isActive ? (isSpeaking ? 0.7 : audioLevel * 0.9) : 0.15;
+      const pulseSpeed = isSpeaking ? 2.5 : 1.5;
       
-      // Outer glow layers
+      // Aurora outer glow layers (Aria's brand: Amethyst/Indigo/Violet)
       for (let i = 5; i >= 0; i--) {
-        const glowRadius = baseRadius + 20 + i * 15 + Math.sin(t * pulseSpeed + i * 0.5) * (10 + intensity * 20);
-        const alpha = 0.03 + intensity * 0.05 - i * 0.008;
+        const glowRadius = baseRadius + 25 + i * 18 + Math.sin(t * pulseSpeed + i * 0.4) * (12 + intensity * 25);
+        const alpha = 0.04 + intensity * 0.06 - i * 0.01;
         
         const gradient = ctx.createRadialGradient(
           centerX, centerY, 0,
@@ -80,19 +85,20 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
         );
         
         if (isSpeaking) {
-          // Warm sage/lavender when AI speaks
-          gradient.addColorStop(0, `hsla(150, 40%, 55%, ${alpha})`);
-          gradient.addColorStop(0.5, `hsla(260, 35%, 60%, ${alpha * 0.7})`);
-          gradient.addColorStop(1, 'hsla(150, 40%, 55%, 0)');
+          // Aurora glow when AI speaks (Amethyst + Indigo)
+          gradient.addColorStop(0, `hsla(270, 50%, 65%, ${alpha * 1.2})`);
+          gradient.addColorStop(0.4, `hsla(239, 84%, 67%, ${alpha})`);
+          gradient.addColorStop(0.7, `hsla(263, 70%, 70%, ${alpha * 0.8})`);
+          gradient.addColorStop(1, 'hsla(270, 50%, 65%, 0)');
         } else if (isListening) {
-          // Soft teal when listening
-          gradient.addColorStop(0, `hsla(180, 45%, 50%, ${alpha})`);
-          gradient.addColorStop(0.5, `hsla(150, 40%, 55%, ${alpha * 0.7})`);
-          gradient.addColorStop(1, 'hsla(180, 45%, 50%, 0)');
+          // Soft violet when listening
+          gradient.addColorStop(0, `hsla(263, 70%, 72%, ${alpha})`);
+          gradient.addColorStop(0.5, `hsla(239, 84%, 67%, ${alpha * 0.7})`);
+          gradient.addColorStop(1, 'hsla(270, 50%, 65%, 0)');
         } else {
-          // Neutral calm
-          gradient.addColorStop(0, `hsla(200, 30%, 60%, ${alpha * 0.5})`);
-          gradient.addColorStop(1, 'hsla(200, 30%, 60%, 0)');
+          // Subtle aurora idle
+          gradient.addColorStop(0, `hsla(260, 40%, 70%, ${alpha * 0.6})`);
+          gradient.addColorStop(1, 'hsla(260, 40%, 70%, 0)');
         }
         
         ctx.beginPath();
@@ -103,12 +109,12 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
 
       // Main orb with organic shape
       ctx.beginPath();
-      const points = 64;
+      const points = 72;
       for (let i = 0; i <= points; i++) {
         const angle = (i / points) * Math.PI * 2;
-        const noise = Math.sin(angle * 3 + t * 2) * (2 + intensity * 8) +
-                     Math.sin(angle * 5 + t * 1.5) * (1 + intensity * 4) +
-                     Math.sin(angle * 7 + t * 3) * (0.5 + intensity * 2);
+        const noise = Math.sin(angle * 3 + t * 1.8) * (3 + intensity * 10) +
+                     Math.sin(angle * 5 + t * 1.3) * (1.5 + intensity * 5) +
+                     Math.sin(angle * 7 + t * 2.5) * (0.8 + intensity * 3);
         const r = baseRadius + noise;
         const x = centerX + Math.cos(angle) * r;
         const y = centerY + Math.sin(angle) * r;
@@ -121,45 +127,47 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
       }
       ctx.closePath();
 
-      // Orb gradient fill
+      // Aurora gradient fill (Aria's identity colors)
       const orbGradient = ctx.createRadialGradient(
-        centerX - 20, centerY - 20, 0,
-        centerX, centerY, baseRadius + 20
+        centerX - 15, centerY - 15, 0,
+        centerX, centerY, baseRadius + 25
       );
       
       if (isSpeaking) {
-        // Warm glow when speaking
-        orbGradient.addColorStop(0, 'hsla(150, 45%, 65%, 0.95)');
-        orbGradient.addColorStop(0.4, 'hsla(260, 35%, 55%, 0.85)');
-        orbGradient.addColorStop(1, 'hsla(150, 40%, 45%, 0.9)');
+        // Rich aurora when speaking
+        orbGradient.addColorStop(0, 'hsla(263, 70%, 75%, 0.95)');
+        orbGradient.addColorStop(0.3, 'hsla(239, 84%, 67%, 0.9)');
+        orbGradient.addColorStop(0.6, 'hsla(270, 55%, 60%, 0.85)');
+        orbGradient.addColorStop(1, 'hsla(239, 84%, 55%, 0.9)');
       } else if (isListening) {
         // Active listening state
-        orbGradient.addColorStop(0, 'hsla(180, 50%, 60%, 0.9)');
-        orbGradient.addColorStop(0.5, 'hsla(150, 45%, 55%, 0.85)');
-        orbGradient.addColorStop(1, 'hsla(180, 40%, 45%, 0.9)');
+        orbGradient.addColorStop(0, 'hsla(270, 50%, 70%, 0.9)');
+        orbGradient.addColorStop(0.5, 'hsla(263, 70%, 65%, 0.85)');
+        orbGradient.addColorStop(1, 'hsla(239, 70%, 60%, 0.9)');
       } else if (isConnecting) {
-        // Connecting animation
-        orbGradient.addColorStop(0, 'hsla(200, 40%, 65%, 0.8)');
-        orbGradient.addColorStop(1, 'hsla(200, 35%, 50%, 0.7)');
+        // Connecting pulse
+        orbGradient.addColorStop(0, 'hsla(260, 45%, 70%, 0.85)');
+        orbGradient.addColorStop(1, 'hsla(239, 60%, 60%, 0.75)');
       } else {
-        // Idle state
-        orbGradient.addColorStop(0, 'hsla(200, 25%, 70%, 0.6)');
-        orbGradient.addColorStop(1, 'hsla(200, 20%, 55%, 0.5)');
+        // Idle - subtle aurora
+        orbGradient.addColorStop(0, 'hsla(260, 35%, 75%, 0.65)');
+        orbGradient.addColorStop(1, 'hsla(260, 30%, 60%, 0.55)');
       }
 
       ctx.fillStyle = orbGradient;
       ctx.fill();
 
-      // Inner highlight
+      // Glass highlight
       const innerGlow = ctx.createRadialGradient(
-        centerX - 25, centerY - 25, 0,
-        centerX, centerY, baseRadius * 0.6
+        centerX - 20, centerY - 20, 0,
+        centerX, centerY, baseRadius * 0.55
       );
-      innerGlow.addColorStop(0, 'hsla(0, 0%, 100%, 0.4)');
+      innerGlow.addColorStop(0, 'hsla(0, 0%, 100%, 0.5)');
+      innerGlow.addColorStop(0.5, 'hsla(0, 0%, 100%, 0.15)');
       innerGlow.addColorStop(1, 'hsla(0, 0%, 100%, 0)');
       
       ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius * 0.7, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, baseRadius * 0.65, 0, Math.PI * 2);
       ctx.fillStyle = innerGlow;
       ctx.fill();
 
@@ -176,62 +184,78 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent 
-        className="sm:max-w-lg border-none p-0 overflow-hidden bg-transparent shadow-none [&>button]:hidden"
+        className="sm:max-w-md border-none p-0 overflow-hidden bg-transparent shadow-none [&>button]:hidden"
       >
-        {/* Breathing gradient background */}
-        <div className="relative w-full min-h-[500px] rounded-3xl overflow-hidden">
-          {/* Animated gradient layers */}
+        {/* Glass card container */}
+        <motion.div 
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="relative w-full min-h-[520px] rounded-[32px] overflow-hidden"
+        >
+          {/* Aurora mesh gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-background" />
+          
+          {/* Aurora glow layer */}
           <div 
-            className="absolute inset-0 animate-breathing-1"
+            className="absolute inset-0 opacity-30"
             style={{
-              background: 'linear-gradient(135deg, hsl(168 40% 92%) 0%, hsl(175 35% 88%) 50%, hsl(150 30% 90%) 100%)'
+              background: 'radial-gradient(ellipse 80% 60% at 50% 40%, hsla(263, 70%, 70%, 0.4) 0%, transparent 60%)'
             }}
           />
           <div 
-            className="absolute inset-0 animate-breathing-2 opacity-60"
+            className="absolute inset-0 opacity-20 animate-pulse"
             style={{
-              background: 'linear-gradient(225deg, hsl(145 35% 90%) 0%, hsl(180 30% 92%) 50%, hsl(200 25% 94%) 100%)'
-            }}
-          />
-          <div 
-            className="absolute inset-0 animate-breathing-3 opacity-40"
-            style={{
-              background: 'radial-gradient(ellipse at 30% 20%, hsl(160 40% 88% / 0.8) 0%, transparent 60%)'
+              background: 'radial-gradient(ellipse 60% 50% at 60% 50%, hsla(239, 84%, 67%, 0.3) 0%, transparent 50%)',
+              animationDuration: '4s'
             }}
           />
           
-          {/* Floating particles */}
+          {/* Glass overlay */}
+          <div className="absolute inset-0 bg-glass/80 backdrop-blur-2xl" />
+          
+          {/* Floating particles - Aurora colored */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {[...Array(6)].map((_, i) => (
-              <div
+            {[...Array(8)].map((_, i) => (
+              <motion.div
                 key={i}
-                className="absolute rounded-full opacity-30 animate-float-particle"
+                className="absolute rounded-full"
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: [0.2, 0.5, 0.2],
+                  y: [0, -20, 0],
+                  x: [0, Math.sin(i) * 10, 0]
+                }}
+                transition={{
+                  duration: 4 + i * 0.5,
+                  repeat: Infinity,
+                  delay: i * 0.3
+                }}
                 style={{
-                  width: `${4 + i * 2}px`,
-                  height: `${4 + i * 2}px`,
-                  background: `hsl(${150 + i * 15}, 40%, 70%)`,
-                  left: `${15 + i * 15}%`,
-                  top: `${20 + (i % 3) * 25}%`,
-                  animationDelay: `${i * 0.8}s`,
-                  animationDuration: `${6 + i}s`
+                  width: `${3 + i * 1.5}px`,
+                  height: `${3 + i * 1.5}px`,
+                  background: `hsla(${260 + i * 10}, 60%, 70%, 0.6)`,
+                  left: `${10 + i * 12}%`,
+                  top: `${25 + (i % 4) * 18}%`,
+                  filter: 'blur(1px)'
                 }}
               />
             ))}
           </div>
 
           {/* Content */}
-          <div className="relative z-10 flex flex-col items-center justify-between h-full py-10 px-6 min-h-[500px]">
-            {/* Close button - glassmorphism */}
-            <div className="w-full flex justify-end">
+          <div className="relative z-10 flex flex-col items-center h-full py-8 px-6 min-h-[520px]">
+            {/* Header with close button */}
+            <div className="w-full flex justify-end mb-4">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleClose}
                 className={cn(
-                  "w-10 h-10 rounded-full",
-                  "bg-white/30 backdrop-blur-md border border-white/40",
-                  "hover:bg-white/40 transition-all duration-300",
-                  "text-foreground/70 hover:text-foreground"
+                  "w-11 h-11 rounded-full",
+                  "bg-glass backdrop-blur-xl border border-glass-border",
+                  "hover:bg-white/20 transition-all duration-300",
+                  "text-foreground/60 hover:text-foreground"
                 )}
               >
                 <X className="w-5 h-5" />
@@ -239,82 +263,124 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
             </div>
 
             {/* Orb visualizer */}
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center -mt-4">
               <div className="relative">
                 <canvas
                   ref={canvasRef}
-                  className="w-[280px] h-[280px]"
-                  style={{ width: 280, height: 280 }}
+                  className="w-[260px] h-[260px]"
+                  style={{ width: 260, height: 260 }}
                 />
                 
-                {/* State indicator - subtle ring */}
-                <div 
-                  className={cn(
-                    "absolute inset-0 rounded-full transition-all duration-1000 ease-in-out",
-                    isConnecting && "animate-pulse"
-                  )}
-                  style={{
-                    border: isActive 
-                      ? isSpeaking 
-                        ? '2px solid hsla(260, 40%, 60%, 0.3)' 
-                        : '2px solid hsla(180, 45%, 55%, 0.3)'
-                      : '2px solid transparent'
+                {/* Outer ring indicator */}
+                <motion.div 
+                  className="absolute inset-[-20px] rounded-full border border-aria-violet/20"
+                  animate={{
+                    scale: isActive ? [1, 1.05, 1] : 1,
+                    opacity: isActive ? [0.3, 0.5, 0.3] : 0.2
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
                   }}
                 />
               </div>
             </div>
 
-            {/* Controls - glassmorphism buttons */}
-            <div className="flex items-center gap-6">
-              {!isActive ? (
-                <Button
-                  onClick={handleStart}
-                  disabled={isConnecting}
-                  className={cn(
-                    "w-20 h-20 rounded-full",
-                    "bg-white/40 backdrop-blur-xl border border-white/50",
-                    "hover:bg-white/60 hover:scale-105",
-                    "transition-all duration-300 ease-out",
-                    "shadow-lg shadow-primary/10",
-                    "text-primary hover:text-primary",
-                    isConnecting && "animate-pulse"
-                  )}
-                >
-                  <Phone className="w-8 h-8" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleStop}
-                  className={cn(
-                    "w-20 h-20 rounded-full",
-                    "bg-white/40 backdrop-blur-xl border border-destructive/30",
-                    "hover:bg-destructive/20 hover:border-destructive/50 hover:scale-105",
-                    "transition-all duration-300 ease-out",
-                    "shadow-lg",
-                    "text-destructive hover:text-destructive"
-                  )}
-                >
-                  <PhoneOff className="w-8 h-8" />
-                </Button>
-              )}
+            {/* Controls */}
+            <div className="flex items-center gap-5 mt-auto">
+              <AnimatePresence mode="wait">
+                {!isActive ? (
+                  <motion.div
+                    key="start"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                  >
+                    <Button
+                      onClick={handleStart}
+                      disabled={isConnecting}
+                      className={cn(
+                        "w-[72px] h-[72px] rounded-full",
+                        "bg-glass backdrop-blur-xl",
+                        "border-2 border-aria-violet/30",
+                        "hover:border-aria-violet/50 hover:scale-105",
+                        "transition-all duration-300 ease-out",
+                        "shadow-glass-glow",
+                        "text-aria-violet hover:text-aria-violet",
+                        isConnecting && "animate-pulse"
+                      )}
+                    >
+                      <Phone className="w-7 h-7" />
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="active"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    className="flex items-center gap-4"
+                  >
+                    {/* Mute button */}
+                    <Button
+                      onClick={toggleMute}
+                      className={cn(
+                        "w-14 h-14 rounded-full",
+                        "bg-glass backdrop-blur-xl",
+                        "border border-glass-border",
+                        "hover:bg-white/20 hover:scale-105",
+                        "transition-all duration-300",
+                        isMuted ? "text-destructive border-destructive/30" : "text-foreground/70"
+                      )}
+                    >
+                      {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                    </Button>
+
+                    {/* End call button */}
+                    <Button
+                      onClick={handleStop}
+                      className={cn(
+                        "w-[72px] h-[72px] rounded-full",
+                        "bg-destructive/15 backdrop-blur-xl",
+                        "border-2 border-destructive/30",
+                        "hover:bg-destructive/25 hover:border-destructive/50 hover:scale-105",
+                        "transition-all duration-300 ease-out",
+                        "text-destructive hover:text-destructive"
+                      )}
+                    >
+                      <PhoneOff className="w-7 h-7" />
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Connection indicator - very subtle */}
-            {isActive && (
-              <div className="flex items-center gap-2 mt-4">
-                <div 
-                  className={cn(
-                    "w-2 h-2 rounded-full transition-colors duration-500",
-                    isSpeaking ? "bg-accent-foreground/50" : "bg-primary/50"
-                  )} 
-                />
-                <span className="text-xs text-foreground/40 font-light">
-                  {isSpeaking ? 'Aria' : 'Connesso'}
-                </span>
-              </div>
-            )}
+            {/* Status indicator */}
+            <AnimatePresence>
+              {isActive && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="flex items-center gap-2 mt-5"
+                >
+                  <motion.div 
+                    className={cn(
+                      "w-2 h-2 rounded-full",
+                      isSpeaking ? "bg-aria-violet" : "bg-primary"
+                    )}
+                    animate={{ scale: [1, 1.3, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {isSpeaking ? 'Aria sta parlando...' : 'In ascolto'}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
