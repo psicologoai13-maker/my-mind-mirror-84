@@ -172,31 +172,49 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
           </span>
         </div>
         
-        {/* Animated Ring */}
+        {/* Animated Ring or Empty State */}
         <div className="flex items-center justify-center">
-          <AnimatedRing
-            value={displayValue}
-            size={isSecondary ? "md" : "lg"}
-            thickness={isSecondary ? 5 : 7}
-            color={color}
-            glowColor={color}
-            showValue={hasData}
-          />
+          {hasData ? (
+            <AnimatedRing
+              value={displayValue}
+              size={isSecondary ? "md" : "lg"}
+              thickness={isSecondary ? 5 : 7}
+              color={color}
+              glowColor={color}
+              showValue={true}
+            />
+          ) : (
+            // Empty state with dashed circle
+            <div className={cn(
+              "rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center",
+              isSecondary ? "w-16 h-16" : "w-20 h-20"
+            )}>
+              <span className="text-muted-foreground/50 text-xs font-medium">
+                –
+              </span>
+            </div>
+          )}
         </div>
         
-        {/* Status label */}
+        {/* Status label or CTA hint */}
         <div className="mt-3 text-center">
-          <span className={cn(
-            "font-medium",
-            isSecondary ? "text-xs" : "text-sm"
-          )} style={{ color }}>
-            {statusLabel}
-          </span>
+          {hasData ? (
+            <span className={cn(
+              "font-medium",
+              isSecondary ? "text-xs" : "text-sm"
+            )} style={{ color }}>
+              {statusLabel}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/60">
+              Fai un check-in
+            </span>
+          )}
         </div>
 
         {/* Expandable description */}
         <AnimatePresence>
-          {isExpanded && (
+          {isExpanded && hasData && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}

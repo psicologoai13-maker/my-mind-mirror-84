@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Sparkles, Lightbulb, ChevronDown } from 'lucide-react';
+import { Sparkles, Lightbulb, ChevronDown, MessageCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedRing } from '@/components/ui/animated-ring';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface WellnessScoreBoxProps {
-  score?: number;
+  score?: number | null;
   message?: string;
   isLoading?: boolean;
   aiSummary?: string;
   focusInsight?: string;
+  isNewUser?: boolean;
 }
 
 const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({ 
@@ -17,19 +20,27 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({
   message, 
   isLoading,
   aiSummary,
-  focusInsight 
+  focusInsight,
+  isNewUser = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
   
-  // Default values if undefined
-  const safeScore = score ?? 5;
-  const safeMessage = message || 'Parla con me per iniziare a monitorare il tuo benessere.';
+  // Check if user has real data
+  const hasRealData = score !== null && score !== undefined;
+  const safeScore = hasRealData ? score : null;
+  
+  // Default message for new users vs existing users
+  const safeMessage = message || (isNewUser || !hasRealData
+    ? 'Iniziamo questo percorso insieme: ogni piccolo passo conta per il tuo benessere.'
+    : 'Parla con me per iniziare a monitorare il tuo benessere.');
 
   // Check if we have expandable content
-  const hasExpandableContent = aiSummary || focusInsight;
+  const hasExpandableContent = (aiSummary || focusInsight) && hasRealData;
 
   // Get glow color based on score
-  const getGlowColor = (value: number) => {
+  const getGlowColor = (value: number | null) => {
+    if (value === null) return 'hsl(var(--muted-foreground))';
     if (value >= 7) return 'hsl(var(--mood-excellent))';
     if (value >= 5) return 'hsl(var(--mood-neutral))';
     return 'hsl(var(--mood-low))';
@@ -48,6 +59,65 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({
             <div className="h-3 bg-muted/50 rounded-full w-24" />
             <div className="h-4 bg-muted/50 rounded-full w-full" />
             <div className="h-4 bg-muted/50 rounded-full w-3/4" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // New user empty state with CTA
+  if (!hasRealData || isNewUser) {
+    return (
+      <div 
+        className={cn(
+          "relative overflow-hidden rounded-[32px]",
+          "bg-glass backdrop-blur-xl border border-glass-border",
+          "shadow-glass-glow",
+          "animate-scale-in"
+        )}
+      >
+        {/* Gradient mesh background */}
+        <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
+        
+        {/* Inner light reflection */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none rounded-[32px]" />
+        
+        {/* Main Content */}
+        <div className="relative z-10 p-6">
+          <div className="flex items-center gap-5">
+            {/* Animated Ring Score - Empty state */}
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 rounded-full border-4 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                <Sparkles className="w-7 h-7 text-aria-violet animate-pulse" />
+              </div>
+            </div>
+
+            {/* Message */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-aria-violet/15 backdrop-blur-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-aria-violet" />
+                </div>
+                <span className="text-xs font-semibold text-aria-violet uppercase tracking-wide">
+                  Il tuo stato
+                </span>
+              </div>
+              <p className="text-[15px] text-foreground leading-relaxed font-medium">
+                {safeMessage}
+              </p>
+            </div>
+          </div>
+
+          {/* CTA for new users */}
+          <div className="mt-4 pt-4 border-t border-border/30">
+            <Button
+              onClick={() => navigate('/aria')}
+              className="w-full h-11 rounded-full bg-gradient-aria text-white font-medium shadow-aria-glow hover:shadow-elevated transition-all group"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Parla con Aria per iniziare
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+            </Button>
           </div>
         </div>
       </div>
@@ -82,7 +152,7 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({
               style={{ background: getGlowColor(safeScore) }}
             />
             <AnimatedRing
-              value={safeScore * 10}
+              value={(safeScore ?? 0) * 10}
               size="lg"
               thickness={8}
               color={getGlowColor(safeScore)}
