@@ -13,9 +13,13 @@ const AdaptiveVitalsSection: React.FC = () => {
   const [showSecondary, setShowSecondary] = React.useState(false);
 
   // Build metric values from time-weighted source
-  const metricValues = React.useMemo((): Partial<Record<MetricKey, number>> => {
-    const toPercentage = (val: number | null | undefined) => 
-      val ? Math.min(100, Math.max(0, val * 10)) : 0;
+  // CRITICAL: Return undefined for null values to indicate "no data"
+  // This prevents the inversion bug where anxiety 0 becomes 100%
+  const metricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
+    const toPercentage = (val: number | null | undefined): number | undefined => 
+      val !== null && val !== undefined && val > 0 
+        ? Math.min(100, Math.max(0, val * 10)) 
+        : undefined;
 
     return {
       mood: toPercentage(vitals.mood),
