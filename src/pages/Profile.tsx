@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Moon,
   Stethoscope,
-  Gem
+  Gem,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -39,6 +40,7 @@ interface SettingsItem {
 
 const settingsItems: SettingsItem[] = [
   { icon: User, label: 'Dati personali', description: 'Modifica il tuo profilo', action: '/profile/personal' },
+  { icon: Sparkles, label: 'I Miei Interessi', description: 'Sport, hobby, preferenze', action: '/profile/interests' },
   { icon: Bell, label: 'Notifiche', description: 'Gestisci le tue preferenze', action: 'notifications' },
   { icon: Moon, label: 'Aspetto', description: 'Tema e accessibilità', action: 'appearance' },
   { icon: Shield, label: 'Privacy Aria', description: 'Dati e sicurezza', action: '/profile/privacy' },

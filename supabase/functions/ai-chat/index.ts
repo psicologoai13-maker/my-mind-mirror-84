@@ -547,7 +547,8 @@ function buildPersonalizedSystemPrompt(
   onboardingAnswers: OnboardingAnswers | null,
   priorityMetrics: string[],
   objectivesWithMissingTarget: { title: string; category: string }[],
-  allActiveObjectives: ObjectiveForPrompt[] = []
+  allActiveObjectives: ObjectiveForPrompt[] = [],
+  userInterests: UserInterests | null = null
 ): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
@@ -1115,6 +1116,101 @@ ALTRE REGOLE:
   }
 
   // ════════════════════════════════════════════════════════════════════════════
+  // Interessi utente per personalizzazione contestuale
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let interestsBlock = '';
+  if (userInterests) {
+    const lines: string[] = [];
+    
+    // Sport
+    if ((userInterests.sports_followed?.length || 0) > 0 || (userInterests.favorite_teams?.length || 0) > 0) {
+      if ((userInterests.favorite_teams?.length || 0) > 0) {
+        lines.push(`🏆 SQUADRE DEL CUORE: ${userInterests.favorite_teams?.join(', ')}`);
+      }
+      if ((userInterests.favorite_athletes?.length || 0) > 0) {
+        lines.push(`⭐ ATLETI: ${userInterests.favorite_athletes?.join(', ')}`);
+      }
+      if ((userInterests.sports_followed?.length || 0) > 0) {
+        lines.push(`SPORT: ${userInterests.sports_followed?.join(', ')}`);
+      }
+    }
+    
+    // Entertainment
+    if ((userInterests.music_genres?.length || 0) > 0 || (userInterests.current_shows?.length || 0) > 0) {
+      if ((userInterests.music_genres?.length || 0) > 0) {
+        const artists = (userInterests.favorite_artists?.length || 0) > 0 
+          ? ` (${userInterests.favorite_artists?.join(', ')})` 
+          : '';
+        lines.push(`🎵 MUSICA: ${userInterests.music_genres?.join(', ')}${artists}`);
+      }
+      if ((userInterests.current_shows?.length || 0) > 0) {
+        lines.push(`📺 SERIE TV: ${userInterests.current_shows?.join(', ')}`);
+      }
+    }
+    
+    // Work
+    if (userInterests.industry) {
+      const profInterests = (userInterests.professional_interests?.length || 0) > 0 
+        ? ` - Interessi: ${userInterests.professional_interests?.join(', ')}` 
+        : '';
+      lines.push(`💼 LAVORO: ${userInterests.industry}${profInterests}`);
+    }
+    
+    // Hobbies
+    const allHobbies = [
+      ...(userInterests.creative_hobbies || []),
+      ...(userInterests.outdoor_activities || []),
+      ...(userInterests.indoor_activities || [])
+    ];
+    if (allHobbies.length > 0) {
+      lines.push(`🎨 HOBBY: ${allHobbies.join(', ')}`);
+    }
+    
+    // Pets
+    if (userInterests.pet_owner && (userInterests.pets?.length || 0) > 0) {
+      const petNames = userInterests.pets?.map(p => `${p.name} (${p.type})`).join(', ');
+      lines.push(`🐾 ANIMALI: ${petNames}`);
+    }
+    
+    // Values
+    if ((userInterests.personal_values?.length || 0) > 0) {
+      lines.push(`💚 VALORI: ${userInterests.personal_values?.join(', ')}`);
+    }
+    
+    // Communication preferences
+    const commPrefs: string[] = [];
+    if (userInterests.nickname) commPrefs.push(`Chiamami: ${userInterests.nickname}`);
+    if (userInterests.humor_preference) commPrefs.push(`Umorismo: ${userInterests.humor_preference}`);
+    if (userInterests.emoji_preference) commPrefs.push(`Emoji: ${userInterests.emoji_preference}`);
+    if (commPrefs.length > 0) {
+      lines.push(`💬 PREFERENZE: ${commPrefs.join(' | ')}`);
+    }
+    
+    // Sensitive topics
+    if ((userInterests.sensitive_topics?.length || 0) > 0) {
+      lines.push(`⚠️ ARGOMENTI SENSIBILI (evita/usa con cura): ${userInterests.sensitive_topics?.join(', ')}`);
+    }
+    
+    if (lines.length > 0) {
+      interestsBlock = `
+═══════════════════════════════════════════════
+🎯 INTERESSI & PREFERENZE UTENTE
+═══════════════════════════════════════════════
+${lines.join('\n')}
+
+USO DEGLI INTERESSI:
+- Se nelle NEWS c'è qualcosa sulle squadre/atleti preferiti → menzionalo naturalmente!
+- Se l'utente è giù e la sua squadra ha perso → potrebbe essere collegato
+- Usa hobby e interessi per suggerimenti su come passare il tempo
+- Rispetta le preferenze comunicative (emoji, umorismo)
+- EVITA gli argomenti sensibili a meno che non li introduca l'utente
+- NON forzare mai questi temi, usali solo se pertinenti
+`;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   // Competenze cliniche CONDENSATE (solo riferimento)
   // ════════════════════════════════════════════════════════════════════════════
   
@@ -1158,6 +1254,8 @@ ${BEST_FRIEND_PERSONALITY}
 
 ${userContextBlock}
 
+${interestsBlock}
+
 ${objectivesBlock}
 
 ${dataHunterBlock}
@@ -1180,10 +1278,32 @@ interface UserObjective {
   category: string;
   target_value: number | null;
   current_value: number | null;
-  starting_value: number | null;  // NEW: Track starting point
+  starting_value: number | null;
   unit: string | null;
   status: string;
   ai_feedback: string | null;
+}
+
+interface UserInterests {
+  favorite_teams?: string[];
+  favorite_athletes?: string[];
+  sports_followed?: string[];
+  music_genres?: string[];
+  favorite_artists?: string[];
+  current_shows?: string[];
+  industry?: string;
+  professional_interests?: string[];
+  creative_hobbies?: string[];
+  outdoor_activities?: string[];
+  indoor_activities?: string[];
+  pet_owner?: boolean;
+  pets?: Array<{ type: string; name: string }>;
+  personal_values?: string[];
+  nickname?: string;
+  humor_preference?: string;
+  emoji_preference?: string;
+  sensitive_topics?: string[];
+  news_sensitivity?: string;
 }
 
 interface UserProfile {
@@ -1195,6 +1315,7 @@ interface UserProfile {
   dashboard_config: DashboardConfig | null;
   objectives_with_missing_target: { title: string; category: string }[];
   all_active_objectives: UserObjective[];
+  interests: UserInterests | null;
 }
 
 // Helper to get user's profile and memory from database
@@ -1208,6 +1329,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     dashboard_config: null,
     objectives_with_missing_target: [],
     all_active_objectives: [],
+    interests: null,
   };
   
   if (!authHeader) {
@@ -1236,23 +1358,33 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     console.log('[ai-chat] User authenticated:', user.id);
     
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
-      .eq('user_id', user.id)
-      .single();
+    // Fetch profile and interests in parallel
+    const [profileResult, interestsResult, objectivesResult] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
+        .eq('user_id', user.id)
+        .single(),
+      supabase
+        .from('user_interests')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('user_objectives')
+        .select('id, title, category, target_value, current_value, starting_value, unit, status, ai_feedback')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+    ]);
     
-    if (profileError) {
-      console.log('[ai-chat] Failed to get profile:', profileError.message);
+    const profile = profileResult.data;
+    const interests = interestsResult.data;
+    const allObjectivesData = objectivesResult.data;
+    
+    if (profileResult.error) {
+      console.log('[ai-chat] Failed to get profile:', profileResult.error.message);
       return defaultProfile;
     }
-    
-    // Fetch ALL active objectives (for full context) - including starting_value
-    const { data: allObjectivesData } = await supabase
-      .from('user_objectives')
-      .select('id, title, category, target_value, current_value, starting_value, unit, status, ai_feedback')
-      .eq('user_id', user.id)
-      .eq('status', 'active');
     
     const allActiveObjectives: UserObjective[] = (allObjectivesData || []).map((obj: any) => ({
       id: obj.id,
@@ -1260,7 +1392,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       category: obj.category,
       target_value: obj.target_value,
       current_value: obj.current_value,
-      starting_value: obj.starting_value,  // NEW: Include starting_value
+      starting_value: obj.starting_value,
       unit: obj.unit,
       status: obj.status,
       ai_feedback: obj.ai_feedback
@@ -1271,6 +1403,29 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       .filter(o => o.target_value === null)
       .map(o => ({ title: o.title, category: o.category }));
     
+    // Map interests
+    const userInterests: UserInterests | null = interests ? {
+      favorite_teams: interests.favorite_teams || [],
+      favorite_athletes: interests.favorite_athletes || [],
+      sports_followed: interests.sports_followed || [],
+      music_genres: interests.music_genres || [],
+      favorite_artists: interests.favorite_artists || [],
+      current_shows: interests.current_shows || [],
+      industry: interests.industry,
+      professional_interests: interests.professional_interests || [],
+      creative_hobbies: interests.creative_hobbies || [],
+      outdoor_activities: interests.outdoor_activities || [],
+      indoor_activities: interests.indoor_activities || [],
+      pet_owner: interests.pet_owner,
+      pets: interests.pets as any,
+      personal_values: interests.personal_values || [],
+      nickname: interests.nickname,
+      humor_preference: interests.humor_preference,
+      emoji_preference: interests.emoji_preference,
+      sensitive_topics: interests.sensitive_topics || [],
+      news_sensitivity: interests.news_sensitivity,
+    } : null;
+    
     const result: UserProfile = {
       name: profile?.name || null,
       long_term_memory: profile?.long_term_memory || [],
@@ -1280,9 +1435,10 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       dashboard_config: profile?.dashboard_config as DashboardConfig | null,
       objectives_with_missing_target: objectivesWithMissingTarget,
       all_active_objectives: allActiveObjectives,
+      interests: userInterests,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}`);
     
     return result;
   } catch (error) {
@@ -1398,7 +1554,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       userProfile.onboarding_answers,
       priorityMetrics,
       userProfile.objectives_with_missing_target,
-      userProfile.all_active_objectives
+      userProfile.all_active_objectives,
+      userProfile.interests
     );
     
     // Inject real-time context if provided

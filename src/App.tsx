@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import ProfilePersonal from "./pages/ProfilePersonal";
 import ProfilePrivacy from "./pages/ProfilePrivacy";
 import ProfileHelp from "./pages/ProfileHelp";
+import ProfileInterests from "./pages/ProfileInterests";
 import ClinicalArea from "./pages/ClinicalArea";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -22,7 +23,6 @@ import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorPatientView from "./pages/DoctorPatientView";
 import Aria from "./pages/Aria";
 import Objectives from "./pages/Objectives";
-// Habits page removed - unified into Objectives
 import Plus from "./pages/Plus";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -132,6 +132,7 @@ const App = () => (
             <Route path="/profile/personal" element={<ProtectedRoute><ProfilePersonal /></ProtectedRoute>} />
             <Route path="/profile/privacy" element={<ProtectedRoute><ProfilePrivacy /></ProtectedRoute>} />
             <Route path="/profile/help" element={<ProtectedRoute><ProfileHelp /></ProtectedRoute>} />
+            <Route path="/profile/interests" element={<ProtectedRoute><ProfileInterests /></ProtectedRoute>} />
             <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
             <Route path="/plus" element={<ProtectedRoute><Plus /></ProtectedRoute>} />
             <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
