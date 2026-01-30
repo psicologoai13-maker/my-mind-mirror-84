@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Sparkles, Mail, Lock, User, Stethoscope, Loader2 } from 'lucide-react';
+import { Sparkles, Mail, Lock, User, Stethoscope, Loader2, ArrowRight } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Email non valida');
@@ -26,22 +26,17 @@ const Auth: React.FC = () => {
   const { profile, isLoading: profileLoading } = useProfile();
   const navigate = useNavigate();
 
-  // Redirect logic when user is authenticated
   useEffect(() => {
     if (!user || authLoading) return;
-    
-    // Wait for role and profile to load
     if (roleLoading || profileLoading) return;
     
     setIsRedirecting(true);
     
-    // Doctor redirect
     if (role === 'doctor') {
       navigate('/doctor-dashboard', { replace: true });
       return;
     }
     
-    // Patient redirect - check onboarding status
     if (profile && (profile as any).onboarding_completed) {
       navigate('/', { replace: true });
     } else {
@@ -98,19 +93,19 @@ const Auth: React.FC = () => {
     }
   };
 
-  // Show loading screen while redirecting
+  // Loading screen during redirect
   if (isRedirecting || (user && (authLoading || roleLoading || profileLoading))) {
     return (
-      <div className="min-h-dvh bg-background flex flex-col items-center justify-center">
+      <div className="min-h-dvh bg-background bg-gradient-mesh flex flex-col items-center justify-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <div className="w-16 h-16 rounded-2xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="w-20 h-20 rounded-3xl card-glass flex items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
           </div>
-          <p className="text-muted-foreground">Caricamento...</p>
+          <p className="text-muted-foreground font-medium">Caricamento...</p>
         </motion.div>
       </div>
     );
@@ -118,70 +113,154 @@ const Auth: React.FC = () => {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Aurora Background */}
-      <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30" />
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+      {/* Ambient Background */}
+      <div className="absolute inset-0 bg-gradient-mesh" />
+      <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40" />
+      
+      {/* Floating orbs */}
+      <motion.div 
+        className="absolute top-20 left-10 w-64 h-64 rounded-full bg-primary/10 blur-3xl"
+        animate={{ 
+          x: [0, 30, 0],
+          y: [0, -20, 0],
+          scale: [1, 1.1, 1]
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div 
+        className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-aria-violet/10 blur-3xl"
+        animate={{ 
+          x: [0, -20, 0],
+          y: [0, 30, 0],
+          scale: [1, 1.15, 1]
+        }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div 
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
+        animate={{ 
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.5, 0.3]
+        }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      />
       
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <motion.div 
           className="mb-10 text-center"
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div 
-            className="w-24 h-24 mx-auto mb-5 rounded-3xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center shadow-glass"
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+            className="w-28 h-28 mx-auto mb-6 rounded-3xl card-glass flex items-center justify-center"
+            initial={{ scale: 0.5, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
           >
-            {isDoctor ? (
-              <Stethoscope className="w-12 h-12 text-primary" />
-            ) : (
-              <Sparkles className="w-12 h-12 text-primary" />
-            )}
+            <AnimatePresence mode="wait">
+              {isDoctor ? (
+                <motion.div
+                  key="doctor"
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0, rotate: 180 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <Stethoscope className="w-14 h-14 text-primary" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="patient"
+                  initial={{ scale: 0, rotate: 180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0, rotate: -180 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="relative"
+                >
+                  <Sparkles className="w-14 h-14 text-primary" />
+                  <motion.div
+                    className="absolute inset-0"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  >
+                    <div className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-aria-violet/60" />
+                    <div className="absolute top-1/2 -right-1 w-1.5 h-1.5 rounded-full bg-aria-indigo/50" />
+                    <div className="absolute -bottom-1 left-1/3 w-1 h-1 rounded-full bg-aria-purple/40" />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
-          <h1 className="font-display text-4xl font-bold text-foreground tracking-tight">
+          
+          <motion.h1 
+            className="font-display text-4xl font-bold text-foreground tracking-tight"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
             {isDoctor ? 'Portale Medico' : 'Serenity'}
-          </h1>
-          <p className="text-muted-foreground mt-2 text-base">
+          </motion.h1>
+          <motion.p 
+            className="text-muted-foreground mt-3 text-base"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
             {isDoctor ? 'Accesso professionisti sanitari' : 'Il tuo spazio di benessere mentale'}
-          </p>
+          </motion.p>
         </motion.div>
 
         {/* Auth Card */}
         <motion.div 
-          className="bg-glass backdrop-blur-xl rounded-3xl p-8 border border-glass-border shadow-glass"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
+          className="card-glass p-8"
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <h2 className="text-xl font-semibold text-foreground text-center mb-8">
+          {/* Inner glow effect */}
+          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent" />
+          </div>
+          
+          <motion.h2 
+            className="relative text-xl font-semibold text-foreground text-center mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
             {isLogin ? 'Bentornato!' : (isDoctor ? 'Registrazione Medico' : 'Crea il tuo account')}
-          </h2>
+          </motion.h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <motion.div 
-                className="relative"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
-                />
-              </motion.div>
-            )}
+          <form onSubmit={handleSubmit} className="relative space-y-4">
+            <AnimatePresence mode="wait">
+              {!isLogin && (
+                <motion.div 
+                  className="relative"
+                  initial={{ opacity: 0, height: 0, y: -10 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
             
-            <div className="relative">
+            <motion.div 
+              className="relative"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 }}
+            >
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="email"
@@ -189,11 +268,16 @@ const Auth: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               />
-            </div>
+            </motion.div>
 
-            <div className="relative">
+            <motion.div 
+              className="relative"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6 }}
+            >
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="password"
@@ -201,23 +285,38 @@ const Auth: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="pl-12 h-14 rounded-2xl bg-glass-subtle border-glass-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               />
-            </div>
+            </motion.div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 mt-6"
-              disabled={loading}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
             >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              ) : null}
-              {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}
-            </Button>
+              <Button 
+                type="submit" 
+                className="w-full h-14 rounded-full text-base font-semibold bg-primary hover:bg-primary/90 shadow-glass-glow hover:shadow-elevated transition-all duration-300 mt-6 group"
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    {isLogin ? 'Accedi' : 'Registrati'}
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </Button>
+            </motion.div>
           </form>
 
-          <div className="mt-8 text-center space-y-4">
+          <motion.div 
+            className="relative mt-8 text-center space-y-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+          >
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -228,33 +327,43 @@ const Auth: React.FC = () => {
               </span>
             </button>
 
-            {!isLogin && (
-              <motion.div 
-                className="pt-4 border-t border-glass-border"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <button
-                  onClick={() => setIsDoctor(!isDoctor)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto"
+            <AnimatePresence>
+              {!isLogin && (
+                <motion.div 
+                  className="pt-4 border-t border-border/50"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <Stethoscope className="w-4 h-4" />
-                  {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
-                </button>
-              </motion.div>
-            )}
-          </div>
+                  <button
+                    onClick={() => setIsDoctor(!isDoctor)}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto group"
+                  >
+                    <Stethoscope className="w-4 h-4 group-hover:text-primary transition-colors" />
+                    {isDoctor ? 'Registrati come Paziente' : 'Sei un Medico? Registrati qui'}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </motion.div>
 
         {/* Footer */}
         <motion.p 
-          className="mt-10 text-xs text-muted-foreground text-center"
+          className="mt-10 text-xs text-muted-foreground text-center leading-relaxed"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.9 }}
         >
-          Accedendo accetti i nostri Termini di Servizio e Privacy Policy
+          Accedendo accetti i nostri{' '}
+          <span className="text-primary/80 hover:text-primary cursor-pointer transition-colors">
+            Termini di Servizio
+          </span>
+          {' '}e{' '}
+          <span className="text-primary/80 hover:text-primary cursor-pointer transition-colors">
+            Privacy Policy
+          </span>
         </motion.p>
       </div>
     </div>
