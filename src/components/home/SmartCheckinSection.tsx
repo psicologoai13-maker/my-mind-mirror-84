@@ -700,7 +700,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-tutorial="checkin">
       {/* Check-in Title */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">

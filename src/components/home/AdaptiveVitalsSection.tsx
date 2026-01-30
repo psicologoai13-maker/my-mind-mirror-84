@@ -94,7 +94,7 @@ const AdaptiveVitalsSection: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tutorial="vitals">
       {/* Section Title */}
       <div className="flex items-center gap-2 px-1">
         <div className="p-1.5 rounded-lg bg-primary/10">
