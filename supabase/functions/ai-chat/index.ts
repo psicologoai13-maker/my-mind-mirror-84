@@ -538,7 +538,7 @@ interface ObjectiveForPrompt {
   unit: string | null;
 }
 
-// Build personalized system prompt
+// Build personalized system prompt with ALL user data
 function buildPersonalizedSystemPrompt(
   userName: string | null,
   memory: string[],
@@ -548,7 +548,12 @@ function buildPersonalizedSystemPrompt(
   priorityMetrics: string[],
   objectivesWithMissingTarget: { title: string; category: string }[],
   allActiveObjectives: ObjectiveForPrompt[] = [],
-  userInterests: UserInterests | null = null
+  userInterests: UserInterests | null = null,
+  dailyMetrics: DailyMetricsData | null = null,
+  recentSessions: RecentSession[] = [],
+  todayHabits: HabitData[] = [],
+  bodyMetrics: BodyMetricsData | null = null,
+  profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null } | null = null
 ): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
@@ -1245,6 +1250,194 @@ Non sei solo/a. Io rimango qui con te."
 `;
 
   // ════════════════════════════════════════════════════════════════════════════
+  // STATO ATTUALE UTENTE (Metriche del giorno)
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let currentStateBlock = '';
+  if (dailyMetrics) {
+    const vitals = dailyMetrics.vitals;
+    const emotions = dailyMetrics.emotions;
+    const lifeAreas = dailyMetrics.life_areas;
+    const psychology = dailyMetrics.deep_psychology;
+    
+    const lines: string[] = [];
+    
+    // Vitals summary
+    if (vitals.mood > 0 || vitals.anxiety > 0 || vitals.energy > 0 || vitals.sleep > 0) {
+      const vitalsItems: string[] = [];
+      if (vitals.mood > 0) vitalsItems.push(`Umore: ${vitals.mood}/10`);
+      if (vitals.anxiety > 0) vitalsItems.push(`Ansia: ${vitals.anxiety}/10`);
+      if (vitals.energy > 0) vitalsItems.push(`Energia: ${vitals.energy}/10`);
+      if (vitals.sleep > 0) vitalsItems.push(`Sonno: ${vitals.sleep}/10`);
+      lines.push(`📊 VITALI OGGI: ${vitalsItems.join(' | ')}`);
+    }
+    
+    // Emotions summary
+    const emotionItems: string[] = [];
+    if (emotions.joy > 20) emotionItems.push(`Gioia ${emotions.joy}%`);
+    if (emotions.sadness > 20) emotionItems.push(`Tristezza ${emotions.sadness}%`);
+    if (emotions.anger > 20) emotionItems.push(`Rabbia ${emotions.anger}%`);
+    if (emotions.fear > 20) emotionItems.push(`Paura ${emotions.fear}%`);
+    if (emotions.apathy > 20) emotionItems.push(`Apatia ${emotions.apathy}%`);
+    if (emotionItems.length > 0) {
+      lines.push(`💭 EMOZIONI PREVALENTI: ${emotionItems.join(', ')}`);
+    }
+    
+    // Life areas summary
+    const areaItems: string[] = [];
+    const areaLabels: Record<string, string> = { love: 'Amore', work: 'Lavoro', health: 'Salute', social: 'Sociale', growth: 'Crescita' };
+    Object.entries(lifeAreas).forEach(([key, val]) => {
+      if (val !== null && val > 0) {
+        areaItems.push(`${areaLabels[key] || key}: ${val}/10`);
+      }
+    });
+    if (areaItems.length > 0) {
+      lines.push(`🎯 AREE VITA: ${areaItems.join(' | ')}`);
+    }
+    
+    // Deep psychology highlights (only significant ones)
+    const psychItems: string[] = [];
+    const psychLabels: Record<string, string> = {
+      rumination: 'Ruminazione', self_efficacy: 'Autoefficacia', mental_clarity: 'Chiarezza mentale',
+      burnout_level: 'Burnout', motivation: 'Motivazione', concentration: 'Concentrazione',
+      gratitude: 'Gratitudine', guilt: 'Senso di colpa', irritability: 'Irritabilità'
+    };
+    Object.entries(psychology).forEach(([key, val]) => {
+      if (val !== null && (val >= 7 || val <= 3) && psychLabels[key]) {
+        const level = val >= 7 ? 'ALTO' : 'BASSO';
+        psychItems.push(`${psychLabels[key]}: ${level}`);
+      }
+    });
+    if (psychItems.length > 0) {
+      lines.push(`🧠 SEGNALI PSICOLOGICI: ${psychItems.join(', ')}`);
+    }
+    
+    if (lines.length > 0) {
+      currentStateBlock = `
+═══════════════════════════════════════════════
+📈 STATO ATTUALE UTENTE (OGGI)
+═══════════════════════════════════════════════
+${lines.join('\n')}
+
+USO: Questi sono i dati REALI di oggi. Se l'utente dice che sta bene ma i dati mostrano ansia alta, esplora gentilmente.
+Se i dati sono positivi, celebra! "Oggi sembri in forma!"
+`;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // SESSIONI RECENTI (Ultimi riassunti AI)
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let recentSessionsBlock = '';
+  if (recentSessions.length > 0) {
+    const sessionLines = recentSessions.map(s => {
+      const date = new Date(s.start_time).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+      const tags = s.emotion_tags?.slice(0, 3).join(', ') || 'nessun tag';
+      const summary = s.ai_summary?.slice(0, 100) || 'Nessun riassunto';
+      return `- ${date} (${s.type}): ${summary}... [${tags}]`;
+    });
+    
+    recentSessionsBlock = `
+═══════════════════════════════════════════════
+📝 SESSIONI RECENTI
+═══════════════════════════════════════════════
+${sessionLines.join('\n')}
+
+USO: Puoi fare riferimento a conversazioni passate:
+- "L'altra volta mi parlavi di..."
+- "Come sta andando quella cosa di cui abbiamo discusso?"
+`;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ABITUDINI DI OGGI
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let habitsBlock = '';
+  if (todayHabits.length > 0) {
+    const habitLabels: Record<string, string> = {
+      water: '💧 Acqua', exercise: '🏃 Esercizio', meditation: '🧘 Meditazione',
+      reading: '📚 Lettura', sleep: '😴 Sonno', alcohol: '🍷 Alcol', 
+      smoking: '🚬 Sigarette', caffeine: '☕ Caffeina', screen_time: '📱 Schermo'
+    };
+    
+    const habitLines = todayHabits.map(h => {
+      const label = habitLabels[h.habit_type] || h.habit_type;
+      const target = h.target_value ? `/${h.target_value}` : '';
+      const unit = h.unit || '';
+      return `${label}: ${h.value}${target} ${unit}`;
+    });
+    
+    habitsBlock = `
+═══════════════════════════════════════════════
+🔄 ABITUDINI OGGI
+═══════════════════════════════════════════════
+${habitLines.join(' | ')}
+
+USO: Puoi commentare i progressi: "Vedo che stai tracciando l'acqua, ottimo!"
+Se un'abitudine è sotto target, incoraggia gentilmente.
+`;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // METRICHE CORPOREE
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let bodyBlock = '';
+  if (bodyMetrics && (bodyMetrics.weight || bodyMetrics.sleep_hours || bodyMetrics.steps)) {
+    const items: string[] = [];
+    if (bodyMetrics.weight) items.push(`Peso: ${bodyMetrics.weight}kg`);
+    if (bodyMetrics.sleep_hours) items.push(`Sonno: ${bodyMetrics.sleep_hours}h`);
+    if (bodyMetrics.steps) items.push(`Passi: ${bodyMetrics.steps}`);
+    if (bodyMetrics.active_minutes) items.push(`Attività: ${bodyMetrics.active_minutes}min`);
+    if (bodyMetrics.resting_heart_rate) items.push(`FC riposo: ${bodyMetrics.resting_heart_rate}bpm`);
+    
+    bodyBlock = `
+═══════════════════════════════════════════════
+🏋️ DATI FISICI (Ultimi)
+═══════════════════════════════════════════════
+${items.join(' | ')}
+
+USO: Collega dati fisici al benessere mentale:
+- Poco sonno + umore basso → "Come hai dormito? Potrebbe influire..."
+- Tanti passi + energia alta → "Vedo che ti sei mossa, fantastico!"
+`;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PROFILO DEMOGRAFICO
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let profileExtrasBlock = '';
+  if (profileExtras) {
+    const items: string[] = [];
+    if (profileExtras.gender) items.push(`Genere: ${profileExtras.gender}`);
+    if (profileExtras.birth_date) {
+      const age = Math.floor((Date.now() - new Date(profileExtras.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      items.push(`Età: ${age} anni`);
+    }
+    if (profileExtras.height) items.push(`Altezza: ${profileExtras.height}cm`);
+    if (profileExtras.therapy_status && profileExtras.therapy_status !== 'none') {
+      const therapyLabels: Record<string, string> = {
+        'searching': 'sta cercando un terapeuta',
+        'active': 'in terapia attiva',
+        'past': 'ha fatto terapia in passato'
+      };
+      items.push(`Terapia: ${therapyLabels[profileExtras.therapy_status] || profileExtras.therapy_status}`);
+    }
+    
+    if (items.length > 0) {
+      profileExtrasBlock = `
+═══════════════════════════════════════════════
+👤 PROFILO UTENTE
+═══════════════════════════════════════════════
+${items.join(' | ')}
+`;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   // COSTRUZIONE FINALE PROMPT (ordine priorità: Regole d'Oro → Personalità → Contesto → Clinica)
   // ════════════════════════════════════════════════════════════════════════════
   
@@ -1254,7 +1447,17 @@ ${BEST_FRIEND_PERSONALITY}
 
 ${userContextBlock}
 
+${profileExtrasBlock}
+
+${currentStateBlock}
+
 ${interestsBlock}
+
+${recentSessionsBlock}
+
+${habitsBlock}
+
+${bodyBlock}
 
 ${objectivesBlock}
 
@@ -1304,6 +1507,68 @@ interface UserInterests {
   emoji_preference?: string;
   sensitive_topics?: string[];
   news_sensitivity?: string;
+  // Additional fields
+  work_schedule?: string;
+  relationship_status?: string;
+  has_children?: boolean;
+  children_count?: number;
+  living_situation?: string;
+  travel_style?: string;
+  dream_destinations?: string[];
+  learning_interests?: string[];
+  career_goals?: string[];
+}
+
+interface DailyMetricsData {
+  vitals: {
+    mood: number;
+    anxiety: number;
+    energy: number;
+    sleep: number;
+  };
+  emotions: {
+    joy: number;
+    sadness: number;
+    anger: number;
+    fear: number;
+    apathy: number;
+  };
+  emotions_extended: Record<string, number | null>;
+  life_areas: {
+    love: number | null;
+    work: number | null;
+    health: number | null;
+    social: number | null;
+    growth: number | null;
+  };
+  deep_psychology: Record<string, number | null>;
+  has_checkin: boolean;
+  has_sessions: boolean;
+}
+
+interface RecentSession {
+  id: string;
+  start_time: string;
+  type: string;
+  ai_summary: string | null;
+  emotion_tags: string[];
+  mood_score_detected: number | null;
+  anxiety_score_detected: number | null;
+}
+
+interface HabitData {
+  habit_type: string;
+  value: number;
+  target_value: number | null;
+  unit: string | null;
+}
+
+interface BodyMetricsData {
+  weight: number | null;
+  sleep_hours: number | null;
+  steps: number | null;
+  active_minutes: number | null;
+  resting_heart_rate: number | null;
 }
 
 interface UserProfile {
@@ -1316,6 +1581,16 @@ interface UserProfile {
   objectives_with_missing_target: { title: string; category: string }[];
   all_active_objectives: UserObjective[];
   interests: UserInterests | null;
+  // NEW: Complete user data
+  daily_metrics: DailyMetricsData | null;
+  recent_sessions: RecentSession[];
+  today_habits: HabitData[];
+  body_metrics: BodyMetricsData | null;
+  // Additional profile data
+  gender: string | null;
+  birth_date: string | null;
+  height: number | null;
+  therapy_status: string | null;
 }
 
 // Helper to get user's profile and memory from database
@@ -1330,6 +1605,14 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     objectives_with_missing_target: [],
     all_active_objectives: [],
     interests: null,
+    daily_metrics: null,
+    recent_sessions: [],
+    today_habits: [],
+    body_metrics: null,
+    gender: null,
+    birth_date: null,
+    height: null,
+    therapy_status: null,
   };
   
   if (!authHeader) {
@@ -1358,11 +1641,21 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     console.log('[ai-chat] User authenticated:', user.id);
     
-    // Fetch profile and interests in parallel
-    const [profileResult, interestsResult, objectivesResult] = await Promise.all([
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Fetch ALL user data in parallel for complete context
+    const [
+      profileResult, 
+      interestsResult, 
+      objectivesResult,
+      dailyMetricsResult,
+      recentSessionsResult,
+      todayHabitsResult,
+      bodyMetricsResult
+    ] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config')
+        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status')
         .eq('user_id', user.id)
         .single(),
       supabase
@@ -1374,12 +1667,40 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
         .from('user_objectives')
         .select('id, title, category, target_value, current_value, starting_value, unit, status, ai_feedback')
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .eq('status', 'active'),
+      // Get daily metrics via RPC for unified data
+      supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
+      // Get recent sessions (last 3)
+      supabase
+        .from('sessions')
+        .select('id, start_time, type, ai_summary, emotion_tags, mood_score_detected, anxiety_score_detected')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('start_time', { ascending: false })
+        .limit(3),
+      // Get today's habits
+      supabase
+        .from('daily_habits')
+        .select('habit_type, value, target_value, unit')
+        .eq('user_id', user.id)
+        .eq('date', today),
+      // Get latest body metrics
+      supabase
+        .from('body_metrics')
+        .select('weight, sleep_hours, steps, active_minutes, resting_heart_rate')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
     ]);
     
     const profile = profileResult.data;
     const interests = interestsResult.data;
     const allObjectivesData = objectivesResult.data;
+    const dailyMetrics = dailyMetricsResult.data as DailyMetricsData | null;
+    const recentSessions = (recentSessionsResult.data || []) as RecentSession[];
+    const todayHabits = (todayHabitsResult.data || []) as HabitData[];
+    const bodyMetrics = bodyMetricsResult.data as BodyMetricsData | null;
     
     if (profileResult.error) {
       console.log('[ai-chat] Failed to get profile:', profileResult.error.message);
@@ -1403,7 +1724,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       .filter(o => o.target_value === null)
       .map(o => ({ title: o.title, category: o.category }));
     
-    // Map interests
+    // Map interests with all fields
     const userInterests: UserInterests | null = interests ? {
       favorite_teams: interests.favorite_teams || [],
       favorite_athletes: interests.favorite_athletes || [],
@@ -1424,6 +1745,15 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       emoji_preference: interests.emoji_preference,
       sensitive_topics: interests.sensitive_topics || [],
       news_sensitivity: interests.news_sensitivity,
+      work_schedule: interests.work_schedule,
+      relationship_status: interests.relationship_status,
+      has_children: interests.has_children,
+      children_count: interests.children_count,
+      living_situation: interests.living_situation,
+      travel_style: interests.travel_style,
+      dream_destinations: interests.dream_destinations || [],
+      learning_interests: interests.learning_interests || [],
+      career_goals: interests.career_goals || [],
     } : null;
     
     const result: UserProfile = {
@@ -1436,9 +1766,17 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       objectives_with_missing_target: objectivesWithMissingTarget,
       all_active_objectives: allActiveObjectives,
       interests: userInterests,
+      daily_metrics: dailyMetrics,
+      recent_sessions: recentSessions,
+      today_habits: todayHabits,
+      body_metrics: bodyMetrics,
+      gender: profile?.gender || null,
+      birth_date: profile?.birth_date || null,
+      height: profile?.height || null,
+      therapy_status: profile?.therapy_status || null,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}`);
     
     return result;
   } catch (error) {
@@ -1545,7 +1883,7 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
     const missingLifeAreas = getMissingLifeAreas(userProfile.life_areas_scores);
     const priorityMetrics = userProfile.dashboard_config?.priority_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
 
-    // Build PERSONALIZED system prompt
+    // Build PERSONALIZED system prompt with ALL user data
     let systemPrompt = buildPersonalizedSystemPrompt(
       userProfile.name,
       userProfile.long_term_memory,
@@ -1555,7 +1893,17 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       priorityMetrics,
       userProfile.objectives_with_missing_target,
       userProfile.all_active_objectives,
-      userProfile.interests
+      userProfile.interests,
+      userProfile.daily_metrics,
+      userProfile.recent_sessions,
+      userProfile.today_habits,
+      userProfile.body_metrics,
+      { 
+        gender: userProfile.gender, 
+        birth_date: userProfile.birth_date, 
+        height: userProfile.height, 
+        therapy_status: userProfile.therapy_status 
+      }
     );
     
     // Inject real-time context if provided
