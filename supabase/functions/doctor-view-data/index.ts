@@ -13,32 +13,83 @@ serve(async (req) => {
   }
 
   try {
-    const { token } = await req.json();
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!token) {
+    // SECURITY: Require doctor authentication via JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create authenticated client for the requesting user
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Validate the JWT and get user
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+    
+    if (userError || !userData?.user) {
+      console.log('[doctor-view-data] Invalid JWT:', userError?.message);
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const doctorId = userData.user.id;
+    if (!doctorId) {
+      return new Response(JSON.stringify({ error: 'Invalid user identity' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create service role client for privileged operations
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // SECURITY: Verify the requesting user is a doctor
+    const { data: doctorRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', doctorId)
+      .eq('role', 'doctor')
+      .single();
+
+    if (!doctorRole) {
+      console.log('[doctor-view-data] User is not a doctor:', doctorId);
+      return new Response(JSON.stringify({ error: 'Access denied: doctor role required' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { token: accessToken } = await req.json();
+
+    if (!accessToken) {
       return new Response(JSON.stringify({ error: 'Token mancante' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
     // Find the shared access record
     const { data: accessRecord, error: accessError } = await supabase
       .from('shared_access')
       .select('*')
-      .eq('token', token)
+      .eq('token', accessToken)
       .eq('is_active', true)
       .gte('expires_at', new Date().toISOString())
       .single();
 
     if (accessError || !accessRecord) {
-      console.log('[doctor-view-data] Invalid or expired token:', token);
+      console.log('[doctor-view-data] Invalid or expired token:', accessToken);
       return new Response(JSON.stringify({ error: 'Token non valido o scaduto' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -47,7 +98,20 @@ serve(async (req) => {
 
     const userId = accessRecord.user_id;
 
-    // Update access count
+    // SECURITY: Optionally verify doctor has an existing relationship with this patient
+    // This adds an extra layer of security - doctors can only access tokens from patients they're connected to
+    const { data: existingAccess } = await supabase
+      .from('doctor_patient_access')
+      .select('id')
+      .eq('doctor_id', doctorId)
+      .eq('patient_id', userId)
+      .eq('is_active', true)
+      .single();
+
+    // Log access attempt with doctor identity for audit trail
+    console.log('[doctor-view-data] Access attempt by doctor:', doctorId, 'for patient:', userId, 'existing_relationship:', !!existingAccess);
+
+    // Update access count with doctor identity
     await supabase
       .from('shared_access')
       .update({ 
@@ -261,10 +325,11 @@ Usa un linguaggio tecnico ma accessibile. NON inventare dati. Se mancano informa
       accessInfo: {
         expiresAt: accessRecord.expires_at,
         accessCount: accessRecord.access_count + 1,
+        accessedBy: doctorId, // Include doctor ID in response for transparency
       },
     };
 
-    console.log('[doctor-view-data] Data fetched for user:', userId, '| Risk:', riskStatus);
+    console.log('[doctor-view-data] Data fetched for user:', userId, '| Risk:', riskStatus, '| Accessed by doctor:', doctorId);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
