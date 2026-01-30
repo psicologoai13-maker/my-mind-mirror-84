@@ -1,39 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
 import NameInputStep from '@/components/onboarding/NameInputStep';
-import QuizStep from '@/components/onboarding/QuizStep';
-import ChipGridStep from '@/components/onboarding/ChipGridStep';
-import EmojiSlider from '@/components/onboarding/EmojiSlider';
-import VicesStep from '@/components/onboarding/VicesStep';
-import LifestyleStep from '@/components/onboarding/LifestyleStep';
-import PhysicalDataStep from '@/components/onboarding/PhysicalDataStep';
-import AnalyzingScreen from '@/components/onboarding/AnalyzingScreen';
-import ResultScreen from '@/components/onboarding/ResultScreen';
-import HabitsSelectionStep from '@/components/onboarding/HabitsSelectionStep';
+import GoalsStep from '@/components/onboarding/GoalsStep';
+import AboutYouStep from '@/components/onboarding/AboutYouStep';
+import ReadyScreen from '@/components/onboarding/ReadyScreen';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
-import { useHabits } from '@/hooks/useHabits';
-import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { toast } from 'sonner';
 
-interface PhysicalData {
-  weight?: number;
-  height?: number;
-  birthYear?: number;
-}
-
-interface OnboardingAnswers {
+interface OnboardingData {
   name: string;
   primaryGoals: string[];
-  lifeSituation: string | null;
   currentMood: number;
-  vices: string[];
-  lifestyle: string[];
-  physicalData: PhysicalData;
-  selectedHabits: string[];
+  ageRange?: string;
+  therapyStatus?: string;
 }
 
 interface DashboardConfig {
@@ -43,67 +27,28 @@ interface DashboardConfig {
   theme: string;
 }
 
-// Goal options with emoji for gamified feel
-const primaryGoalOptions = [
-  { id: 'reduce_anxiety', label: 'Gestire l\'ansia', emoji: '🧘' },
-  { id: 'improve_sleep', label: 'Dormire meglio', emoji: '😴' },
-  { id: 'boost_energy', label: 'Più energia', emoji: '⚡' },
-  { id: 'find_love', label: 'Migliorare relazioni', emoji: '💕' },
-  { id: 'express_feelings', label: 'Sfogarmi/Diario', emoji: '📝' },
-  { id: 'personal_growth', label: 'Crescita personale', emoji: '🌱' },
-  { id: 'work_stress', label: 'Stress lavoro', emoji: '💼' },
-  { id: 'self_esteem', label: 'Autostima', emoji: '🪞' },
-];
-
-const lifeSituationOptions = [
-  { id: 'stable', label: 'Stabile ma voglio di più', emoji: '😐', description: 'Le cose vanno, ma sento che manca qualcosa' },
-  { id: 'crisis', label: 'Momento difficile', emoji: '🌪️', description: 'Sto attraversando un periodo duro' },
-  { id: 'recovery', label: 'In ripresa', emoji: '🌅', description: 'Sto uscendo da un periodo buio' },
-  { id: 'growth', label: 'Voglio crescere', emoji: '🚀', description: 'Sto bene ma voglio migliorarmi' },
-];
-
-type Step = 'welcome' | 'name' | 'goals' | 'situation' | 'mood' | 'vices' | 'lifestyle' | 'physical' | 'habits' | 'analyzing' | 'result';
-
-const stepEncouragements: Partial<Record<Step, string>> = {
-  name: '',
-  goals: 'Ottimo inizio!',
-  situation: 'Fantastico!',
-  mood: 'Ci siamo quasi!',
-  vices: 'Nessun giudizio 💙',
-  lifestyle: 'Quasi finito!',
-  physical: 'Opzionale',
-  habits: 'Ultimo step!',
-};
-
-const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
+// Map goals to dashboard metrics
+const buildDashboardConfig = (goals: string[]): DashboardConfig => {
   const priorityMetrics: string[] = [];
   const secondaryMetrics: string[] = [];
 
-  // Map goals to metrics
-  answers.primaryGoals.forEach(goal => {
+  goals.forEach(goal => {
     switch (goal) {
-      case 'reduce_anxiety':
+      case 'anxiety':
         priorityMetrics.push('anxiety', 'stress');
         secondaryMetrics.push('calmness');
         break;
-      case 'improve_sleep':
+      case 'sleep':
         priorityMetrics.push('sleep', 'energy');
         break;
-      case 'find_love':
-        priorityMetrics.push('love', 'social');
-        break;
-      case 'boost_energy':
+      case 'energy':
         priorityMetrics.push('energy', 'mood');
         break;
-      case 'express_feelings':
-        priorityMetrics.push('mood', 'emotional_clarity');
+      case 'relationships':
+        priorityMetrics.push('love', 'social');
         break;
-      case 'personal_growth':
+      case 'growth':
         priorityMetrics.push('growth', 'mood');
-        break;
-      case 'work_stress':
-        priorityMetrics.push('work', 'stress');
-        secondaryMetrics.push('burnout_level');
         break;
       case 'self_esteem':
         priorityMetrics.push('mood');
@@ -112,17 +57,7 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
     }
   });
 
-  // Add sleep if lifestyle has sleep issues
-  if (answers.lifestyle.includes('sleep_issues') && !priorityMetrics.includes('sleep')) {
-    priorityMetrics.push('sleep');
-  }
-
-  // Add social if alone time is high
-  if (answers.lifestyle.includes('alone_time') && !priorityMetrics.includes('social')) {
-    secondaryMetrics.push('loneliness');
-  }
-
-  // Default metrics if nothing selected
+  // Ensure minimum metrics
   const defaultMetrics = ['mood', 'anxiety', 'energy', 'sleep'];
   defaultMetrics.forEach(metric => {
     if (priorityMetrics.length < 4 && !priorityMetrics.includes(metric)) {
@@ -138,54 +73,24 @@ const buildDashboardConfig = (answers: OnboardingAnswers): DashboardConfig => {
   };
 };
 
-// Map vices to habit types with abstain streak
-const viceToHabitMap: Record<string, { habit_type: string; streak_type: string }> = {
-  smoking: { habit_type: 'no_smoking', streak_type: 'abstain' },
-  alcohol: { habit_type: 'no_alcohol', streak_type: 'abstain' },
-  caffeine: { habit_type: 'limit_caffeine', streak_type: 'abstain' },
-  sugar: { habit_type: 'no_sugar', streak_type: 'abstain' },
-  social_media: { habit_type: 'limit_social', streak_type: 'abstain' },
-  nail_biting: { habit_type: 'no_nail_biting', streak_type: 'abstain' },
-  procrastination: { habit_type: 'no_procrastination', streak_type: 'abstain' },
-  junk_food: { habit_type: 'no_junk_food', streak_type: 'abstain' },
-  gaming: { habit_type: 'limit_gaming', streak_type: 'abstain' },
-  shopping: { habit_type: 'limit_shopping', streak_type: 'abstain' },
-};
+type Step = 'welcome' | 'name' | 'goals' | 'aboutYou' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
-  const { addMultipleHabits, addHabit } = useHabits();
-  const { logMetrics } = useBodyMetrics();
   
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
-  const [answers, setAnswers] = useState<OnboardingAnswers>({
+  const [data, setData] = useState<OnboardingData>({
     name: '',
     primaryGoals: [],
-    lifeSituation: null,
     currentMood: 2,
-    vices: [],
-    lifestyle: [],
-    physicalData: {},
-    selectedHabits: [],
+    ageRange: undefined,
+    therapyStatus: undefined,
   });
 
-  const stepOrder: Step[] = [
-    'welcome',
-    'name',
-    'goals',
-    'situation',
-    'mood',
-    'vices',
-    'lifestyle',
-    'physical',
-    'habits',
-    'analyzing',
-    'result'
-  ];
-
+  const stepOrder: Step[] = ['welcome', 'name', 'goals', 'aboutYou', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 8; // Excludes welcome, analyzing, result
+  const quizSteps = 3; // name, goals, aboutYou
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -196,7 +101,7 @@ const Onboarding: React.FC = () => {
 
   const handleBack = () => {
     const prevIndex = currentIndex - 1;
-    if (prevIndex >= 0 && stepOrder[prevIndex] !== 'welcome') {
+    if (prevIndex > 0) { // Don't go back to welcome
       setCurrentStep(stepOrder[prevIndex]);
     }
   };
@@ -204,80 +109,64 @@ const Onboarding: React.FC = () => {
   const canProceed = () => {
     switch (currentStep) {
       case 'name':
-        return answers.name.trim().length > 0;
+        return data.name.trim().length >= 2;
       case 'goals':
-        return answers.primaryGoals.length > 0;
-      case 'situation':
-        return answers.lifeSituation !== null;
-      case 'mood':
-      case 'vices':
-      case 'lifestyle':
-      case 'physical':
-      case 'habits':
-        return true; // All optional or have defaults
+        return data.primaryGoals.length >= 1;
+      case 'aboutYou':
+        return true; // mood has default
       default:
         return true;
     }
   };
 
   const getProgressStep = () => {
-    // Map actual steps to progress (1-8)
     const progressMap: Partial<Record<Step, number>> = {
       name: 1,
       goals: 2,
-      situation: 3,
-      mood: 4,
-      vices: 5,
-      lifestyle: 6,
-      physical: 7,
-      habits: 8,
+      aboutYou: 3,
     };
     return progressMap[currentStep] || 0;
   };
 
   const handleComplete = async () => {
     try {
-      const dashboardConfig = buildDashboardConfig(answers);
+      const dashboardConfig = buildDashboardConfig(data.primaryGoals);
       const personalizedMetrics = dashboardConfig.priority_metrics.slice(0, 4);
       
-      console.log('[Onboarding] Saving complete profile:', { answers, dashboardConfig });
+      // Map new goal IDs to legacy format for compatibility
+      const legacyGoalMap: Record<string, string> = {
+        anxiety: 'reduce_anxiety',
+        sleep: 'improve_sleep',
+        energy: 'boost_energy',
+        relationships: 'find_love',
+        growth: 'personal_growth',
+        self_esteem: 'self_esteem',
+      };
       
-      // Save profile with name and all answers
+      const legacyGoals = data.primaryGoals.map(g => legacyGoalMap[g] || g);
+      
       await updateProfile.mutateAsync({
-        name: answers.name,
+        name: data.name,
         onboarding_completed: true,
-        onboarding_answers: answers,
+        onboarding_answers: {
+          name: data.name,
+          primaryGoals: legacyGoals,
+          currentMood: data.currentMood,
+          ageRange: data.ageRange,
+          therapyStatus: data.therapyStatus,
+          // Keep empty for legacy compatibility
+          lifeSituation: null,
+          vices: [],
+          lifestyle: [],
+          physicalData: {},
+          selectedHabits: [],
+        },
         dashboard_config: dashboardConfig,
         active_dashboard_metrics: personalizedMetrics,
-        selected_goals: answers.primaryGoals,
+        selected_goals: legacyGoals,
       } as any);
       
-      // Save physical data if provided
-      if (answers.physicalData.weight) {
-        await logMetrics.mutateAsync({
-          weight: answers.physicalData.weight,
-        });
-      }
-
-      // Save selected habits
-      if (answers.selectedHabits.length > 0) {
-        await addMultipleHabits.mutateAsync(answers.selectedHabits);
-      }
-
-      // Create habits for vices (abstain type) - just add the habit type string
-      const viceHabitTypes = answers.vices
-        .filter(v => v !== 'none' && viceToHabitMap[v])
-        .map(v => viceToHabitMap[v].habit_type);
-      
-      if (viceHabitTypes.length > 0) {
-        try {
-          await addMultipleHabits.mutateAsync(viceHabitTypes);
-        } catch (e) {
-          console.log('Some vice habits may already exist');
-        }
-      }
-      
-      toast.success(`Benvenuto/a, ${answers.name}! 🎉`);
+      toast.success(`Benvenuto/a, ${data.name}! 🎉`);
       navigate('/', { replace: true });
     } catch (error) {
       console.error('Error saving onboarding:', error);
@@ -291,22 +180,12 @@ const Onboarding: React.FC = () => {
     return <WelcomeStep onStart={handleNext} />;
   }
 
-  // Analyzing screen - no layout
-  if (currentStep === 'analyzing') {
-    return <AnalyzingScreen onComplete={handleNext} userName={answers.name} />;
-  }
-
-  // Result screen - no layout
-  if (currentStep === 'result') {
-    const resultAnswers = {
-      primaryGoals: answers.primaryGoals,
-      mood: answers.currentMood,
-      lifeSituation: answers.lifeSituation ?? undefined,
-      selectedHabits: answers.selectedHabits,
-    };
+  // Ready screen - no layout
+  if (currentStep === 'ready') {
     return (
-      <ResultScreen 
-        answers={resultAnswers}
+      <ReadyScreen 
+        userName={data.name}
+        selectedGoals={data.primaryGoals}
         onComplete={handleComplete}
       />
     );
@@ -320,94 +199,68 @@ const Onboarding: React.FC = () => {
       totalSteps={quizSteps}
       onBack={handleBack}
       showBack={showBackButton}
-      encouragement={stepEncouragements[currentStep]}
     >
-      {/* Step Content */}
+      {/* Name Step */}
       {currentStep === 'name' && (
         <NameInputStep
-          value={answers.name}
-          onChange={(name) => setAnswers(prev => ({ ...prev, name }))}
+          value={data.name}
+          onChange={(name) => setData(prev => ({ ...prev, name }))}
           onNext={handleNext}
         />
       )}
 
+      {/* Goals Step */}
       {currentStep === 'goals' && (
-        <ChipGridStep
-          title="Cosa vorresti migliorare?"
-          subtitle="Seleziona fino a 3 obiettivi"
-          options={primaryGoalOptions}
-          selectedValues={answers.primaryGoals}
-          onChange={(values) => setAnswers(prev => ({ ...prev, primaryGoals: values }))}
-          maxSelections={3}
-          encouragement="Fantastico! Adesso so cosa è importante per te ✨"
-        />
-      )}
-
-      {currentStep === 'situation' && (
-        <QuizStep
-          title="Come descriveresti questo periodo?"
-          subtitle="Non ci sono risposte giuste o sbagliate"
-          options={lifeSituationOptions}
-          selectedValue={answers.lifeSituation}
-          onSelect={(value) => setAnswers(prev => ({ ...prev, lifeSituation: value }))}
-        />
-      )}
-
-      {currentStep === 'mood' && (
-        <EmojiSlider
-          title="Come ti senti ultimamente?"
-          subtitle="Seleziona l'emoji che meglio ti rappresenta"
-          value={answers.currentMood}
-          onChange={(value) => setAnswers(prev => ({ ...prev, currentMood: value }))}
-        />
-      )}
-
-      {currentStep === 'vices' && (
-        <VicesStep
-          selectedValues={answers.vices}
-          onChange={(values) => setAnswers(prev => ({ ...prev, vices: values }))}
-        />
-      )}
-
-      {currentStep === 'lifestyle' && (
-        <LifestyleStep
-          selectedValues={answers.lifestyle}
-          onChange={(values) => setAnswers(prev => ({ ...prev, lifestyle: values }))}
-        />
-      )}
-
-      {currentStep === 'physical' && (
-        <PhysicalDataStep
-          value={answers.physicalData}
-          onChange={(data) => setAnswers(prev => ({ ...prev, physicalData: data }))}
-        />
-      )}
-
-      {currentStep === 'habits' && (
-        <HabitsSelectionStep
-          selectedHabits={answers.selectedHabits}
-          onSelect={(habits) => setAnswers(prev => ({ ...prev, selectedHabits: habits }))}
-          onboardingAnswers={answers as unknown as Record<string, unknown>}
-        />
-      )}
-
-      {/* Navigation - only for steps that don't have their own button */}
-      {currentStep !== 'name' && (
-        <div className="px-6 pb-8 pt-4">
-          <Button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="w-full h-14 rounded-full text-base font-medium shadow-premium hover:shadow-elevated transition-all duration-300 disabled:opacity-50"
+        <>
+          <GoalsStep
+            userName={data.name}
+            selectedGoals={data.primaryGoals}
+            onChange={(goals) => setData(prev => ({ ...prev, primaryGoals: goals }))}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
           >
-            {(currentStep === 'vices' && (answers.vices.length === 0 || answers.vices.includes('none'))) ||
-             (currentStep === 'lifestyle' && answers.lifestyle.length === 0) ||
-             (currentStep === 'physical' && !answers.physicalData.weight && !answers.physicalData.height) ||
-             (currentStep === 'habits' && answers.selectedHabits.length === 0)
-              ? 'Salta'
-              : 'Continua'}
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        </div>
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+            >
+              Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
+      {/* About You Step */}
+      {currentStep === 'aboutYou' && (
+        <>
+          <AboutYouStep
+            currentMood={data.currentMood}
+            onMoodChange={(mood) => setData(prev => ({ ...prev, currentMood: mood }))}
+            ageRange={data.ageRange}
+            onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
+            therapyStatus={data.therapyStatus}
+            onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
+            >
+              Quasi fatto!
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
       )}
     </OnboardingLayout>
   );
