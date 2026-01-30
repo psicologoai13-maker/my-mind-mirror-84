@@ -18,30 +18,24 @@ interface AdaptiveVitalCardProps {
 // Negative metrics: lower is BETTER
 const NEGATIVE_METRICS = ['anxiety', 'sadness', 'anger', 'fear', 'apathy', 'stress', 'loneliness'];
 
-// Smart color logic based on metric type
-const getMetricColor = (key: MetricKey, value: number): string => {
-  const isNegative = NEGATIVE_METRICS.includes(key);
-  const normalized = value / 10;
-  
-  if (isNegative) {
-    // For negative metrics: LOW = GOOD (green), HIGH = BAD (red)
-    if (normalized <= 3) return 'hsl(var(--mood-excellent))';
-    if (normalized <= 6) return 'hsl(var(--mood-neutral))';
-    return 'hsl(var(--mood-bad))';
-  } else {
-    // For positive metrics: HIGH = GOOD (green), LOW = BAD (red)
-    if (normalized >= 7) return 'hsl(var(--mood-excellent))';
-    if (normalized >= 4) return 'hsl(var(--mood-neutral))';
-    return 'hsl(var(--mood-low))';
-  }
+// Color logic for DISPLAY value (after inversion for negative metrics)
+// At this point, higher displayValue = better, regardless of original metric type
+const getDisplayColor = (displayValue: number): string => {
+  const normalized = displayValue / 10;
+  // Higher = better (green), Lower = worse (red)
+  if (normalized >= 7) return 'hsl(var(--mood-excellent))';
+  if (normalized >= 4) return 'hsl(var(--mood-neutral))';
+  return 'hsl(var(--mood-low))';
 };
 
-// Get status label
-const getStatusLabel = (key: MetricKey, value: number): string => {
-  const isNegative = NEGATIVE_METRICS.includes(key);
-  const normalized = value / 10;
+// Get status label based on DISPLAY value (after inversion)
+// Higher displayValue = better, so we use positive labels
+const getStatusLabel = (key: MetricKey, displayValue: number): string => {
+  const normalized = displayValue / 10;
   
-  const positiveLabels: Partial<Record<MetricKey, [string, string, string]>> = {
+  // Labels specific to each metric, but mapped to displayValue (higher = better)
+  const labelsByMetric: Partial<Record<MetricKey, [string, string, string]>> = {
+    // Positive metrics (original scale preserved)
     mood: ['Basso', 'Neutro', 'Ottimo'],
     energy: ['Scarso', 'Normale', 'Carico'],
     sleep: ['Stanco', 'Ok', 'Riposato'],
@@ -54,29 +48,22 @@ const getStatusLabel = (key: MetricKey, value: number): string => {
     social: ['Isolato', 'Neutro', 'Connesso'],
     friendship: ['Solo', 'Neutro', 'Sociale'],
     emotional_clarity: ['Confuso', 'Neutro', 'Lucido'],
+    // Negative metrics (inverted, so high displayValue = low original = good)
+    anxiety: ['Alta', 'Gestibile', 'Calma'],
+    stress: ['Elevato', 'Gestibile', 'Rilassato'],
+    loneliness: ['Isolato', 'Neutro', 'Connesso'],
+    sadness: ['Intensa', 'Presente', 'Sereno'],
+    anger: ['Intensa', 'Presente', 'Calmo'],
+    fear: ['Elevata', 'Presente', 'Sicuro'],
+    apathy: ['Elevata', 'Neutro', 'Motivato'],
   };
 
-  const negativeLabels: Partial<Record<MetricKey, [string, string, string]>> = {
-    anxiety: ['Calma', 'Gestibile', 'Alta'],
-    stress: ['Rilassato', 'Gestibile', 'Elevato'],
-    loneliness: ['Connesso', 'Neutro', 'Isolato'],
-    sadness: ['Sereno', 'Presente', 'Intensa'],
-    anger: ['Calmo', 'Presente', 'Intensa'],
-    fear: ['Sicuro', 'Presente', 'Elevata'],
-    apathy: ['Motivato', 'Neutro', 'Elevata'],
-  };
-
-  if (isNegative) {
-    const labels = negativeLabels[key] || ['Basso', 'Medio', 'Alto'];
-    if (normalized <= 3) return labels[0];
-    if (normalized <= 6) return labels[1];
-    return labels[2];
-  } else {
-    const labels = positiveLabels[key] || ['Basso', 'Medio', 'Buono'];
-    if (normalized >= 7) return labels[2];
-    if (normalized >= 4) return labels[1];
-    return labels[0];
-  }
+  const labels = labelsByMetric[key] || ['Basso', 'Medio', 'Buono'];
+  
+  // Higher displayValue = better = last label
+  if (normalized >= 7) return labels[2];
+  if (normalized >= 4) return labels[1];
+  return labels[0];
 };
 
 // Configuration for ALL possible metrics
@@ -122,15 +109,19 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   const hasData = value !== undefined && value !== null;
   
   // INVERSION LOGIC for negative metrics (only when we have data!)
+  // After inversion: higher displayValue = better for ALL metrics
   const displayValue = hasData 
     ? (isNegative ? (100 - value) : value)
-    : 0; // Show 0 ring when no data
+    : 0;
+  
+  // Use unified color logic since displayValue is already normalized (higher = better)
   const color = hasData 
-    ? getMetricColor(metricKey, displayValue)
-    : 'hsl(var(--muted-foreground))'; // Gray when no data
+    ? getDisplayColor(displayValue)
+    : 'hsl(var(--muted-foreground))';
+  
   const statusLabel = hasData 
     ? getStatusLabel(metricKey, displayValue)
-    : '–'; // Dash when no data
+    : '–';
 
   return (
     <div className={cn(
