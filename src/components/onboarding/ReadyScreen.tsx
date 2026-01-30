@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Stars, MessageCircle, Mic } from 'lucide-react';
 
 interface ReadyScreenProps {
   userName: string;
@@ -47,25 +47,19 @@ const ConfettiParticle: React.FC<{ index: number }> = ({ index }) => {
   );
 };
 
-const spring = {
-  type: "spring" as const,
-  stiffness: 400,
-  damping: 25
-};
-
 const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onComplete }) => {
   const [showConfetti, setShowConfetti] = useState(true);
-  const confettiCount = 30;
+  const confettiCount = 20;
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowConfetti(false), 4000);
+    const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-6 relative overflow-hidden">
       {/* Aurora Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-primary/5 animate-aurora" />
+      <div className="absolute inset-0 bg-gradient-to-br from-aria-violet/10 via-background to-aria-indigo/5" />
       
       {/* Confetti */}
       {showConfetti && (
@@ -76,117 +70,126 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
         </div>
       )}
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-sm">
-        {/* Avatar */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ ...spring, delay: 0.2 }}
-          className="relative mb-8"
-        >
-          {/* Glow rings */}
-          <div className="absolute inset-0 w-32 h-32 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 blur-xl animate-pulse" />
-          <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20 shadow-glass-glow">
-            <Sparkles className="w-14 h-14 text-primary animate-pulse" />
+      {/* Compact Card - stile WelcomeAriaModal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="relative z-10 w-full max-w-[300px] card-glass p-5 rounded-3xl overflow-hidden"
+      >
+        {/* Aurora gradient background */}
+        <div className="absolute inset-0 bg-gradient-aria-subtle opacity-50 pointer-events-none" />
+        
+        <div className="relative z-10">
+          {/* Aria Avatar - compatto */}
+          <div className="flex justify-center mb-4">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", delay: 0.1, stiffness: 200 }}
+              className="relative"
+            >
+              <div className="relative w-14 h-14 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow">
+                <Sparkles className="w-7 h-7 text-white" />
+              </div>
+              <motion.div
+                className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center border-2 border-background"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              >
+                <Stars className="w-2.5 h-2.5 text-primary-foreground" />
+              </motion.div>
+            </motion.div>
           </div>
-          
-          {/* Floating sparkles */}
-          <motion.div 
-            className="absolute -top-2 -right-2 text-2xl"
-            animate={{ y: [-2, 2, -2], rotate: [0, 10, 0] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-          >
-            ✨
-          </motion.div>
-          <motion.div 
-            className="absolute -bottom-1 -left-3 text-xl"
-            animate={{ y: [2, -2, 2], rotate: [0, -10, 0] }}
-            transition={{ repeat: Infinity, duration: 2.5 }}
-          >
-            🌟
-          </motion.div>
-        </motion.div>
 
-        {/* Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="text-3xl font-bold text-foreground mb-2"
-        >
-          Perfetto, {userName}! 🎉
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="text-muted-foreground mb-8"
-        >
-          Aria non vede l'ora di conoscerti
-        </motion.p>
-
-        {/* Selected Goals */}
-        {selectedGoals.length > 0 && (
+          {/* Title - compatto */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="w-full mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-center mb-4"
           >
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-              I tuoi obiettivi
+            <h1 className="text-xl font-bold text-foreground mb-1">
+              Perfetto, {userName}! 🎉
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Sono <span className="font-semibold text-aria-violet">Aria</span>, pronta a conoscerti
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {selectedGoals.map((goalId, index) => {
-                const goal = goalLabels[goalId];
-                if (!goal) return null;
-                
-                return (
-                  <motion.div
-                    key={goalId}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7 + index * 0.1, ...spring }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
-                  >
-                    <span className="text-lg">{goal.emoji}</span>
-                    <span className="text-sm font-medium text-foreground">{goal.label}</span>
-                  </motion.div>
-                );
-              })}
+          </motion.div>
+
+          {/* Selected Goals - compatti */}
+          {selectedGoals.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mb-4"
+            >
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 text-center">
+                I tuoi obiettivi
+              </p>
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {selectedGoals.slice(0, 3).map((goalId) => {
+                  const goal = goalLabels[goalId];
+                  if (!goal) return null;
+                  
+                  return (
+                    <div
+                      key={goalId}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/60 border border-border/30"
+                    >
+                      <span className="text-sm">{goal.emoji}</span>
+                      <span className="text-[11px] font-medium text-foreground/80">{goal.label}</span>
+                    </div>
+                  );
+                })}
+                {selectedGoals.length > 3 && (
+                  <div className="px-2 py-1 rounded-full bg-secondary/40 text-[11px] text-muted-foreground">
+                    +{selectedGoals.length - 3}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* CTA Buttons - layout come WelcomeAriaModal */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-2"
+          >
+            {/* Main CTA */}
+            <Button
+              onClick={onComplete}
+              className="w-full h-11 rounded-full bg-gradient-aria text-white text-sm font-semibold shadow-aria-glow hover:shadow-elevated transition-all group"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Iniziamo a conoscerci
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+            </Button>
+            
+            {/* Secondary row */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={onComplete}
+                className="flex-1 h-9 rounded-full border-border/40 text-[11px] font-medium bg-background/50"
+              >
+                <Mic className="w-3 h-3 mr-1" />
+                Preferisco parlare
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={onComplete}
+                className="h-9 px-3 rounded-full text-muted-foreground text-[11px] hover:bg-secondary/50"
+              >
+                Più tardi
+              </Button>
             </div>
           </motion.div>
-        )}
-
-        {/* CTA Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-          className="w-full"
-        >
-          <Button
-            onClick={onComplete}
-            size="lg"
-            className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
-          >
-            Parla con Aria
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        </motion.div>
-
-        {/* Subtle note */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1 }}
-          className="text-xs text-muted-foreground/60 mt-4"
-        >
-          Aria è qui per accompagnarti ogni giorno 💙
-        </motion.p>
-      </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
