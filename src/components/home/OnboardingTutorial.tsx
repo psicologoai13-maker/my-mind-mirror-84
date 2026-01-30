@@ -127,44 +127,71 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
 
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
-    if (!spotlightRect) {
-      // Center position for welcome/ready steps
-      return {
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-      };
-    }
-
     const viewportHeight = window.innerHeight;
     const tooltipHeight = 280; // Approximate height of tooltip
     const gap = 16;
+    const navBarHeight = 100; // Bottom nav + safe area
+    const safeBottom = viewportHeight - navBarHeight;
 
-    if (step.tooltipPosition === 'top') {
-      // Position above the spotlight
-      const top = spotlightRect.top - tooltipHeight - gap;
-      if (top > 20) {
-        return { top: `${top}px`, left: '1rem', right: '1rem' };
-      }
-    }
-    
-    if (step.tooltipPosition === 'bottom') {
-      // Position below the spotlight
-      const top = spotlightRect.top + spotlightRect.height + gap;
-      if (top + tooltipHeight < viewportHeight - 20) {
-        return { top: `${top}px`, left: '1rem', right: '1rem' };
-      }
+    if (!spotlightRect) {
+      // Center position for welcome/ready steps - truly centered
+      return {
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: `calc(100% - 2rem)`,
+        maxWidth: '360px',
+      };
     }
 
-    // Fallback: position wherever there's more space
+    // For steps with spotlight, position tooltip avoiding navbar
     const spaceAbove = spotlightRect.top;
-    const spaceBelow = viewportHeight - (spotlightRect.top + spotlightRect.height);
+    const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
     
-    if (spaceAbove > spaceBelow) {
-      return { top: `${Math.max(20, spotlightRect.top - tooltipHeight - gap)}px`, left: '1rem', right: '1rem' };
+    // Determine if tooltip should go above (prefer above when spotlight is low)
+    const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
+    
+    if (shouldGoAbove) {
+      // Position above the spotlight
+      const topPos = Math.max(20, spotlightRect.top - tooltipHeight - gap);
+      return { 
+        position: 'fixed',
+        top: `${topPos}px`, 
+        left: '1rem', 
+        right: '1rem',
+        maxWidth: '360px',
+        margin: '0 auto',
+      };
     } else {
-      return { top: `${spotlightRect.top + spotlightRect.height + gap}px`, left: '1rem', right: '1rem' };
+      // Position below the spotlight, but ensure it doesn't go below navbar
+      const topPos = spotlightRect.top + spotlightRect.height + gap;
+      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight - gap);
+      return { 
+        position: 'fixed',
+        top: `${Math.max(20, adjustedTop)}px`, 
+        left: '1rem', 
+        right: '1rem',
+        maxWidth: '360px',
+        margin: '0 auto',
+      };
     }
+  };
+
+  // Determine arrow direction based on actual positioning
+  const isTooltipAbove = (): boolean => {
+    if (!spotlightRect) return true;
+    
+    const viewportHeight = window.innerHeight;
+    const tooltipHeight = 280;
+    const gap = 16;
+    const navBarHeight = 100;
+    const safeBottom = viewportHeight - navBarHeight;
+    
+    const spaceAbove = spotlightRect.top;
+    const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
+    
+    return spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
   };
 
   return (
@@ -230,7 +257,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="absolute max-w-sm mx-auto z-10"
+            className="z-10"
             style={getTooltipStyle()}
           >
             <div className="relative">
@@ -317,13 +344,13 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   animate={{ opacity: 1 }}
                   className={cn(
                     "absolute left-1/2 -translate-x-1/2",
-                    step.tooltipPosition === 'top' ? "-bottom-2" : "-top-2"
+                    isTooltipAbove() ? "-bottom-2" : "-top-2"
                   )}
                 >
                   <div 
                     className={cn(
                       "w-4 h-4 bg-card rotate-45 border border-border",
-                      step.tooltipPosition === 'top' ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
+                      isTooltipAbove() ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
                     )}
                   />
                 </motion.div>
