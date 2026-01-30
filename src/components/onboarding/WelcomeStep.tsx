@@ -86,7 +86,7 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          3 domande veloci per conoscerti meglio ✨
+          Vorrei conoscerti meglio ✨
         </motion.p>
 
         {/* CTA Button */}
