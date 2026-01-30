@@ -23,16 +23,17 @@ const BottomNav: React.FC = () => {
   }
 
   return (
-    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm">
+    <nav 
+      className="fixed left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm"
+      style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+    >
       {/* Floating Glass Dock */}
       <div className={cn(
         "relative flex items-center justify-around",
         "py-2 px-2 rounded-[28px]",
         "bg-glass backdrop-blur-xl backdrop-saturate-150",
         "border border-glass-border",
-        "shadow-glass-elevated",
-        // Safe area padding
-        "pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]"
+        "shadow-glass-elevated"
       )}>
         {/* Inner glow */}
         <div className="absolute inset-0 rounded-[28px] bg-gradient-to-t from-transparent via-white/5 to-white/10 pointer-events-none" />
