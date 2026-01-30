@@ -20,6 +20,7 @@ interface OnboardingData {
   motivations: string[];
   primaryGoals: string[];
   currentMood: number;
+  moodSelected: boolean;
   ageRange?: string;
   therapyStatus?: string;
   interests: string[];
@@ -91,6 +92,7 @@ const Onboarding: React.FC = () => {
     motivations: [],
     primaryGoals: [],
     currentMood: 2,
+    moodSelected: false,
     ageRange: undefined,
     therapyStatus: undefined,
     interests: [],
@@ -123,7 +125,7 @@ const Onboarding: React.FC = () => {
       case 'goals':
         return data.primaryGoals.length >= 1;
       case 'aboutYou':
-        return true; // mood has default
+        return data.moodSelected; // Require mood selection
       case 'interests':
         return true; // interests are optional
       default:
@@ -298,7 +300,7 @@ const Onboarding: React.FC = () => {
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
             >
               Continua
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -317,6 +319,8 @@ const Onboarding: React.FC = () => {
             onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
             therapyStatus={data.therapyStatus}
             onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
+            moodSelected={data.moodSelected}
+            onMoodSelected={(selected) => setData(prev => ({ ...prev, moodSelected: selected }))}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -326,7 +330,8 @@ const Onboarding: React.FC = () => {
           >
             <Button
               onClick={handleNext}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
             >
               Continua
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -352,7 +357,7 @@ const Onboarding: React.FC = () => {
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
             >
               Continua
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -377,7 +382,7 @@ const Onboarding: React.FC = () => {
           >
             <Button
               onClick={handleNext}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300"
             >
               {data.interests.length > 0 ? 'Continua' : 'Salta'}
               <ArrowRight className="w-5 h-5 ml-2" />
