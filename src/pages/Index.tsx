@@ -3,7 +3,6 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
-import FocusTopics from '@/components/home/FocusTopics';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
 import WelcomeAriaModal from '@/components/home/WelcomeAriaModal';
@@ -142,11 +141,6 @@ const Index: React.FC = () => {
       <div className="px-6 pb-8 space-y-5">
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
-        
-        {/* Focus Topics - Always visible */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <FocusTopics />
-        </div>
       </div>
 
       {/* Check-in Summary Modal */}
