@@ -144,7 +144,7 @@ const Onboarding: React.FC = () => {
     return progressMap[currentStep] || 0;
   };
 
-  const handleComplete = async () => {
+  const handleComplete = async (goToAria: boolean) => {
     try {
       const dashboardConfig = buildDashboardConfig(data.primaryGoals);
       const personalizedMetrics = dashboardConfig.priority_metrics.slice(0, 4);
@@ -241,7 +241,13 @@ const Onboarding: React.FC = () => {
       }
       
       toast.success(`Benvenuto/a, ${data.name}! 🎉`);
-      navigate('/', { replace: true });
+      
+      // Navigate based on user choice
+      if (goToAria) {
+        navigate('/aria', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (error) {
       console.error('Error saving onboarding:', error);
       toast.error('Errore nel salvataggio');
