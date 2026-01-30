@@ -38,7 +38,7 @@ const Index: React.FC = () => {
         localStorage.setItem('aria_welcome_shown', 'true');
       }
     }
-  }, [isLoading, profile?.onboarding_completed, sessions.length]);
+  }, [isLoading, profile?.onboarding_completed, sessions]);
 
   // Get AI insights from analysis layout
   const aiSummary = analysisLayout.ai_summary || '';
