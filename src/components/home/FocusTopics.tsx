@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
-import { Hash, Sparkles, X } from 'lucide-react';
+import { Hash, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -246,35 +246,23 @@ const FocusTopics: React.FC = () => {
             ))}
           </div>
 
-          {/* Expanded Description */}
+          {/* Expanded Description - inline below grid */}
           <AnimatePresence>
             {expandedTopic && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="overflow-hidden"
               >
-                <div className="bg-muted/50 rounded-xl p-3 border border-border/30">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-foreground capitalize mb-1">
-                        {expandedTopic}
-                      </p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {topics.find(t => t.tag === expandedTopic)?.description || 
-                         TOPIC_DESCRIPTIONS[expandedTopic] || 
-                         'Un aspetto importante del tuo benessere.'}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => setExpandedTopic(null)}
-                      className="p-1 rounded-full hover:bg-muted transition-colors shrink-0"
-                    >
-                      <X className="w-3 h-3 text-muted-foreground" />
-                    </button>
-                  </div>
+                <div className="bg-muted/30 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                    <span className="font-medium text-foreground capitalize">{expandedTopic}:</span>{' '}
+                    {topics.find(t => t.tag === expandedTopic)?.description || 
+                     TOPIC_DESCRIPTIONS[expandedTopic] || 
+                     'Un aspetto importante del tuo benessere.'}
+                  </p>
                 </div>
               </motion.div>
             )}
