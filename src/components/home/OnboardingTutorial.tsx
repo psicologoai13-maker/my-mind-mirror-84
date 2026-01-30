@@ -29,14 +29,14 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'welcome',
     title: 'Benvenuto in Aria! 🎉',
-    description: 'Iniziamo un tour veloce per scoprire come monitorare il tuo benessere ogni giorno.',
+    description: 'Un tour veloce per scoprire come monitorare il tuo benessere.',
     icon: <Sparkles className="w-6 h-6" />,
     tooltipPosition: 'center',
   },
   {
     id: 'checkin',
     title: 'Check-in Giornalieri',
-    description: 'Tocca le card per registrare come ti senti. Bastano pochi secondi per tracciare umore, energia e altro.',
+    description: 'Tocca le card per registrare come ti senti.',
     icon: <Target className="w-6 h-6" />,
     highlightSelector: '[data-tutorial="checkin"]',
     tooltipPosition: 'bottom',
@@ -44,7 +44,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'focus',
     title: 'I Tuoi Focus',
-    description: 'Qui vedi i parametri più importanti per te. Si riempiono man mano che fai check-in o parli con Aria.',
+    description: 'I parametri più importanti per te. Si riempiono con check-in e chat.',
     icon: <TrendingUp className="w-6 h-6" />,
     highlightSelector: '[data-tutorial="vitals"]',
     tooltipPosition: 'top',
@@ -52,15 +52,15 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'aria',
     title: 'Parla con Aria',
-    description: 'Il pulsante centrale ti porta da Aria, la tua compagna AI. Puoi chattare o parlare a voce!',
+    description: 'Il pulsante centrale ti porta da Aria. Chatta o parla a voce!',
     icon: <MessageCircle className="w-6 h-6" />,
-    highlightSelector: '[data-tutorial="aria-button"]',
+    // No highlightSelector - just show tooltip with arrow pointing down
     tooltipPosition: 'top',
   },
   {
     id: 'navigation',
     title: 'Esplora l\'App',
-    description: 'Usa la barra in basso per navigare tra Home, Analisi, Progressi e il tuo Profilo.',
+    description: 'Usa la barra in basso per navigare tra le sezioni.',
     icon: <BarChart3 className="w-6 h-6" />,
     highlightSelector: 'nav',
     tooltipPosition: 'top',
@@ -68,7 +68,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'ready',
     title: 'Sei Pronto! ✨',
-    description: 'Inizia con un check-in veloce o parla direttamente con Aria per personalizzare la tua esperienza.',
+    description: 'Inizia con un check-in o parla con Aria!',
     icon: <Sparkles className="w-6 h-6" />,
     tooltipPosition: 'center',
   },
@@ -161,14 +161,27 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     setTimeout(onComplete, 300);
   };
 
+  // Check if current step is the Aria step (no spotlight, just arrow)
+  const isAriaStep = step.id === 'aria';
+
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 220; // Compact tooltip height
-    const gap = 16; // Smaller gap for closer positioning
-    const navBarHeight = 120;
-    const safeBottom = viewportHeight - navBarHeight;
+    const tooltipHeight = 180; // More compact
+    const gap = 12;
+    const navBarHeight = 100;
 
+    // For Aria step: position above navbar with arrow pointing down
+    if (isAriaStep) {
+      return {
+        position: 'fixed',
+        bottom: `${navBarHeight + 20}px`,
+        left: '16px',
+        right: '16px',
+      };
+    }
+
+    // Center for welcome/ready steps
     if (!spotlightRect) {
       return {
         position: 'fixed',
@@ -180,11 +193,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       };
     }
 
-    // For Aria button and navbar, position tooltip just above the spotlight
+    // For bottom elements (navbar), position above
     const isBottomElement = spotlightRect.top > viewportHeight * 0.6;
-    
     if (isBottomElement) {
-      // Position directly above the spotlight with small gap
       const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
@@ -194,37 +205,33 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       };
     }
 
+    // Always position ABOVE the spotlight for Focus step
     const spaceAbove = spotlightRect.top;
-    const shouldGoAbove = spaceAbove >= tooltipHeight + gap;
-    
-    if (shouldGoAbove) {
-      const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
+    if (spaceAbove >= tooltipHeight + gap) {
       return { 
         position: 'fixed',
-        top: `${topPos}px`, 
-        left: '16px',
-        right: '16px',
-      };
-    } else {
-      const topPos = spotlightRect.top + spotlightRect.height + gap;
-      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight - gap);
-      return { 
-        position: 'fixed',
-        top: `${Math.max(16, adjustedTop)}px`, 
+        top: `${Math.max(16, spotlightRect.top - tooltipHeight - gap)}px`, 
         left: '16px',
         right: '16px',
       };
     }
+    
+    // Fallback: below spotlight
+    const topPos = spotlightRect.top + spotlightRect.height + gap;
+    return { 
+      position: 'fixed',
+      top: `${topPos}px`, 
+      left: '16px',
+      right: '16px',
+    };
   };
 
   const isTooltipAbove = (): boolean => {
+    if (isAriaStep) return true; // Arrow points down
     if (!spotlightRect) return true;
     const viewportHeight = window.innerHeight;
-    // For bottom elements, always above
     if (spotlightRect.top > viewportHeight * 0.6) return true;
-    const tooltipHeight = 220;
-    const gap = 16;
-    return spotlightRect.top >= tooltipHeight + gap;
+    return spotlightRect.top >= 192;
   };
 
   return (
@@ -236,39 +243,44 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100]"
         >
-          {/* SVG Mask for spotlight effect */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            <defs>
-              <mask id="spotlight-mask">
-                {/* White = visible, black = hidden */}
-                <rect x="0" y="0" width="100%" height="100%" fill="white" />
-                {spotlightRect && (
-                  <motion.rect
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    x={spotlightRect.left}
-                    y={spotlightRect.top}
-                    width={spotlightRect.width}
-                    height={spotlightRect.height}
-                    rx="16"
-                    fill="black"
-                  />
-                )}
-              </mask>
-            </defs>
-            {/* Semi-transparent overlay with hole */}
-            <rect
-              x="0"
-              y="0"
-              width="100%"
-              height="100%"
-              fill="rgba(0, 0, 0, 0.6)"
-              mask="url(#spotlight-mask)"
-            />
-          </svg>
+          {/* SVG Mask for spotlight effect - only when not Aria step */}
+          {!isAriaStep && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+              <defs>
+                <mask id="spotlight-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  {spotlightRect && (
+                    <motion.rect
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      x={spotlightRect.left}
+                      y={spotlightRect.top}
+                      width={spotlightRect.width}
+                      height={spotlightRect.height}
+                      rx="16"
+                      fill="black"
+                    />
+                  )}
+                </mask>
+              </defs>
+              <rect
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+                fill="rgba(0, 0, 0, 0.6)"
+                mask="url(#spotlight-mask)"
+              />
+            </svg>
+          )}
 
-          {/* Spotlight border glow - enhanced */}
-          {spotlightRect && (
+          {/* Dark overlay for Aria step (no spotlight hole) */}
+          {isAriaStep && (
+            <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+          )}
+
+          {/* Spotlight border glow - only when has spotlight */}
+          {spotlightRect && !isAriaStep && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ 
@@ -381,22 +393,14 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                 </div>
               </div>
 
-              {/* Pointer arrow */}
-              {spotlightRect && (
+              {/* Pointer arrow - show for spotlight OR Aria step */}
+              {(spotlightRect || isAriaStep) && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className={cn(
-                    "absolute left-1/2 -translate-x-1/2",
-                    isTooltipAbove() ? "-bottom-2" : "-top-2"
-                  )}
+                  className="absolute left-1/2 -translate-x-1/2 -bottom-2"
                 >
-                  <div 
-                    className={cn(
-                      "w-4 h-4 bg-card rotate-45 border border-border",
-                      isTooltipAbove() ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
-                    )}
-                  />
+                  <div className="w-4 h-4 bg-card rotate-45 border border-border border-t-0 border-l-0" />
                 </motion.div>
               )}
             </div>
