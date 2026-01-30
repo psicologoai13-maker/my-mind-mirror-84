@@ -10,7 +10,7 @@ export type MetricKey =
 
 interface AdaptiveVitalCardProps {
   metricKey: MetricKey;
-  value: number; // 0-100
+  value?: number; // 0-100, undefined means "no data"
   isWeeklyAverage?: boolean;
   isSecondary?: boolean;
 }
@@ -119,11 +119,18 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
   if (!config) return null;
   
   const isNegative = NEGATIVE_METRICS.includes(metricKey);
+  const hasData = value !== undefined && value !== null;
   
-  // INVERSION LOGIC for negative metrics
-  const invertedValue = isNegative ? (100 - value) : value;
-  const color = getMetricColor(metricKey, invertedValue);
-  const statusLabel = getStatusLabel(metricKey, invertedValue);
+  // INVERSION LOGIC for negative metrics (only when we have data!)
+  const displayValue = hasData 
+    ? (isNegative ? (100 - value) : value)
+    : 0; // Show 0 ring when no data
+  const color = hasData 
+    ? getMetricColor(metricKey, displayValue)
+    : 'hsl(var(--muted-foreground))'; // Gray when no data
+  const statusLabel = hasData 
+    ? getStatusLabel(metricKey, displayValue)
+    : '–'; // Dash when no data
 
   return (
     <div className={cn(
@@ -157,12 +164,12 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
         {/* Animated Ring */}
         <div className="flex items-center justify-center">
           <AnimatedRing
-            value={invertedValue}
+            value={displayValue}
             size={isSecondary ? "md" : "lg"}
             thickness={isSecondary ? 5 : 7}
             color={color}
             glowColor={color}
-            showValue={true}
+            showValue={hasData}
           />
         </div>
         
