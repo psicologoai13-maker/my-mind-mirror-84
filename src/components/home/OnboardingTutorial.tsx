@@ -164,10 +164,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 220; // Compact tooltip height
-    const gap = 16; // Smaller gap for closer positioning
-    const navBarHeight = 120;
-    const safeBottom = viewportHeight - navBarHeight;
+    const tooltipHeight = 180; // More compact tooltip height
+    const gap = 12;
+    const statusBarHeight = 60; // Safe area for status bar
 
     if (!spotlightRect) {
       return {
@@ -176,55 +175,44 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
         margin: 'auto',
         width: 'fit-content',
         height: 'fit-content',
-        maxWidth: 'calc(100vw - 32px)',
+        maxWidth: 'calc(100vw - 48px)',
       };
     }
 
-    // For Aria button and navbar, position tooltip just above the spotlight
-    const isBottomElement = spotlightRect.top > viewportHeight * 0.6;
+    // Always try to position ABOVE the spotlight first
+    const spaceAbove = spotlightRect.top - statusBarHeight;
     
-    if (isBottomElement) {
-      // Position directly above the spotlight with small gap
-      const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
+    if (spaceAbove >= tooltipHeight + gap) {
+      // Position above spotlight
+      const topPos = Math.max(statusBarHeight, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
         top: `${topPos}px`, 
-        left: '16px',
-        right: '16px',
-      };
-    }
-
-    const spaceAbove = spotlightRect.top;
-    const shouldGoAbove = spaceAbove >= tooltipHeight + gap;
-    
-    if (shouldGoAbove) {
-      const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
-      return { 
-        position: 'fixed',
-        top: `${topPos}px`, 
-        left: '16px',
-        right: '16px',
+        left: '24px',
+        right: '24px',
       };
     } else {
+      // Position below spotlight only if no space above
+      const navBarHeight = 100;
+      const safeBottom = viewportHeight - navBarHeight;
       const topPos = spotlightRect.top + spotlightRect.height + gap;
-      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight - gap);
+      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight);
       return { 
         position: 'fixed',
-        top: `${Math.max(16, adjustedTop)}px`, 
-        left: '16px',
-        right: '16px',
+        top: `${Math.max(statusBarHeight, adjustedTop)}px`, 
+        left: '24px',
+        right: '24px',
       };
     }
   };
 
   const isTooltipAbove = (): boolean => {
     if (!spotlightRect) return true;
-    const viewportHeight = window.innerHeight;
-    // For bottom elements, always above
-    if (spotlightRect.top > viewportHeight * 0.6) return true;
-    const tooltipHeight = 220;
-    const gap = 16;
-    return spotlightRect.top >= tooltipHeight + gap;
+    const statusBarHeight = 60;
+    const tooltipHeight = 180;
+    const gap = 12;
+    const spaceAbove = spotlightRect.top - statusBarHeight;
+    return spaceAbove >= tooltipHeight + gap;
   };
 
   return (
@@ -304,9 +292,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             className="z-10"
             style={getTooltipStyle()}
           >
-            <div className="relative w-full max-w-[320px] mx-auto">
-              {/* Glass card - compact */}
-              <div className="bg-card/95 backdrop-blur-xl p-4 rounded-2xl border border-border shadow-elevated overflow-hidden">
+            <div className="relative w-full max-w-[280px] mx-auto">
+              {/* Glass card - ultra compact */}
+              <div className="bg-card/95 backdrop-blur-xl p-3 rounded-xl border border-border shadow-elevated overflow-hidden">
                 {/* Aurora gradient background */}
                 <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
                 
@@ -314,36 +302,34 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   {/* Skip button */}
                   <button
                     onClick={handleSkip}
-                    className="absolute -top-1 -right-1 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute -top-0.5 -right-0.5 p-1 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
 
-                  {/* Icon */}
-                  <div className="flex justify-center mb-2">
+                  {/* Icon + Content inline */}
+                  <div className="flex items-start gap-2.5 mb-2">
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.1 }}
-                      className="w-10 h-10 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
+                      className="w-8 h-8 rounded-lg bg-gradient-aria flex items-center justify-center shadow-aria-glow shrink-0"
                     >
-                      <div className="text-white [&>svg]:w-5 [&>svg]:h-5">{step.icon}</div>
+                      <div className="text-white [&>svg]:w-4 [&>svg]:h-4">{step.icon}</div>
                     </motion.div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="text-center mb-3">
-                    <h3 className="text-sm font-bold text-foreground mb-1">
-                      {step.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {step.description}
-                    </p>
+                    <div className="text-left min-w-0">
+                      <h3 className="text-xs font-bold text-foreground mb-0.5">
+                        {step.title}
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mb-2.5">
-                    <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
+                  <div className="mb-2">
+                    <div className="h-0.5 bg-muted/30 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-gradient-aria rounded-full"
                         initial={{ width: 0 }}
@@ -351,9 +337,6 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                         transition={{ duration: 0.3 }}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground text-center mt-1">
-                      {currentStep + 1} / {TUTORIAL_STEPS.length}
-                    </p>
                   </div>
 
                   {/* Action buttons */}
@@ -362,7 +345,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                       <Button
                         variant="ghost"
                         onClick={handleSkip}
-                        className="flex-1 h-9 rounded-full text-muted-foreground text-xs"
+                        className="flex-1 h-7 rounded-full text-muted-foreground text-[11px] px-2"
                       >
                         Salta
                       </Button>
@@ -370,12 +353,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                     <Button
                       onClick={handleNext}
                       className={cn(
-                        "h-9 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all text-xs",
+                        "h-7 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all text-[11px] px-3",
                         "flex-1"
                       )}
                     >
                       {isLastStep ? 'Inizia!' : 'Avanti'}
-                      {!isLastStep && <ChevronRight className="w-3.5 h-3.5 ml-1" />}
+                      {!isLastStep && <ChevronRight className="w-3 h-3 ml-0.5" />}
                     </Button>
                   </div>
                 </div>
@@ -388,12 +371,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   animate={{ opacity: 1 }}
                   className={cn(
                     "absolute left-1/2 -translate-x-1/2",
-                    isTooltipAbove() ? "-bottom-2" : "-top-2"
+                    isTooltipAbove() ? "-bottom-1.5" : "-top-1.5"
                   )}
                 >
                   <div 
                     className={cn(
-                      "w-4 h-4 bg-card rotate-45 border border-border",
+                      "w-3 h-3 bg-card rotate-45 border border-border",
                       isTooltipAbove() ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
                     )}
                   />
