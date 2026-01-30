@@ -85,39 +85,25 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollYRef = useRef(0);
 
   const step = TUTORIAL_STEPS[currentStep];
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
   const progress = ((currentStep + 1) / TUTORIAL_STEPS.length) * 100;
-
-  // Lock body scroll during tutorial
-  useEffect(() => {
-    if (isVisible) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
-    }
-    
-    return () => {
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
-    };
-  }, [isVisible]);
 
   // Find, scroll to, and measure the highlighted element
   useEffect(() => {
     if (step.highlightSelector) {
       const element = document.querySelector(step.highlightSelector);
       if (element) {
-        // Scroll element into view first
+        setIsScrolling(true);
+        setSpotlightRect(null); // Clear while scrolling
+        
+        // Scroll element into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        // Wait for scroll to complete, then measure
+        // Wait for scroll to complete, then measure and lock
         setTimeout(() => {
           const rect = element.getBoundingClientRect();
           const padding = 12;
@@ -127,7 +113,11 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             width: rect.width + padding * 2,
             height: rect.height + padding * 2,
           });
-        }, 350);
+          
+          // Now lock scroll position
+          scrollYRef.current = window.scrollY;
+          setIsScrolling(false);
+        }, 400);
       } else {
         setSpotlightRect(null);
       }
@@ -135,6 +125,27 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       setSpotlightRect(null);
     }
   }, [currentStep, step.highlightSelector]);
+
+  // Prevent scroll only after scrolling animation completes
+  useEffect(() => {
+    if (isVisible && !isScrolling) {
+      const preventScroll = (e: Event) => {
+        e.preventDefault();
+      };
+      
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault();
+      };
+      
+      document.addEventListener('wheel', preventScroll, { passive: false });
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      
+      return () => {
+        document.removeEventListener('wheel', preventScroll);
+        document.removeEventListener('touchmove', handleTouchMove);
+      };
+    }
+  }, [isVisible, isScrolling]);
 
   const handleNext = () => {
     if (isLastStep) {
