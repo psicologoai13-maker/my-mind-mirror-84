@@ -104,7 +104,7 @@ const AdaptiveVitalsSection: React.FC = () => {
       </div>
 
       {/* Priority Metrics Grid - 2 columns, max 6 items */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 items-start">
         {primaryMetrics.map((metric, index) => {
           const metricKey = metric.key as MetricKey;
           const config = METRIC_CONFIG[metricKey];
