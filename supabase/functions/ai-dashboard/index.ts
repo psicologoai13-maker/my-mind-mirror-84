@@ -33,6 +33,70 @@ interface DashboardLayout {
   wellness_message: string;
 }
 
+// Build metrics based on user goals - ALWAYS returns 4 metrics
+function buildMetricsFromGoals(goals: string[]): MetricConfig[] {
+  const goalMetricMap: Record<string, MetricConfig[]> = {
+    'reduce_anxiety': [
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 1, reason: 'Il tuo obiettivo principale' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 2, reason: 'Collegato all\'ansia' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 3, reason: 'Impatta l\'ansia' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 4, reason: 'Livello energetico' },
+    ],
+    'improve_sleep': [
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 1, reason: 'Il tuo obiettivo principale' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 2, reason: 'Collegato al sonno' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 3, reason: 'Impattato dal riposo' },
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 4, reason: 'Monitora lo stress' },
+    ],
+    'boost_energy': [
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 1, reason: 'Il tuo obiettivo principale' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 2, reason: 'Fonte di energia' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 3, reason: 'Collegato all\'energia' },
+      { key: 'health', value: 0, label: 'Salute', icon: '💪', priority: 4, reason: 'Benessere fisico' },
+    ],
+    'find_love': [
+      { key: 'love', value: 0, label: 'Amore', icon: '❤️', priority: 1, reason: 'Il tuo obiettivo principale' },
+      { key: 'social', value: 0, label: 'Socialità', icon: '👥', priority: 2, reason: 'Relazioni sociali' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 3, reason: 'Stato emotivo' },
+      { key: 'growth', value: 0, label: 'Crescita', icon: '🌱', priority: 4, reason: 'Sviluppo personale' },
+    ],
+    'personal_growth': [
+      { key: 'growth', value: 0, label: 'Crescita', icon: '🌱', priority: 1, reason: 'Il tuo obiettivo principale' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 2, reason: 'Stato emotivo' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 3, reason: 'Motivazione' },
+      { key: 'work', value: 0, label: 'Lavoro', icon: '💼', priority: 4, reason: 'Produttività' },
+    ],
+    'self_esteem': [
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 1, reason: 'Collegato all\'autostima' },
+      { key: 'growth', value: 0, label: 'Crescita', icon: '🌱', priority: 2, reason: 'Sviluppo personale' },
+      { key: 'social', value: 0, label: 'Socialità', icon: '👥', priority: 3, reason: 'Relazioni' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 4, reason: 'Vitalità' },
+    ],
+  };
+
+  // Default metrics
+  const defaultMetrics: MetricConfig[] = [
+    { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 1, reason: 'Metrica fondamentale' },
+    { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 2, reason: 'Monitora lo stress' },
+    { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 3, reason: 'Livello energetico' },
+    { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 4, reason: 'Qualità del riposo' },
+  ];
+
+  if (!goals || goals.length === 0) {
+    return defaultMetrics;
+  }
+
+  // Get metrics for first goal
+  const primaryGoal = goals[0];
+  const primaryMetrics = goalMetricMap[primaryGoal];
+  
+  if (primaryMetrics) {
+    return primaryMetrics;
+  }
+
+  return defaultMetrics;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -303,14 +367,10 @@ Genera la configurazione dashboard personalizzata.`;
       }
     } catch (parseError) {
       console.error('Parse error:', parseError, 'Content:', content);
-      // Fallback to default layout
+      // Fallback to default layout based on user goals
+      const goalBasedMetrics = buildMetricsFromGoals(userGoals);
       dashboardLayout = {
-        primary_metrics: [
-          { key: 'mood', value: 0, label: 'Umore', icon: '❤️', priority: 1, reason: 'Metrica fondamentale' },
-          { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 2, reason: 'Monitora il tuo stress' },
-          { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 3, reason: 'Livello energetico' },
-          { key: 'sleep', value: 0, label: 'Sonno', icon: '🌙', priority: 4, reason: 'Qualità del riposo' },
-        ],
+        primary_metrics: goalBasedMetrics,
         widgets: [
           { type: 'vitals_grid', title: 'I Tuoi Focus', description: '', priority: 1, visible: true },
           { type: 'goals_progress', title: 'Obiettivi', description: '', priority: 2, visible: userGoals.length > 0 },
@@ -320,7 +380,7 @@ Genera la configurazione dashboard personalizzata.`;
         ai_message: '',
         focus_areas: userGoals.slice(0, 2),
         wellness_score: 5,
-        wellness_message: 'Inizia a interagire per personalizzare la dashboard.',
+        wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
       };
     }
 
@@ -353,6 +413,28 @@ Genera la configurazione dashboard personalizzata.`;
       ...m,
       value: metricValues[m.key] || 0,
     }));
+
+    // CRITICAL: Ensure we ALWAYS have exactly 4 metrics for proper grid layout
+    if (dashboardLayout.primary_metrics.length < 4) {
+      const existingKeys = new Set(dashboardLayout.primary_metrics.map(m => m.key));
+      const fallbackMetrics = [
+        { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 5, reason: 'Stato emotivo' },
+        { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 6, reason: 'Livello stress' },
+        { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 7, reason: 'Energia' },
+        { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 8, reason: 'Riposo' },
+      ];
+      
+      for (const fallback of fallbackMetrics) {
+        if (dashboardLayout.primary_metrics.length >= 4) break;
+        if (!existingKeys.has(fallback.key)) {
+          fallback.value = metricValues[fallback.key] || 0;
+          dashboardLayout.primary_metrics.push(fallback);
+        }
+      }
+    }
+    
+    // Limit to exactly 4 for consistent grid
+    dashboardLayout.primary_metrics = dashboardLayout.primary_metrics.slice(0, 4);
 
     return new Response(JSON.stringify(dashboardLayout), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

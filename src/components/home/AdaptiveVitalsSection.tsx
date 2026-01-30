@@ -44,18 +44,33 @@ const AdaptiveVitalsSection: React.FC = () => {
     };
   }, [vitals, emotions, lifeAreas]);
 
-  // Get metrics from AI layout
+  // Get metrics from AI layout - ALWAYS ensure 4 metrics
   const primaryMetrics = React.useMemo((): MetricConfig[] => {
+    let metrics: MetricConfig[] = [];
+    
     if (layout.primary_metrics && layout.primary_metrics.length > 0) {
-      return layout.primary_metrics.slice(0, 6);
+      metrics = layout.primary_metrics.slice(0, 4);
     }
-    // Fallback
-    return [
-      { key: 'mood', priority: 1, reason: 'Umore generale', value: 0 },
-      { key: 'anxiety', priority: 2, reason: 'Livello di stress', value: 0 },
-      { key: 'energy', priority: 3, reason: 'Energia disponibile', value: 0 },
-      { key: 'sleep', priority: 4, reason: 'Qualità del sonno', value: 0 },
-    ];
+    
+    // Ensure we always have exactly 4 metrics for consistent grid
+    if (metrics.length < 4) {
+      const existingKeys = new Set(metrics.map(m => m.key));
+      const fallbacks = [
+        { key: 'mood', priority: 5, reason: 'Umore generale', value: 0 },
+        { key: 'anxiety', priority: 6, reason: 'Livello di stress', value: 0 },
+        { key: 'energy', priority: 7, reason: 'Energia disponibile', value: 0 },
+        { key: 'sleep', priority: 8, reason: 'Qualità del sonno', value: 0 },
+      ];
+      
+      for (const fb of fallbacks) {
+        if (metrics.length >= 4) break;
+        if (!existingKeys.has(fb.key)) {
+          metrics.push(fb);
+        }
+      }
+    }
+    
+    return metrics.slice(0, 4); // Exactly 4 for 2x2 grid
   }, [layout]);
 
   const isLoading = isLoadingAI || isLoadingMetrics;
