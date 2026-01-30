@@ -103,28 +103,53 @@ const AdaptiveVitalsSection: React.FC = () => {
         <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
       </div>
 
-      {/* Priority Metrics Grid - 2 columns, max 6 items */}
-      <div className="grid grid-cols-2 gap-4 items-start">
-        {primaryMetrics.map((metric, index) => {
-          const metricKey = metric.key as MetricKey;
-          const config = METRIC_CONFIG[metricKey];
-          
-          if (!config) return null;
+      {/* Priority Metrics - 2 independent columns */}
+      <div className="flex gap-4">
+        {/* Left Column */}
+        <div className="flex-1 flex flex-col gap-4">
+          {primaryMetrics.filter((_, i) => i % 2 === 0).map((metric, index) => {
+            const metricKey = metric.key as MetricKey;
+            const config = METRIC_CONFIG[metricKey];
+            if (!config) return null;
 
-          return (
-            <div 
-              key={metricKey}
-              className="animate-scale-in"
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <AdaptiveVitalCard
-                metricKey={metricKey}
-                value={metricValues[metricKey]}
-                isWeeklyAverage={true}
-              />
-            </div>
-          );
-        })}
+            return (
+              <div 
+                key={metricKey}
+                className="animate-scale-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <AdaptiveVitalCard
+                  metricKey={metricKey}
+                  value={metricValues[metricKey]}
+                  isWeeklyAverage={true}
+                />
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Right Column */}
+        <div className="flex-1 flex flex-col gap-4">
+          {primaryMetrics.filter((_, i) => i % 2 === 1).map((metric, index) => {
+            const metricKey = metric.key as MetricKey;
+            const config = METRIC_CONFIG[metricKey];
+            if (!config) return null;
+
+            return (
+              <div 
+                key={metricKey}
+                className="animate-scale-in"
+                style={{ animationDelay: `${(index * 0.1) + 0.05}s` }}
+              >
+                <AdaptiveVitalCard
+                  metricKey={metricKey}
+                  value={metricValues[metricKey]}
+                  isWeeklyAverage={true}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
