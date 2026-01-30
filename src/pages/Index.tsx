@@ -30,7 +30,7 @@ const Index: React.FC = () => {
 
   // Show welcome modal for new users (onboarding just completed, no sessions yet)
   useEffect(() => {
-    if (!isLoading && profile?.onboarding_completed && sessions.length === 0) {
+    if (!isLoading && profile?.onboarding_completed && sessions && sessions.length === 0) {
       // Check if we already showed this modal
       const hasSeenWelcome = localStorage.getItem('aria_welcome_shown');
       if (!hasSeenWelcome) {
