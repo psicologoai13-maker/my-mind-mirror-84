@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
 import NameInputStep from '@/components/onboarding/NameInputStep';
+import MotivationStep from '@/components/onboarding/MotivationStep';
 import GoalsStep from '@/components/onboarding/GoalsStep';
 import AboutYouStep from '@/components/onboarding/AboutYouStep';
 import ReadyScreen from '@/components/onboarding/ReadyScreen';
@@ -14,6 +15,7 @@ import { toast } from 'sonner';
 
 interface OnboardingData {
   name: string;
+  motivations: string[];
   primaryGoals: string[];
   currentMood: number;
   ageRange?: string;
@@ -73,7 +75,7 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
   };
 };
 
-type Step = 'welcome' | 'name' | 'goals' | 'aboutYou' | 'ready';
+type Step = 'welcome' | 'name' | 'aboutYou' | 'motivation' | 'goals' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
@@ -82,15 +84,16 @@ const Onboarding: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [data, setData] = useState<OnboardingData>({
     name: '',
+    motivations: [],
     primaryGoals: [],
     currentMood: 2,
     ageRange: undefined,
     therapyStatus: undefined,
   });
 
-  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'goals', 'ready'];
+  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'motivation', 'goals', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 3; // name, aboutYou, goals
+  const quizSteps = 4; // name, aboutYou, motivation, goals
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -110,6 +113,8 @@ const Onboarding: React.FC = () => {
     switch (currentStep) {
       case 'name':
         return data.name.trim().length >= 2;
+      case 'motivation':
+        return data.motivations.length >= 1;
       case 'goals':
         return data.primaryGoals.length >= 1;
       case 'aboutYou':
@@ -123,7 +128,8 @@ const Onboarding: React.FC = () => {
     const progressMap: Partial<Record<Step, number>> = {
       name: 1,
       aboutYou: 2,
-      goals: 3,
+      motivation: 3,
+      goals: 4,
     };
     return progressMap[currentStep] || 0;
   };
@@ -150,6 +156,7 @@ const Onboarding: React.FC = () => {
         onboarding_completed: true,
         onboarding_answers: {
           name: data.name,
+          motivations: data.motivations,
           primaryGoals: legacyGoals,
           currentMood: data.currentMood,
           ageRange: data.ageRange,
@@ -256,7 +263,33 @@ const Onboarding: React.FC = () => {
               onClick={handleNext}
               className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
             >
-              Quasi fatto!
+              Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
+      {/* Motivation Step */}
+      {currentStep === 'motivation' && (
+        <>
+          <MotivationStep
+            userName={data.name}
+            selectedMotivations={data.motivations}
+            onChange={(motivations) => setData(prev => ({ ...prev, motivations }))}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+            >
+              Continua
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </motion.div>
