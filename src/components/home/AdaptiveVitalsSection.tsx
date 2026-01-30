@@ -114,7 +114,7 @@ const AdaptiveVitalsSection: React.FC = () => {
           return (
             <div 
               key={metricKey}
-              className="animate-scale-in relative group"
+              className="animate-scale-in"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <AdaptiveVitalCard
@@ -122,12 +122,6 @@ const AdaptiveVitalsSection: React.FC = () => {
                 value={metricValues[metricKey]}
                 isWeeklyAverage={true}
               />
-              {/* AI Reason tooltip on hover */}
-              {metric.reason && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 border border-border">
-                  {metric.reason}
-                </div>
-              )}
             </div>
           );
         })}
