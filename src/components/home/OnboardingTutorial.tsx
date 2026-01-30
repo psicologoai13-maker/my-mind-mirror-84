@@ -152,23 +152,21 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
 
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
-    const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const tooltipHeight = 300; // Approximate height of tooltip
-    const tooltipWidth = Math.min(viewportWidth - 32, 360);
     const gap = 20;
     const navBarHeight = 120; // Bottom nav + safe area
     const safeBottom = viewportHeight - navBarHeight;
 
     if (!spotlightRect) {
-      // Center position for welcome/ready steps - truly centered
+      // Center position for welcome/ready steps - use inset for true centering
       return {
         position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: tooltipWidth,
-        maxWidth: '360px',
+        inset: 0,
+        margin: 'auto',
+        width: 'fit-content',
+        height: 'fit-content',
+        maxWidth: 'calc(100vw - 32px)',
       };
     }
 
@@ -179,8 +177,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     // Determine if tooltip should go above (prefer above when spotlight is low)
     const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
     
-    // Center horizontally
-    const leftPos = (viewportWidth - tooltipWidth) / 2;
+    // Center horizontally with padding
+    const horizontalPadding = 16;
     
     if (shouldGoAbove) {
       // Position above the spotlight
@@ -188,9 +186,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       return { 
         position: 'fixed',
         top: `${topPos}px`, 
-        left: `${leftPos}px`,
-        width: tooltipWidth,
-        maxWidth: '360px',
+        left: `${horizontalPadding}px`,
+        right: `${horizontalPadding}px`,
       };
     } else {
       // Position below the spotlight, but ensure it doesn't go below navbar
@@ -199,9 +196,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       return { 
         position: 'fixed',
         top: `${Math.max(20, adjustedTop)}px`, 
-        left: `${leftPos}px`,
-        width: tooltipWidth,
-        maxWidth: '360px',
+        left: `${horizontalPadding}px`,
+        right: `${horizontalPadding}px`,
       };
     }
   };
@@ -288,7 +284,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             className="z-10"
             style={getTooltipStyle()}
           >
-            <div className="relative">
+            <div className="relative w-full max-w-[340px] mx-auto">
               {/* Glass card */}
               <div className="bg-card/95 backdrop-blur-xl p-5 rounded-3xl border border-border shadow-elevated overflow-hidden">
                 {/* Aurora gradient background */}
