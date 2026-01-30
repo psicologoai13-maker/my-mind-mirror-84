@@ -54,6 +54,7 @@ const BottomNav: React.FC = () => {
                 
                 <button
                   onClick={() => navigate(item.path!)}
+                  data-tutorial="aria-button"
                   className={cn(
                     "relative w-14 h-14 rounded-2xl flex items-center justify-center",
                     "bg-gradient-aria",

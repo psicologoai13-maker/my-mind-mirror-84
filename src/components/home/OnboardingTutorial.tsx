@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { 
@@ -7,9 +7,7 @@ import {
   TrendingUp, 
   MessageCircle, 
   ChevronRight,
-  Home,
   BarChart3,
-  User,
   X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,8 +17,8 @@ interface TutorialStep {
   title: string;
   description: string;
   icon: React.ReactNode;
-  highlight?: string;
-  position?: 'top' | 'center' | 'bottom';
+  highlightSelector?: string;
+  tooltipPosition: 'top' | 'bottom' | 'center';
 }
 
 interface OnboardingTutorialProps {
@@ -33,56 +31,85 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Benvenuto in Aria! 🎉',
     description: 'Iniziamo un tour veloce per scoprire come monitorare il tuo benessere ogni giorno.',
     icon: <Sparkles className="w-6 h-6" />,
-    position: 'center',
+    tooltipPosition: 'center',
   },
   {
     id: 'checkin',
     title: 'Check-in Giornalieri',
     description: 'Tocca le card per registrare come ti senti. Bastano pochi secondi per tracciare umore, energia e altro.',
     icon: <Target className="w-6 h-6" />,
-    highlight: 'checkin',
-    position: 'top',
+    highlightSelector: '[data-tutorial="checkin"]',
+    tooltipPosition: 'bottom',
   },
   {
     id: 'focus',
     title: 'I Tuoi Focus',
     description: 'Qui vedi i parametri più importanti per te. Si riempiono man mano che fai check-in o parli con Aria.',
     icon: <TrendingUp className="w-6 h-6" />,
-    highlight: 'focus',
-    position: 'center',
+    highlightSelector: '[data-tutorial="vitals"]',
+    tooltipPosition: 'top',
   },
   {
     id: 'aria',
     title: 'Parla con Aria',
     description: 'Il pulsante centrale ti porta da Aria, la tua compagna AI. Puoi chattare o parlare a voce!',
     icon: <MessageCircle className="w-6 h-6" />,
-    highlight: 'navbar-aria',
-    position: 'bottom',
+    highlightSelector: '[data-tutorial="aria-button"]',
+    tooltipPosition: 'top',
   },
   {
     id: 'navigation',
     title: 'Esplora l\'App',
     description: 'Usa la barra in basso per navigare tra Home, Analisi, Progressi e il tuo Profilo.',
     icon: <BarChart3 className="w-6 h-6" />,
-    highlight: 'navbar',
-    position: 'bottom',
+    highlightSelector: 'nav',
+    tooltipPosition: 'top',
   },
   {
     id: 'ready',
     title: 'Sei Pronto! ✨',
     description: 'Inizia con un check-in veloce o parla direttamente con Aria per personalizzare la tua esperienza.',
     icon: <Sparkles className="w-6 h-6" />,
-    position: 'center',
+    tooltipPosition: 'center',
   },
 ];
+
+interface SpotlightRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
 
 const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
 
   const step = TUTORIAL_STEPS[currentStep];
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
   const progress = ((currentStep + 1) / TUTORIAL_STEPS.length) * 100;
+
+  // Find and measure the highlighted element
+  useEffect(() => {
+    if (step.highlightSelector) {
+      const element = document.querySelector(step.highlightSelector);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        const padding = 8;
+        setSpotlightRect({
+          top: rect.top - padding,
+          left: rect.left - padding,
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+        });
+      } else {
+        setSpotlightRect(null);
+      }
+    } else {
+      setSpotlightRect(null);
+    }
+  }, [currentStep, step.highlightSelector]);
 
   const handleNext = () => {
     if (isLastStep) {
@@ -98,15 +125,45 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     setTimeout(onComplete, 300);
   };
 
-  // Position classes for the tooltip
-  const getPositionClasses = () => {
-    switch (step.position) {
-      case 'top':
-        return 'top-24';
-      case 'bottom':
-        return 'bottom-32';
-      default:
-        return 'top-1/2 -translate-y-1/2';
+  // Calculate tooltip position based on spotlight
+  const getTooltipStyle = (): React.CSSProperties => {
+    if (!spotlightRect) {
+      // Center position for welcome/ready steps
+      return {
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+      };
+    }
+
+    const viewportHeight = window.innerHeight;
+    const tooltipHeight = 280; // Approximate height of tooltip
+    const gap = 16;
+
+    if (step.tooltipPosition === 'top') {
+      // Position above the spotlight
+      const top = spotlightRect.top - tooltipHeight - gap;
+      if (top > 20) {
+        return { top: `${top}px`, left: '1rem', right: '1rem' };
+      }
+    }
+    
+    if (step.tooltipPosition === 'bottom') {
+      // Position below the spotlight
+      const top = spotlightRect.top + spotlightRect.height + gap;
+      if (top + tooltipHeight < viewportHeight - 20) {
+        return { top: `${top}px`, left: '1rem', right: '1rem' };
+      }
+    }
+
+    // Fallback: position wherever there's more space
+    const spaceAbove = spotlightRect.top;
+    const spaceBelow = viewportHeight - (spotlightRect.top + spotlightRect.height);
+    
+    if (spaceAbove > spaceBelow) {
+      return { top: `${Math.max(20, spotlightRect.top - tooltipHeight - gap)}px`, left: '1rem', right: '1rem' };
+    } else {
+      return { top: `${spotlightRect.top + spotlightRect.height + gap}px`, left: '1rem', right: '1rem' };
     }
   };
 
@@ -119,38 +176,68 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100]"
         >
-          {/* Backdrop with blur */}
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
+          {/* SVG Mask for spotlight effect */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            <defs>
+              <mask id="spotlight-mask">
+                {/* White = visible, black = hidden */}
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                {spotlightRect && (
+                  <motion.rect
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    x={spotlightRect.left}
+                    y={spotlightRect.top}
+                    width={spotlightRect.width}
+                    height={spotlightRect.height}
+                    rx="16"
+                    fill="black"
+                  />
+                )}
+              </mask>
+            </defs>
+            {/* Semi-transparent overlay with hole */}
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill="rgba(0, 0, 0, 0.6)"
+              mask="url(#spotlight-mask)"
+            />
+          </svg>
 
-          {/* Highlight overlay */}
-          {step.highlight && (
+          {/* Spotlight border glow */}
+          {spotlightRect && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 pointer-events-none"
-            >
-              {/* This creates a spotlight effect on the highlighted element */}
-              <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-background/60" />
-            </motion.div>
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute pointer-events-none rounded-2xl"
+              style={{
+                top: spotlightRect.top,
+                left: spotlightRect.left,
+                width: spotlightRect.width,
+                height: spotlightRect.height,
+                boxShadow: '0 0 0 3px hsl(var(--aria-violet)), 0 0 30px hsl(var(--aria-violet) / 0.5)',
+              }}
+            />
           )}
 
-          {/* Tutorial Card */}
+          {/* Tutorial Tooltip Card */}
           <motion.div
             key={step.id}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={cn(
-              "absolute left-4 right-4 mx-auto max-w-sm",
-              getPositionClasses()
-            )}
+            className="absolute max-w-sm mx-auto z-10"
+            style={getTooltipStyle()}
           >
             <div className="relative">
               {/* Glass card */}
-              <div className="card-glass p-6 rounded-3xl overflow-hidden">
+              <div className="bg-card/95 backdrop-blur-xl p-5 rounded-3xl border border-border shadow-elevated overflow-hidden">
                 {/* Aurora gradient background */}
-                <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
                 
                 <div className="relative z-10">
                   {/* Skip button */}
@@ -162,20 +249,20 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   </button>
 
                   {/* Icon */}
-                  <div className="flex justify-center mb-4">
+                  <div className="flex justify-center mb-3">
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.1 }}
-                      className="w-14 h-14 rounded-2xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
+                      className="w-12 h-12 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                     >
                       <div className="text-white">{step.icon}</div>
                     </motion.div>
                   </div>
 
                   {/* Content */}
-                  <div className="text-center mb-6">
-                    <h3 className="text-lg font-bold text-foreground mb-2">
+                  <div className="text-center mb-4">
+                    <h3 className="text-base font-bold text-foreground mb-1.5">
                       {step.title}
                     </h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
@@ -184,7 +271,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-gradient-aria rounded-full"
@@ -193,18 +280,18 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                         transition={{ duration: 0.3 }}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground text-center mt-2">
+                    <p className="text-[10px] text-muted-foreground text-center mt-1.5">
                       {currentStep + 1} / {TUTORIAL_STEPS.length}
                     </p>
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     {!isLastStep && (
                       <Button
                         variant="ghost"
                         onClick={handleSkip}
-                        className="flex-1 h-11 rounded-full text-muted-foreground"
+                        className="flex-1 h-10 rounded-full text-muted-foreground text-sm"
                       >
                         Salta
                       </Button>
@@ -212,8 +299,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                     <Button
                       onClick={handleNext}
                       className={cn(
-                        "h-11 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all",
-                        isLastStep ? "flex-1" : "flex-1"
+                        "h-10 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all text-sm",
+                        "flex-1"
                       )}
                     >
                       {isLastStep ? 'Inizia!' : 'Avanti'}
@@ -223,20 +310,20 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                 </div>
               </div>
 
-              {/* Pointer arrow for highlighted elements */}
-              {step.highlight && step.position !== 'center' && (
+              {/* Pointer arrow */}
+              {spotlightRect && (
                 <motion.div
-                  initial={{ opacity: 0, y: step.position === 'top' ? -10 : 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className={cn(
                     "absolute left-1/2 -translate-x-1/2",
-                    step.position === 'top' ? "-bottom-3" : "-top-3"
+                    step.tooltipPosition === 'top' ? "-bottom-2" : "-top-2"
                   )}
                 >
                   <div 
                     className={cn(
-                      "w-4 h-4 bg-card rotate-45 border border-glass-border",
-                      step.position === 'top' ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
+                      "w-4 h-4 bg-card rotate-45 border border-border",
+                      step.tooltipPosition === 'top' ? "border-t-0 border-l-0" : "border-b-0 border-r-0"
                     )}
                   />
                 </motion.div>
