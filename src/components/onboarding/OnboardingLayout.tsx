@@ -64,9 +64,9 @@ const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                     className={cn(
                       "rounded-full transition-all duration-300",
                       isCurrent 
-                        ? "w-8 h-2 bg-primary shadow-glass-glow" 
+                        ? "w-8 h-2 bg-gradient-aria shadow-aria-glow" 
                         : isCompleted 
-                          ? "w-2 h-2 bg-primary/60"
+                          ? "w-2 h-2 bg-aria-violet/60"
                           : "w-2 h-2 bg-muted-foreground/30"
                     )}
                   />
