@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Sparkles, ArrowRight, Stars, Mic } from 'lucide-react';
+import { MessageCircle, Sparkles, ArrowRight, Stars } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface WelcomeAriaModalProps {
@@ -29,7 +29,7 @@ const WelcomeAriaModal: React.FC<WelcomeAriaModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[340px] mx-auto p-0 bg-transparent border-none shadow-none mb-24 sm:mb-0">
+      <DialogContent className="max-w-[340px] mx-auto p-0 bg-transparent border-none shadow-none [&]:bottom-28 [&]:top-auto [&]:translate-y-0 sm:[&]:bottom-auto sm:[&]:top-1/2 sm:[&]:-translate-y-1/2">
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -105,7 +105,7 @@ const WelcomeAriaModal: React.FC<WelcomeAriaModalProps> = ({
               </p>
             </motion.div>
 
-            {/* Features - più compatti */}
+            {/* Features */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -130,7 +130,7 @@ const WelcomeAriaModal: React.FC<WelcomeAriaModalProps> = ({
               ))}
             </motion.div>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons - Solo 2 opzioni */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -142,27 +142,17 @@ const WelcomeAriaModal: React.FC<WelcomeAriaModalProps> = ({
                 className="w-full h-13 rounded-full bg-gradient-aria text-white text-base font-semibold shadow-aria-glow hover:shadow-elevated transition-all duration-300 group"
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
-                Iniziamo a conoscerci
+                Parla con Aria
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
               
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleStartChat}
-                  className="flex-1 h-11 rounded-full border-border/50 text-sm font-medium hover:bg-secondary/80"
-                >
-                  <Mic className="w-4 h-4 mr-1.5" />
-                  Preferisco parlare
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleLater}
-                  className="flex-1 h-11 rounded-full text-muted-foreground text-sm"
-                >
-                  Dopo
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                onClick={handleLater}
+                className="w-full h-11 rounded-full text-muted-foreground text-sm hover:bg-secondary/50"
+              >
+                Più tardi
+              </Button>
             </motion.div>
           </div>
         </motion.div>
