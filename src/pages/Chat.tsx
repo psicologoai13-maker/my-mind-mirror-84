@@ -190,6 +190,8 @@ const Chat: React.FC = () => {
         setSessionId(newSession.id);
         
         // Persist greeting to DB in background (non-blocking)
+        // DON'T clear initialGreeting - let the conditional render handle it
+        // when messages load from DB (prevents flicker)
         supabase
           .from('chat_messages')
           .insert({
@@ -197,11 +199,9 @@ const Chat: React.FC = () => {
             user_id: user.id,
             role: 'assistant',
             content: greeting,
-          })
-          .then(() => {
-            // Clear optimistic greeting after DB insert
-            setInitialGreeting(null);
           });
+        // NOTE: We no longer call setInitialGreeting(null) here
+        // The greeting will naturally be hidden when messages array has content
           
       } catch (error) {
         console.error('Failed to start session:', error);
@@ -590,8 +590,9 @@ const Chat: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* INSTANT: Show optimistic greeting while DB loads */}
-            {initialGreeting && messages.length === 0 && (
+            {/* INSTANT: Show optimistic greeting ONLY if no assistant messages loaded yet */}
+            {/* This prevents flicker when messages load from DB */}
+            {initialGreeting && !messages.some(m => m.role === 'assistant') && (
               <ChatBubble
                 key="initial-greeting"
                 content={initialGreeting}
