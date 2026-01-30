@@ -124,7 +124,7 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
           transition={{ delay: 0.5 }}
           className="text-muted-foreground mb-8"
         >
-          Siamo pronti a iniziare il tuo percorso
+          Aria non vede l'ora di conoscerti
         </motion.p>
 
         {/* Selected Goals */}
@@ -172,7 +172,7 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
             size="lg"
             className="w-full h-14 rounded-full text-base font-semibold bg-gradient-to-r from-primary to-primary/80 shadow-glass-glow hover:shadow-glass-elevated transition-all duration-300"
           >
-            Inizia il tuo percorso
+            Parla con Aria
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
         </motion.div>
