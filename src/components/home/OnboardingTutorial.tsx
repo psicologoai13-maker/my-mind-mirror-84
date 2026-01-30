@@ -164,8 +164,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 240; // Compact tooltip height
-    const gap = 24; // Larger gap to avoid overlap
+    const tooltipHeight = 220; // Compact tooltip height
+    const gap = 16; // Smaller gap for closer positioning
     const navBarHeight = 120;
     const safeBottom = viewportHeight - navBarHeight;
 
@@ -180,21 +180,30 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       };
     }
 
+    // For Aria button and navbar, position tooltip just above the spotlight
+    const isBottomElement = spotlightRect.top > viewportHeight * 0.6;
+    
+    if (isBottomElement) {
+      // Position directly above the spotlight with small gap
+      const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
+      return { 
+        position: 'fixed',
+        top: `${topPos}px`, 
+        left: '16px',
+        right: '16px',
+      };
+    }
+
     const spaceAbove = spotlightRect.top;
-    const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
-    
-    // Always prefer above when there's enough space
     const shouldGoAbove = spaceAbove >= tooltipHeight + gap;
-    
-    const horizontalPadding = 16;
     
     if (shouldGoAbove) {
       const topPos = Math.max(16, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
         top: `${topPos}px`, 
-        left: `${horizontalPadding}px`,
-        right: `${horizontalPadding}px`,
+        left: '16px',
+        right: '16px',
       };
     } else {
       const topPos = spotlightRect.top + spotlightRect.height + gap;
@@ -202,16 +211,19 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       return { 
         position: 'fixed',
         top: `${Math.max(16, adjustedTop)}px`, 
-        left: `${horizontalPadding}px`,
-        right: `${horizontalPadding}px`,
+        left: '16px',
+        right: '16px',
       };
     }
   };
 
   const isTooltipAbove = (): boolean => {
     if (!spotlightRect) return true;
-    const tooltipHeight = 240;
-    const gap = 24;
+    const viewportHeight = window.innerHeight;
+    // For bottom elements, always above
+    if (spotlightRect.top > viewportHeight * 0.6) return true;
+    const tooltipHeight = 220;
+    const gap = 16;
     return spotlightRect.top >= tooltipHeight + gap;
   };
 
@@ -255,18 +267,29 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             />
           </svg>
 
-          {/* Spotlight border glow */}
+          {/* Spotlight border glow - enhanced */}
           {spotlightRect && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                boxShadow: [
+                  '0 0 0 4px hsl(var(--aria-violet)), 0 0 40px hsl(var(--aria-violet) / 0.6)',
+                  '0 0 0 4px hsl(var(--aria-violet)), 0 0 60px hsl(var(--aria-violet) / 0.8)',
+                  '0 0 0 4px hsl(var(--aria-violet)), 0 0 40px hsl(var(--aria-violet) / 0.6)',
+                ]
+              }}
+              transition={{ 
+                boxShadow: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+              }}
               className="absolute pointer-events-none rounded-2xl"
               style={{
                 top: spotlightRect.top,
                 left: spotlightRect.left,
                 width: spotlightRect.width,
                 height: spotlightRect.height,
-                boxShadow: '0 0 0 3px hsl(var(--aria-violet)), 0 0 30px hsl(var(--aria-violet) / 0.5)',
+                border: '4px solid hsl(var(--aria-violet))',
               }}
             />
           )}
