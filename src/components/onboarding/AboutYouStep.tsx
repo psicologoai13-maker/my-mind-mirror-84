@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -6,9 +6,11 @@ interface AboutYouStepProps {
   currentMood: number;
   onMoodChange: (mood: number) => void;
   ageRange?: string;
-  onAgeChange: (age: string | undefined) => void;
+  onAgeChange: (age: string) => void;
   therapyStatus?: string;
-  onTherapyChange: (status: string | undefined) => void;
+  onTherapyChange: (status: string) => void;
+  gender?: string;
+  onGenderChange: (gender: string) => void;
   moodSelected?: boolean;
   onMoodSelected?: (selected: boolean) => void;
 }
@@ -22,6 +24,13 @@ const moodEmojis = [
 ];
 
 const ageRanges = ['18-24', '25-34', '35-44', '45-54', '55+'];
+
+const genderOptions = [
+  { id: 'male', label: 'Uomo' },
+  { id: 'female', label: 'Donna' },
+  { id: 'other', label: 'Altro' },
+  { id: 'prefer_not_say', label: 'Preferisco non dire' },
+];
 
 const therapyOptions = [
   { id: 'no', label: 'No' },
@@ -42,6 +51,8 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
   onAgeChange,
   therapyStatus,
   onTherapyChange,
+  gender,
+  onGenderChange,
   moodSelected = false,
   onMoodSelected,
 }) => {
@@ -137,15 +148,43 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         className="flex items-center gap-3 mb-6"
       >
         <div className="flex-1 h-px bg-border" />
-        <span className="text-xs text-muted-foreground font-medium">Un po' su di te (opzionale)</span>
+        <span className="text-xs text-muted-foreground font-medium">Un po' su di te</span>
         <div className="flex-1 h-px bg-border" />
+      </motion.div>
+
+      {/* Gender Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="mb-6"
+      >
+        <p className="text-sm font-medium text-foreground mb-3">Come ti identifichi?</p>
+        <div className="flex flex-wrap gap-2">
+          {genderOptions.map((option) => (
+            <motion.button
+              key={option.id}
+              onClick={() => onGenderChange(option.id)}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                "bg-glass backdrop-blur-xl border",
+                gender === option.id
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
+                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+              )}
+            >
+              {option.label}
+            </motion.button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Age Range Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.5 }}
         className="mb-6"
       >
         <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
@@ -153,7 +192,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
           {ageRanges.map((age) => (
             <motion.button
               key={age}
-              onClick={() => onAgeChange(ageRange === age ? undefined : age)}
+              onClick={() => onAgeChange(age)}
               whileTap={{ scale: 0.95 }}
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
@@ -173,14 +212,14 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.6 }}
       >
         <p className="text-sm font-medium text-foreground mb-3">Sei mai stato/a in terapia?</p>
         <div className="flex flex-wrap gap-2">
           {therapyOptions.map((option) => (
             <motion.button
               key={option.id}
-              onClick={() => onTherapyChange(therapyStatus === option.id ? undefined : option.id)}
+              onClick={() => onTherapyChange(option.id)}
               whileTap={{ scale: 0.95 }}
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
