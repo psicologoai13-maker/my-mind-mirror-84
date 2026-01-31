@@ -23,6 +23,7 @@ interface OnboardingData {
   moodSelected: boolean;
   ageRange?: string;
   therapyStatus?: string;
+  gender?: string;
   interests: string[];
 }
 
@@ -95,6 +96,7 @@ const Onboarding: React.FC = () => {
     moodSelected: false,
     ageRange: undefined,
     therapyStatus: undefined,
+    gender: undefined,
     interests: [],
   });
 
@@ -125,7 +127,8 @@ const Onboarding: React.FC = () => {
       case 'goals':
         return data.primaryGoals.length >= 1;
       case 'aboutYou':
-        return data.moodSelected; // Require mood selection
+        // All fields are required
+        return data.moodSelected && !!data.gender && !!data.ageRange && !!data.therapyStatus;
       case 'interests':
         return true; // interests are optional
       default:
@@ -167,6 +170,7 @@ const Onboarding: React.FC = () => {
         onboarding_completed: true,
         // Save to dedicated columns so Aria can access them
         therapy_status: data.therapyStatus || 'none',
+        gender: data.gender,
         onboarding_answers: {
           name: data.name,
           motivations: data.motivations,
@@ -174,6 +178,7 @@ const Onboarding: React.FC = () => {
           currentMood: data.currentMood,
           ageRange: data.ageRange,
           therapyStatus: data.therapyStatus,
+          gender: data.gender,
           interests: data.interests,
           // Keep empty for legacy compatibility
           lifeSituation: null,
@@ -327,6 +332,8 @@ const Onboarding: React.FC = () => {
             onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
             therapyStatus={data.therapyStatus}
             onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
+            gender={data.gender}
+            onGenderChange={(gender) => setData(prev => ({ ...prev, gender }))}
             moodSelected={data.moodSelected}
             onMoodSelected={(selected) => setData(prev => ({ ...prev, moodSelected: selected }))}
           />
