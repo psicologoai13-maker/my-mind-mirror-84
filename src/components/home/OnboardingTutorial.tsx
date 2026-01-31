@@ -164,13 +164,13 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 220; // Compact tooltip height
-    const gap = 16;
-    const statusBarHeight = 50; // Top safe area
-    const navBarHeight = 100; // Bottom nav + safe area
+    const tooltipHeight = 300; // Approximate height of tooltip
+    const gap = 20;
+    const navBarHeight = 120; // Bottom nav + safe area
+    const safeBottom = viewportHeight - navBarHeight;
 
     if (!spotlightRect) {
-      // Center position for welcome/ready steps
+      // Center position for welcome/ready steps - use inset for true centering
       return {
         position: 'fixed',
         inset: 0,
@@ -181,32 +181,32 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       };
     }
 
-    const horizontalPadding = 16;
-    const spaceAbove = spotlightRect.top - statusBarHeight;
-    const spaceBelow = viewportHeight - navBarHeight - (spotlightRect.top + spotlightRect.height);
+    // For steps with spotlight, position tooltip avoiding navbar
+    const spaceAbove = spotlightRect.top;
+    const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
     
-    // Always try to position above the spotlight first
-    if (spaceAbove >= tooltipHeight + gap) {
-      // Enough space above - position there
+    // Determine if tooltip should go above (prefer above when spotlight is low)
+    const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
+    
+    // Center horizontally with padding
+    const horizontalPadding = 16;
+    
+    if (shouldGoAbove) {
+      // Position above the spotlight
+      const topPos = Math.max(20, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
-        bottom: `${viewportHeight - spotlightRect.top + gap}px`,
-        left: `${horizontalPadding}px`,
-        right: `${horizontalPadding}px`,
-      };
-    } else if (spaceBelow >= tooltipHeight + gap) {
-      // Position below if there's space
-      return { 
-        position: 'fixed',
-        top: `${spotlightRect.top + spotlightRect.height + gap}px`, 
+        top: `${topPos}px`, 
         left: `${horizontalPadding}px`,
         right: `${horizontalPadding}px`,
       };
     } else {
-      // Not enough space - position at top of screen, above spotlight
+      // Position below the spotlight, but ensure it doesn't go below navbar
+      const topPos = spotlightRect.top + spotlightRect.height + gap;
+      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight - gap);
       return { 
         position: 'fixed',
-        top: `${statusBarHeight}px`, 
+        top: `${Math.max(20, adjustedTop)}px`, 
         left: `${horizontalPadding}px`,
         right: `${horizontalPadding}px`,
       };
@@ -217,12 +217,16 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
   const isTooltipAbove = (): boolean => {
     if (!spotlightRect) return true;
     
-    const tooltipHeight = 220;
-    const gap = 16;
-    const statusBarHeight = 50;
-    const spaceAbove = spotlightRect.top - statusBarHeight;
+    const viewportHeight = window.innerHeight;
+    const tooltipHeight = 300;
+    const gap = 20;
+    const navBarHeight = 120;
+    const safeBottom = viewportHeight - navBarHeight;
     
-    return spaceAbove >= tooltipHeight + gap;
+    const spaceAbove = spotlightRect.top;
+    const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
+    
+    return spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
   };
 
   return (
@@ -291,9 +295,9 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             className="z-10"
             style={getTooltipStyle()}
           >
-            <div className="relative w-full max-w-[300px] mx-auto">
-              {/* Compact glass card */}
-              <div className="bg-card/95 backdrop-blur-xl p-4 rounded-2xl border border-border shadow-elevated overflow-hidden">
+            <div className="relative w-full max-w-[340px] mx-auto">
+              {/* Glass card */}
+              <div className="bg-card/95 backdrop-blur-xl p-5 rounded-3xl border border-border shadow-elevated overflow-hidden">
                 {/* Aurora gradient background */}
                 <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
                 
@@ -301,36 +305,36 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                   {/* Skip button */}
                   <button
                     onClick={handleSkip}
-                    className="absolute -top-0.5 -right-0.5 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute -top-1 -right-1 p-2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
 
                   {/* Icon */}
-                  <div className="flex justify-center mb-2">
+                  <div className="flex justify-center mb-3">
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.1 }}
-                      className="w-10 h-10 rounded-lg bg-gradient-aria flex items-center justify-center shadow-aria-glow"
+                      className="w-12 h-12 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                     >
-                      <div className="text-white [&>svg]:w-5 [&>svg]:h-5">{step.icon}</div>
+                      <div className="text-white">{step.icon}</div>
                     </motion.div>
                   </div>
 
                   {/* Content */}
-                  <div className="text-center mb-3">
-                    <h3 className="text-sm font-bold text-foreground mb-1">
+                  <div className="text-center mb-4">
+                    <h3 className="text-base font-bold text-foreground mb-1.5">
                       {step.title}
                     </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {step.description}
                     </p>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mb-2.5">
-                    <div className="h-0.5 bg-muted/30 rounded-full overflow-hidden">
+                  <div className="mb-3">
+                    <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-gradient-aria rounded-full"
                         initial={{ width: 0 }}
@@ -338,7 +342,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                         transition={{ duration: 0.3 }}
                       />
                     </div>
-                    <p className="text-[9px] text-muted-foreground text-center mt-1">
+                    <p className="text-[10px] text-muted-foreground text-center mt-1.5">
                       {currentStep + 1} / {TUTORIAL_STEPS.length}
                     </p>
                   </div>
@@ -349,7 +353,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                       <Button
                         variant="ghost"
                         onClick={handleSkip}
-                        className="flex-1 h-8 rounded-full text-muted-foreground text-xs"
+                        className="flex-1 h-10 rounded-full text-muted-foreground text-sm"
                       >
                         Salta
                       </Button>
@@ -357,12 +361,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                     <Button
                       onClick={handleNext}
                       className={cn(
-                        "h-8 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all text-xs",
+                        "h-10 rounded-full bg-gradient-aria text-white font-semibold shadow-aria-glow hover:shadow-elevated transition-all text-sm",
                         "flex-1"
                       )}
                     >
                       {isLastStep ? 'Inizia!' : 'Avanti'}
-                      {!isLastStep && <ChevronRight className="w-3.5 h-3.5 ml-0.5" />}
+                      {!isLastStep && <ChevronRight className="w-4 h-4 ml-1" />}
                     </Button>
                   </div>
                 </div>
