@@ -7,8 +7,6 @@ interface AboutYouStepProps {
   onMoodChange: (mood: number) => void;
   ageRange?: string;
   onAgeChange: (age: string) => void;
-  therapyStatus?: string;
-  onTherapyChange: (status: string) => void;
   gender?: string;
   onGenderChange: (gender: string) => void;
   moodSelected?: boolean;
@@ -32,12 +30,6 @@ const genderOptions = [
   { id: 'prefer_not_say', label: 'Preferisco non dire' },
 ];
 
-const therapyOptions = [
-  { id: 'no', label: 'No' },
-  { id: 'past', label: 'In passato' },
-  { id: 'current', label: 'Attualmente' },
-];
-
 const spring = {
   type: "spring" as const,
   stiffness: 400,
@@ -49,8 +41,6 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
   onMoodChange,
   ageRange,
   onAgeChange,
-  therapyStatus,
-  onTherapyChange,
   gender,
   onGenderChange,
   moodSelected = false,
@@ -185,7 +175,6 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="mb-6"
       >
         <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
         <div className="flex flex-wrap gap-2">
@@ -203,33 +192,6 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
               )}
             >
               {age}
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Therapy Status Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <p className="text-sm font-medium text-foreground mb-3">Sei mai stato/a in terapia?</p>
-        <div className="flex flex-wrap gap-2">
-          {therapyOptions.map((option) => (
-            <motion.button
-              key={option.id}
-              onClick={() => onTherapyChange(option.id)}
-              whileTap={{ scale: 0.95 }}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                "bg-glass backdrop-blur-xl border",
-                therapyStatus === option.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
-              )}
-            >
-              {option.label}
             </motion.button>
           ))}
         </div>
