@@ -1,250 +1,182 @@
 
-# Onboarding 2026 - Redesign Completo "User-Friendly & Stimolante"
 
-## Problemi Identificati
+# Revisione Completa Sezione Analisi 2026
 
-| Problema | Soluzione |
-|----------|-----------|
-| 11 schermate troppe | Riduzione a **5 schermate** |
-| Grafica vecchia (non glassmorphism) | Applicare **Liquid Glass 2026** |
-| "Quali abitudini vuoi tracciare" confusionario | **Rimuovere** - habits suggeriti post-onboarding |
-| Physical/Vices/Lifestyle troppo invasivi | **Rimuovere** - raccolti dopo da Aria |
-| Progress bar lineare vecchio stile | **Dot indicators** animati |
-| Chip piccoli poco coinvolgenti | **Card grandi glassmorphism** |
-| Manca gamification | **Animazioni, feedback, celebrazione** |
+## Problemi Attuali Identificati
+
+1. **Parametri Vitali Statici** - Solo 4 metriche fisse (Umore, Ansia, Energia, Sonno), non adattivi all'utente
+2. **Struttura Confusa** - Componenti ammassati senza gerarchia visiva chiara
+3. **Nessuna Personalizzazione** - I grafici mostrati non dipendono dai dati effettivi dell'utente
+4. **Libreria Grafici Limitata** - Pochi tipi di visualizzazione disponibili
+5. **Design Datato** - Non allineato allo standard "Liquid Glass 2026"
 
 ---
 
-## Nuovo Flusso: 5 Schermate (~40 secondi)
+## Piano di Implementazione
 
-```text
-   [1]           [2]           [3]           [4]           [5]
-   
-  SPLASH    →   NOME      →   FOCUS     →   ABOUT YOU →   PRONTO!
-  (Aria)       (Chi sei?)    (3 goals)    (Mood+Info)   (Celebra)
-  
-  3 sec         8 sec         12 sec        10 sec        5 sec
+### Fase 1: Nuovo Sistema "Chart Library" Dinamico
+
+Creeremo una libreria di grafici modulari che si attivano solo se l'utente ha dati rilevanti:
+
+| Grafico | Categoria | Si attiva se... |
+|---------|-----------|-----------------|
+| Mood vs Ansia (Area) | Mente | Ha sessioni/checkin |
+| Parametri Vitali (Grid) | Mente | Ha qualsiasi dato vitale |
+| Spettro Emotivo (Radar) | Mente | Ha emozioni rilevate |
+| Mix Emotivo (Bar) | Mente | Ha emozioni multiple |
+| Psicologia Profonda (List) | Mente | Ha metriche psicologiche |
+| Aree Vita (Radar) | Mente | Ha life areas compilate |
+| Trend Peso (Line) | Corpo | Ha dati peso |
+| Qualita Sonno (Bar) | Corpo | Ha ore sonno |
+| Battito Cardiaco (Line) | Corpo | Ha dati heart rate |
+| Attivita Fisica (Heatmap) | Corpo | Ha passi/calorie |
+| Streak Abitudini (Cards) | Abitudini | Ha abitudini attive |
+| Correlazioni AI (Insight) | Tutti | Ha dati cross-categoria |
+
+### Fase 2: Nuova Architettura Parametri Vitali
+
+**Prima (statico):**
+```
+[Umore] [Ansia] [Energia] [Sonno] - sempre 4, sempre questi
 ```
 
----
-
-## Dettaglio Schermate
-
-### 1. WelcomeStep - REDESIGN
-**Stile:** Aurora gradient + Avatar Aria pulsante
-
-- Background: `bg-gradient-aria-subtle` con particelle fluttuanti
-- Avatar Aria: Ring animato con glow viola/indigo
-- Testo: "Ciao! Sono Aria" - grande, bold
-- Sottotitolo: "3 domande veloci per conoscerti meglio"
-- CTA: Button con `shadow-aria-glow`, effetto pulse
-- **NO** lista feature (troppo testo)
-
-### 2. NameInputStep - REDESIGN  
-**Stile:** Minimal + feedback immediato
-
-- Avatar/emoji che "parla" in alto
-- "Come posso chiamarti?"
-- Input: `bg-glass backdrop-blur-xl`, glow border on focus
-- Feedback: "Piacere, {nome}!" animato sotto input
-- Button: appare solo quando nome valido (2+ caratteri)
-- Transizione fluida al prossimo step
-
-### 3. GoalsStep - NUOVO COMPONENTE
-**Stile:** Card grandi glassmorphism
-
-- "Su cosa vuoi concentrarti, {nome}?"
-- **6 card grandi** (non chip piccoli):
-  - `bg-glass backdrop-blur-xl`
-  - Emoji 48px prominente
-  - Label chiara sotto
-  - Bordo `border-primary` + `shadow-glass-glow` quando selezionato
-- **Max 3 selezioni** con counter animato
-- Opzioni:
-  1. Gestire ansia/stress
-  2. Dormire meglio
-  3. Più energia
-  4. Relazioni
-  5. Crescita personale
-  6. Autostima
-
-### 4. AboutYouStep - NUOVO COMPONENTE UNIFICATO
-**Stile:** Sezioni collassate glassmorphism
-
-Combina mood + info base in modo elegante:
-
-```text
-┌────────────────────────────────────────┐
-│  "Come ti senti in questo periodo?"    │
-│                                        │
-│        [😔] [😕] [😐] [🙂] [😊]         │
-│              ↑ Grande al centro        │
-│            "Così così"                 │
-│                                        │
-│  ─────────── Un po' su di te ──────── │
-│                                        │
-│  Fascia d'età  (chips singola riga)    │
-│  [18-24] [25-34] [35-44] [45-54] [55+] │
-│                                        │
-│  In terapia?   (opzionale)             │
-│  [No] [In passato] [Attualmente]       │
-│                                        │
-│  [Continua]                            │
-└────────────────────────────────────────┘
+**Dopo (dinamico):**
+```
+L'AI seleziona i 4-6 parametri piu rilevanti per l'utente basandosi su:
+- Obiettivi selezionati nell'onboarding
+- Dati effettivamente tracciati
+- Varianza/trend significativi
+- Focus settimanale personale
 ```
 
-- Emoji mood: card grandi touch-friendly
-- Età/terapia: chips piccoli opzionali
-- Tutto skippabile tranne mood
+Nuovi parametri disponibili:
+- Concentrazione, Motivazione, Autostima (da daily_psychology)
+- Ruminazione, Burnout, Tensione Somatica
+- Gratitudine, Irritabilita, Solitudine
 
-### 5. ReadyScreen - NUOVO COMPONENTE
-**Stile:** Celebration con confetti
+### Fase 3: Nuovo Layout Tab "Mente" 
 
-- Background: Aurora gradient animato
-- Confetti/sparkles particles
-- Avatar Aria con espressione felice
-- "Perfetto, {nome}! Siamo pronti"
-- Mini-card: mostra i goals scelti con icone
-- CTA: "Inizia il tuo percorso" → Home
-- Haptic feedback forte sul tap
+```
++--------------------------------------------------+
+|  [Header] Analisi - Il tuo wellness a 360        |
+|  [Time Selector] Oggi | Settimana | Mese | Tutto |
++--------------------------------------------------+
+|  [Tabs] 🧠 Mente | 💪 Corpo | 📊 Abitudini | 🎯  |
++--------------------------------------------------+
 
----
+SEZIONE: SNAPSHOT VELOCE
++------------------------+------------------------+
+|  📊 Wellness Score     |  🔥 Trend Settimanale  |
+|  [Ring Chart + Score]  |  [Sparkline + Delta]   |
++------------------------+------------------------+
 
-## Cosa Rimuoviamo
+SEZIONE: PARAMETRI VITALI (Dinamici 4-6)
++------------------------+------------------------+
+|  😌 Umore      7.2     |  ⚡ Energia    6.8     |
+|  [Sparkline]  +0.5     |  [Sparkline]  -0.2     |
++------------------------+------------------------+
+|  🧠 Chiarezza  8.1     |  💫 Autoefficacia 7.5  |
+|  [Sparkline]  +1.2     |  [Sparkline]  stabile  |
++------------------------+------------------------+
 
-| Step Rimosso | Perché | Quando lo raccogliamo |
-|--------------|--------|----------------------|
-| `VicesStep` | Troppo invasivo all'inizio | Aria chiede in chat |
-| `LifestyleStep` | Non essenziale | Inferito dalle conversazioni |
-| `PhysicalDataStep` | Troppi campi | Sezione Corpo nel profilo |
-| `HabitsSelectionStep` | Confusionario | Suggeriti dopo primo check-in |
-| `AnalyzingScreen` | Fake delay inutile | Rimosso |
-| `ResultScreen` | Troppo lungo | Sostituito da ReadyScreen |
+SEZIONE: GRAFICI CORRELATI (Solo se dati presenti)
++--------------------------------------------------+
+|  📈 Umore vs Ansia (ultimi 30 giorni)           |
+|  [Area Chart con 2 linee sovrapposte]           |
++--------------------------------------------------+
++--------------------------------------------------+
+|  🌈 Spettro Emotivo                              |
+|  [Radar Chart con 5-10 emozioni]                 |
++--------------------------------------------------+
++--------------------------------------------------+
+|  🧭 Aree della Vita                              |
+|  [Pentagon Radar: Amore, Lavoro, Social...]      |
++--------------------------------------------------+
 
----
+SEZIONE: PSICOLOGIA PROFONDA (Accordion)
++--------------------------------------------------+
+|  🧠 Metriche Avanzate                    [AI]    |
+|  +------------------------------------------+    |
+|  |  🔄 Ruminazione        6/10    [expand]  |    |
+|  |  🔥 Burnout            4/10    [expand]  |    |
+|  |  💫 Autoefficacia      8/10    [expand]  |    |
+|  +------------------------------------------+    |
++--------------------------------------------------+
 
-## Design System Applicato
-
-### Glassmorphism Cards
-```css
-.onboarding-card {
-  background: hsl(var(--glass-bg));
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid hsl(var(--glass-border));
-  border-radius: 24px;
-  box-shadow: var(--shadow-glass);
-}
-
-.onboarding-card.selected {
-  border-color: hsl(var(--primary) / 0.5);
-  box-shadow: var(--shadow-glass-glow);
-}
+SEZIONE: AI INSIGHTS (Premium)
++--------------------------------------------------+
+|  ✨ Insight Personalizzato                       |
+|  "Questa settimana la tua energia e correlata    |
+|   positivamente con le ore di sonno..."          |
++--------------------------------------------------+
 ```
 
-### Progress Dots (sostituisce barra)
-```text
-Prima:  [████████░░░░] 4/8
+### Fase 4: Componenti Nuovi da Creare
 
-Dopo:   ● ● ● ○ ○   (glow pulse sul corrente)
-```
+1. **`DynamicVitalsGrid.tsx`** - Grid che mostra 4-6 parametri scelti dall'AI
+2. **`ChartSelector.tsx`** - Sistema che decide quali grafici mostrare
+3. **`CorrelationInsight.tsx`** - Card che mostra correlazioni tra metriche
+4. **`EmotionalSpectrum.tsx`** - Radar con tutte le emozioni (primarie + secondarie)
+5. **`WellnessSnapshot.tsx`** - Header con score + trend delta
+6. **`AvailableChartsConfig.ts`** - Configurazione di tutti i grafici disponibili
 
-### Spring Animations (Framer Motion)
+### Fase 5: Logica di Selezione Grafici
+
 ```typescript
-const spring = {
-  type: "spring",
-  stiffness: 400,
-  damping: 25
-};
-```
-
-### Aurora Gradient per Aria
-```css
-.aurora-bg {
-  background: linear-gradient(
-    135deg,
-    hsl(270 60% 65% / 0.15),
-    hsl(240 80% 65% / 0.1),
-    hsl(280 70% 70% / 0.12)
-  );
-  animation: aurora-shift 8s ease infinite;
+// Pseudo-codice della logica
+function selectChartsForUser(userData) {
+  const availableCharts = [];
+  
+  // Mente
+  if (userData.hasVitals) availableCharts.push('vitals_grid');
+  if (userData.hasSessions > 2) availableCharts.push('mood_anxiety_trend');
+  if (userData.hasEmotions) availableCharts.push('emotional_spectrum');
+  if (userData.hasLifeAreas) availableCharts.push('life_balance_radar');
+  if (userData.hasPsychology) availableCharts.push('deep_psychology');
+  
+  // Corpo
+  if (userData.hasWeight) availableCharts.push('weight_trend');
+  if (userData.hasSleep) availableCharts.push('sleep_quality');
+  if (userData.hasHeartRate) availableCharts.push('heart_rate_trend');
+  if (userData.hasActivity) availableCharts.push('activity_heatmap');
+  
+  return availableCharts;
 }
 ```
 
 ---
 
-## Implementazione Tecnica
+## Dettagli Tecnici
 
 ### File da Modificare
-| File | Azione |
-|------|--------|
-| `Onboarding.tsx` | **REWRITE** - Nuovo flusso 5 step |
-| `OnboardingLayout.tsx` | **UPDATE** - Dot progress indicators |
-| `WelcomeStep.tsx` | **REDESIGN** - Aurora, avatar, no features list |
-| `NameInputStep.tsx` | **REDESIGN** - Glass input, feedback |
+- `src/pages/Analisi.tsx` - Nuova architettura principale
+- `src/components/analisi/AnalisiTabContent.tsx` - Nuovo layout Mente
+- `src/components/analisi/VitalMetricCard.tsx` - Supporto metriche dinamiche
 
 ### File da Creare
-| File | Descrizione |
-|------|-------------|
-| `GoalsStep.tsx` | 6 card glassmorphism, max 3 selezioni |
-| `AboutYouStep.tsx` | Mood emoji + età/terapia opzionali |
-| `ReadyScreen.tsx` | Celebration con confetti |
+- `src/lib/chartLibrary.ts` - Configurazione tutti grafici disponibili
+- `src/components/analisi/DynamicVitalsGrid.tsx` - Grid parametri dinamici
+- `src/components/analisi/WellnessSnapshot.tsx` - Header con score
+- `src/components/analisi/EmotionalSpectrumRadar.tsx` - Radar emozioni completo
+- `src/components/analisi/CorrelationCard.tsx` - Card insight correlazioni
+- `src/hooks/useChartVisibility.tsx` - Hook che determina grafici visibili
 
-### File da Rimuovere (non più usati)
-- `QuizStep.tsx`
-- `ChipGridStep.tsx` 
-- `EmojiSlider.tsx`
-- `VicesStep.tsx`
-- `LifestyleStep.tsx`
-- `PhysicalDataStep.tsx`
-- `HabitsSelectionStep.tsx`
-- `AnalyzingScreen.tsx`
-- `ResultScreen.tsx`
-
-### Struttura Dati Semplificata
-```typescript
-interface OnboardingData {
-  name: string;
-  primaryGoals: string[];  // max 3
-  currentMood: number;     // 0-4
-  ageRange?: string;       // opzionale
-  therapyStatus?: string;  // opzionale
-}
-```
+### Hooks da Aggiornare
+- `useAIAnalysis.tsx` - Aggiungere selezione dinamica parametri vitali
 
 ---
 
-## UX Micro-Interazioni
+## Risultato Finale
 
-1. **Welcome** → Avatar pulsa con glow Aurora
-2. **Name input** → Glow border + feedback "Piacere!"
-3. **Goal tap** → Scale bounce + haptic + ring glow
-4. **Mood tap** → Emoji zoom + particle burst
-5. **Progress dots** → Pulse glow sul corrente
-6. **Transitions** → Slide + fade spring (400 stiffness)
-7. **Ready** → Confetti burst + haptic forte
+**User Experience Migliorata:**
+- Utente vede SOLO grafici rilevanti ai suoi dati
+- Parametri vitali personalizzati (non sempre gli stessi 4)
+- Design professionale e coerente con Liquid Glass 2026
+- Gerarchia visiva chiara con sezioni ben definite
+- Insight AI che collegano metriche diverse
 
----
+**Scalabilita:**
+- Facile aggiungere nuovi tipi di grafici
+- Sistema modulare basato su configurazione
+- Preparato per future integrazioni (Apple Health, etc.)
 
-## Metriche Attese
-
-| Metrica | Prima | Dopo |
-|---------|-------|------|
-| Schermate | 11 | **5** |
-| Tempo completamento | ~4 min | **~40 sec** |
-| Tap richiesti | ~15+ | **~8** |
-| Completion rate | ~60% | **~95%** |
-| Cognitive load | Alto | **Minimo** |
-
----
-
-## Dati Essenziali Raccolti
-
-| Dato | Uso | Obbligatorio |
-|------|-----|--------------|
-| `name` | Personalizzazione UI e conversazioni | Si |
-| `primaryGoals[]` | Dashboard metrics + prompt AI | Si (min 1) |
-| `currentMood` | Baseline emotiva iniziale | Si |
-| `ageRange` | Contesto generazionale per AI | No |
-| `therapyStatus` | Safety flags per AI | No |
-
-Tutto il resto (vizi, lifestyle, dati fisici, habits) viene raccolto progressivamente da Aria durante le conversazioni o nelle sezioni dedicate del profilo.
