@@ -673,7 +673,7 @@ const Chat: React.FC = () => {
             autoCorrect="on"
             autoCapitalize="sentences"
             rows={1}
-            className="chat-input flex-1 bg-transparent px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 resize-none overflow-y-auto"
+            className="chat-input flex-1 bg-transparent text-foreground px-4 py-2.5 placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 resize-none overflow-y-auto"
             style={{
               fontSize: '16px',
               lineHeight: '1.5',
