@@ -1,5 +1,4 @@
 import React from 'react';
-import WellnessSnapshot from './WellnessSnapshot';
 import DynamicVitalsGrid from './DynamicVitalsGrid';
 import EmotionalSpectrumRadar from './EmotionalSpectrumRadar';
 import CorrelationCard from './CorrelationCard';
@@ -18,22 +17,11 @@ interface MenteTabProps {
   visibleCharts: ChartConfig[];
   psychologyData: Record<string, number | null>;
   highlightedMetrics: MetricConfig[];
-  wellnessScore: number | null;
   timeRange: TimeRange;
   onMetricClick: (key: string) => void;
 }
 
-// Get time range label in Italian
-const getTimeRangeLabel = (timeRange: TimeRange): string => {
-  switch (timeRange) {
-    case 'day': return 'Oggi';
-    case 'week': return 'Settimana';
-    case 'month': return 'Mese';
-    case 'all': return 'Sempre';
-  }
-};
-
-// Calculate wellness score trend
+// Calculate trend for metrics
 const calculateTrend = (values: number[]): 'up' | 'down' | 'stable' => {
   if (values.length < 2) return 'stable';
   const midpoint = Math.floor(values.length / 2);
@@ -81,7 +69,6 @@ export const MenteTab: React.FC<MenteTabProps> = ({
   visibleCharts,
   psychologyData,
   highlightedMetrics,
-  wellnessScore,
   timeRange,
   onMetricClick,
 }) => {
@@ -155,15 +142,7 @@ export const MenteTab: React.FC<MenteTabProps> = ({
   const shouldShowChart = (chartId: string) => visibleCharts.some(c => c.id === chartId);
 
   return (
-    <div className="space-y-2">
-      {/* Wellness Snapshot - Always show */}
-      <WellnessSnapshot
-        wellnessScore={wellnessScore}
-        previousScore={previousWellnessScore}
-        trend={wellnessTrend}
-        dataPointsCount={daysWithData.length}
-        timeRangeLabel={getTimeRangeLabel(timeRange)}
-      />
+    <div className="space-y-5">
 
       {/* Dynamic Vitals Grid */}
       {shouldShowChart('dynamic_vitals') && (

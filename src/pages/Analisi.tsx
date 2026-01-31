@@ -141,19 +141,6 @@ const Analisi: React.FC = () => {
     return result;
   }, [daysWithData]);
 
-  // Calculate wellness score (average of mood, inverted anxiety, energy, sleep)
-  const wellnessScore = useMemo(() => {
-    const moodAvg = metrics.find(m => m.key === 'mood')?.average || 0;
-    const anxietyAvg = metrics.find(m => m.key === 'anxiety')?.average || 0;
-    const energyAvg = metrics.find(m => m.key === 'energy')?.average || 0;
-    const sleepAvg = metrics.find(m => m.key === 'sleep')?.average || 0;
-    
-    const validScores = [moodAvg, 10 - anxietyAvg, energyAvg, sleepAvg].filter(v => v > 0);
-    if (validScores.length === 0) return null;
-    
-    return Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 10) / 10;
-  }, [metrics]);
-
   const selectedMetricData = selectedMetric ? metrics.find(m => m.key === selectedMetric) : null;
 
   // Calculate lookback days based on time range
@@ -215,7 +202,6 @@ const Analisi: React.FC = () => {
             visibleCharts={visibleCharts.mente}
             psychologyData={psychologyData}
             highlightedMetrics={aiLayout.highlighted_metrics}
-            wellnessScore={wellnessScore}
             timeRange={timeRange}
             onMetricClick={(key) => setSelectedMetric(key as MetricType)}
           />
