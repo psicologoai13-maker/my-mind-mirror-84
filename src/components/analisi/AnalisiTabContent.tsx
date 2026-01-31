@@ -139,13 +139,16 @@ export const MenteTab: React.FC<MenteTabProps> = ({
     : null;
 
   // Check which charts should be visible
-  const shouldShowChart = (chartId: string) => visibleCharts.some(c => c.id === chartId);
+  // Show all charts - don't require strict data availability
+  const hasAnyData = daysWithData.length > 0;
+  const hasPsychologyData = Object.values(psychologyData).some(v => v !== null && v > 0);
+  const hasEmotionData = latestEmotions.joy > 0 || latestEmotions.sadness > 0 || latestEmotions.anger > 0 || latestEmotions.fear > 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
 
-      {/* Dynamic Vitals Grid */}
-      {shouldShowChart('dynamic_vitals') && (
+      {/* Dynamic Vitals Grid - Always show if any data */}
+      {hasAnyData && dynamicVitals.length > 0 && (
         <DynamicVitalsGrid
           metrics={dynamicVitals}
           data={vitalData}
@@ -154,7 +157,7 @@ export const MenteTab: React.FC<MenteTabProps> = ({
       )}
 
       {/* Mood vs Anxiety Correlation */}
-      {shouldShowChart('mood_anxiety_trend') && correlationData.length >= 3 && (
+      {correlationData.length >= 2 ? (
         <CorrelationCard
           title="Umore vs Ansia"
           metric1={{ key: 'mood', label: 'Umore', color: 'hsl(150, 60%, 45%)' }}
@@ -169,31 +172,56 @@ export const MenteTab: React.FC<MenteTabProps> = ({
               : "Non c'è una correlazione significativa tra umore e ansia in questo periodo."
           }
         />
+      ) : hasAnyData && (
+        <section className="animate-fade-in">
+          <div className="bg-glass backdrop-blur-xl border border-glass-border rounded-3xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">📈</span>
+              <h3 className="font-semibold text-foreground">Umore vs Ansia</h3>
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-muted rounded-full ml-auto">PRESTO</span>
+            </div>
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">Continua a tracciare per sbloccare il grafico correlazioni</p>
+              <p className="text-xs mt-1">{correlationData.length}/2 giorni con dati</p>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Emotional Spectrum Radar */}
-      {shouldShowChart('emotional_spectrum') && (
-        <EmotionalSpectrumRadar
-          emotions={latestEmotions}
-        />
+      {hasEmotionData ? (
+        <EmotionalSpectrumRadar emotions={latestEmotions} />
+      ) : hasAnyData && (
+        <section className="animate-fade-in">
+          <div className="bg-glass backdrop-blur-xl border border-glass-border rounded-3xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">🌈</span>
+              <h3 className="font-semibold text-foreground">Spettro Emotivo</h3>
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-muted rounded-full ml-auto">PRESTO</span>
+            </div>
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">Parla con l'AI per analizzare le tue emozioni</p>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Emotional Mix Bar */}
-      {shouldShowChart('emotional_mix') && (
+      {hasAnyData && (
         <section className="animate-fade-in">
           <EmotionalMixBar />
         </section>
       )}
 
       {/* Life Balance Radar */}
-      {shouldShowChart('life_balance') && (
+      {hasAnyData && (
         <section className="animate-fade-in">
           <LifeBalanceRadar />
         </section>
       )}
 
-      {/* Deep Psychology */}
-      {shouldShowChart('deep_psychology') && (
+      {/* Deep Psychology - Always show with placeholder if no data */}
+      {hasAnyData && (
         <section className="animate-fade-in">
           <DeepPsychologyCard
             metrics={highlightedMetrics.filter(m => m.category === 'psicologia')}
@@ -203,8 +231,8 @@ export const MenteTab: React.FC<MenteTabProps> = ({
         </section>
       )}
 
-      {/* Empty state if no charts */}
-      {visibleCharts.length === 0 && (
+      {/* Empty state if no data at all */}
+      {!hasAnyData && (
         <div className="text-center py-12 px-6">
           <div className="text-5xl mb-4">📊</div>
           <h3 className="font-display font-semibold text-lg text-foreground mb-2">
