@@ -127,8 +127,8 @@ const Onboarding: React.FC = () => {
       case 'goals':
         return data.primaryGoals.length >= 1;
       case 'aboutYou':
-        // All fields are required
-        return data.moodSelected && !!data.gender && !!data.ageRange && !!data.therapyStatus;
+        // All fields are required (mood, gender, age)
+        return data.moodSelected && !!data.gender && !!data.ageRange;
       case 'interests':
         return true; // interests are optional
       default:
@@ -330,8 +330,6 @@ const Onboarding: React.FC = () => {
             onMoodChange={(mood) => setData(prev => ({ ...prev, currentMood: mood }))}
             ageRange={data.ageRange}
             onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
-            therapyStatus={data.therapyStatus}
-            onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
             gender={data.gender}
             onGenderChange={(gender) => setData(prev => ({ ...prev, gender }))}
             moodSelected={data.moodSelected}
