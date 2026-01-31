@@ -161,10 +161,12 @@ const Onboarding: React.FC = () => {
       
       const legacyGoals = data.primaryGoals.map(g => legacyGoalMap[g] || g);
       
-      // Save profile
+      // Save profile with dedicated columns for Aria's brain
       await updateProfile.mutateAsync({
         name: data.name,
         onboarding_completed: true,
+        // Save to dedicated columns so Aria can access them
+        therapy_status: data.therapyStatus || 'none',
         onboarding_answers: {
           name: data.name,
           motivations: data.motivations,
