@@ -9,11 +9,16 @@ import AbitudiniTab from '@/components/analisi/AbitudiniTab';
 import ObiettiviTab from '@/components/analisi/ObiettiviTab';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
+import { useChartVisibility } from '@/hooks/useChartVisibility';
+import { useBodyMetrics } from '@/hooks/useBodyMetrics';
+import { useHabits } from '@/hooks/useHabits';
+import { useObjectives } from '@/hooks/useObjectives';
+import { useProfile } from '@/hooks/useProfile';
 import { Loader2, Brain, Activity, Target, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
-export type MetricType = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'love' | 'work' | 'social' | 'health' | 'growth' | 'rumination' | 'burnout_level' | 'somatic_tension' | 'self_efficacy' | 'mental_clarity' | 'gratitude';
+export type MetricType = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'love' | 'work' | 'social' | 'health' | 'growth' | 'rumination' | 'burnout_level' | 'somatic_tension' | 'self_efficacy' | 'mental_clarity' | 'gratitude' | 'motivation' | 'concentration' | 'self_worth' | 'irritability' | 'loneliness_perceived' | 'guilt';
 
 export interface MetricData {
   key: MetricType;
@@ -40,6 +45,10 @@ const Analisi: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
   const [activeTab, setActiveTab] = useState<AnalisiTab>('mente');
 
+  // Fetch user profile for goals
+  const { profile } = useProfile();
+  const userGoals = profile?.selected_goals || [];
+
   // 🎯 AI-DRIVEN: Layout deciso dall'AI
   const { layout: aiLayout, isLoading: isLoadingAI } = useAIAnalysis(timeRange);
 
@@ -61,6 +70,20 @@ const Analisi: React.FC = () => {
 
   // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
   const { metricsRange, isLoading } = useDailyMetricsRange(dateRange.start, dateRange.end);
+  
+  // Get body metrics, habits, objectives for chart visibility
+  const { metricsHistory: bodyMetrics } = useBodyMetrics();
+  const { habits } = useHabits();
+  const { objectives } = useObjectives();
+
+  // 🎯 DYNAMIC CHART VISIBILITY: Based on user data
+  const { visibleCharts, dynamicVitals, availability } = useChartVisibility(
+    metricsRange,
+    bodyMetrics || [],
+    habits || [],
+    objectives || [],
+    userGoals
+  );
 
   // Filter days with actual data
   const daysWithData = useMemo(() => {
@@ -69,26 +92,7 @@ const Analisi: React.FC = () => {
     );
   }, [metricsRange]);
 
-  // Generate chart data for vitals from unified source
-  const chartDataByMetric = useMemo(() => {
-    const result: Record<string, { value: number; date?: string; timestamp: number }[]> = {};
-    const vitalKeys: MetricType[] = ['mood', 'anxiety', 'energy', 'sleep'];
-
-    vitalKeys.forEach(key => {
-      result[key] = daysWithData
-        .filter(m => m.vitals[key] > 0)
-        .map(m => ({
-          value: Math.round(m.vitals[key] * 10),
-          date: format(new Date(m.date), 'dd/MM'),
-          timestamp: new Date(m.date).getTime(),
-        }))
-        .sort((a, b) => a.timestamp - b.timestamp);
-    });
-
-    return result;
-  }, [daysWithData]);
-
-  // Calculate metrics from unified source
+  // Calculate metrics from unified source (for compatibility)
   const metrics = useMemo<MetricData[]>(() => {
     const calculateAverage = (values: (number | null | undefined)[]) => {
       const valid = values.filter((v): v is number => v !== null && v !== undefined && v > 0);
@@ -125,7 +129,7 @@ const Analisi: React.FC = () => {
   // Get psychology data
   const psychologyData = useMemo(() => {
     const result: Record<string, number | null> = {};
-    const psychKeys = ['rumination', 'burnout_level', 'somatic_tension', 'self_efficacy', 'mental_clarity', 'gratitude', 'guilt', 'irritability', 'loneliness_perceived', 'coping_ability'];
+    const psychKeys = ['rumination', 'burnout_level', 'somatic_tension', 'self_efficacy', 'mental_clarity', 'gratitude', 'guilt', 'irritability', 'loneliness_perceived', 'coping_ability', 'concentration', 'motivation', 'self_worth'];
     
     psychKeys.forEach(key => {
       const values = daysWithData
@@ -137,7 +141,19 @@ const Analisi: React.FC = () => {
     return result;
   }, [daysWithData]);
 
-  const vitalMetrics = metrics.filter(m => m.category === 'vitali');
+  // Calculate wellness score (average of mood, inverted anxiety, energy, sleep)
+  const wellnessScore = useMemo(() => {
+    const moodAvg = metrics.find(m => m.key === 'mood')?.average || 0;
+    const anxietyAvg = metrics.find(m => m.key === 'anxiety')?.average || 0;
+    const energyAvg = metrics.find(m => m.key === 'energy')?.average || 0;
+    const sleepAvg = metrics.find(m => m.key === 'sleep')?.average || 0;
+    
+    const validScores = [moodAvg, 10 - anxietyAvg, energyAvg, sleepAvg].filter(v => v > 0);
+    if (validScores.length === 0) return null;
+    
+    return Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 10) / 10;
+  }, [metrics]);
+
   const selectedMetricData = selectedMetric ? metrics.find(m => m.key === selectedMetric) : null;
 
   // Calculate lookback days based on time range
@@ -158,8 +174,8 @@ const Analisi: React.FC = () => {
             <h1 className="font-display text-2xl font-bold text-foreground">Analisi</h1>
             <p className="text-muted-foreground text-sm mt-1">Il tuo wellness a 360°</p>
           </div>
-          {isLoadingAI && (
-            <Loader2 className="w-5 h-5 text-aria-violet animate-spin" />
+          {(isLoadingAI || isLoading) && (
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
           )}
         </div>
       </header>
@@ -194,11 +210,14 @@ const Analisi: React.FC = () => {
       <div className="px-4 pb-8">
         {activeTab === 'mente' && (
           <MenteTab
-            vitalMetrics={vitalMetrics}
-            chartDataByMetric={chartDataByMetric}
+            metricsRange={metricsRange}
+            dynamicVitals={dynamicVitals}
+            visibleCharts={visibleCharts.mente}
             psychologyData={psychologyData}
             highlightedMetrics={aiLayout.highlighted_metrics}
-            onMetricClick={setSelectedMetric}
+            wellnessScore={wellnessScore}
+            timeRange={timeRange}
+            onMetricClick={(key) => setSelectedMetric(key as MetricType)}
           />
         )}
         
