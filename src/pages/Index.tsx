@@ -26,8 +26,10 @@ const Index: React.FC = () => {
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
 
-  // Check if this is a new user (just completed onboarding)
-  const isNewUser = profile?.onboarding_completed && !profile?.wellness_score;
+  // Check if this is a new user (just completed onboarding) - use AI layout data
+  const hasAIData = layout.wellness_score !== null && layout.wellness_score !== undefined && 
+    layout.wellness_message && layout.wellness_message !== 'Parla con me per iniziare a monitorare il tuo benessere.';
+  const isNewUser = profile?.onboarding_completed && !hasAIData;
 
   // Show tutorial for new users who haven't seen it
   useEffect(() => {
