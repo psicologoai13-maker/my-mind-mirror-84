@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3 } from 'lucide-react';
-import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
+import { Objective, CATEGORY_CONFIG, calculateProgress, TrackingPeriod } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, endOfDay, endOfWeek, endOfMonth, endOfYear, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import {
   DropdownMenu,
@@ -13,6 +13,25 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TargetInputDialog } from './TargetInputDialog';
+
+// Calculate deadline based on tracking period
+const calculatePeriodDeadline = (period: TrackingPeriod): string => {
+  const now = new Date();
+  switch (period) {
+    case 'daily':
+      return endOfDay(now).toISOString();
+    case 'weekly':
+      return endOfWeek(now, { weekStartsOn: 1 }).toISOString(); // Week starts Monday
+    case 'monthly':
+      return endOfMonth(now).toISOString();
+    case 'yearly':
+      return endOfYear(now).toISOString();
+    case 'one_time':
+    default:
+      // Default to 30 days for one-time goals
+      return addDays(now, 30).toISOString();
+  }
+};
 
 interface ObjectiveCardProps {
   objective: Objective;
@@ -33,8 +52,25 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
   const hasStartingValue = objective.starting_value !== null && objective.starting_value !== undefined;
   
-  // Only body and finance categories REQUIRE starting_value for meaningful progress
-  const requiresStartingValue = objective.category === 'body' || objective.category === 'finance';
+  // Determine what this objective needs based on category and finance type
+  const isFinance = objective.category === 'finance';
+  const financeType = objective.finance_tracking_type;
+  
+  // Periodic finance types (savings, limits, income) don't need starting value - they reset each period
+  const isPeriodicFinance = isFinance && ['periodic_saving', 'spending_limit', 'periodic_income'].includes(financeType || '');
+  
+  // Only body and non-periodic finance objectives require starting value
+  const requiresStartingValue = objective.category === 'body' || (isFinance && !isPeriodicFinance && financeType !== null);
+  
+  // Periodic finance only needs target, others need both
+  // Finance without type defined needs setup first
+  const needsSetup = isFinance 
+    ? (financeType === null || financeType === undefined
+        ? true  // No finance type defined, needs setup
+        : isPeriodicFinance 
+          ? !hasTarget  // Periodic only needs target
+          : !hasTarget || !hasStartingValue)  // Non-periodic needs both
+    : (requiresStartingValue && (!hasTarget || !hasStartingValue));
   
   // Use new progress calculation that considers starting value
   const progress = hasTarget ? calculateProgress(objective) : 0;
@@ -136,17 +172,19 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
 
         {/* Missing target or starting value warning - with manual input button */}
         {/* Only show for categories that require numeric tracking (body, finance) */}
-        {(requiresStartingValue && (!hasTarget || !hasStartingValue)) && (
+        {needsSetup && (
           <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
             <div className="flex items-start gap-2 mb-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  {!hasTarget && !hasStartingValue 
-                    ? 'Definisci punto di partenza e obiettivo'
-                    : !hasTarget 
-                      ? 'Obiettivo finale non definito' 
-                      : 'Punto di partenza non definito'}
+                  {isPeriodicFinance 
+                    ? 'Definisci obiettivo periodico'
+                    : !hasTarget && !hasStartingValue 
+                      ? 'Definisci punto di partenza e obiettivo'
+                      : !hasTarget 
+                        ? 'Obiettivo finale non definito' 
+                        : 'Punto di partenza non definito'}
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-300">
                   Parla con Aria o inserisci manualmente
@@ -195,6 +233,13 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
               }
               if (data.trackingPeriod) {
                 updates.tracking_period = data.trackingPeriod;
+                // Set deadline based on tracking period
+                updates.deadline = calculatePeriodDeadline(data.trackingPeriod);
+              }
+              // For periodic finance, set current_value to 0 and starting_value to 0
+              if (['periodic_saving', 'spending_limit', 'periodic_income'].includes(data.financeTrackingType || '')) {
+                updates.starting_value = 0;
+                updates.current_value = 0;
               }
               // Clear ai_feedback and needs_clarification since user defined manually
               updates.ai_feedback = null;
@@ -208,10 +253,18 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         {hasTarget && (
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-muted-foreground">Progresso</span>
+              <span className="text-muted-foreground">
+                {isPeriodicFinance ? 'Questo periodo' : 'Progresso'}
+              </span>
               <span className="font-semibold text-foreground">
-                {objective.current_value ?? objective.starting_value ?? 0}
-                {hasStartingValue ? ` (da ${objective.starting_value})` : ''} → {objective.target_value} {objective.unit}
+                {objective.current_value ?? 0} → {objective.target_value} {objective.unit || '€'}
+                {objective.tracking_period && isPeriodicFinance && (
+                  <span className="text-muted-foreground font-normal">
+                    /{objective.tracking_period === 'daily' ? 'giorno' : 
+                      objective.tracking_period === 'weekly' ? 'sett' :
+                      objective.tracking_period === 'monthly' ? 'mese' : 'anno'}
+                  </span>
+                )}
               </span>
             </div>
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 backdrop-blur-sm">
