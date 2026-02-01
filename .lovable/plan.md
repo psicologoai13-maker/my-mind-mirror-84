@@ -1,182 +1,175 @@
 
+# Piano: Sistema di Correzione Memoria per Aria
 
-# Revisione Completa Sezione Analisi 2026
+## Problema Identificato
 
-## Problemi Attuali Identificati
-
-1. **Parametri Vitali Statici** - Solo 4 metriche fisse (Umore, Ansia, Energia, Sonno), non adattivi all'utente
-2. **Struttura Confusa** - Componenti ammassati senza gerarchia visiva chiara
-3. **Nessuna Personalizzazione** - I grafici mostrati non dipendono dai dati effettivi dell'utente
-4. **Libreria Grafici Limitata** - Pochi tipi di visualizzazione disponibili
-5. **Design Datato** - Non allineato allo standard "Liquid Glass 2026"
+Quando l'utente corregge Aria ("No, hai capito male"), il sistema attuale:
+- Salva comunque l'informazione errata in `key_facts`
+- Appende alla `long_term_memory` senza verificare o rimuovere errori (linea 1149: `[...existingMemory, ...newMemoryItems].slice(-60)`)
+- Il `ai_summary` riflette l'errore invece della correzione
+- Non esiste rilevamento di pattern correttivi nel prompt AI
 
 ---
 
-## Piano di Implementazione
+## Soluzione Tecnica
 
-### Fase 1: Nuovo Sistema "Chart Library" Dinamico
+### Fase 1: Rilevamento Correzioni nel Prompt AI (process-session)
 
-Creeremo una libreria di grafici modulari che si attivano solo se l'utente ha dati rilevanti:
+Aggiornare il prompt di analisi per rilevare frasi correttive e restituire un nuovo campo `corrections`:
 
-| Grafico | Categoria | Si attiva se... |
-|---------|-----------|-----------------|
-| Mood vs Ansia (Area) | Mente | Ha sessioni/checkin |
-| Parametri Vitali (Grid) | Mente | Ha qualsiasi dato vitale |
-| Spettro Emotivo (Radar) | Mente | Ha emozioni rilevate |
-| Mix Emotivo (Bar) | Mente | Ha emozioni multiple |
-| Psicologia Profonda (List) | Mente | Ha metriche psicologiche |
-| Aree Vita (Radar) | Mente | Ha life areas compilate |
-| Trend Peso (Line) | Corpo | Ha dati peso |
-| Qualita Sonno (Bar) | Corpo | Ha ore sonno |
-| Battito Cardiaco (Line) | Corpo | Ha dati heart rate |
-| Attivita Fisica (Heatmap) | Corpo | Ha passi/calorie |
-| Streak Abitudini (Cards) | Abitudini | Ha abitudini attive |
-| Correlazioni AI (Insight) | Tutti | Ha dati cross-categoria |
+```text
+═══════════════════════════════════════════════
+🔄 RILEVAMENTO CORREZIONI (CRUCIALE!)
+═══════════════════════════════════════════════
+Se l'utente CORREGGE un'informazione precedente, DEVI rilevarlo.
 
-### Fase 2: Nuova Architettura Parametri Vitali
+**PATTERN CORRETTIVI:**
+- "No", "Non è così", "Hai capito male", "Mi sono spiegato male"
+- "Intendevo dire...", "In realtà...", "Volevo dire..."
+- "Non ho detto questo", "Hai frainteso"
 
-**Prima (statico):**
-```
-[Umore] [Ansia] [Energia] [Sonno] - sempre 4, sempre questi
-```
+**QUANDO RILEVI UNA CORREZIONE:**
+1. L'informazione PRECEDENTE è SBAGLIATA → NON salvarla in key_facts
+2. L'informazione NUOVA dopo la correzione è quella GIUSTA → salva solo questa
+3. Aggiungi al campo "corrections" cosa era sbagliato
 
-**Dopo (dinamico):**
-```
-L'AI seleziona i 4-6 parametri piu rilevanti per l'utente basandosi su:
-- Obiettivi selezionati nell'onboarding
-- Dati effettivamente tracciati
-- Varianza/trend significativi
-- Focus settimanale personale
-```
+**FORMATO:**
+"corrections": [
+  {
+    "wrong_fact": "L'utente lavora come ingegnere",
+    "corrected_to": "L'utente studia ingegneria",
+    "keywords_to_remove": ["lavora come ingegnere"]
+  }
+]
 
-Nuovi parametri disponibili:
-- Concentrazione, Motivazione, Autostima (da daily_psychology)
-- Ruminazione, Burnout, Tensione Somatica
-- Gratitudine, Irritabilita, Solitudine
+**ESEMPIO:**
+Utente: "Lavoro come programmatore"
+Aria: "Da quanto fai il programmatore?"
+Utente: "No aspetta, studio informatica, non lavoro ancora"
 
-### Fase 3: Nuovo Layout Tab "Mente" 
-
-```
-+--------------------------------------------------+
-|  [Header] Analisi - Il tuo wellness a 360        |
-|  [Time Selector] Oggi | Settimana | Mese | Tutto |
-+--------------------------------------------------+
-|  [Tabs] 🧠 Mente | 💪 Corpo | 📊 Abitudini | 🎯  |
-+--------------------------------------------------+
-
-SEZIONE: SNAPSHOT VELOCE
-+------------------------+------------------------+
-|  📊 Wellness Score     |  🔥 Trend Settimanale  |
-|  [Ring Chart + Score]  |  [Sparkline + Delta]   |
-+------------------------+------------------------+
-
-SEZIONE: PARAMETRI VITALI (Dinamici 4-6)
-+------------------------+------------------------+
-|  😌 Umore      7.2     |  ⚡ Energia    6.8     |
-|  [Sparkline]  +0.5     |  [Sparkline]  -0.2     |
-+------------------------+------------------------+
-|  🧠 Chiarezza  8.1     |  💫 Autoefficacia 7.5  |
-|  [Sparkline]  +1.2     |  [Sparkline]  stabile  |
-+------------------------+------------------------+
-
-SEZIONE: GRAFICI CORRELATI (Solo se dati presenti)
-+--------------------------------------------------+
-|  📈 Umore vs Ansia (ultimi 30 giorni)           |
-|  [Area Chart con 2 linee sovrapposte]           |
-+--------------------------------------------------+
-+--------------------------------------------------+
-|  🌈 Spettro Emotivo                              |
-|  [Radar Chart con 5-10 emozioni]                 |
-+--------------------------------------------------+
-+--------------------------------------------------+
-|  🧭 Aree della Vita                              |
-|  [Pentagon Radar: Amore, Lavoro, Social...]      |
-+--------------------------------------------------+
-
-SEZIONE: PSICOLOGIA PROFONDA (Accordion)
-+--------------------------------------------------+
-|  🧠 Metriche Avanzate                    [AI]    |
-|  +------------------------------------------+    |
-|  |  🔄 Ruminazione        6/10    [expand]  |    |
-|  |  🔥 Burnout            4/10    [expand]  |    |
-|  |  💫 Autoefficacia      8/10    [expand]  |    |
-|  +------------------------------------------+    |
-+--------------------------------------------------+
-
-SEZIONE: AI INSIGHTS (Premium)
-+--------------------------------------------------+
-|  ✨ Insight Personalizzato                       |
-|  "Questa settimana la tua energia e correlata    |
-|   positivamente con le ore di sonno..."          |
-+--------------------------------------------------+
+→ key_facts: ["Studia informatica"] (NON "lavora come programmatore")
+→ corrections: [{"wrong_fact": "Lavora come programmatore", ...}]
 ```
 
-### Fase 4: Componenti Nuovi da Creare
+### Fase 2: Pulizia Memoria Esistente (process-session)
 
-1. **`DynamicVitalsGrid.tsx`** - Grid che mostra 4-6 parametri scelti dall'AI
-2. **`ChartSelector.tsx`** - Sistema che decide quali grafici mostrare
-3. **`CorrelationInsight.tsx`** - Card che mostra correlazioni tra metriche
-4. **`EmotionalSpectrum.tsx`** - Radar con tutte le emozioni (primarie + secondarie)
-5. **`WellnessSnapshot.tsx`** - Header con score + trend delta
-6. **`AvailableChartsConfig.ts`** - Configurazione di tutti i grafici disponibili
-
-### Fase 5: Logica di Selezione Grafici
+Modificare la logica di salvataggio memoria (linee ~1145-1149):
 
 ```typescript
-// Pseudo-codice della logica
-function selectChartsForUser(userData) {
-  const availableCharts = [];
-  
-  // Mente
-  if (userData.hasVitals) availableCharts.push('vitals_grid');
-  if (userData.hasSessions > 2) availableCharts.push('mood_anxiety_trend');
-  if (userData.hasEmotions) availableCharts.push('emotional_spectrum');
-  if (userData.hasLifeAreas) availableCharts.push('life_balance_radar');
-  if (userData.hasPsychology) availableCharts.push('deep_psychology');
-  
-  // Corpo
-  if (userData.hasWeight) availableCharts.push('weight_trend');
-  if (userData.hasSleep) availableCharts.push('sleep_quality');
-  if (userData.hasHeartRate) availableCharts.push('heart_rate_trend');
-  if (userData.hasActivity) availableCharts.push('activity_heatmap');
-  
-  return availableCharts;
+// NUOVA LOGICA: Pulizia memoria basata su correzioni
+const corrections = (analysis as any).corrections || [];
+
+// Rimuovi fatti che contengono keywords errate
+const cleanedMemory = existingMemory.filter((fact: string) => {
+  const isWrongFact = corrections.some((c: any) => 
+    c.keywords_to_remove?.some((kw: string) => 
+      fact.toLowerCase().includes(kw.toLowerCase())
+    )
+  );
+  if (isWrongFact) {
+    console.log('[process-session] Removing wrong fact from memory:', fact);
+  }
+  return !isWrongFact;
+});
+
+// Filtra key_facts che sono stati corretti
+const filteredKeyFacts = analysis.key_facts.filter((fact: string) => 
+  !corrections.some((c: any) => 
+    c.wrong_fact?.toLowerCase() === fact.toLowerCase()
+  )
+);
+
+// Combine e limita a 60
+const updatedMemory = [...cleanedMemory, ...filteredKeyFacts, ...personalMemoryItems].slice(-60);
+```
+
+### Fase 3: Gestione Real-time Correzioni (ai-chat)
+
+Aggiungere alle GOLDEN_RULES istruzioni per la gestione delle correzioni:
+
+```text
+═══════════════════════════════════════════════
+🔄 GESTIONE CORREZIONI (OBBLIGATORIO!)
+═══════════════════════════════════════════════
+
+Se l'utente ti corregge ("no", "hai sbagliato", "non intendevo"):
+
+1. **RICONOSCI l'errore immediatamente:**
+   - "Ah scusa, ho frainteso!"
+   - "Ops, colpa mia!"
+   - "Ah ok, avevo capito male!"
+
+2. **RIFORMULA con l'info corretta:**
+   - "Quindi [versione corretta], giusto?"
+
+3. **NON ripetere MAI l'info sbagliata** in futuro
+
+4. **NON giustificarti** o spiegare perché hai sbagliato
+
+**ESEMPIO:**
+Utente: "No, non sono sposato, ho solo una ragazza"
+Tu: "Ah scusa! Quindi sei fidanzato. Com'è che vi siete conosciuti?"
+```
+
+### Fase 4: Regole Anti-Allucinazione Estese
+
+Aggiornare il prompt di `process-session` con regole più strict per key_facts:
+
+```text
+═══════════════════════════════════════════════
+⚠️ REGOLE KEY_FACTS (ANTI-ALLUCINAZIONE)
+═══════════════════════════════════════════════
+
+**SALVA in key_facts SOLO:**
+- Fatti ESPLICITAMENTE dichiarati dall'utente
+- Informazioni CONFERMATE (non corrette successivamente)
+
+**NON salvare MAI:**
+- Tue deduzioni o ipotesi
+- Domande retoriche ("Forse sei stressato?" → NON è un fatto)
+- Informazioni che l'utente ha corretto
+- Risposte a tue domande che non sono state confermate
+
+**NEGAZIONI:**
+- "Non mi piace correre" → [NON PIACE] correre (rispetta la negazione!)
+- "Non sono mai stato in Giappone" → NON salvare "Giappone" come interesse
+
+**CONTESTO TEMPORALE:**
+- "Ieri ero triste" → [IERI] era triste (non "è triste" permanente)
+- "L'anno scorso lavoravo a Roma" → [PASSATO] lavorava a Roma
+```
+
+---
+
+## File da Modificare
+
+| File | Modifiche |
+|------|-----------|
+| `supabase/functions/process-session/index.ts` | Aggiungere sezione prompt correzioni, campo `corrections` nell'interfaccia, logica pulizia memoria |
+| `supabase/functions/ai-chat/index.ts` | Aggiungere sezione GOLDEN_RULES per gestione correzioni real-time |
+
+---
+
+## Interfaccia JSON Aggiornata (process-session)
+
+```typescript
+interface OmniscientAnalysis {
+  // ... campi esistenti ...
+  key_facts: string[];
+  corrections: Array<{
+    wrong_fact: string;
+    corrected_to: string;
+    keywords_to_remove: string[];
+  }>;
 }
 ```
 
 ---
 
-## Dettagli Tecnici
+## Risultato Atteso
 
-### File da Modificare
-- `src/pages/Analisi.tsx` - Nuova architettura principale
-- `src/components/analisi/AnalisiTabContent.tsx` - Nuovo layout Mente
-- `src/components/analisi/VitalMetricCard.tsx` - Supporto metriche dinamiche
-
-### File da Creare
-- `src/lib/chartLibrary.ts` - Configurazione tutti grafici disponibili
-- `src/components/analisi/DynamicVitalsGrid.tsx` - Grid parametri dinamici
-- `src/components/analisi/WellnessSnapshot.tsx` - Header con score
-- `src/components/analisi/EmotionalSpectrumRadar.tsx` - Radar emozioni completo
-- `src/components/analisi/CorrelationCard.tsx` - Card insight correlazioni
-- `src/hooks/useChartVisibility.tsx` - Hook che determina grafici visibili
-
-### Hooks da Aggiornare
-- `useAIAnalysis.tsx` - Aggiungere selezione dinamica parametri vitali
-
----
-
-## Risultato Finale
-
-**User Experience Migliorata:**
-- Utente vede SOLO grafici rilevanti ai suoi dati
-- Parametri vitali personalizzati (non sempre gli stessi 4)
-- Design professionale e coerente con Liquid Glass 2026
-- Gerarchia visiva chiara con sezioni ben definite
-- Insight AI che collegano metriche diverse
-
-**Scalabilita:**
-- Facile aggiungere nuovi tipi di grafici
-- Sistema modulare basato su configurazione
-- Preparato per future integrazioni (Apple Health, etc.)
-
+1. Quando l'utente corregge Aria, l'informazione sbagliata viene rimossa dalla `long_term_memory`
+2. Il `summary` e `key_facts` riflettono solo le informazioni corrette
+3. Aria riconosce esplicitamente quando ha frainteso ("Scusa, ho capito male!")
+4. La memoria rimane pulita e accurata nel tempo
+5. Le negazioni e il contesto temporale vengono rispettati
