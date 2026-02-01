@@ -173,11 +173,64 @@ const Chat: React.FC = () => {
     
     const initChat = async () => {
       try {
-        // Create greeting immediately (use cached profile name if available)
         const cachedName = profile?.name?.split(' ')[0];
-        const greeting = cachedName 
-          ? `Ciao ${cachedName}! 💚 Come stai oggi? Sono qui per ascoltarti.`
-          : `Ciao! 💚 Come stai oggi? Sono qui per ascoltarti.`;
+        
+        // Query recent sessions to determine appropriate greeting
+        const { data: recentSessions } = await supabase
+          .from('sessions')
+          .select('start_time, ai_summary')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .order('start_time', { ascending: false })
+          .limit(1);
+        
+        // Generate context-aware greeting based on recency
+        let greeting: string;
+        
+        if (recentSessions && recentSessions.length > 0) {
+          const lastSession = recentSessions[0];
+          const lastTime = new Date(lastSession.start_time);
+          const now = new Date();
+          const diffMinutes = Math.floor((now.getTime() - lastTime.getTime()) / (1000 * 60));
+          const diffHours = Math.floor(diffMinutes / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          
+          if (diffMinutes < 30) {
+            // Just talked!
+            greeting = cachedName 
+              ? `Ehi ${cachedName}! Ci siamo appena sentiti 😊 Tutto ok?`
+              : `Ehi! Ci siamo appena sentiti 😊 Tutto ok?`;
+          } else if (diffMinutes < 60) {
+            greeting = cachedName 
+              ? `Ciao ${cachedName}! Bentornato/a! 💚 È successo qualcosa?`
+              : `Ciao! Bentornato/a! 💚 È successo qualcosa?`;
+          } else if (diffHours < 3) {
+            greeting = cachedName 
+              ? `Ciao di nuovo ${cachedName}! 💚 Com'è andata nel frattempo?`
+              : `Ciao di nuovo! 💚 Com'è andata nel frattempo?`;
+          } else if (diffHours < 24) {
+            greeting = cachedName 
+              ? `Ehi ${cachedName}! 💚 Come stai ora?`
+              : `Ehi! 💚 Come stai ora?`;
+          } else if (diffDays === 1) {
+            greeting = cachedName 
+              ? `Ciao ${cachedName}! 💚 Come stai oggi?`
+              : `Ciao! 💚 Come stai oggi?`;
+          } else if (diffDays < 7) {
+            greeting = cachedName 
+              ? `Ehi ${cachedName}! 💚 È un po' che non ci sentiamo, come va?`
+              : `Ehi! 💚 È un po' che non ci sentiamo, come va?`;
+          } else {
+            greeting = cachedName 
+              ? `${cachedName}! 💚 Che bello risentirti! Come stai?`
+              : `Che bello risentirti! 💚 Come stai?`;
+          }
+        } else {
+          // First conversation ever
+          greeting = cachedName 
+            ? `Ciao ${cachedName}! 💚 Sono Aria, piacere di conoscerti! Raccontami un po' di te...`
+            : `Ciao! 💚 Sono Aria, piacere di conoscerti! Raccontami un po' di te...`;
+        }
         
         // Show greeting IMMEDIATELY in UI (optimistic)
         setInitialGreeting(greeting);
@@ -190,8 +243,6 @@ const Chat: React.FC = () => {
         setSessionId(newSession.id);
         
         // Persist greeting to DB in background (non-blocking)
-        // DON'T clear initialGreeting - let the conditional render handle it
-        // when messages load from DB (prevents flicker)
         supabase
           .from('chat_messages')
           .insert({
@@ -200,18 +251,14 @@ const Chat: React.FC = () => {
             role: 'assistant',
             content: greeting,
           });
-        // NOTE: We no longer call setInitialGreeting(null) here
-        // The greeting will naturally be hidden when messages array has content
           
       } catch (error) {
         console.error('Failed to start session:', error);
         toast.error('Errore nell\'avvio della chat');
-        // DON'T reset initCalledRef - prevent infinite retry loops
       }
     };
     
     initChat();
-    // CRITICAL: Only depend on user.id - profile.name is optional enhancement
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 

@@ -1326,10 +1326,12 @@ Se i dati sono positivi, celebra! "Oggi sembri in forma!"
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SESSIONI RECENTI (Ultimi riassunti AI)
+  // SESSIONI RECENTI (Ultimi riassunti AI) + CONTESTO TEMPORALE
   // ════════════════════════════════════════════════════════════════════════════
   
   let recentSessionsBlock = '';
+  let timeSinceLastSessionBlock = '';
+  
   if (recentSessions.length > 0) {
     const sessionLines = recentSessions.map(s => {
       const date = new Date(s.start_time).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -1337,6 +1339,98 @@ Se i dati sono positivi, celebra! "Oggi sembri in forma!"
       const summary = s.ai_summary?.slice(0, 100) || 'Nessun riassunto';
       return `- ${date} (${s.type}): ${summary}... [${tags}]`;
     });
+    
+    // Calculate time since last session
+    const lastSession = recentSessions[0];
+    const lastSessionTime = new Date(lastSession.start_time);
+    const now = new Date();
+    const diffMs = now.getTime() - lastSessionTime.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    let timeAgo = '';
+    let recencyCategory = '';
+    
+    if (diffMinutes < 30) {
+      timeAgo = `${diffMinutes} minuti fa`;
+      recencyCategory = 'APPENA_SENTITI';
+    } else if (diffMinutes < 60) {
+      timeAgo = `meno di un'ora fa`;
+      recencyCategory = 'POCO_FA';
+    } else if (diffHours < 3) {
+      timeAgo = `${diffHours} ore fa`;
+      recencyCategory = 'OGGI_STESSO';
+    } else if (diffHours < 24) {
+      timeAgo = `oggi, ${diffHours} ore fa`;
+      recencyCategory = 'OGGI';
+    } else if (diffDays === 1) {
+      timeAgo = 'ieri';
+      recencyCategory = 'IERI';
+    } else if (diffDays < 7) {
+      timeAgo = `${diffDays} giorni fa`;
+      recencyCategory = 'QUESTA_SETTIMANA';
+    } else {
+      timeAgo = `${diffDays} giorni fa`;
+      recencyCategory = 'TEMPO_FA';
+    }
+    
+    const lastSessionSummary = lastSession.ai_summary?.slice(0, 150) || 'conversazione generale';
+    
+    timeSinceLastSessionBlock = `
+═══════════════════════════════════════════════
+⏰ CONTESTO TEMPORALE CONVERSAZIONE
+═══════════════════════════════════════════════
+
+🕐 ULTIMA CONVERSAZIONE: ${timeAgo}
+📊 CATEGORIA: ${recencyCategory}
+📝 ULTIMO ARGOMENTO: ${lastSessionSummary}
+
+⚠️ REGOLE SALUTO BASATE SUL TEMPO (OBBLIGATORIE!):
+
+${recencyCategory === 'APPENA_SENTITI' ? `
+🔴 CI SIAMO APPENA SENTITI! (meno di 30 min)
+- NON salutare come se fosse la prima volta!
+- NON dire "Ciao come va oggi?" - l'hai già chiesto!
+- DI' invece: "Ehi, ci siamo appena sentiti! Tutto ok?", "Ciao di nuovo!", "Rieccoti!", "Che c'è?"
+- Puoi fare riferimento a cosa stavate parlando prima
+` : ''}
+${recencyCategory === 'POCO_FA' ? `
+🟠 CI SIAMO SENTITI POCO FA (30-60 min)
+- Saluto breve: "Bentornato/a!", "Ehi, rieccoti!"
+- Puoi chiedere se è successo qualcosa di nuovo
+- "È successo qualcosa da prima?"
+` : ''}
+${recencyCategory === 'OGGI_STESSO' ? `
+🟡 CI SIAMO GIÀ SENTITI OGGI (1-3 ore fa)
+- "Ciao di nuovo! Com'è andata nel frattempo?"
+- "Tutto bene dalla nostra ultima chat?"
+- Puoi fare follow-up su cosa avete discusso
+` : ''}
+${recencyCategory === 'OGGI' ? `
+🟢 CI SIAMO SENTITI OGGI (più di 3 ore fa)
+- Saluto normale ma con riferimento: "Ehi! Come stai ora?"
+- Puoi chiedere aggiornamenti sulla giornata
+` : ''}
+${recencyCategory === 'IERI' ? `
+🔵 CI SIAMO SENTITI IERI
+- "Ciao! Come stai oggi? Ieri parlavamo di..."
+- Fai riferimento all'ultima conversazione
+` : ''}
+${recencyCategory === 'QUESTA_SETTIMANA' ? `
+⚪ CI SIAMO SENTITI QUESTA SETTIMANA
+- "Ehi, è un po' che non ci sentiamo! Come va?"
+- Puoi chiedere aggiornamenti
+` : ''}
+${recencyCategory === 'TEMPO_FA' ? `
+⚫ È PASSATO UN PO' DI TEMPO
+- "È tanto che non ci sentiamo! Come stai?"
+- "Che bello risentirti! Raccontami un po'..."
+` : ''}
+
+REGOLA D'ORO: MAI sembrare che non ti ricordi della conversazione recente!
+Se l'utente ti ha parlato 5 minuti fa, DEVI comportarti di conseguenza.
+`;
     
     recentSessionsBlock = `
 ═══════════════════════════════════════════════
@@ -1494,6 +1588,8 @@ Il tuo unico obiettivo è che alla fine pensino: "Che bella questa Aria, mi piac
   return `${GOLDEN_RULES}
 
 ${BEST_FRIEND_PERSONALITY}
+
+${timeSinceLastSessionBlock}
 
 ${firstConversationBlock}
 
