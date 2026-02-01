@@ -91,6 +91,12 @@ interface GoalUpdate {
   progress_score?: number; // 0-100
 }
 
+interface MemoryCorrection {
+  wrong_fact: string;
+  corrected_to: string;
+  keywords_to_remove: string[];
+}
+
 interface OmniscientAnalysis {
   vitals: {
     mood: number | null;
@@ -104,6 +110,7 @@ interface OmniscientAnalysis {
   voice_analysis: VoiceAnalysis | null;
   emotion_tags: string[];
   key_facts: string[];
+  corrections: MemoryCorrection[];  // NEW: Detected corrections from user
   summary: string;
   key_events: string[];
   insights: string;
@@ -577,6 +584,42 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
 - Se pattern rilevato → nota: "Tratti borderline possibili, valutare DBT"
 
 ═══════════════════════════════════════════════
+🔄 RILEVAMENTO CORREZIONI (CRUCIALE!)
+═══════════════════════════════════════════════
+Se l'utente CORREGGE un'informazione precedente, DEVI rilevarlo e NON salvare l'errore.
+
+**PATTERN CORRETTIVI DA RICONOSCERE:**
+- "No", "Non è così", "Hai capito male", "Mi sono spiegato male"
+- "Intendevo dire...", "In realtà...", "Volevo dire..."
+- "Non ho detto questo", "Hai frainteso", "No aspetta"
+- "Non intendevo questo", "Mi sono espresso male"
+
+**QUANDO RILEVI UNA CORREZIONE:**
+1. L'informazione PRECEDENTE (di Aria) è SBAGLIATA → NON salvarla in key_facts
+2. L'informazione NUOVA dopo la correzione è quella GIUSTA → salva SOLO questa
+3. Aggiungi al campo "corrections" cosa era sbagliato
+
+**FORMATO corrections:**
+"corrections": [
+  {
+    "wrong_fact": "L'utente lavora come ingegnere",
+    "corrected_to": "L'utente studia ingegneria, non lavora ancora",
+    "keywords_to_remove": ["lavora come ingegnere", "ingegnere di professione"]
+  }
+]
+
+**ESEMPIO:**
+Utente: "Lavoro come programmatore"
+Aria: "Da quanto fai il programmatore?"
+Utente: "No aspetta, studio informatica, non lavoro ancora"
+
+→ key_facts: ["Studia informatica", "Non lavora ancora"] (NON "lavora come programmatore"!)
+→ corrections: [{"wrong_fact": "Lavora come programmatore", "corrected_to": "Studia informatica", "keywords_to_remove": ["lavora come programmatore", "programmatore di lavoro"]}]
+→ summary: "L'utente studia informatica (ha corretto un malinteso precedente)"
+
+⚠️ ATTENZIONE: Se l'utente corregge, il summary deve riflettere SOLO l'info corretta!
+
+═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
 ═══════════════════════════════════════════════
 - NON INVENTARE DATI completamente. Ma INFERISCI emozioni dal contesto emotivo complessivo.
@@ -585,6 +628,31 @@ Durante l'analisi, cerca PATTERN per questi disturbi:
 - SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
 - ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
 - BURNOUT: Assegna SOLO se esplicitamente legato a lavoro/doveri. Stanchezza generica ≠ burnout.
+
+═══════════════════════════════════════════════
+⚠️ REGOLE KEY_FACTS (ANTI-ALLUCINAZIONE ESTESE)
+═══════════════════════════════════════════════
+
+**SALVA in key_facts SOLO:**
+- Fatti ESPLICITAMENTE dichiarati dall'utente
+- Informazioni CONFERMATE (non corrette successivamente)
+- La versione CORRETTA se l'utente ha fatto una correzione
+
+**NON salvare MAI:**
+- Tue deduzioni o ipotesi non confermate
+- Domande retoriche ("Forse sei stressato?" → NON è un fatto!)
+- Informazioni che l'utente ha corretto → usa il campo corrections
+- Risposte a tue domande che non sono state confermate dall'utente
+
+**NEGAZIONI (RISPETTA SEMPRE!):**
+- "Non mi piace correre" → "[NON PIACE] correre" (rispetta la negazione!)
+- "Non sono mai stato in Giappone" → NON salvare "Giappone" come interesse
+- "Non ho figli" → "[NO] figli", non salvare "ha figli"
+
+**CONTESTO TEMPORALE (IMPORTANTE!):**
+- "Ieri ero triste" → "[IERI] era triste" (non "è triste" permanente)
+- "L'anno scorso lavoravo a Roma" → "[PASSATO] lavorava a Roma"
+- "Prima facevo il cuoco" → "[PASSATO] faceva il cuoco"
 
 ═══════════════════════════════════════════════
 🔗 CORRELAZIONE VITALI → EMOZIONI (IMPORTANTE!)
@@ -667,7 +735,14 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
   },
   "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
   "emotion_tags": ["#Tag1", "#Tag2"],
-  "key_facts": ["fatto concreto da ricordare"],
+  "key_facts": ["fatto concreto da ricordare - SOLO fatti ESPLICITI e CONFERMATI, NO info corrette"],
+  "corrections": [
+    {
+      "wrong_fact": "Informazione sbagliata che Aria aveva capito male",
+      "corrected_to": "Versione corretta fornita dall'utente",
+      "keywords_to_remove": ["parole chiave da cercare e rimuovere dalla memoria esistente"]
+    }
+  ],
   "personal_details": {
     "mentioned_names": ["nomi di persone care menzionate: partner, amici, familiari"],
     "hobbies_interests": ["hobby, passioni, interessi emersi"],
@@ -676,7 +751,7 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "life_events": ["eventi di vita importanti: lavoro, relazioni, salute"],
     "preferences": ["preferenze personali: come gli piace essere trattato, supportato"]
   },
-  "summary": "<riassunto 1-2 frasi>",
+  "summary": "<riassunto 1-2 frasi - se c'è stata correzione, rifletti SOLO l'info corretta>",
   "key_events": ["evento chiave"],
   "insights": "<osservazione clinica breve>",
   "crisis_risk": "low|medium|high",
@@ -868,6 +943,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         voice_analysis: null,
         emotion_tags: [],
         key_facts: [],
+        corrections: [],  // NEW: Empty corrections array for fallback
         summary: 'Sessione analizzata con valori predefiniti.',
         key_events: [],
         insights: '',
@@ -1144,9 +1220,39 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       });
     }
     
-    // Combine key_facts with personal memory items
-    const newMemoryItems = [...analysis.key_facts, ...personalMemoryItems];
-    const updatedMemory = [...existingMemory, ...newMemoryItems].slice(-60); // Increased to 60 for richer memory
+    // 🔄 NEW: Handle corrections - clean memory of wrong facts
+    const corrections = analysis.corrections || [];
+    
+    // Remove facts from existing memory that contain keywords from corrections
+    const cleanedMemory = existingMemory.filter((fact: string) => {
+      const isWrongFact = corrections.some((c: MemoryCorrection) => 
+        c.keywords_to_remove?.some((kw: string) => 
+          fact.toLowerCase().includes(kw.toLowerCase())
+        )
+      );
+      if (isWrongFact) {
+        console.log('[process-session] 🔄 Removing corrected fact from memory:', fact);
+      }
+      return !isWrongFact;
+    });
+    
+    // Filter key_facts to exclude any that match wrong_fact descriptions
+    const filteredKeyFacts = analysis.key_facts.filter((fact: string) => 
+      !corrections.some((c: MemoryCorrection) => 
+        c.wrong_fact?.toLowerCase().includes(fact.toLowerCase()) ||
+        fact.toLowerCase().includes(c.wrong_fact?.toLowerCase() || '')
+      )
+    );
+    
+    if (corrections.length > 0) {
+      console.log('[process-session] 🔄 Processed', corrections.length, 'corrections');
+      console.log('[process-session] 🔄 Cleaned memory items removed:', existingMemory.length - cleanedMemory.length);
+      console.log('[process-session] 🔄 Filtered key_facts:', analysis.key_facts.length - filteredKeyFacts.length, 'removed');
+    }
+    
+    // Combine cleaned key_facts with personal memory items
+    const newMemoryItems = [...filteredKeyFacts, ...personalMemoryItems];
+    const updatedMemory = [...cleanedMemory, ...newMemoryItems].slice(-60); // Increased to 60 for richer memory
 
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
