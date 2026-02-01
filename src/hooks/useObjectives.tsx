@@ -7,6 +7,9 @@ import type { ObjectiveInputMethod, ObjectiveCategory } from '@/lib/objectiveTyp
 export type { ObjectiveCategory } from '@/lib/objectiveTypes';
 export type ObjectiveStatus = 'active' | 'achieved' | 'paused' | 'abandoned';
 
+export type FinanceTrackingType = 'accumulation' | 'periodic_saving' | 'spending_limit' | 'periodic_income' | 'debt_reduction';
+export type TrackingPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one_time';
+
 export interface Objective {
   id: string;
   user_id: string;
@@ -23,7 +26,7 @@ export interface Objective {
   progress_history: Array<{ date: string; value: number; note?: string }>;
   created_at: string;
   updated_at: string;
-  // New sync fields
+  // Sync fields
   input_method?: ObjectiveInputMethod;
   linked_habit?: string;
   linked_body_metric?: string;
@@ -31,6 +34,11 @@ export interface Objective {
   auto_sync_enabled?: boolean;
   last_auto_sync_at?: string;
   progress_source?: 'habit' | 'session' | 'checkin' | 'manual';
+  // Finance-specific fields
+  finance_tracking_type?: FinanceTrackingType;
+  tracking_period?: TrackingPeriod;
+  needs_clarification?: boolean;
+  clarification_asked_at?: string;
 }
 
 // Helper to calculate true progress considering starting point
@@ -78,12 +86,16 @@ export interface UpdateObjectiveInput {
   id: string;
   current_value?: number;
   status?: ObjectiveStatus;
-  ai_feedback?: string;
+  ai_feedback?: string | null;
   title?: string;
   description?: string;
   target_value?: number;
   deadline?: string;
   starting_value?: number;
+  // Finance-specific fields
+  finance_tracking_type?: FinanceTrackingType;
+  tracking_period?: TrackingPeriod;
+  needs_clarification?: boolean;
 }
 
 export const CATEGORY_CONFIG: Record<ObjectiveCategory, { label: string; emoji: string; color: string }> = {
