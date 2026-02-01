@@ -32,7 +32,7 @@ export interface DashboardLayout {
   widgets: WidgetConfig[];
   ai_message: string;
   focus_areas: string[];
-  wellness_score: number;
+  wellness_score: number | null; // null for new users without data
   wellness_message: string;
   goals_evaluation?: GoalEvaluation[];
 }
@@ -51,8 +51,8 @@ const DEFAULT_LAYOUT: DashboardLayout = {
   ],
   ai_message: '',
   focus_areas: [],
-  wellness_score: 5,
-  wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
+  wellness_score: null, // null for new users - score activates after check-in or talking with Aria
+  wellness_message: 'Iniziamo questo percorso insieme: ogni piccolo passo conta per il tuo benessere.',
   goals_evaluation: [],
 };
 
@@ -157,7 +157,7 @@ export function useAIDashboard() {
           widgets: data.widgets || DEFAULT_LAYOUT.widgets,
           ai_message: data.ai_message || DEFAULT_LAYOUT.ai_message,
           focus_areas: data.focus_areas || [],
-          wellness_score: data.wellness_score ?? DEFAULT_LAYOUT.wellness_score,
+          wellness_score: data.wellness_score !== undefined ? data.wellness_score : null, // Keep null if no real data
           wellness_message: data.wellness_message || DEFAULT_LAYOUT.wellness_message,
           goals_evaluation: data.goals_evaluation || [],
         };
