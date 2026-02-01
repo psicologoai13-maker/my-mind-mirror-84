@@ -57,7 +57,7 @@ const BottomNav: React.FC = () => {
                   data-tutorial="aria-button"
                   style={{ borderRadius: '16px' }}
                   className={cn(
-                    "relative w-14 h-14 flex items-center justify-center",
+                    "relative w-14 h-14 flex items-center justify-center overflow-hidden",
                     "bg-gradient-aria",
                     "shadow-aria-glow",
                     "transition-all duration-300 ease-out",
@@ -65,8 +65,6 @@ const BottomNav: React.FC = () => {
                     isActive && "animate-aria-breathe"
                   )}
                 >
-                  {/* Inner light reflection */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent via-transparent to-white/30 pointer-events-none" />
                   <Icon className="w-7 h-7 text-white relative z-10" />
                 </button>
               </div>
