@@ -29,7 +29,7 @@ interface DashboardLayout {
   widgets: WidgetConfig[];
   ai_message: string;
   focus_areas: string[];
-  wellness_score: number;
+  wellness_score: number | null; // null for new users without data
   wellness_message: string;
 }
 
@@ -149,6 +149,33 @@ serve(async (req) => {
     const psychology = psychologyRes.data || [];
     const sessions = sessionsRes.data || [];
 
+    // CRITICAL: Check if user has ANY real data
+    const hasRealData = sessions.length > 0 || emotions.length > 0 || lifeAreas.length > 0 || psychology.length > 0;
+    const userGoals = profile?.selected_goals || [];
+
+    // If NO DATA exists, return empty state layout immediately (don't generate AI score)
+    if (!hasRealData) {
+      console.log('[ai-dashboard] New user with no data - returning empty state');
+      const goalBasedMetrics = buildMetricsFromGoals(userGoals);
+      const emptyStateLayout: DashboardLayout = {
+        primary_metrics: goalBasedMetrics,
+        widgets: [
+          { type: 'vitals_grid', title: 'I Tuoi Focus', description: '', priority: 1, visible: true },
+          { type: 'goals_progress', title: 'Obiettivi', description: '', priority: 2, visible: userGoals.length > 0 },
+          { type: 'radar_chart', title: 'Aree della Vita', description: '', priority: 3, visible: false },
+          { type: 'emotional_mix', title: 'Mix Emotivo', description: '', priority: 4, visible: false },
+        ],
+        ai_message: '',
+        focus_areas: userGoals.slice(0, 2),
+        wellness_score: null, // NULL for new users - score activates after check-in or Aria conversation
+        wellness_message: 'Iniziamo questo percorso insieme: ogni piccolo passo conta per il tuo benessere.',
+      };
+      
+      return new Response(JSON.stringify(emptyStateLayout), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const avgVitals = {
       mood: sessions.length > 0 ? sessions.reduce((sum, s) => sum + (s.mood_score_detected || 0), 0) / sessions.length : null,
       anxiety: sessions.length > 0 ? sessions.reduce((sum, s) => sum + (s.anxiety_score_detected || 0), 0) / sessions.length : null,
@@ -179,7 +206,6 @@ serve(async (req) => {
       gratitude: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.gratitude || 0), 0) / psychology.length : null,
     };
 
-    const userGoals = profile?.selected_goals || [];
     const recentSummaries = sessions.slice(0, 3).map(s => s.ai_summary).filter(Boolean);
 
     // Build AI prompt
