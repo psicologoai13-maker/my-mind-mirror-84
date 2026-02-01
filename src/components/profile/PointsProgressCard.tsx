@@ -181,11 +181,14 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 <span className="text-xs text-muted-foreground">
                   {weekProgress?.currentDays || 0}/7
                 </span>
-                <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
+                <span className="text-xs font-bold text-aria-violet">
                   +{STREAK_POINTS.week_streak}
                 </span>
               </div>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Completa almeno 4 check-in al giorno per 7 giorni consecutivi
+            </p>
             <Progress 
               value={((weekProgress?.currentDays || 0) / 7) * 100} 
               className="h-1.5 mt-2 bg-orange-200/40 dark:bg-orange-800/20"
@@ -232,6 +235,9 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 </span>
               </div>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Completa almeno 4 check-in al giorno per 30 giorni consecutivi
+            </p>
             <Progress 
               value={((monthProgress?.currentDays || 0) / 30) * 100} 
               className="h-1.5 mt-2 bg-aria-violet/15"
@@ -264,15 +270,18 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
             "bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/15",
             "border border-emerald-200/20 dark:border-emerald-800/20"
           )}>
-            <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Users className="w-3.5 h-3.5 text-emerald-500" />
                 <span className="text-xs font-medium text-foreground">Invita amici</span>
               </div>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="text-xs font-bold text-aria-violet">
                 +{STREAK_POINTS.referral}
               </span>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+              Guadagna {STREAK_POINTS.referral} punti per ogni amico che usa l'app per 7 giorni
+            </p>
             
             <div className="flex items-center gap-2">
               <div className={cn(
