@@ -115,17 +115,20 @@ const Profile: React.FC = () => {
                 </Badge>
               </div>
               
-              {/* Points Display with glass effect */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-aria-subtle mb-3">
-                <Gem className="w-4 h-4 text-aria-violet" />
-                <span className="text-sm font-bold text-aria-violet">
-                  {pointsLoading ? '...' : totalPoints.toLocaleString()}
-                </span>
-                <span className="text-sm text-muted-foreground">punti</span>
+              {/* Stats Row - Points, Days, Sessions on same line */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Points */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-aria-subtle rounded-xl">
+                  <Gem className="w-4 h-4 text-aria-violet" />
+                  <span className="text-sm font-bold text-aria-violet">
+                    {pointsLoading ? '...' : totalPoints.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">punti</span>
+                </div>
+                
+                {/* Days & Sessions */}
+                <ProfileStatsRow />
               </div>
-
-              {/* Stats Row */}
-              <ProfileStatsRow />
             </div>
           </div>
 

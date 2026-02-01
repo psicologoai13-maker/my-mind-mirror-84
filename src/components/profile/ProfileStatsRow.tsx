@@ -93,16 +93,16 @@ const ProfileStatsRow: React.FC = () => {
   const { currentStreak = 0, totalSessions = 0, longestStreak = 0 } = stats || {};
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2">
       {/* Current Streak */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-orange-100/80 dark:bg-orange-900/30 rounded-xl">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100/80 dark:bg-orange-900/30 rounded-xl">
         <Flame className="w-4 h-4 text-orange-500" />
         <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{currentStreak}</span>
         <span className="text-xs text-orange-600/70 dark:text-orange-400/70">giorni</span>
       </div>
 
       {/* Sessions */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-violet-100/80 dark:bg-violet-900/30 rounded-xl">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-100/80 dark:bg-violet-900/30 rounded-xl">
         <MessageCircle className="w-4 h-4 text-violet-500" />
         <span className="text-sm font-bold text-violet-600 dark:text-violet-400">{totalSessions}</span>
         <span className="text-xs text-violet-600/70 dark:text-violet-400/70">sessioni</span>
@@ -110,7 +110,7 @@ const ProfileStatsRow: React.FC = () => {
 
       {/* Record */}
       {longestStreak > currentStreak && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-100/80 dark:bg-amber-900/30 rounded-xl">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100/80 dark:bg-amber-900/30 rounded-xl">
           <Trophy className="w-4 h-4 text-amber-500" />
           <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{longestStreak}</span>
           <span className="text-xs text-amber-600/70 dark:text-amber-400/70">record</span>
