@@ -89,7 +89,7 @@ const Profile: React.FC = () => {
       </header>
 
       <div className="px-6 space-y-5 pb-8">
-        {/* Profile Header - Glass Card */}
+        {/* Profile Header - Glass Card with Earn Points */}
         <div className={cn(
           "relative overflow-hidden rounded-3xl p-5",
           "bg-glass backdrop-blur-xl border border-glass-border",
@@ -131,13 +131,13 @@ const Profile: React.FC = () => {
 
           {/* Badges Row */}
           <ProfileBadgesRow />
+          
+          {/* Earn Points Section - Compact */}
+          <PointsProgressCard compact />
         </div>
 
         {/* Premium Card - At Top */}
         <PremiumCard />
-
-        {/* Points Progress Card */}
-        <PointsProgressCard />
 
         {/* Settings Menu - Glass Card */}
         <div className={cn(
