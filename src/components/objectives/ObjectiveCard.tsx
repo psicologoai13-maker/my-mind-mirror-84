@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3 } from 'lucide-react';
+import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3, Plus } from 'lucide-react';
 import { Objective, CATEGORY_CONFIG, calculateProgress, TrackingPeriod } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, endOfDay, endOfWeek, endOfMonth, endOfYear, addDays } from 'date-fns';
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TargetInputDialog } from './TargetInputDialog';
-
+import { ProgressUpdateModal } from './ProgressUpdateModal';
 // Calculate deadline based on tracking period
 const calculatePeriodDeadline = (period: TrackingPeriod): string => {
   const now = new Date();
@@ -37,7 +37,7 @@ interface ObjectiveCardProps {
   objective: Objective;
   onUpdate?: (id: string, updates: Partial<Objective>) => void;
   onDelete?: (id: string) => void;
-  onAddProgress?: (id: string) => void;
+  onAddProgress?: (id: string, value: number, note?: string) => void;
 }
 
 export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
@@ -47,6 +47,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   onAddProgress,
 }) => {
   const [showTargetDialog, setShowTargetDialog] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
   const categoryConfig = CATEGORY_CONFIG[objective.category];
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
@@ -130,8 +131,8 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border">
-              {onAddProgress && hasTarget && (
-                <DropdownMenuItem onClick={() => onAddProgress(objective.id)}>
+              {hasTarget && !needsSetup && (
+                <DropdownMenuItem onClick={() => setShowProgressModal(true)}>
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Aggiorna progresso
                 </DropdownMenuItem>
@@ -296,7 +297,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </div>
         )}
 
-        {/* Footer with deadline */}
+        {/* Footer with deadline and update button */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {objective.deadline && (
             <div className={cn(
@@ -315,7 +316,32 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
               </span>
             </div>
           )}
+          
+          {/* Visible update button - only show when target is set and setup is complete */}
+          {hasTarget && !needsSetup && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full h-8 px-3 gap-1.5 ml-auto"
+              onClick={() => setShowProgressModal(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Aggiorna
+            </Button>
+          )}
         </div>
+        
+        {/* Progress Update Modal */}
+        <ProgressUpdateModal
+          open={showProgressModal}
+          onOpenChange={setShowProgressModal}
+          objective={objective}
+          onSave={(value, note) => {
+            if (onAddProgress) {
+              onAddProgress(objective.id, value, note);
+            }
+          }}
+        />
       </div>
     </div>
   );
