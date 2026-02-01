@@ -2,37 +2,62 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 
 const STORAGE_KEY = 'checkin_day';
+const RESET_HOUR = 6; // Reset at 6 AM Rome time
 
-// Get current date in Rome timezone (Europe/Rome = UTC+1 in winter, UTC+2 in summer)
-function getRomeDateString(): string {
+// Get current "logical day" in Rome timezone
+// The day changes at 6 AM, not midnight
+function getRomeLogicalDay(): string {
   const now = new Date();
-  // Format date in Rome timezone
-  const romeDate = new Intl.DateTimeFormat('sv-SE', {
+  
+  // Get Rome date/time components
+  const romeFormatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Rome',
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
-  }).format(now);
-  return romeDate; // Returns 'YYYY-MM-DD'
+    day: '2-digit',
+    hour: 'numeric',
+    hour12: false
+  });
+  
+  const parts = romeFormatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  
+  // If before 6 AM, consider it still the previous day
+  if (hour < RESET_HOUR) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return yesterdayFormatter.format(yesterday);
+  }
+  
+  return `${year}-${month}-${day}`;
 }
 
 export function useCheckinTimer() {
   const { user } = useAuth();
   const [checkinStartedAt, setCheckinStartedAt] = useState<string | null>(null);
-  const [currentRomeDay, setCurrentRomeDay] = useState<string>(getRomeDateString());
+  const [currentRomeDay, setCurrentRomeDay] = useState<string>(getRomeLogicalDay());
 
-  // Load from localStorage on mount and check if it's still the same day
+  // Load from localStorage on mount and check if it's still the same logical day
   useEffect(() => {
     if (!user) return;
     
     const storageKey = `${STORAGE_KEY}_${user.id}`;
     const stored = localStorage.getItem(storageKey);
-    const todayRome = getRomeDateString();
+    const todayRome = getRomeLogicalDay();
     setCurrentRomeDay(todayRome);
     
     if (stored) {
       const storedData = JSON.parse(stored);
-      // If stored day is different from today (Rome time), reset
+      // If stored day is different from today (Rome logical day), reset
       if (storedData.day !== todayRome) {
         localStorage.removeItem(storageKey);
         setCheckinStartedAt(null);
@@ -42,10 +67,10 @@ export function useCheckinTimer() {
     }
   }, [user]);
 
-  // Check every minute if day has changed (for users who keep the app open past midnight)
+  // Check every minute if day has changed (for users who keep the app open past 6 AM)
   useEffect(() => {
     const interval = setInterval(() => {
-      const newRomeDay = getRomeDateString();
+      const newRomeDay = getRomeLogicalDay();
       if (newRomeDay !== currentRomeDay) {
         setCurrentRomeDay(newRomeDay);
         // Reset timer for new day
@@ -67,7 +92,7 @@ export function useCheckinTimer() {
     if (checkinStartedAt) return;
     
     const now = new Date().toISOString();
-    const todayRome = getRomeDateString();
+    const todayRome = getRomeLogicalDay();
     
     localStorage.setItem(`${STORAGE_KEY}_${user.id}`, JSON.stringify({
       day: todayRome,
@@ -76,9 +101,9 @@ export function useCheckinTimer() {
     setCheckinStartedAt(now);
   }, [user, checkinStartedAt]);
 
-  // Check if it's still the same day (Rome time)
+  // Check if it's still the same logical day (Rome time, 6 AM boundary)
   const isSameDay = useCallback(() => {
-    return currentRomeDay === getRomeDateString();
+    return currentRomeDay === getRomeLogicalDay();
   }, [currentRomeDay]);
 
   // Reset timer (for new day)
@@ -88,8 +113,8 @@ export function useCheckinTimer() {
     setCheckinStartedAt(null);
   }, [user]);
 
-  // Get time until midnight Rome
-  const getTimeUntilMidnight = useCallback(() => {
+  // Get time until 6 AM Rome (next reset)
+  const getTimeUntilReset = useCallback(() => {
     const now = new Date();
     // Get current Rome time
     const romeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -101,10 +126,20 @@ export function useCheckinTimer() {
     const romeTimeStr = romeFormatter.format(now);
     const [hours, minutes] = romeTimeStr.split(':').map(Number);
     
-    const hoursUntilMidnight = 23 - hours;
-    const minutesUntilMidnight = 60 - minutes;
+    let hoursUntilReset: number;
+    let minutesUntilReset: number;
     
-    return { hours: hoursUntilMidnight, minutes: minutesUntilMidnight };
+    if (hours >= RESET_HOUR) {
+      // After 6 AM - calculate until next day 6 AM
+      hoursUntilReset = 23 - hours + RESET_HOUR;
+      minutesUntilReset = 60 - minutes;
+    } else {
+      // Before 6 AM - calculate until 6 AM today
+      hoursUntilReset = RESET_HOUR - hours - 1;
+      minutesUntilReset = 60 - minutes;
+    }
+    
+    return { hours: hoursUntilReset, minutes: minutesUntilReset };
   }, []);
 
   return {
@@ -112,7 +147,7 @@ export function useCheckinTimer() {
     startCheckinTimer,
     isSameDay,
     resetTimer,
-    getTimeUntilMidnight,
+    getTimeUntilReset,
     currentRomeDay,
   };
 }

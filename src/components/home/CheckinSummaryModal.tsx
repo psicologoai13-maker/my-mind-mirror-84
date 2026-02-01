@@ -16,12 +16,12 @@ const CheckinSummaryModal: React.FC<CheckinSummaryModalProps> = ({
   onOpenChange,
 }) => {
   const { completedToday, dailyCheckins } = usePersonalizedCheckins();
-  const { getTimeUntilMidnight } = useCheckinTimer();
+  const { getTimeUntilReset } = useCheckinTimer();
 
-  // Calculate countdown to midnight Rome
+  // Calculate countdown to 6 AM Rome (daily reset)
   const countdown = useMemo(() => {
-    return getTimeUntilMidnight();
-  }, [getTimeUntilMidnight]);
+    return getTimeUntilReset();
+  }, [getTimeUntilReset]);
 
   // Build list of completed items with their values
   const completedItems = useMemo(() => {
