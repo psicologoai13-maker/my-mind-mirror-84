@@ -22,11 +22,29 @@ const ObjectivesTabContent: React.FC = () => {
   } = useObjectives();
 
   // Count objectives with missing target/starting for categories that require them
-  const objectivesWithMissingData = activeObjectives.filter(
-    o => (o.category === 'body' || o.category === 'finance') && 
-         (o.target_value === null || o.target_value === undefined ||
-          o.starting_value === null || o.starting_value === undefined)
-  );
+  const objectivesWithMissingData = activeObjectives.filter(o => {
+    if (o.category === 'body') {
+      return o.target_value === null || o.target_value === undefined ||
+             o.starting_value === null || o.starting_value === undefined;
+    }
+    if (o.category === 'finance') {
+      const financeType = o.finance_tracking_type;
+      const isPeriodicFinance = ['periodic_saving', 'spending_limit', 'periodic_income'].includes(financeType || '');
+      
+      // Periodic finance only needs target value
+      if (isPeriodicFinance) {
+        return o.target_value === null || o.target_value === undefined;
+      }
+      // Accumulation and debt_reduction need both values (but only if type is defined)
+      if (financeType) {
+        return o.target_value === null || o.target_value === undefined ||
+               o.starting_value === null || o.starting_value === undefined;
+      }
+      // If no finance type defined yet, needs setup
+      return true;
+    }
+    return false;
+  });
 
   if (isLoading) {
     return (
