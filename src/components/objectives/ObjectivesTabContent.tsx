@@ -19,6 +19,7 @@ const ObjectivesTabContent: React.FC = () => {
     createObjective,
     updateObjective,
     deleteObjective,
+    addProgress,
   } = useObjectives();
 
   // Count objectives with missing target/starting for categories that require them
@@ -122,6 +123,7 @@ const ObjectivesTabContent: React.FC = () => {
                 objective={objective}
                 onUpdate={(id, updates) => updateObjective.mutate({ id, ...updates })}
                 onDelete={(id) => deleteObjective.mutate(id)}
+                onAddProgress={(id, value, note) => addProgress.mutate({ id, value, note })}
               />
             ))}
           </div>
