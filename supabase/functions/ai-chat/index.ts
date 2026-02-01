@@ -599,24 +599,55 @@ Non hai dati recenti su: ${missingLabels}. Inserisci NATURALMENTE una domanda su
       mind: 'mente'
     };
     
-    const objectivesList = objectivesWithMissingTarget.map(o => 
+    // Separate finance objectives that need type clarification
+    const financeObjectives = objectivesWithMissingTarget.filter(o => o.category === 'finance');
+    const otherObjectives = objectivesWithMissingTarget.filter(o => o.category !== 'finance');
+    
+    const objectivesList = otherObjectives.map(o => 
       `- "${o.title}" (${categoryLabels[o.category] || o.category})`
     ).join('\n');
     
+    const financeList = financeObjectives.map(o => `- "${o.title}"`).join('\n');
+    
     objectivesClarificationInstruction = `
 ═══════════════════════════════════════════════
-🎯 OBIETTIVI CON TARGET MANCANTE (CHIEDI!)
+🎯 OBIETTIVI CON DETTAGLI MANCANTI (CHIEDI SUBITO!)
 ═══════════════════════════════════════════════
-L'utente ha questi obiettivi SENZA un target misurabile:
+`;
+
+    if (financeObjectives.length > 0) {
+      objectivesClarificationInstruction += `
+**💰 OBIETTIVI FINANZIARI DA CHIARIRE (PRIORITÀ!):**
+${financeList}
+
+⚠️ Per obiettivi finanziari DEVI capire il TIPO prima di tutto:
+- "Vuoi accumulare una cifra precisa (es. arrivare a 10.000€)?"
+- "O preferisci un obiettivo mensile (es. risparmiare 500€ al mese)?"
+- "È un limite di spesa (es. max 200€/mese per ristoranti)?"
+- "O devi estinguere un debito?"
+
+Domande specifiche per tipo:
+- ACCUMULO: "Quanto hai da parte adesso? E a che cifra vorresti arrivare?"
+- PERIODICO: "Quanto vorresti [risparmiare/guadagnare] al [mese/settimana]?"
+- LIMITE SPESE: "Qual è il budget massimo che vuoi rispettare?"
+- DEBITO: "Quant'è il debito da estinguere?"
+`;
+    }
+
+    if (otherObjectives.length > 0) {
+      objectivesClarificationInstruction += `
+**📋 ALTRI OBIETTIVI SENZA TARGET:**
 ${objectivesList}
 
-DEVI chiedere NATURALMENTE il target per UNO di questi obiettivi.
-Esempi:
-- "Mi hai detto che vuoi perdere peso. Di quanti kg vorresti dimagrire? Così posso aiutarti a tracciare i progressi!"
-- "Qual è la cifra che vorresti risparmiare? Avere un numero preciso aiuta tantissimo!"
-- "Quante ore vorresti studiare a settimana per il tuo esame?"
+Esempi di domande:
+- "Di quanti kg vorresti dimagrire? Così posso tracciare i progressi!"
+- "Quante ore vorresti studiare a settimana?"
+`;
+    }
 
-⚠️ REGOLA: Chiedi UNA sola volta per sessione. NON essere invadente.`;
+    objectivesClarificationInstruction += `
+⚠️ REGOLA: Chiedi dettagli SUBITO quando rilevi un obiettivo nuovo!
+Se l'utente non risponde, richiedi nella prossima sessione.`;
   }
 
   // 🎯 FULL OBJECTIVES TRACKING INSTRUCTION

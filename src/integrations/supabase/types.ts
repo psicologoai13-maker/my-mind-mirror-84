@@ -858,15 +858,18 @@ export type Database = {
           ai_feedback: string | null
           auto_sync_enabled: boolean | null
           category: string
+          clarification_asked_at: string | null
           created_at: string | null
           current_value: number | null
           deadline: string | null
           description: string | null
+          finance_tracking_type: string | null
           id: string
           input_method: string | null
           last_auto_sync_at: string | null
           linked_body_metric: string | null
           linked_habit: string | null
+          needs_clarification: boolean | null
           preset_type: string | null
           progress_history: Json | null
           progress_source: string | null
@@ -874,6 +877,7 @@ export type Database = {
           status: string | null
           target_value: number | null
           title: string
+          tracking_period: string | null
           unit: string | null
           updated_at: string | null
           user_id: string
@@ -882,15 +886,18 @@ export type Database = {
           ai_feedback?: string | null
           auto_sync_enabled?: boolean | null
           category: string
+          clarification_asked_at?: string | null
           created_at?: string | null
           current_value?: number | null
           deadline?: string | null
           description?: string | null
+          finance_tracking_type?: string | null
           id?: string
           input_method?: string | null
           last_auto_sync_at?: string | null
           linked_body_metric?: string | null
           linked_habit?: string | null
+          needs_clarification?: boolean | null
           preset_type?: string | null
           progress_history?: Json | null
           progress_source?: string | null
@@ -898,6 +905,7 @@ export type Database = {
           status?: string | null
           target_value?: number | null
           title: string
+          tracking_period?: string | null
           unit?: string | null
           updated_at?: string | null
           user_id: string
@@ -906,15 +914,18 @@ export type Database = {
           ai_feedback?: string | null
           auto_sync_enabled?: boolean | null
           category?: string
+          clarification_asked_at?: string | null
           created_at?: string | null
           current_value?: number | null
           deadline?: string | null
           description?: string | null
+          finance_tracking_type?: string | null
           id?: string
           input_method?: string | null
           last_auto_sync_at?: string | null
           linked_body_metric?: string | null
           linked_habit?: string | null
+          needs_clarification?: boolean | null
           preset_type?: string | null
           progress_history?: Json | null
           progress_source?: string | null
@@ -922,6 +933,7 @@ export type Database = {
           status?: string | null
           target_value?: number | null
           title?: string
+          tracking_period?: string | null
           unit?: string | null
           updated_at?: string | null
           user_id?: string

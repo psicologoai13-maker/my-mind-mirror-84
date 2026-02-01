@@ -172,24 +172,33 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           open={showTargetDialog}
           onOpenChange={setShowTargetDialog}
           objectiveTitle={objective.title}
+          objectiveCategory={objective.category}
           unit={objective.unit}
           hasStartingValue={hasStartingValue}
           hasTargetValue={hasTarget}
-          onSave={(startingVal, targetVal) => {
+          financeTrackingType={objective.finance_tracking_type}
+          onSave={(data) => {
             if (onUpdate) {
               const updates: Partial<Objective> = {};
-              if (startingVal !== null) {
-                updates.starting_value = startingVal;
+              if (data.startingValue !== null) {
+                updates.starting_value = data.startingValue;
                 // Also set current_value to starting if not set
                 if (objective.current_value === null || objective.current_value === 0) {
-                  updates.current_value = startingVal;
+                  updates.current_value = data.startingValue;
                 }
               }
-              if (targetVal !== null) {
-                updates.target_value = targetVal;
+              if (data.targetValue !== null) {
+                updates.target_value = data.targetValue;
               }
-              // Clear ai_feedback since user defined manually
+              if (data.financeTrackingType) {
+                updates.finance_tracking_type = data.financeTrackingType;
+              }
+              if (data.trackingPeriod) {
+                updates.tracking_period = data.trackingPeriod;
+              }
+              // Clear ai_feedback and needs_clarification since user defined manually
               updates.ai_feedback = null;
+              updates.needs_clarification = false;
               onUpdate(objective.id, updates);
             }
           }}

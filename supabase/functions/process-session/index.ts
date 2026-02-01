@@ -251,9 +251,25 @@ CATEGORIE CUSTOM:
     - unit: "kg"
     - ai_feedback: null (tutto completo!)
 
-- FINANCE (finanze): "Risparmiare 5000€"
-  - Se specifica cifra → target_value: 5000, unit: "€"
-  - Se NON specifica → target_value: null, ai_feedback: "Quanto vorresti risparmiare?"
+- FINANCE (finanze): ⚠️ OBIETTIVI FINANZIARI RICHIEDONO DETTAGLI SPECIFICI!
+  
+  **TIPI DI OBIETTIVI FINANZIARI (finance_tracking_type):**
+  1. "accumulation" - Accumulare una cifra (es. "voglio 10.000€ di risparmi")
+     → Ha starting_value (quanto ho ora) e target_value (quanto voglio raggiungere)
+  2. "periodic_saving" - Risparmio periodico (es. "risparmiare 500€/mese")
+     → Ha SOLO target_value (l'importo periodico) + tracking_period
+  3. "spending_limit" - Limite di spesa (es. "max 200€/mese in ristoranti")
+     → Ha SOLO target_value (budget massimo) + tracking_period
+  4. "periodic_income" - Obiettivo guadagno (es. "guadagnare 3000€/mese")
+     → Ha SOLO target_value (importo target) + tracking_period
+  5. "debt_reduction" - Riduzione debiti (es. "estinguere debito 5000€")
+     → starting_value = debito attuale, target_value = 0
+
+  **PERIODI (tracking_period):** "daily", "weekly", "monthly", "yearly", "one_time"
+
+  ⚠️ SE L'UTENTE DICE UN OBIETTIVO FINANZIARIO GENERICO:
+  - DEVI chiedere SUBITO di che tipo è!
+  - "Vuoi risparmiare una cifra specifica, oppure mettere da parte X€ al mese?"
 
 - STUDY (studio): "Superare l'esame", "Studiare 20h/settimana"
 - WORK (lavoro): "Voglio una promozione"
@@ -265,21 +281,19 @@ CATEGORIE CUSTOM:
   "category": "body|study|work|finance|relationships|growth",
   "title": "Titolo breve",
   "description": "Descrizione opzionale",
-  "starting_value": <numero peso/risparmio attuale SE noto, altrimenti null>,
-  "target_value": <numero obiettivo finale SE specificato, altrimenti null>,
+  "starting_value": <numero SE applicabile>,
+  "target_value": <numero obiettivo SE specificato>,
   "unit": "kg|€|ore|null",
-  "ai_feedback": "Messaggio se manca starting_value O target_value"
+  "finance_tracking_type": "accumulation|periodic_saving|spending_limit|periodic_income|debt_reduction|null",
+  "tracking_period": "daily|weekly|monthly|yearly|one_time|null",
+  "needs_clarification": true/false,
+  "ai_feedback": "Messaggio per chiedere dettagli mancanti"
 }
 
-ESEMPI CORRETTI:
-1. Utente dice: "Vorrei prendere 10kg, peso 65"
-   → {"category": "body", "title": "Prendere peso", "starting_value": 65, "target_value": 75, "unit": "kg", "ai_feedback": null}
-
-2. Utente dice: "Devo dimagrire" (senza numeri)
-   → {"category": "body", "title": "Perdere peso", "starting_value": null, "target_value": null, "unit": "kg", "ai_feedback": "Quanto pesi adesso e qual è il tuo peso obiettivo?"}
-
-3. Utente dice: "Voglio risparmiare per le vacanze"
-   → {"category": "finance", "title": "Risparmiare per vacanze", "starting_value": null, "target_value": null, "unit": "€", "ai_feedback": "Che cifra hai in mente?"}
+ESEMPI:
+1. "Voglio risparmiare" (generico) → needs_clarification: true, ai_feedback: "Che tipo di risparmio? Vuoi accumulare una cifra o mettere via X€ al mese?"
+2. "Risparmiare 500€/mese" → finance_tracking_type: "periodic_saving", tracking_period: "monthly", target_value: 500
+3. "Arrivare a 10.000€, ora ho 2000€" → finance_tracking_type: "accumulation", starting_value: 2000, target_value: 10000
 
 ⚠️ NON inventare obiettivi. Solo se ESPLICITAMENTE menzionati.
 `);
@@ -1339,6 +1353,12 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
             aiFeedback = 'Qual è il tuo obiettivo finale?';
           }
           
+          // Handle finance-specific fields
+          const financeTrackingType = correctedCategory === 'finance' ? (obj.finance_tracking_type || null) : null;
+          const trackingPeriod = obj.tracking_period || null;
+          const needsClarification = obj.needs_clarification === true || 
+            (correctedCategory === 'finance' && !financeTrackingType);
+          
           const { error: objError } = await supabase
             .from('user_objectives')
             .insert({
@@ -1352,7 +1372,11 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               current_value: currentVal,
               status: 'active',
               ai_feedback: aiFeedback,
-              progress_history: []
+              progress_history: [],
+              // NEW: Finance-specific fields
+              finance_tracking_type: financeTrackingType,
+              tracking_period: trackingPeriod,
+              needs_clarification: needsClarification
             });
           
           if (objError) {
