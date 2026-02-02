@@ -18,6 +18,7 @@ interface MenteTabProps {
   psychologyData: Record<string, number | null>;
   highlightedMetrics: MetricConfig[];
   timeRange: TimeRange;
+  onTimeRangeChange?: (range: TimeRange) => void;
   onMetricClick: (key: string) => void;
 }
 
@@ -70,6 +71,7 @@ export const MenteTab: React.FC<MenteTabProps> = ({
   psychologyData,
   highlightedMetrics,
   timeRange,
+  onTimeRangeChange,
   onMetricClick,
 }) => {
   // Filter days with data
@@ -152,6 +154,8 @@ export const MenteTab: React.FC<MenteTabProps> = ({
         <DynamicVitalsGrid
           metrics={dynamicVitals}
           data={vitalData}
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
           onMetricClick={onMetricClick}
         />
       )}

@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { subDays, startOfDay, format } from 'date-fns';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
-import TimeRangeSelector from '@/components/analisi/TimeRangeSelector';
 import MenteTab from '@/components/analisi/AnalisiTabContent';
 import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
@@ -14,8 +13,7 @@ import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { useHabits } from '@/hooks/useHabits';
 import { useObjectives } from '@/hooks/useObjectives';
 import { useProfile } from '@/hooks/useProfile';
-import { Loader2, Brain, Activity, Target, Heart } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'all';
 export type MetricType = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'love' | 'work' | 'social' | 'health' | 'growth' | 'rumination' | 'burnout_level' | 'somatic_tension' | 'self_efficacy' | 'mental_clarity' | 'gratitude' | 'motivation' | 'concentration' | 'self_worth' | 'irritability' | 'loneliness_perceived' | 'guilt';
@@ -31,19 +29,9 @@ export interface MetricData {
   unit?: string;
 }
 
-type AnalisiTab = 'mente' | 'corpo' | 'abitudini' | 'obiettivi';
-
-const TAB_CONFIG: { id: AnalisiTab; label: string; icon: React.ReactNode; emoji: string }[] = [
-  { id: 'mente', label: 'Mente', icon: <Brain className="w-4 h-4" />, emoji: '🧠' },
-  { id: 'corpo', label: 'Corpo', icon: <Heart className="w-4 h-4" />, emoji: '💪' },
-  { id: 'abitudini', label: 'Abitudini', icon: <Activity className="w-4 h-4" />, emoji: '📊' },
-  { id: 'obiettivi', label: 'Obiettivi', icon: <Target className="w-4 h-4" />, emoji: '🎯' },
-];
-
 const Analisi: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
-  const [activeTab, setActiveTab] = useState<AnalisiTab>('mente');
 
   // Fetch user profile for goals
   const { profile } = useProfile();
@@ -167,35 +155,13 @@ const Analisi: React.FC = () => {
         </div>
       </header>
 
-      {/* Time Range Selector */}
-      <div className="px-4 mb-4">
-        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="px-4 mb-5">
-        <div className="flex bg-muted/50 rounded-2xl p-1 gap-1">
-          {TAB_CONFIG.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-sm font-medium transition-all",
-                activeTab === tab.id
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span className="text-base">{tab.emoji}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="px-4 pb-8">
-        {activeTab === 'mente' && (
+      {/* All Content - No Tabs */}
+      <div className="px-4 pb-8 space-y-8">
+        {/* Mente Section */}
+        <section>
+          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+            <span>🧠</span> Mente
+          </h2>
           <MenteTab
             metricsRange={metricsRange}
             dynamicVitals={dynamicVitals}
@@ -203,15 +169,34 @@ const Analisi: React.FC = () => {
             psychologyData={psychologyData}
             highlightedMetrics={aiLayout.highlighted_metrics}
             timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
             onMetricClick={(key) => setSelectedMetric(key as MetricType)}
           />
-        )}
-        
-        {activeTab === 'corpo' && <CorpoTab />}
-        
-        {activeTab === 'abitudini' && <AbitudiniTab lookbackDays={lookbackDays} />}
-        
-        {activeTab === 'obiettivi' && <ObiettiviTab />}
+        </section>
+
+        {/* Corpo Section */}
+        <section>
+          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+            <span>💪</span> Corpo
+          </h2>
+          <CorpoTab />
+        </section>
+
+        {/* Abitudini Section */}
+        <section>
+          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+            <span>📊</span> Abitudini
+          </h2>
+          <AbitudiniTab lookbackDays={lookbackDays} />
+        </section>
+
+        {/* Obiettivi Section */}
+        <section>
+          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+            <span>🎯</span> Obiettivi
+          </h2>
+          <ObiettiviTab />
+        </section>
       </div>
 
       {/* Metric Detail Sheet */}
