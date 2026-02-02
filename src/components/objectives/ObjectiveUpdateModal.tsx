@@ -50,9 +50,13 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
     return `Ciao! 📊 Vedo che hai ${activeObjectives.length} obiettiv${activeObjectives.length === 1 ? 'o' : 'i'} attiv${activeObjectives.length === 1 ? 'o' : 'i'}:\n\n${objectivesList}\n\nRaccontami i tuoi progressi! Ad esempio:\n- "Ho perso 2kg questa settimana"\n- "Ho risparmiato 150€ questo mese"\n- "Oggi ho studiato 3 ore"`;
   };
 
+  // Track if modal was just opened
+  const wasOpenRef = useRef(false);
+
   // Hide/show bottom nav and reset when modal opens/closes
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
+      // Only reset on first open
       window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
       setMessages([{
         id: '1',
@@ -61,10 +65,12 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
       }]);
       setInputValue('');
       setTimeout(() => inputRef.current?.focus(), 300);
-    } else {
+      wasOpenRef.current = true;
+    } else if (!open) {
       window.dispatchEvent(new CustomEvent('show-bottom-nav'));
+      wasOpenRef.current = false;
     }
-  }, [open, activeObjectives]);
+  }, [open]);
 
   // Auto scroll to bottom
   useEffect(() => {
