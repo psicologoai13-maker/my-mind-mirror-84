@@ -9,8 +9,8 @@ interface Topic {
 }
 
 const FocusTopics: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
-  const { emotions, deepPsychology, hasData } = useTimeWeightedMetrics(30, 7);
+  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source (30 giorni, half-life 10 giorni)
+  const { emotions, deepPsychology, hasData } = useTimeWeightedMetrics(30, 10);
 
   // Generate topics from time-weighted emotional data
   const topics = React.useMemo<Topic[]>(() => {

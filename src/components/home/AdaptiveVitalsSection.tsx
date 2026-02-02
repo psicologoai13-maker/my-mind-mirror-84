@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAIDashboard, MetricConfig } from '@/hooks/useAIDashboard';
-import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
+import { useTimeWeightedMetrics, TrendInfo } from '@/hooks/useTimeWeightedMetrics';
 import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard';
 import { Loader2, Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,13 +8,12 @@ import { cn } from '@/lib/utils';
 const AdaptiveVitalsSection: React.FC = () => {
   // 🎯 AI-DRIVEN: Layout deciso dall'AI in base al focus utente
   const { layout, isLoading: isLoadingAI, error: aiError } = useAIDashboard();
-  // 🎯 TIME-WEIGHTED: Valori calcolati con pesatura temporale
-  const { vitals, emotions, lifeAreas, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 7);
+  // 🎯 TIME-WEIGHTED: Valori calcolati con pesatura temporale (30 giorni, half-life 10 giorni)
+  const { vitals, vitalsTrends, emotions, lifeAreas, lifeAreasTrends, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 10);
   const [showSecondary, setShowSecondary] = React.useState(false);
 
-  // Build metric values from time-weighted source
+  // Build metric values and trends from time-weighted source
   // CRITICAL: Return undefined for null values to indicate "no data"
-  // This prevents the inversion bug where anxiety 0 becomes 100%
   const metricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
     const toPercentage = (val: number | null | undefined): number | undefined => 
       val !== null && val !== undefined && val > 0 
@@ -43,6 +42,35 @@ const AdaptiveVitalsSection: React.FC = () => {
       emotional_clarity: toPercentage(vitals.mood),
     };
   }, [vitals, emotions, lifeAreas]);
+
+  // Build trend mapping for each metric key
+  const metricTrends = React.useMemo((): Partial<Record<MetricKey, TrendInfo>> => {
+    const defaultTrend: TrendInfo = { type: 'unknown', icon: '•', label: 'Nessun dato', delta: 0 };
+    
+    return {
+      mood: vitalsTrends.mood,
+      anxiety: vitalsTrends.anxiety,
+      energy: vitalsTrends.energy,
+      sleep: vitalsTrends.sleep,
+      love: lifeAreasTrends.love,
+      work: lifeAreasTrends.work,
+      health: lifeAreasTrends.health,
+      social: lifeAreasTrends.social,
+      friendship: lifeAreasTrends.social,
+      growth: lifeAreasTrends.growth,
+      // For derived metrics, use related trends
+      stress: vitalsTrends.anxiety,
+      calmness: vitalsTrends.anxiety,
+      loneliness: lifeAreasTrends.social,
+      emotional_clarity: vitalsTrends.mood,
+      // Emotions don't have dedicated trends yet, use default
+      joy: defaultTrend,
+      sadness: defaultTrend,
+      anger: defaultTrend,
+      fear: defaultTrend,
+      apathy: defaultTrend,
+    };
+  }, [vitalsTrends, lifeAreasTrends]);
 
   // Get metrics from AI layout - ALWAYS ensure 4 metrics
   const primaryMetrics = React.useMemo((): MetricConfig[] => {
@@ -121,6 +149,7 @@ const AdaptiveVitalsSection: React.FC = () => {
                 <AdaptiveVitalCard
                   metricKey={metricKey}
                   value={metricValues[metricKey]}
+                  trend={metricTrends[metricKey]}
                   isWeeklyAverage={true}
                 />
               </div>
@@ -144,6 +173,7 @@ const AdaptiveVitalsSection: React.FC = () => {
                 <AdaptiveVitalCard
                   metricKey={metricKey}
                   value={metricValues[metricKey]}
+                  trend={metricTrends[metricKey]}
                   isWeeklyAverage={true}
                 />
               </div>

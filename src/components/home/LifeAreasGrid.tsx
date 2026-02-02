@@ -20,8 +20,8 @@ const lifeAreas: LifeArea[] = [
 ];
 
 const LifeAreasGrid: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source
-  const { lifeAreas: scores, hasData, daysWithData } = useTimeWeightedMetrics(30, 7);
+  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source (30 giorni, half-life 10 giorni)
+  const { lifeAreas: scores, hasData, daysWithData } = useTimeWeightedMetrics(30, 10);
   
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
