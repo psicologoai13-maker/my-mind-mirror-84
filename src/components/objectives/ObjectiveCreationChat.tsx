@@ -24,6 +24,8 @@ interface ExtractedObjective {
   current_value?: number;
   unit?: string;
   input_method?: 'numeric' | 'milestone';
+  deadline?: string;
+  objective_type?: 'counter' | 'transformation' | 'milestone';
 }
 
 interface ObjectiveCreationChatProps {
@@ -116,10 +118,11 @@ const ObjectiveCreationChat: React.FC<ObjectiveCreationChatProps> = ({
           title: objective.title,
           description: objective.description,
           target_value: objective.target_value,
-          starting_value: objective.starting_value,
-          current_value: objective.current_value ?? objective.starting_value ?? 0,
+          starting_value: objective.objective_type === 'counter' ? 0 : objective.starting_value,
+          current_value: objective.current_value ?? (objective.objective_type === 'counter' ? 0 : objective.starting_value) ?? 0,
           unit: objective.unit,
           input_method: objective.input_method || 'numeric',
+          deadline: objective.deadline,
         });
 
         setObjectiveCreated(true);

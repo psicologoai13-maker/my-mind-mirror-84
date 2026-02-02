@@ -94,6 +94,7 @@ export interface CreateObjectiveInput {
   linked_body_metric?: string;
   preset_type?: string;
   auto_sync_enabled?: boolean;
+  objective_type?: 'counter' | 'transformation' | 'milestone';
 }
 
 export interface UpdateObjectiveInput {
