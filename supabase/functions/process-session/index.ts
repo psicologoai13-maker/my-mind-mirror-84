@@ -298,6 +298,64 @@ ESEMPI:
 ⚠️ NON inventare obiettivi. Solo se ESPLICITAMENTE menzionati.
 `);
 
+  // 🎯 HABITS DETECTION AND MANAGEMENT (ALWAYS ACTIVE!)
+  instructions.push(`
+═══════════════════════════════════════════════
+🔄 GESTIONE HABITS VIA CONVERSAZIONE (CRUCIALE!)
+═══════════════════════════════════════════════
+
+Le habits sono INTERAMENTE gestite da te tramite conversazione. L'utente NON può crearle o aggiornarle manualmente!
+
+📌 RILEVAMENTO NUOVE HABITS:
+Quando l'utente dice:
+- "Voglio iniziare a meditare ogni giorno" → habit_type: "meditation"
+- "Devo smettere di fumare" → habit_type: "cigarettes", streak_type: "abstain"
+- "Voglio bere più acqua" → habit_type: "water"
+- "Devo fare più esercizio" → habit_type: "exercise"
+- "Voglio leggere di più" → habit_type: "reading"
+- "Devo dormire meglio" → habit_type: "sleep"
+- "Voglio fare yoga" → habit_type: "yoga"
+- "No junk food" → habit_type: "no_junk_food", streak_type: "abstain"
+
+→ Aggiungi a "habits_detected" con needs_confirmation: true
+→ Nella risposta, CHIEDI CONFERMA: "Ho capito che vuoi [X]. Vuoi che te lo aggiunga come habit da monitorare?"
+
+📌 CONFERMA E PARAMETRI:
+Se l'utente conferma, imposta:
+- needs_confirmation: false
+- daily_target appropriato (es: water: 8, meditation: 1, steps: 10000)
+- unit appropriata (es: bicchieri, min, passi)
+- streak_type: "abstain" per habit negative (sigarette, alcol, junk food)
+
+📌 AGGIORNAMENTO PROGRESSI HABITS:
+Quando l'utente dice:
+- "Oggi ho meditato 20 minuti" → habit_type: "meditation", value: 20
+- "Ho bevuto 6 bicchieri d'acqua" → habit_type: "water", value: 6
+- "Non ho fumato oggi!" → habit_type: "cigarettes", value: 0 (SUCCESS per abstain!)
+- "Ieri sono andato in palestra" → habit_type: "exercise", value: 1, date: ieri
+- "Ho fumato 3 sigarette" → habit_type: "cigarettes", value: 3 (FAILURE per abstain)
+
+→ Aggiungi a "habit_progress_updates"
+→ Nella risposta, CELEBRA o SUPPORTA:
+  - Se successo: "🎉 Ottimo lavoro! Continuiamo così!"
+  - Se fallimento abstain: "Nessun problema, domani è un nuovo giorno. Cosa ha scatenato la ricaduta?"
+
+📌 HABIT TYPES COMUNI:
+- meditation, yoga, breathing (mental wellness)
+- water, vitamins, healthy_meals (health)
+- exercise, stretching, steps (fitness)
+- reading, learning, journaling (productivity)
+- cigarettes, alcohol, no_junk_food, social_media (abstain - bad habits)
+- gratitude, affirmations, digital_detox (self-care)
+
+⚠️ REGOLE HABITS:
+- streak_type "abstain" → value 0 = SUCCESSO, value > 0 = FALLIMENTO
+- streak_type "daily" → value >= target = SUCCESSO
+- Date: usa "YYYY-MM-DD" formato ISO
+- NON creare habits se non esplicitamente richieste
+- CELEBRA sempre i progressi!
+`);
+
   return instructions.length > 0 
     ? `\n═══════════════════════════════════════════════
 🎯 ANALISI PERSONALIZZATA (BASATA SU OBIETTIVI UTENTE)
@@ -852,6 +910,24 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
   ],
   "milestone_objective_updates": [
     {"objective_id": "uuid", "ai_custom_description": "descrizione aggiornata o null", "ai_progress_estimate": <0-100>, "new_milestone": {"milestone": "testo", "note": "opzionale"} | null}
+  ],
+  "habits_detected": [
+    {
+      "habit_type": "identificatore habit (es: meditation, water, exercise, cigarettes)",
+      "label": "Nome leggibile (es: Meditazione)",
+      "daily_target": <numero target giornaliero>,
+      "streak_type": "daily|abstain",
+      "unit": "unità (es: min, bicchieri, sessioni) o null",
+      "needs_confirmation": true/false
+    }
+  ],
+  "habit_progress_updates": [
+    {
+      "habit_type": "identificatore habit",
+      "value": <numero registrato>,
+      "date": "YYYY-MM-DD (oggi o data menzionata)",
+      "note": "nota opzionale"
+    }
   ]
 }
 

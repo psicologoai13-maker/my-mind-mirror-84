@@ -1,51 +1,20 @@
-import React, { useState } from 'react';
-import { Plus, Target, Trophy, AlertTriangle, Loader2, Zap, Sparkles } from 'lucide-react';
+import React from 'react';
+import { Target, Trophy, Loader2, Sparkles, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ObjectiveCard } from '@/components/objectives/ObjectiveCard';
-import { ObjectiveQuizModal } from '@/components/objectives/ObjectiveQuizModal';
 import { useObjectives, CATEGORY_CONFIG } from '@/hooks/useObjectives';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { isAutoSyncObjective, isAIDetectable } from '@/lib/objectiveTypes';
+import { useNavigate } from 'react-router-dom';
 
 const ObjectivesTabContent: React.FC = () => {
-  const [showNewModal, setShowNewModal] = useState(false);
-  
+  const navigate = useNavigate();
   const {
     activeObjectives,
     achievedObjectives,
     isLoading,
-    createObjective,
-    updateObjective,
-    deleteObjective,
-    addProgress,
   } = useObjectives();
-
-  // Count objectives with missing target/starting for categories that require them
-  const objectivesWithMissingData = activeObjectives.filter(o => {
-    if (o.category === 'body') {
-      return o.target_value === null || o.target_value === undefined ||
-             o.starting_value === null || o.starting_value === undefined;
-    }
-    if (o.category === 'finance') {
-      const financeType = o.finance_tracking_type;
-      const isPeriodicFinance = ['periodic_saving', 'spending_limit', 'periodic_income'].includes(financeType || '');
-      
-      // Periodic finance only needs target value
-      if (isPeriodicFinance) {
-        return o.target_value === null || o.target_value === undefined;
-      }
-      // Accumulation and debt_reduction need both values (but only if type is defined)
-      if (financeType) {
-        return o.target_value === null || o.target_value === undefined ||
-               o.starting_value === null || o.starting_value === undefined;
-      }
-      // If no finance type defined yet, needs setup
-      return true;
-    }
-    return false;
-  });
 
   if (isLoading) {
     return (
@@ -57,24 +26,6 @@ const ObjectivesTabContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Warning for objectives with missing data - Glass card */}
-      {objectivesWithMissingData.length > 0 && (
-        <div className="relative overflow-hidden rounded-2xl p-4 bg-glass backdrop-blur-xl border border-amber-500/30 shadow-soft">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent pointer-events-none" />
-          <div className="relative z-10 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-amber-800 dark:text-amber-200">
-                {objectivesWithMissingData.length} obiettiv{objectivesWithMissingData.length === 1 ? 'o' : 'i'} da completare
-              </p>
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                Definisci punto di partenza e target per tracciare i progressi
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Active Objectives */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -82,36 +33,30 @@ const ObjectivesTabContent: React.FC = () => {
             <Target className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-foreground">Obiettivi Attivi</h2>
           </div>
-          <Button
-            onClick={() => setShowNewModal(true)}
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Nuovo
-          </Button>
+          {/* Badge "Gestito da Aria" */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+            <Sparkles className="h-3 w-3" />
+            Gestito da Aria
+          </div>
         </div>
 
         {activeObjectives.length === 0 ? (
           <div className="relative overflow-hidden rounded-3xl p-6 text-center bg-glass backdrop-blur-xl border border-glass-border shadow-soft">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative z-10">
-              <div className="text-4xl mb-2">🎯</div>
-              <p className="text-muted-foreground text-sm">
-                Nessun obiettivo attivo. Creane uno!
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Puoi anche parlare con Aria e lei rileverà automaticamente i tuoi obiettivi
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Nessun obiettivo attivo</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+                Parla con Aria per definire i tuoi obiettivi. Lei ti aiuterà a crearli e monitorare i progressi.
               </p>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowNewModal(true)}
-                className="mt-3 rounded-xl bg-glass backdrop-blur-sm border-glass-border"
+                onClick={() => navigate('/aria')}
+                className="rounded-xl gap-2"
               >
-                <Plus className="h-4 w-4 mr-1" />
-                Aggiungi
+                <Sparkles className="h-4 w-4" />
+                Parla con Aria
               </Button>
             </div>
           </div>
@@ -121,11 +66,34 @@ const ObjectivesTabContent: React.FC = () => {
               <ObjectiveCard
                 key={objective.id}
                 objective={objective}
-                onUpdate={(id, updates) => updateObjective.mutate({ id, ...updates })}
-                onDelete={(id) => deleteObjective.mutate(id)}
-                onAddProgress={(id, value, note) => addProgress.mutate({ id, value, note })}
+                // Read-only mode: no update/delete/addProgress handlers
               />
             ))}
+            
+            {/* CTA to talk to Aria for updates */}
+            <div className="relative overflow-hidden rounded-2xl p-4 bg-glass backdrop-blur-xl border border-primary/20 shadow-soft">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+              <div className="relative z-10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">Aggiorna i tuoi progressi</p>
+                  <p className="text-xs text-muted-foreground">
+                    Parla con Aria per registrare i tuoi progressi
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl bg-glass backdrop-blur-sm border-glass-border"
+                  onClick={() => navigate('/aria')}
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Aria
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </section>
@@ -160,12 +128,6 @@ const ObjectivesTabContent: React.FC = () => {
           </div>
         </section>
       )}
-
-      <ObjectiveQuizModal
-        isOpen={showNewModal}
-        onClose={() => setShowNewModal(false)}
-        onSubmit={(input) => createObjective.mutate(input)}
-      />
     </div>
   );
 };
