@@ -1,216 +1,151 @@
 
-# Piano: Fascia Età Unica + Obiettivi Scuola + Fix Visibilità Check-in
+# Piano: Modernizzazione Daily Tracker e Sistema di Creazione Habits via AI
 
-## 1. Fix Critico: Visibilità Check-in Non Funzionante
+## Problema Identificato
 
-### Problema Identificato
-La edge function `ai-checkins` usa una cache "fixed daily list" che rimane immutata per 24 ore. Quando l'utente cambia `checkin_visibility` da "daily" a "hidden", la cache non viene invalidata e l'obiettivo continua ad apparire.
+1. **UI Inconsistente**: Il Daily Tracker usa una grafica vecchia (Sheet con griglia di selezione) mentre gli Obiettivi hanno il design moderno "Liquid Glass"
+2. **Display Errato**: Alcune habit come "No Junk Food" (abstain type) non mostrano correttamente lo stato
+3. **Aggiunta Manuale**: Attualmente si selezionano habits da una lista predefinita invece che parlando con Aria
 
-### Soluzione
-Invalidare la cache `ai_checkins_cache` ogni volta che viene modificata la visibilità di un obiettivo.
+## Soluzione Proposta
 
-**File: `src/hooks/useObjectives.tsx`**
-```typescript
-// Nel updateObjective mutation, dopo il successo:
-onSuccess: async (data, variables) => {
-  queryClient.invalidateQueries({ queryKey: ['objectives'] });
-  
-  // Se è stata modificata la visibilità, invalida la cache check-in
-  if ('checkin_visibility' in variables) {
-    await supabase
-      .from('user_profiles')
-      .update({ ai_checkins_cache: null })
-      .eq('user_id', user.id);
-    
-    // Refresh anche i check-in
-    queryClient.invalidateQueries({ queryKey: ['smart-checkins'] });
-  }
-  // ... rest of toast logic
-}
+### Fase 1: Unificazione UI Daily Tracker
+
+**1.1 Aggiornare DailyTrackerTabContent**
+- Rimuovere il sistema Sheet con griglia di selezione
+- Sostituire il bottone "Aggiungi" con apertura di chat Aria (come ObjectiveQuizModal)
+- Mantenere la card "Completate oggi X/Y" con stile glass
+
+**1.2 Correggere HabitCard**
+- Fix per habits di tipo "abstain" (No Junk Food): mostrare correttamente stato "Oggi OK" vs "Non registrato"
+- Uniformare padding e margini con ObjectiveCard
+
+### Fase 2: Sistema AI-Driven Habit Creation
+
+**2.1 Nuovo Componente: HabitCreationChat**
+- Interfaccia chat identica a ObjectiveCreationChat
+- Aria rileva automaticamente il tipo di habit dal linguaggio naturale
+- Chiede preferenze di aggiornamento:
+  - **Auto-sync**: "Questa habit può essere sincronizzata automaticamente. Vuoi che ti chieda accesso a Apple Health/Google Fit?"
+  - **Check-in**: "Come preferisci aggiornare questa habit? Nel check-in giornaliero o parlandone in chat?"
+
+**2.2 Nuovo Edge Function: create-habit-chat**
+```text
+Flusso conversazione AI:
+1. Utente: "Voglio tracciare quanta acqua bevo"
+2. Aria: "Ottimo! Quanti bicchieri d'acqua è il tuo obiettivo giornaliero?"
+3. Utente: "8 bicchieri"
+4. Aria: "Perfetto! Come preferisci aggiornarlo? 
+   - Nel check-in giornaliero (ti chiederò ogni giorno)
+   - Parlandone in chat quando ti ricordi"
+5. Utente: "Check-in"
+6. Aria: [CREA HABIT] "Fatto! Ho aggiunto 'Acqua 💧' - ti chiederò nel check-in!"
 ```
 
----
-
-## 2. Fascia d'Età Unica per Minori
-
-### Modifica
-Unificare '13-14' e '15-17' in un'unica fascia "Minore di 18".
-
-**File: `src/components/onboarding/AboutYouStep.tsx`**
-```typescript
-// DA:
-const ageRanges = ['13-14', '15-17', '18-24', '25-34', '35-44', '45-54', '55+'];
-
-// A:
-const ageRanges = ['<18', '18-24', '25-34', '35-44', '45-54', '55+'];
+**2.3 Estensione Schema Database**
+Aggiungere a `user_habits_config`:
+```sql
+update_method TEXT DEFAULT 'checkin' -- 'checkin', 'chat', 'auto_sync'
+requires_permission BOOLEAN DEFAULT FALSE
+permission_granted BOOLEAN DEFAULT FALSE
 ```
 
-### Aggiornamenti Correlati
-- **ai-chat**: Aggiornare il rilevamento giovane per usare `'<18'`
-- **ai-checkins**: Aggiornare logica età se necessario
+### Fase 3: Logica Raccolta Dati Intelligente
 
----
+**3.1 Per Habits con update_method = 'checkin'**
+- Appaiono nella Home durante il check-in giornaliero
+- Una volta aggiornate, scompaiono per quel giorno
 
-## 3. Nuovi Obiettivi Scuola con Tracking Voti
+**3.2 Per Habits con update_method = 'chat'**
+- Aria chiede proattivamente durante le sessioni: "Quante volte hai fatto cardio questa settimana?"
+- Se l'utente non apre l'app, i dati vengono raccolti nella prossima conversazione
 
-### Nuovi Obiettivi da Aggiungere
-**File: `src/lib/objectiveTypes.ts`**
+**3.3 Per Habits con update_method = 'auto_sync'**
+- Mostrano messaggio "Richiede app nativa"
+- Quando disponibile, chiedono permesso accesso dati esterni
 
-```typescript
-// === NUOVI OBIETTIVI SCUOLA ===
+### Fase 4: UI Components
 
-// Tracking media singole materie
-subject_grade: {
-  key: 'subject_grade',
-  label: 'Voto materia specifica',
-  emoji: '📊',
-  category: 'study',
-  description: 'Migliora il voto in una materia specifica',
-  inputMethod: 'numeric',
-  unit: 'voto',
-  defaultTarget: 7,
-  step: 0.5,
-  min: 1,
-  max: 10,
-  requiresStartingValue: true,
-  questionTemplate: 'Qual è il tuo voto attuale in questa materia?',
-},
-
-// Registro voti singoli (per tracciare ogni verifica)
-track_test_grades: {
-  key: 'track_test_grades',
-  label: 'Registro verifiche',
-  emoji: '📝',
-  category: 'study',
-  description: 'Tieni traccia dei voti delle verifiche',
-  inputMethod: 'numeric',
-  unit: 'voto',
-  step: 0.5,
-  min: 1,
-  max: 10,
-  questionTemplate: 'Che voto hai preso nell\'ultima verifica?',
-},
-
-// Obiettivo frequenza (giorni di presenza)
-school_attendance: {
-  key: 'school_attendance',
-  label: 'Frequenza scolastica',
-  emoji: '🏫',
-  category: 'study',
-  description: 'Migliora la tua frequenza a scuola',
-  inputMethod: 'counter',
-  unit: 'giorni',
-  defaultTarget: 20,
-  questionTemplate: 'Quanti giorni sei andato a scuola questo mese?',
-},
-
-// Studio quotidiano
-daily_study_time: {
-  key: 'daily_study_time',
-  label: 'Tempo studio giornaliero',
-  emoji: '⏱️',
-  category: 'study',
-  description: 'Studia un certo numero di ore al giorno',
-  inputMethod: 'time_based',
-  unit: 'min',
-  defaultTarget: 60,
-  linkedHabit: 'learning',
-  questionTemplate: 'Quanto hai studiato oggi?',
-},
-
-// Compiti consegnati in tempo
-assignments_on_time: {
-  key: 'assignments_on_time',
-  label: 'Consegne puntuali',
-  emoji: '✅',
-  category: 'study',
-  description: 'Consegna i compiti entro la scadenza',
-  inputMethod: 'counter',
-  unit: 'consegne',
-  defaultTarget: 10,
-  questionTemplate: 'Quante consegne hai fatto in tempo?',
-},
-
-// Preparazione interrogazione
-prepare_oral_exam: {
-  key: 'prepare_oral_exam',
-  label: 'Preparare interrogazione',
-  emoji: '🎤',
-  category: 'study',
-  description: 'Prepararsi per un\'interrogazione',
-  inputMethod: 'milestone',
-  brainDetectable: true,
-},
-
-// Media fine quadrimestre
-quarterly_average: {
-  key: 'quarterly_average',
-  label: 'Media quadrimestre',
-  emoji: '📈',
-  category: 'study',
-  description: 'Raggiungi una certa media a fine quadrimestre',
-  inputMethod: 'numeric',
-  unit: 'media',
-  defaultTarget: 7,
-  step: 0.1,
-  min: 4,
-  max: 10,
-  requiresStartingValue: true,
-  questionTemplate: 'Qual è la tua media attuale del quadrimestre?',
-},
-
-// Debito scolastico
-clear_school_debt: {
-  key: 'clear_school_debt',
-  label: 'Recuperare debito',
-  emoji: '🔄',
-  category: 'study',
-  description: 'Recuperare un debito scolastico',
-  inputMethod: 'milestone',
-  brainDetectable: true,
-},
+**4.1 Nuovo Modal: HabitQuizModal**
+```text
+┌─────────────────────────────────────────┐
+│  ✨ Nuova Habit                          │
+├─────────────────────────────────────────┤
+│                                         │
+│  [Chat con Aria simile a               │
+│   ObjectiveCreationChat]                │
+│                                         │
+│  Aria: Che abitudine vuoi tracciare?   │
+│  [Input message]                    📤  │
+│                                         │
+└─────────────────────────────────────────┘
 ```
 
----
-
-## 4. Riepilogo Modifiche
-
-| File | Modifica |
-|------|----------|
-| `src/hooks/useObjectives.tsx` | Invalidare cache check-in quando cambia visibilità |
-| `src/components/onboarding/AboutYouStep.tsx` | Unificare fasce età in '<18' |
-| `src/lib/objectiveTypes.ts` | Aggiungere 8 nuovi obiettivi scuola |
-| `supabase/functions/ai-chat/index.ts` | Aggiornare rilevamento età per '<18' |
-
----
+**4.2 HabitCard Migliorato**
+- Aggiungere menu 3 punti come ObjectiveCard
+- Opzioni: Modifica target, Cambia metodo aggiornamento, Elimina
+- Per habits con update_method != 'hidden': bottone "Aggiorna" visibile
 
 ## Dettagli Tecnici
 
-### Fix Cache Check-in
-Il problema principale è che `ai-checkins` usa una cache "immutabile" per 24 ore:
+### File da Creare
+1. `src/components/habits/HabitCreationChat.tsx` - Chat AI per creazione habits
+2. `src/components/habits/HabitQuizModal.tsx` - Modal contenitore
+3. `supabase/functions/create-habit-chat/index.ts` - Edge function AI
 
-```typescript
-// ai-checkins/index.ts linea 243-256
-if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
-  // Restituisce la lista FISSATA senza controllare le modifiche
-  return new Response(JSON.stringify({ 
-    checkins: existingCache.fixedDailyList,
-    ...
-  }));
-}
+### File da Modificare
+1. `src/components/objectives/DailyTrackerTabContent.tsx` - Nuovo sistema aggiunta
+2. `src/components/habits/HabitCard.tsx` - Menu impostazioni + fix abstain
+3. `src/hooks/useHabits.tsx` - Supporto update_method
+
+### Migrazione Database
+```sql
+ALTER TABLE user_habits_config 
+ADD COLUMN update_method TEXT DEFAULT 'checkin',
+ADD COLUMN requires_permission BOOLEAN DEFAULT FALSE,
+ADD COLUMN permission_granted BOOLEAN DEFAULT FALSE;
 ```
 
-Quando l'utente cambia `checkin_visibility` a "hidden", il database viene aggiornato ma la cache no. La soluzione è azzerare `ai_checkins_cache` nell'hook `useObjectives` quando viene modificata la visibilità.
+## Sistema Prompt AI (create-habit-chat)
 
-### Nuova Fascia Età
-La fascia '<18' sarà usata per:
-1. Attivare il protocollo giovani di Aria
-2. Mostrare "Scuola" invece di "Lavoro" nelle Life Areas
-3. Prioritizzare obiettivi/abitudini scolastiche
+```text
+Sei Aria, aiuti a creare abitudini personalizzate.
 
-### Obiettivi Scuola
-I nuovi obiettivi coprono:
-- **Tracking voti**: media generale, singole materie, verifiche
-- **Frequenza**: giorni di presenza
-- **Studio**: tempo giornaliero, compiti
-- **Milestone**: interrogazioni, debiti, esami
+CATEGORIE HABITS:
+- health: Salute (sonno, acqua, vitamine)
+- fitness: Fitness (esercizio, cardio, yoga)
+- mental: Mente (meditazione, gratitudine)
+- nutrition: Alimentazione (pasti sani, no junk food)
+- bad_habits: Vizi da evitare (sigarette, alcol)
+- productivity: Produttività (lettura, focus)
+- social: Social (socializzare, chiamate)
+
+TIPI INPUT:
+- toggle: Sì/No (meditazione, esercizio)
+- counter: +/- con target (acqua, gratitudine)
+- abstain: Obiettivo = 0 (sigarette, junk food)
+- numeric: Valore diretto (ore sonno, peso)
+- range: Opzioni preset (caffè: 0, 1-2, 3-4, 5+)
+
+METODI AGGIORNAMENTO:
+- checkin: Appare nel check-in giornaliero Home
+- chat: Aria chiede durante le sessioni
+- auto_sync: Richiede permesso app esterne
+
+FLOW:
+1. Capire cosa vuole tracciare
+2. Determinare categoria e tipo input
+3. Chiedere target giornaliero (se applicabile)
+4. Chiedere metodo aggiornamento preferito
+5. Creare habit
+```
+
+## Risultato Atteso
+
+L'utente potrà:
+1. Aprire "Aggiungi Habit" → Si apre chat con Aria
+2. Descrivere liberamente cosa vuole tracciare
+3. Aria fa domande per capire tipo e preferenze
+4. Habit creata automaticamente con il metodo di aggiornamento scelto
+5. Se sceglie check-in → appare nella Home
+6. Se sceglie chat → Aria chiede durante le sessioni
