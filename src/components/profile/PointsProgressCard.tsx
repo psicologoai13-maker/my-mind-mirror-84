@@ -6,10 +6,33 @@ import { useRewardPoints, STREAK_POINTS } from '@/hooks/useRewardPoints';
 import { useReferrals } from '@/hooks/useReferrals';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Check, Copy, Gift, Flame, Users, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Check, Copy, Gift, Flame, Users, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+
+// Info tooltip component for streak criteria
+const StreakInfoTooltip: React.FC = () => (
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted/50 hover:bg-muted transition-colors">
+          <Info className="w-3 h-3 text-muted-foreground" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px] text-center">
+        <p className="text-xs">
+          Un giorno conta come attivo se hai:
+        </p>
+        <ul className="text-xs mt-1 space-y-0.5">
+          <li>• 1 sessione o diario completato</li>
+          <li>• <strong>oppure</strong> 1 risposta a un check-in</li>
+        </ul>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
 
 interface StreakProgress {
   type: 'week' | 'month';
@@ -204,8 +227,9 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 </span>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
               Usa l'app ogni giorno per 7 giorni consecutivi
+              <StreakInfoTooltip />
             </p>
             <Progress 
               value={((weekProgress?.currentDays || 0) / 7) * 100} 
@@ -253,8 +277,9 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 </span>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
               Usa l'app ogni giorno per 30 giorni consecutivi
+              <StreakInfoTooltip />
             </p>
             <Progress 
               value={((monthProgress?.currentDays || 0) / 30) * 100} 
@@ -373,8 +398,9 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 +{STREAK_POINTS.week_streak} pts
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mb-2">
+            <p className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1">
               Usa l'app ogni giorno per 7 giorni
+              <StreakInfoTooltip />
             </p>
             <div className="flex items-center gap-3">
               <Progress 
@@ -424,8 +450,9 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
                 +{STREAK_POINTS.month_streak} pts
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mb-2">
+            <p className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1">
               Usa l'app ogni giorno per 30 giorni
+              <StreakInfoTooltip />
             </p>
             <div className="flex items-center gap-3">
               <Progress 
