@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, Brain, Sparkles, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useSessions } from '@/hooks/useSessions';
 import { useProfile } from '@/hooks/useProfile';
@@ -22,11 +22,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface LocationState {
+  intent?: 'create_objective';
+}
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 const Chat: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
   const { profile, isLoading: isProfileLoading } = useProfile();
   const { user, session } = useAuth();
   const { startSession, endSession } = useSessions();
@@ -45,6 +51,7 @@ const Chat: React.FC = () => {
   const [showCrisisModal, setShowCrisisModal] = useState(false);
   const [isClosingSession, setIsClosingSession] = useState(false);
   const [initialGreeting, setInitialGreeting] = useState<string | null>(null);
+  const [objectiveIntentHandled, setObjectiveIntentHandled] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -261,6 +268,40 @@ const Chat: React.FC = () => {
     initChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Handle create_objective intent - auto-trigger conversation for custom objective
+  useEffect(() => {
+    if (
+      locationState?.intent === 'create_objective' &&
+      isSessionReady &&
+      sessionId &&
+      !objectiveIntentHandled &&
+      initialGreeting
+    ) {
+      setObjectiveIntentHandled(true);
+      
+      // Override greeting for objective creation context
+      const objectiveGreeting = profile?.name?.split(' ')[0]
+        ? `Ciao ${profile.name.split(' ')[0]}! 🎯 Ho capito che vuoi creare un obiettivo personalizzato! Raccontami cosa vorresti raggiungere e ti aiuterò a definirlo nel modo migliore.`
+        : `Ciao! 🎯 Ho capito che vuoi creare un obiettivo personalizzato! Raccontami cosa vorresti raggiungere e ti aiuterò a definirlo nel modo migliore.`;
+      
+      setInitialGreeting(objectiveGreeting);
+      
+      // Update the greeting in DB
+      if (sessionId && user?.id) {
+        supabase
+          .from('chat_messages')
+          .update({ content: objectiveGreeting })
+          .eq('session_id', sessionId)
+          .eq('role', 'assistant')
+          .order('created_at', { ascending: true })
+          .limit(1);
+      }
+      
+      // Clear navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [locationState, isSessionReady, sessionId, objectiveIntentHandled, initialGreeting, profile?.name, user?.id]);
 
   // Scroll to bottom - optimized for mobile
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
