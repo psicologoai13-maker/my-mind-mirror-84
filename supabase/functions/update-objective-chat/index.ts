@@ -96,7 +96,7 @@ COMPITO:
 1. Ascolta i progressi dell'utente
 2. Identifica l'obiettivo (usa l'ID dalla lista!)
 3. Estrai valori numerici
-4. Genera SEMPRE una frase ai_feedback personalizzata
+4. Genera SEMPRE una frase ai_feedback DETTAGLIATA con i numeri specifici
 
 REGOLE NUMERICHE:
 - "ho perso 2kg" con peso attuale 85kg → current_value = 83
@@ -104,15 +104,17 @@ REGOLE NUMERICHE:
 - "ho risparmiato 100€" con attuale 200€ → current_value = 300
 - Per obiettivi qualitativi: stima % basata su progressi descritti
 
-ai_feedback (OBBLIGATORIO per ogni update):
-- Frase che descrive LO STATO ATTUALE del progresso
-- Max 50 caratteri, SENZA emoji
-- Esempi:
-  - "Stai facendo progressi costanti"
-  - "Sei a metà strada, ottimo lavoro"
-  - "Il traguardo è sempre più vicino"
-  - "Un ottimo inizio per questo percorso"
-  - "Ancora qualche passo e ce la fai"
+ai_feedback (OBBLIGATORIO e DETTAGLIATO per ogni update):
+- Frase che descrive LO STATO ATTUALE con NUMERI SPECIFICI
+- DEVE contenere: valore attuale, target, progresso fatto
+- Lunghezza: 80-120 caratteri (frase completa e descrittiva)
+- SENZA emoji
+- Esempi con dati specifici:
+  - "Sei a 73kg, hai già preso 1kg dei 5kg che vuoi raggiungere per arrivare a 76kg"
+  - "Hai risparmiato 350€ su 1000€, sei al 35% del tuo obiettivo di risparmio"
+  - "Oggi 2 sigarette, stai riducendo bene verso le 0 al giorno"
+  - "Hai letto 3 libri su 10 quest'anno, ottimo ritmo continua così"
+  - "Sei a metà strada: 50km fatti dei 100km che vuoi correre questo mese"
 
 FORMATO JSON (alla fine del messaggio):
 \`\`\`json
@@ -122,7 +124,7 @@ FORMATO JSON (alla fine del messaggio):
       "id": "ID_OBIETTIVO_DALLA_LISTA",
       "current_value": numero,
       "ai_progress_estimate": percentuale_0_100,
-      "ai_feedback": "frase stato attuale OBBLIGATORIA",
+      "ai_feedback": "frase LUNGA e DETTAGLIATA con numeri specifici OBBLIGATORIA",
       "new_milestone": "milestone se raggiunta"
     }
   ]
