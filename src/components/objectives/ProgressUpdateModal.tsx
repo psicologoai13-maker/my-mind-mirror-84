@@ -73,20 +73,59 @@ const getQuestionText = (objective: Objective): string => {
   return 'Aggiorna il progresso';
 };
 
-// Get quick increment buttons based on objective type
+// Get quick increment buttons based on objective type and target
 const getQuickIncrements = (objective: Objective): number[] => {
-  if (objective.category === 'finance') {
-    return [10, 20, 50, 100];
-  }
+  const target = objective.target_value ?? 100;
+  const current = objective.current_value ?? 0;
+  const remaining = Math.max(0, target - current);
+  
+  // Body objectives use small decimals
   if (objective.category === 'body') {
     return [0.1, 0.5, 1, 2];
   }
+  
+  // Hours-based objectives
   if (objective.unit === 'ore' || objective.unit === 'h') {
     return [0.5, 1, 2, 4];
   }
-  if (objective.unit === 'libri') {
-    return [1, 2, 3, 5];
+  
+  // Finance - scale based on target
+  if (objective.category === 'finance') {
+    if (target >= 10000) return [50, 100, 500, 1000];
+    if (target >= 1000) return [10, 50, 100, 500];
+    if (target >= 100) return [5, 10, 25, 50];
+    return [1, 5, 10, 20];
   }
+  
+  // For counter objectives, scale increments to target size
+  // Target 5 → [1, 2]
+  // Target 10 → [1, 2, 5]
+  // Target 50 → [1, 5, 10, 25]
+  // Target 100+ → [1, 5, 10, 25]
+  
+  if (target <= 5) {
+    // Very small targets: only show increments that make sense
+    const increments: number[] = [];
+    if (target >= 1) increments.push(1);
+    if (target >= 2) increments.push(2);
+    if (target >= 3) increments.push(3);
+    if (target >= 5) increments.push(5);
+    return increments.length > 0 ? increments.slice(0, 4) : [1];
+  }
+  
+  if (target <= 10) {
+    return [1, 2, 5];
+  }
+  
+  if (target <= 20) {
+    return [1, 2, 5, 10];
+  }
+  
+  if (target <= 50) {
+    return [1, 5, 10, 20];
+  }
+  
+  // Default for larger targets
   return [1, 5, 10, 25];
 };
 
