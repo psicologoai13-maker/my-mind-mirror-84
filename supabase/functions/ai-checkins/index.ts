@@ -267,7 +267,7 @@ serve(async (req) => {
       recentSessionsRes
     ] = await Promise.all([
       supabase.from("user_habits_config").select("*").eq("user_id", userId).eq("is_active", true),
-      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type").eq("user_id", userId).eq("status", "active"),
+      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type, finance_tracking_type, tracking_period, description").eq("user_id", userId).eq("status", "active"),
       supabase.from("daily_habits").select("habit_type, value").eq("user_id", userId).eq("date", today),
       supabase.from("sessions").select("ai_summary, emotion_tags").eq("user_id", userId).eq("status", "completed").order("start_time", { ascending: false }).limit(3),
     ]);
@@ -339,19 +339,58 @@ serve(async (req) => {
       const key = `objective_${obj.id}`;
       if (completedKeys.has(key)) return;
 
+      // Generate context-aware questions based on category and finance_tracking_type
       let question = `Progresso "${obj.title}"?`;
-      if (inputMethod === 'numeric' && obj.unit) {
-        if (obj.category === 'body' && obj.unit.toLowerCase() === 'kg') {
-          question = `Quanto pesi oggi? (${obj.unit})`;
-        } else if (obj.category === 'finance') {
-          question = `Quanto hai risparmiato? (${obj.unit})`;
+      const financeType = obj.finance_tracking_type;
+      const trackingPeriod = obj.tracking_period;
+      
+      // Period labels for context
+      const periodLabel = trackingPeriod === 'daily' ? 'oggi' 
+        : trackingPeriod === 'weekly' ? 'questa settimana'
+        : trackingPeriod === 'monthly' ? 'questo mese'
+        : 'finora';
+      
+      if (obj.category === 'body') {
+        if (obj.unit?.toLowerCase() === 'kg') {
+          question = `Quanto pesi oggi?`;
+        } else if (obj.unit?.toLowerCase() === '%') {
+          question = `Qual è la tua % di grasso corporeo?`;
         } else {
-          question = `Valore per "${obj.title}"? (${obj.unit})`;
+          question = `Valore attuale per "${obj.title}"?`;
+        }
+      } else if (obj.category === 'finance') {
+        // Specific questions based on finance_tracking_type
+        switch (financeType) {
+          case 'periodic_saving':
+            question = `Quanto hai risparmiato ${periodLabel}?`;
+            break;
+          case 'spending_limit':
+            question = `Quanto hai speso ${periodLabel}?`;
+            break;
+          case 'accumulation':
+            question = `A quanto ammonta il totale dei risparmi?`;
+            break;
+          case 'debt_reduction':
+            question = `Quanto debito hai rimborsato ${periodLabel}?`;
+            break;
+          case 'periodic_income':
+            question = `Quanto hai guadagnato ${periodLabel}?`;
+            break;
+          default:
+            question = `Aggiornamento "${obj.title}"?`;
+        }
+      } else if (obj.category === 'study') {
+        if (obj.unit === 'libri') {
+          question = `Quanti libri hai completato ${periodLabel}?`;
+        } else if (obj.unit === 'ore') {
+          question = `Quante ore hai studiato ${periodLabel}?`;
+        } else {
+          question = `Progresso "${obj.title}"?`;
         }
       } else if (inputMethod === 'counter') {
-        question = `Quanti ${obj.unit || 'progressi'} per "${obj.title}"?`;
+        question = `Quanti ${obj.unit || 'progressi'} ${periodLabel}?`;
       } else if (inputMethod === 'milestone') {
-        question = `Progressi su "${obj.title}"?`;
+        question = `Hai fatto progressi su "${obj.title}"?`;
       }
 
       allItems.push({
@@ -363,6 +402,8 @@ serve(async (req) => {
         objectiveId: obj.id,
         unit: obj.unit,
         target: obj.target_value,
+        financeType: financeType, // Pass finance type for UI context
+        trackingPeriod: trackingPeriod,
         priority: 90, // Objectives have highest priority
       });
     });
