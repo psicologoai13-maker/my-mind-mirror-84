@@ -675,6 +675,8 @@ export type Database = {
           is_active: boolean
           last_auto_sync_at: string | null
           permission_granted: boolean | null
+          reminder_enabled: boolean | null
+          reminder_time: string | null
           requires_permission: boolean | null
           streak_type: string | null
           unit: string | null
@@ -692,6 +694,8 @@ export type Database = {
           is_active?: boolean
           last_auto_sync_at?: string | null
           permission_granted?: boolean | null
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           requires_permission?: boolean | null
           streak_type?: string | null
           unit?: string | null
@@ -709,6 +713,8 @@ export type Database = {
           is_active?: boolean
           last_auto_sync_at?: string | null
           permission_granted?: boolean | null
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           requires_permission?: boolean | null
           streak_type?: string | null
           unit?: string | null
