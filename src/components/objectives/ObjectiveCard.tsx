@@ -48,7 +48,6 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   onAddProgress,
 }) => {
   const [showTargetDialog, setShowTargetDialog] = useState(false);
-  const [showProgressModal, setShowProgressModal] = useState(false);
   const categoryConfig = CATEGORY_CONFIG[objective.category];
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
@@ -141,12 +140,6 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[200px]">
-              {hasTarget && !needsSetup && (
-                <DropdownMenuItem onClick={() => setShowProgressModal(true)}>
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Aggiorna progresso
-                </DropdownMenuItem>
-              )}
               {onUpdate && objective.status === 'active' && (
                 <DropdownMenuItem onClick={() => onUpdate(objective.id, { status: 'achieved' })}>
                   <Target className="h-4 w-4 mr-2" />
@@ -511,31 +504,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
             </div>
           )}
           
-          {/* Visible update button - only show when target is set and setup is complete */}
-          {hasTarget && !needsSetup && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="rounded-full h-8 px-3 gap-1.5 ml-auto"
-              onClick={() => setShowProgressModal(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Aggiorna
-            </Button>
-          )}
         </div>
-        
-        {/* Progress Update Modal */}
-        <ProgressUpdateModal
-          open={showProgressModal}
-          onOpenChange={setShowProgressModal}
-          objective={objective}
-          onSave={(value, note) => {
-            if (onAddProgress) {
-              onAddProgress(objective.id, value, note);
-            }
-          }}
-        />
       </div>
     </div>
   );
