@@ -3,22 +3,18 @@ import { useHabits, HABIT_TYPES } from '@/hooks/useHabits';
 import CompactHabitGrid from '@/components/habits/CompactHabitGrid';
 import HabitBatchModal from '@/components/habits/HabitBatchModal';
 import HabitQuizModal from '@/components/habits/HabitQuizModal';
+import HabitReminderSettings from '@/components/habits/HabitReminderSettings';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Info } from 'lucide-react';
+import { Sparkles, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 const DailyTrackerTabContent: React.FC = () => {
   const { habits, isLoading, logHabit } = useHabits();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isReminderOpen, setIsReminderOpen] = useState(false);
 
   // Batch save handler
   const handleBatchSave = async (updates: { habitType: string; value: number }[]) => {
@@ -75,15 +71,27 @@ const DailyTrackerTabContent: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Le Tue Habits</h2>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="rounded-full h-9 gap-2 bg-glass backdrop-blur-sm border-glass-border hover:bg-glass-hover"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <Sparkles className="w-4 h-4 text-primary" />
-            Aggiungi
-          </Button>
+          <div className="flex items-center gap-2">
+            {habits.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="rounded-full h-9 w-9 bg-glass backdrop-blur-sm border-glass-border hover:bg-glass-hover"
+                onClick={() => setIsReminderOpen(true)}
+              >
+                <Bell className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-full h-9 gap-2 bg-glass backdrop-blur-sm border-glass-border hover:bg-glass-hover"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <Sparkles className="w-4 h-4 text-primary" />
+              Aggiungi
+            </Button>
+          </div>
         </div>
 
         {habits.length === 0 ? (
@@ -125,6 +133,13 @@ const DailyTrackerTabContent: React.FC = () => {
           setIsModalOpen(false);
           toast.success('Nuova habit creata!');
         }}
+      />
+
+      {/* Reminder Settings */}
+      <HabitReminderSettings
+        open={isReminderOpen}
+        onOpenChange={setIsReminderOpen}
+        habits={habits}
       />
     </div>
   );

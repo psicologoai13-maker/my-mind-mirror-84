@@ -12,6 +12,8 @@ export interface HabitConfig {
   unit: string | null;
   streak_type: 'daily' | 'abstain';
   created_at: string;
+  reminder_enabled?: boolean;
+  reminder_time?: string; // Format: "HH:mm:ss" or "HH:mm"
 }
 
 export interface DailyHabit {
