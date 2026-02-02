@@ -27,6 +27,13 @@ const motivationOptions: MotivationOption[] = [
   { id: 'journal', label: 'Tenere un diario', emoji: '📝', description: 'Scrivere i miei pensieri' },
   { id: 'therapy_support', label: 'Supporto terapia', emoji: '🩺', description: 'Affiancare un percorso clinico' },
   { id: 'curiosity', label: 'Curiosità', emoji: '✨', description: 'Voglio esplorare questa app' },
+  // Youth-specific motivations
+  { id: 'school_stress', label: 'Stress scolastico', emoji: '📚', description: 'Gestire verifiche e interrogazioni' },
+  { id: 'bullying', label: 'Bullismo', emoji: '🛡️', description: 'Affrontare situazioni difficili' },
+  { id: 'parents', label: 'Rapporto genitori', emoji: '👨‍👩‍👧', description: 'Migliorare comunicazione in famiglia' },
+  { id: 'identity', label: 'Capire chi sono', emoji: '🔍', description: 'Esplorare la propria identità' },
+  { id: 'social_pressure', label: 'Pressione sociale', emoji: '📱', description: 'Gestire aspettative e confronti' },
+  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche senza panico' },
 ];
 
 const spring = {

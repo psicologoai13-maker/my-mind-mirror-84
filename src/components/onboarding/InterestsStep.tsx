@@ -25,6 +25,13 @@ const INTERESTS_OPTIONS = [
   { id: 'tech', emoji: '💻', label: 'Tecnologia' },
   { id: 'fashion', emoji: '👗', label: 'Moda' },
   { id: 'social', emoji: '👥', label: 'Socializzare' },
+  // Youth-specific interests
+  { id: 'tiktok', emoji: '📱', label: 'TikTok/Social' },
+  { id: 'anime', emoji: '🎌', label: 'Anime/Manga' },
+  { id: 'kpop', emoji: '🎤', label: 'K-pop' },
+  { id: 'streaming', emoji: '📺', label: 'Twitch/YouTube' },
+  { id: 'influencer', emoji: '⭐', label: 'Content Creator' },
+  { id: 'esports', emoji: '🏆', label: 'Esport' },
 ];
 
 const InterestsStep: React.FC<InterestsStepProps> = ({

@@ -23,6 +23,12 @@ const goalOptions: GoalOption[] = [
   { id: 'mood', label: 'Migliorare umore', emoji: '😊', description: 'Più serenità' },
   { id: 'self_esteem', label: 'Autostima', emoji: '✨', description: 'Amarti di più' },
   
+  // School (for young users)
+  { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
+  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche' },
+  { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
+  { id: 'teacher_relations', label: 'Rapporto con prof', emoji: '👩‍🏫', description: 'Comunicare meglio' },
+  
   // Physical wellness
   { id: 'sleep', label: 'Dormire meglio', emoji: '😴', description: 'Notti rigeneranti' },
   { id: 'energy', label: 'Più energia', emoji: '⚡', description: 'Vitalità quotidiana' },
