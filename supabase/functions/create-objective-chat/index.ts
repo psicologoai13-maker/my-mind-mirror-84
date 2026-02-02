@@ -90,12 +90,16 @@ Il JSON deve essere nel formato:
   "unit": "kg|€|viaggi|libri|volte|etc" o null,
   "input_method": "numeric|milestone",
   "deadline": "YYYY-MM-DD" o null,
-  "objective_type": "counter|transformation|milestone"
+  "objective_type": "counter|transformation|milestone",
+  "ai_custom_description": "Una frase motivazionale e personalizzata che descrive l'obiettivo in modo empatico, es: 'Il tuo percorso verso un fisico più sano', 'La tua avventura alla scoperta del mondo', 'Il tuo viaggio verso la libertà finanziaria'. MAX 60 caratteri, SENZA emoji.",
+  "ai_feedback": "Una frase che indica lo stato attuale, es: 'Sei all'inizio del tuo percorso!', 'Hai già fatto i primi passi', 'Pronto per iniziare questa sfida'. MAX 50 caratteri."
 }
 
 IMPORTANTE: 
 - Per obiettivi COUNTER: starting_value = 0, current_value = quanti ne ha già fatti
 - Per obiettivi TRANSFORMATION: starting_value = valore attuale, current_value = starting_value
+- ai_custom_description: deve essere una frase poetica/motivazionale che descrive IL SIGNIFICATO dell'obiettivo per l'utente
+- ai_feedback: deve descrivere lo stato attuale del progresso in modo incoraggiante
 - Metti |||OBJECTIVE_JSON||| seguito dal JSON valido SOLO quando hai TUTTI i dati necessari.`;
 
 interface ChatMessage {

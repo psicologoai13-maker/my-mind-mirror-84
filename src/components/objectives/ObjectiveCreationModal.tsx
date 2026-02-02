@@ -129,6 +129,8 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
           unit: objective.unit,
           deadline: objective.deadline,
           input_method: objective.input_method || 'numeric',
+          ai_custom_description: objective.ai_custom_description,
+          ai_feedback: objective.ai_feedback,
         };
 
         await createObjective.mutateAsync(objectivePayload);

@@ -73,53 +73,52 @@ serve(async (req) => {
         progressInfo = `Progresso stimato AI: ${obj.ai_progress_estimate ?? 0}%`;
       }
       
-      return `- "${obj.title}" [${obj.category}]: ${progressInfo}`;
+      return `- ID: ${obj.id} | "${obj.title}" [${obj.category}]: ${progressInfo}`;
     }).join('\n');
 
-    const systemPrompt = `Sei Aria, l'assistente AI di supporto emotivo. In questo momento stai aiutando l'utente ad aggiornare i progressi dei suoi obiettivi.
+    const systemPrompt = `Sei Aria, l'assistente AI di supporto emotivo. Stai aiutando l'utente ad aggiornare i progressi dei suoi obiettivi.
 
-OBIETTIVI ATTIVI DELL'UTENTE:
+OBIETTIVI ATTIVI:
 ${objectivesContext || 'Nessun obiettivo attivo'}
 
-IL TUO COMPITO:
-1. Ascolta quando l'utente descrive i suoi progressi
-2. Identifica a quale obiettivo si riferisce
-3. Estrai valori numerici specifici quando menzionati
-4. Calcola la nuova percentuale di progresso
-5. Celebra i progressi e motiva l'utente
+COMPITO:
+1. Ascolta i progressi dell'utente
+2. Identifica l'obiettivo (usa l'ID dalla lista!)
+3. Estrai valori numerici
+4. Genera SEMPRE una frase ai_feedback personalizzata
 
-REGOLE PER L'ESTRAZIONE:
-- Se l'utente dice "ho perso 2kg" e l'obiettivo è "perdere peso", aggiorna current_value
-- Se l'utente dice "ho risparmiato 100€", aggiungi al valore attuale
-- Per obiettivi qualitativi (senza target numerico), stima la % basandoti su:
-  - Milestone raggiunte
-  - Impegno dimostrato
-  - Progressi descritti
-- NON inventare numeri: se l'utente non è specifico, chiedi dettagli
+REGOLE NUMERICHE:
+- "ho perso 2kg" con peso attuale 85kg → current_value = 83
+- "ora peso 83kg" → current_value = 83
+- "ho risparmiato 100€" con attuale 200€ → current_value = 300
+- Per obiettivi qualitativi: stima % basata su progressi descritti
 
-FORMATO RISPOSTA JSON (alla fine del tuo messaggio):
-Se rilevi un aggiornamento, aggiungi alla fine:
+ai_feedback (OBBLIGATORIO per ogni update):
+- Frase che descrive LO STATO ATTUALE del progresso
+- Max 50 caratteri, SENZA emoji
+- Esempi:
+  - "Stai facendo progressi costanti"
+  - "Sei a metà strada, ottimo lavoro"
+  - "Il traguardo è sempre più vicino"
+  - "Un ottimo inizio per questo percorso"
+  - "Ancora qualche passo e ce la fai"
+
+FORMATO JSON (alla fine del messaggio):
 \`\`\`json
 {
   "updates": [
     {
-      "id": "objective_id",
-      "current_value": numero_se_applicabile,
+      "id": "ID_OBIETTIVO_DALLA_LISTA",
+      "current_value": numero,
       "ai_progress_estimate": percentuale_0_100,
-      "ai_feedback": "breve commento sul progresso",
-      "new_milestone": "descrizione milestone se raggiunta"
+      "ai_feedback": "frase stato attuale OBBLIGATORIA",
+      "new_milestone": "milestone se raggiunta"
     }
   ]
 }
 \`\`\`
 
-Se non ci sono aggiornamenti da fare, non includere il blocco JSON.
-
-TONO:
-- Entusiasta ma genuino
-- Celebra ogni progresso, anche piccolo
-- Fai domande specifiche per capire meglio
-- Max 2-3 frasi per risposta`;
+TONO: Entusiasta, genuino, max 2-3 frasi.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
