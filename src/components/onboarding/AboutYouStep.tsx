@@ -21,7 +21,7 @@ const moodEmojis = [
   { emoji: '😊', label: 'Molto bene' },
 ];
 
-const ageRanges = ['18-24', '25-34', '35-44', '45-54', '55+'];
+const ageRanges = ['13-14', '15-17', '18-24', '25-34', '35-44', '45-54', '55+'];
 
 const genderOptions = [
   { id: 'male', label: 'Uomo' },

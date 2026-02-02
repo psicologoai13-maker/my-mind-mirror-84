@@ -266,6 +266,7 @@ export type Database = {
           health: number | null
           id: string
           love: number | null
+          school: number | null
           session_id: string | null
           social: number | null
           source: string
@@ -280,6 +281,7 @@ export type Database = {
           health?: number | null
           id?: string
           love?: number | null
+          school?: number | null
           session_id?: string | null
           social?: number | null
           source?: string
@@ -294,6 +296,7 @@ export type Database = {
           health?: number | null
           id?: string
           love?: number | null
+          school?: number | null
           session_id?: string | null
           social?: number | null
           source?: string
