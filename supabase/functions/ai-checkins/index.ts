@@ -10,6 +10,11 @@ const corsHeaders = {
 // UNIFIED CHECK-IN ITEMS
 // Vitals, Life Areas, Psychology, Emotions
 // ============================================
+// NOTE: "growth" (Crescita) is NOT included here - it's calculated by AI based on:
+// - Completed objectives over time
+// - Maintained habits
+// - Session insights and user progress
+// This is shown only in Analysis section, not as a daily question.
 const STANDARD_CHECKIN_ITEMS = [
   { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji" },
   { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity" },
@@ -18,7 +23,6 @@ const STANDARD_CHECKIN_ITEMS = [
   { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji" },
   { key: "work", label: "Lavoro", question: "Come va il lavoro/studio?", type: "life_area", responseType: "emoji" },
   { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji" },
-  { key: "growth", label: "Crescita", question: "Ti senti in crescita personale?", type: "life_area", responseType: "yesno" },
   { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji" },
   { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno" },
   { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno" },
