@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.sync-habits-to-brain]
 verify_jwt = false
+
+[functions.create-objective-chat]
+verify_jwt = false
