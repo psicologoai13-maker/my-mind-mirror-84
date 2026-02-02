@@ -192,10 +192,27 @@ export const useObjectives = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return { data, updatedFields: updates };
     },
-    onSuccess: (data) => {
+    onSuccess: async (result) => {
+      const { data, updatedFields } = result;
       queryClient.invalidateQueries({ queryKey: ['objectives'] });
+      
+      // Se è stata modificata la visibilità, invalida la cache check-in
+      if ('checkin_visibility' in updatedFields && user?.id) {
+        try {
+          await supabase
+            .from('user_profiles')
+            .update({ ai_checkins_cache: null })
+            .eq('user_id', user.id);
+          
+          // Refresh anche i check-in
+          queryClient.invalidateQueries({ queryKey: ['smart-checkins'] });
+        } catch (e) {
+          console.error('Error invalidating checkins cache:', e);
+        }
+      }
+      
       if (data.status === 'achieved') {
         toast({
           title: "Obiettivo raggiunto! 🎉",
