@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,7 @@ import {
   getObjectivesByCategory,
 } from '@/lib/objectiveTypes';
 import { CreateObjectiveInput, CATEGORY_CONFIG } from '@/hooks/useObjectives';
+import ObjectiveCreationChat from './ObjectiveCreationChat';
 
 interface ObjectiveQuizModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ interface ObjectiveQuizModalProps {
   onSubmit: (input: CreateObjectiveInput) => void;
 }
 
-type QuizStep = 'category' | 'objective' | 'configure';
+type QuizStep = 'category' | 'objective' | 'configure' | 'custom-chat';
 
 const spring = {
   type: "spring" as const,
@@ -43,7 +43,6 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const navigate = useNavigate();
   const [step, setStep] = useState<QuizStep>('category');
   const [selectedCategory, setSelectedCategory] = useState<ObjectiveCategory | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<ObjectiveMeta | null>(null);
@@ -56,9 +55,10 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
   // Progress indicator
   const getProgress = () => {
     switch (step) {
-      case 'category': return 33;
-      case 'objective': return 66;
-      case 'configure': return 100;
+      case 'category': return 25;
+      case 'objective': return 50;
+      case 'configure': return 75;
+      case 'custom-chat': return 50;
       default: return 0;
     }
   };
@@ -73,12 +73,15 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
     setStep('configure');
   };
 
-  // Navigate to Aria for custom objective creation
+  // Open custom chat within the modal
   const handleCustomObjective = () => {
+    setStep('custom-chat');
+  };
+
+  // Handle successful objective creation from chat
+  const handleChatObjectiveCreated = () => {
     resetForm();
     onClose();
-    // Navigate to chat with a context message for creating a custom objective
-    navigate('/chat', { state: { intent: 'create_objective' } });
   };
 
   const handleSubmit = () => {
@@ -128,6 +131,8 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
     } else if (step === 'configure') {
       setSelectedObjective(null);
       setStep('objective');
+    } else if (step === 'custom-chat') {
+      setStep('category');
     }
   };
 
@@ -172,6 +177,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                 {step === 'category' && '🎯 Nuovo Obiettivo'}
                 {step === 'objective' && selectedCategory && CATEGORY_CONFIG[selectedCategory].emoji + ' ' + CATEGORY_CONFIG[selectedCategory].label}
                 {step === 'configure' && selectedObjective?.emoji}
+                {step === 'custom-chat' && '✨ Obiettivo Personalizzato'}
               </motion.h2>
               <motion.p 
                 key={`desc-${step}`}
@@ -183,6 +189,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                 {step === 'category' && 'Cosa vuoi migliorare?'}
                 {step === 'objective' && 'Scegli il tuo obiettivo'}
                 {step === 'configure' && selectedObjective?.label}
+                {step === 'custom-chat' && 'Descrivi il tuo obiettivo ad Aria'}
               </motion.p>
             </div>
           </div>
@@ -466,6 +473,22 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                     Crea Obiettivo
                   </Button>
                 </motion.div>
+              </motion.div>
+            )}
+
+            {/* STEP: Custom Chat with Aria */}
+            {step === 'custom-chat' && (
+              <motion.div
+                key="custom-chat"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                transition={spring}
+              >
+                <ObjectiveCreationChat
+                  onObjectiveCreated={handleChatObjectiveCreated}
+                  onCancel={() => setStep('category')}
+                />
               </motion.div>
             )}
           </AnimatePresence>
