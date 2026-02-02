@@ -69,7 +69,12 @@ const ObjectivesTabContent: React.FC = () => {
           <div className="flex gap-3">
             <Button
               onClick={() => setShowCreationModal(true)}
-              className="flex-1 rounded-xl gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              variant="outline"
+              className={cn(
+                "flex-1 rounded-xl gap-2 bg-glass backdrop-blur-sm border-primary/40",
+                "hover:bg-primary/10 hover:border-primary/60",
+                "text-primary"
+              )}
             >
               <Plus className="h-4 w-4" />
               Nuovo Obiettivo
@@ -78,8 +83,8 @@ const ObjectivesTabContent: React.FC = () => {
               onClick={() => setShowUpdateModal(true)}
               variant="outline"
               className={cn(
-                "flex-1 rounded-xl gap-2 bg-glass backdrop-blur-sm border-emerald-500/30",
-                "hover:bg-emerald-500/10 hover:border-emerald-500/50",
+                "flex-1 rounded-xl gap-2 bg-glass backdrop-blur-sm border-emerald-500/40",
+                "hover:bg-emerald-500/10 hover:border-emerald-500/60",
                 "text-emerald-600 dark:text-emerald-400"
               )}
               disabled={activeObjectives.length === 0}
