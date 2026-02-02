@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
-import { useHabits, HABIT_TYPES, HABIT_CATEGORIES, HabitCategory } from '@/hooks/useHabits';
+import { useHabits, HABIT_TYPES } from '@/hooks/useHabits';
 import HabitCard from '@/components/habits/HabitCard';
+import HabitQuizModal from '@/components/habits/HabitQuizModal';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2, Sparkles, Check } from 'lucide-react';
+import { Plus, Sparkles, MoreVertical, Trash2, Settings2 } from 'lucide-react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 const DailyTrackerTabContent: React.FC = () => {
-  const { habits, habitConfigs, isLoading, addHabit, removeHabit, logHabit } = useHabits();
-  const [isManageOpen, setIsManageOpen] = useState(false);
+  const { habits, isLoading, removeHabit, logHabit } = useHabits();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loggingHabit, setLoggingHabit] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
 
   const handleLogHabit = async (habitType: string, value: number) => {
     setLoggingHabit(habitType);
@@ -37,34 +36,20 @@ const DailyTrackerTabContent: React.FC = () => {
     }
   };
 
-  const handleToggleHabit = async (habitType: string) => {
-    const isActive = activeHabitTypes.has(habitType);
+  const handleRemoveHabit = async (habitType: string) => {
     try {
-      if (isActive) {
-        await removeHabit.mutateAsync(habitType);
-        toast.success('Habit rimossa');
-      } else {
-        await addHabit.mutateAsync(habitType);
-        toast.success('Habit aggiunta');
-      }
+      await removeHabit.mutateAsync(habitType);
+      toast.success('Habit rimossa');
     } catch (error) {
-      toast.error('Errore');
+      toast.error('Errore nella rimozione');
     }
   };
-
-  const activeHabitTypes = new Set(habitConfigs?.map(c => c.habit_type) || []);
 
   // Calculate stats
   const completedToday = habits.filter(h => {
     const target = h.daily_target || HABIT_TYPES[h.habit_type as keyof typeof HABIT_TYPES]?.defaultTarget || 1;
-    return h.streak_type === 'abstain' ? h.todayValue === 0 : h.todayValue >= target;
+    return h.streak_type === 'abstain' ? h.todayValue === 0 && h.lastEntry : h.todayValue >= target;
   }).length;
-
-  // Filter habits for sheet by category
-  const filteredHabits = Object.entries(HABIT_TYPES).filter(([key, meta]) => {
-    if (selectedCategory === 'all') return true;
-    return meta.category === selectedCategory;
-  });
 
   if (isLoading) {
     return (
@@ -91,7 +76,7 @@ const DailyTrackerTabContent: React.FC = () => {
               </p>
             </div>
             <div className="text-4xl">
-              {completedToday === habits.length ? '🎉' : '📊'}
+              {completedToday === habits.length && habits.length > 0 ? '🎉' : '📊'}
             </div>
           </div>
         </div>
@@ -101,105 +86,88 @@ const DailyTrackerTabContent: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Le Tue Habits</h2>
-          <Sheet open={isManageOpen} onOpenChange={setIsManageOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-full h-8">
-                <Plus className="w-4 h-4 mr-1" />
-                Aggiungi
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-[32px] bg-glass backdrop-blur-2xl border-t border-glass-border shadow-glass-elevated">
-              <SheetHeader className="pb-2">
-                <SheetTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Scegli le tue Habits
-                </SheetTitle>
-              </SheetHeader>
-              
-              {/* Category Filter */}
-              <div className="flex gap-2 overflow-x-auto py-3 -mx-2 px-2">
-                <Button
-                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full flex-shrink-0 h-8 text-xs"
-                  onClick={() => setSelectedCategory('all')}
-                >
-                  Tutte
-                </Button>
-                {Object.entries(HABIT_CATEGORIES).map(([key, { label, icon }]) => (
-                  <Button
-                    key={key}
-                    variant={selectedCategory === key ? 'default' : 'outline'}
-                    size="sm"
-                    className="rounded-full flex-shrink-0 h-8 text-xs"
-                    onClick={() => setSelectedCategory(key as HabitCategory)}
-                  >
-                    {icon} {label}
-                  </Button>
-                ))}
-              </div>
-
-              {/* Grid of habit boxes */}
-              <div className="mt-2 grid grid-cols-3 gap-2 overflow-y-auto max-h-[calc(85vh-140px)] pb-8">
-                {filteredHabits.map(([key, meta]) => {
-                  const isActive = activeHabitTypes.has(key);
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => handleToggleHabit(key)}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center p-3 rounded-2xl transition-all min-h-[80px]",
-                        "bg-glass backdrop-blur-sm border",
-                        isActive 
-                          ? "border-primary bg-primary/10 shadow-glow" 
-                          : "border-glass-border hover:border-muted-foreground/30 hover:bg-glass-hover"
-                      )}
-                    >
-                      {isActive && (
-                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center shadow-soft">
-                          <Check className="w-2.5 h-2.5 text-primary-foreground" />
-                        </div>
-                      )}
-                      <span className="text-2xl mb-1">{meta.icon}</span>
-                      <span className="text-[10px] font-medium text-center text-muted-foreground line-clamp-2">
-                        {meta.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </SheetContent>
-          </Sheet>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="rounded-full h-9 gap-2 bg-glass backdrop-blur-sm border-glass-border hover:bg-glass-hover"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Sparkles className="w-4 h-4 text-primary" />
+            Aggiungi
+          </Button>
         </div>
 
         {habits.length === 0 ? (
           <div className="relative overflow-hidden p-8 rounded-3xl bg-glass backdrop-blur-xl border border-glass-border text-center shadow-soft">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative z-10">
-              <span className="text-4xl mb-3 block">📊</span>
+              <span className="text-4xl mb-3 block">🌟</span>
               <h3 className="font-semibold text-foreground mb-1">Nessuna habit attiva</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Aggiungi le abitudini che vuoi tracciare
+                Parla con Aria per creare le tue abitudini personalizzate
               </p>
-              <Button onClick={() => setIsManageOpen(true)} className="rounded-xl">
-                <Plus className="w-4 h-4 mr-2" />
-                Aggiungi Habit
+              <Button onClick={() => setIsModalOpen(true)} className="rounded-xl gap-2">
+                <Sparkles className="w-4 h-4" />
+                Crea con Aria
               </Button>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {habits.map((habit) => (
-              <HabitCard
-                key={habit.habit_type}
-                habit={habit}
-                onLog={(value) => handleLogHabit(habit.habit_type, value)}
-                isLogging={loggingHabit === habit.habit_type}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-3">
+            {habits.map((habit) => {
+              const habitMeta = HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
+              
+              return (
+                <div key={habit.habit_type} className="relative group">
+                  <HabitCard
+                    habit={habit}
+                    onLog={(value) => handleLogHabit(habit.habit_type, value)}
+                    isLogging={loggingHabit === habit.habit_type}
+                  />
+                  
+                  {/* Options menu overlay */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full bg-glass backdrop-blur-sm border border-glass-border"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-glass backdrop-blur-xl border-glass-border">
+                        <DropdownMenuItem className="gap-2">
+                          <Settings2 className="w-4 h-4" />
+                          Modifica target
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="gap-2 text-destructive"
+                          onClick={() => handleRemoveHabit(habit.habit_type)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Rimuovi
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* AI Habit Creation Modal */}
+      <HabitQuizModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onHabitCreated={() => {
+          setIsModalOpen(false);
+          toast.success('Nuova habit creata!');
+        }}
+      />
     </div>
   );
 };

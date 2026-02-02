@@ -1057,9 +1057,23 @@ export const useHabits = () => {
   });
 
   // Add a new habit to track
+  interface AddHabitOptions {
+    habitType: string; 
+    daily_target?: number;
+    unit?: string;
+    streak_type?: 'daily' | 'abstain';
+    update_method?: 'checkin' | 'chat' | 'auto_sync';
+    requires_permission?: boolean;
+  }
+  
   const addHabit = useMutation({
-    mutationFn: async (habitType: string) => {
+    mutationFn: async (params: string | AddHabitOptions) => {
       if (!user) throw new Error('Not authenticated');
+      
+      // Handle both string and object params for backwards compatibility
+      const habitType = typeof params === 'string' ? params : params.habitType;
+      const options: Partial<AddHabitOptions> = typeof params === 'string' ? {} : params;
+      
       const habitMeta = HABIT_TYPES[habitType as keyof typeof HABIT_TYPES];
       
       const { data, error } = await supabase
@@ -1068,9 +1082,11 @@ export const useHabits = () => {
           user_id: user.id,
           habit_type: habitType,
           is_active: true,
-          daily_target: habitMeta?.defaultTarget,
-          unit: habitMeta?.unit,
-          streak_type: habitMeta?.streakType || 'daily',
+          daily_target: options.daily_target ?? habitMeta?.defaultTarget,
+          unit: options.unit ?? habitMeta?.unit,
+          streak_type: options.streak_type ?? habitMeta?.streakType ?? 'daily',
+          update_method: options.update_method ?? 'checkin',
+          requires_permission: options.requires_permission ?? false,
         }, { onConflict: 'user_id,habit_type' })
         .select()
         .single();
