@@ -176,33 +176,19 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
       <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10 flex flex-col h-full">
-        {/* Header with Trend Badge */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className={cn(
-              isSecondary ? "text-xl" : "text-2xl"
-            )}>
-              {config.icon}
-            </span>
-            <span className={cn(
-              "font-medium text-muted-foreground",
-              isSecondary ? "text-xs" : "text-sm"
-            )}>
-              {config.label}
-            </span>
-          </div>
-          
-          {/* Trend Badge */}
-          {hasData && trend && trend.type !== 'unknown' && (
-            <div className={cn(
-              "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
-              getTrendBadgeStyles(trend.type).bg,
-              getTrendBadgeStyles(trend.type).text
-            )}>
-              <span>{trend.icon}</span>
-              <span className="hidden sm:inline">{trend.label}</span>
-            </div>
-          )}
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className={cn(
+            isSecondary ? "text-xl" : "text-2xl"
+          )}>
+            {config.icon}
+          </span>
+          <span className={cn(
+            "font-medium text-muted-foreground",
+            isSecondary ? "text-xs" : "text-sm"
+          )}>
+            {config.label}
+          </span>
         </div>
         
         {/* Animated Ring or Empty State */}
@@ -230,14 +216,27 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
         </div>
         
         {/* Status label or CTA hint */}
-        <div className="mt-3 text-center">
+        <div className="mt-3 text-center space-y-2">
           {hasData ? (
-            <span className={cn(
-              "font-medium",
-              isSecondary ? "text-xs" : "text-sm"
-            )} style={{ color }}>
-              {statusLabel}
-            </span>
+            <>
+              <span className={cn(
+                "font-medium block",
+                isSecondary ? "text-xs" : "text-sm"
+              )} style={{ color }}>
+                {statusLabel}
+              </span>
+              {/* Trend Badge - subtle below status */}
+              {trend && trend.type !== 'unknown' && (
+                <div className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium",
+                  getTrendBadgeStyles(trend.type).bg,
+                  getTrendBadgeStyles(trend.type).text
+                )}>
+                  <span>{trend.icon}</span>
+                  <span>{trend.label}</span>
+                </div>
+              )}
+            </>
           ) : (
             <span className="text-[10px] text-muted-foreground/60">
               Fai un check-in
