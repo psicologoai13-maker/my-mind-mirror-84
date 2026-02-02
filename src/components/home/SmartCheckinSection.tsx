@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { getHabitMeta, RangeOption } from '@/hooks/useHabits';
+import { ProgressUpdateModal } from '@/components/objectives/ProgressUpdateModal';
+import { useObjectives, Objective } from '@/hooks/useObjectives';
 
 // Get current date in Rome timezone
 function getRomeDateString(): string {
@@ -40,6 +42,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const { invalidateLifeAreas } = useDailyLifeAreas();
   const { profile } = useProfile();
   const { startCheckinTimer } = useCheckinTimer();
+  const { objectives, updateObjective } = useObjectives();
   const today = getRomeDateString();
   
   const [activeItem, setActiveItem] = useState<CheckinItem | null>(null);
@@ -50,6 +53,11 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locallyCompleted, setLocallyCompleted] = useState<Record<string, number>>({});
+  
+  // State for objective progress modal
+  const [objectiveModalOpen, setObjectiveModalOpen] = useState(false);
+  const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+  const [activeCheckinItem, setActiveCheckinItem] = useState<CheckinItem | null>(null);
 
   const allCompleted_ = { ...completedToday, ...locallyCompleted };
 
@@ -59,6 +67,17 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     
     startCheckinTimer();
     onStartCheckin?.();
+    
+    // For objectives with numeric/counter response, open the ProgressUpdateModal instead
+    if (item.type === 'objective' && item.objectiveId && (item.responseType === 'numeric' || item.responseType === 'counter')) {
+      const objective = objectives.find(o => o.id === item.objectiveId);
+      if (objective) {
+        setSelectedObjective(objective);
+        setActiveCheckinItem(item);
+        setObjectiveModalOpen(true);
+        return;
+      }
+    }
     
     if (activeItem?.key === item.key) {
       setActiveItem(null);
@@ -403,6 +422,55 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     setActiveItem(null);
     resetInputState();
     setIsSubmitting(false);
+  };
+
+  // Handle save from ProgressUpdateModal (same as Progressi page)
+  const handleObjectiveModalSave = async (value: number, note?: string) => {
+    if (!selectedObjective || !activeCheckinItem) return;
+    
+    try {
+      // Build progress history entry
+      const history = Array.isArray(selectedObjective.progress_history) ? selectedObjective.progress_history : [];
+      const newHistory = [...history, {
+        date: new Date().toISOString(),
+        value: value,
+        note: note || undefined
+      }];
+      
+      await updateObjective.mutateAsync({
+        id: selectedObjective.id,
+        current_value: value,
+      });
+      
+      // Update progress_history separately since updateObjective may not include it
+      await supabase
+        .from('user_objectives')
+        .update({ 
+          progress_history: newHistory,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedObjective.id);
+      
+      // For repeatable items, don't mark as completed
+      if (!activeCheckinItem.repeatable) {
+        setLocallyCompleted(prev => ({ ...prev, [activeCheckinItem.key]: value }));
+      }
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['objectives'] });
+      queryClient.invalidateQueries({ queryKey: ['user-objectives'] });
+      invalidateMetrics();
+      refetchTodayData();
+      
+    } catch (error) {
+      console.error('Error saving objective from modal:', error);
+      toast.error('Errore nel salvataggio');
+    }
+    
+    // Reset modal state
+    setObjectiveModalOpen(false);
+    setSelectedObjective(null);
+    setActiveCheckinItem(null);
   };
 
   const handleClose = () => {
@@ -846,6 +914,22 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
             </button>
           ))}
         </div>
+      )}
+
+      {/* Progress Update Modal for Objectives */}
+      {selectedObjective && (
+        <ProgressUpdateModal
+          open={objectiveModalOpen}
+          onOpenChange={(open) => {
+            setObjectiveModalOpen(open);
+            if (!open) {
+              setSelectedObjective(null);
+              setActiveCheckinItem(null);
+            }
+          }}
+          objective={selectedObjective}
+          onSave={handleObjectiveModalSave}
+        />
       )}
     </div>
   );
