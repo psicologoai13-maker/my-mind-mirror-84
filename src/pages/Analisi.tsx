@@ -159,9 +159,6 @@ const Analisi: React.FC = () => {
       <div className="px-4 pb-8 space-y-8">
         {/* Mente Section */}
         <section>
-          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-            <span>🧠</span> Mente
-          </h2>
           <MenteTab
             metricsRange={metricsRange}
             dynamicVitals={dynamicVitals}
