@@ -202,10 +202,19 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </DropdownMenu>
         </div>
 
-        {objective.description && (
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-            {objective.description}
-          </p>
+        {/* Description - show AI custom description if available */}
+        {(objective.ai_custom_description || objective.description) && (
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {objective.ai_custom_description || objective.description}
+            </p>
+            {objective.ai_custom_description && (
+              <div className="flex items-center gap-1 mt-1">
+                <Sparkles className="h-3 w-3 text-primary" />
+                <span className="text-[10px] text-primary font-medium">Personalizzato da Aria</span>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Missing target or starting value warning - with manual input button */}
@@ -317,6 +326,67 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
             </div>
             <div className="text-right text-xs font-medium text-muted-foreground mt-1">
               {Math.round(progress)}% completato
+            </div>
+          </div>
+        )}
+
+        {/* AI Progress for Milestone Objectives (no numeric target) */}
+        {!hasTarget && objective.ai_progress_estimate !== null && objective.ai_progress_estimate !== undefined && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span className="text-muted-foreground">Progresso stimato da Aria</span>
+              </div>
+              <span className="font-semibold text-foreground">
+                {objective.ai_progress_estimate}%
+              </span>
+            </div>
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 backdrop-blur-sm">
+              <div 
+                className={cn(
+                  "h-full transition-all duration-700 ease-out bg-gradient-to-r rounded-full",
+                  objective.ai_progress_estimate >= 80 ? 'from-emerald-500 to-teal-400' :
+                  objective.ai_progress_estimate >= 50 ? 'from-primary to-primary-glow' :
+                  objective.ai_progress_estimate >= 25 ? 'from-amber-500 to-orange-400' :
+                  'from-slate-400 to-slate-300',
+                  "shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]"
+                )}
+                style={{ width: `${objective.ai_progress_estimate}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5 italic">
+              Parla con Aria dei tuoi progressi per aggiornare
+            </p>
+          </div>
+        )}
+
+        {/* Milestones List */}
+        {objective.ai_milestones && objective.ai_milestones.length > 0 && (
+          <div className="mb-4 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                Traguardi raggiunti ({objective.ai_milestones.length})
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {objective.ai_milestones.slice(-3).map((milestone, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground">{milestone.milestone}</p>
+                    {milestone.note && (
+                      <p className="text-xs text-muted-foreground">{milestone.note}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {objective.ai_milestones.length > 3 && (
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  +{objective.ai_milestones.length - 3} altri traguardi
+                </p>
+              )}
             </div>
           </div>
         )}

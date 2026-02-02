@@ -858,7 +858,10 @@ export type Database = {
       }
       user_objectives: {
         Row: {
+          ai_custom_description: string | null
           ai_feedback: string | null
+          ai_milestones: Json | null
+          ai_progress_estimate: number | null
           auto_sync_enabled: boolean | null
           category: string
           checkin_visibility: string | null
@@ -887,7 +890,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_custom_description?: string | null
           ai_feedback?: string | null
+          ai_milestones?: Json | null
+          ai_progress_estimate?: number | null
           auto_sync_enabled?: boolean | null
           category: string
           checkin_visibility?: string | null
@@ -916,7 +922,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_custom_description?: string | null
           ai_feedback?: string | null
+          ai_milestones?: Json | null
+          ai_progress_estimate?: number | null
           auto_sync_enabled?: boolean | null
           category?: string
           checkin_visibility?: string | null
