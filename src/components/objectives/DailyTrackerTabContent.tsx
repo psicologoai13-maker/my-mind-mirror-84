@@ -1,47 +1,36 @@
 import React, { useState } from 'react';
 import { useHabits, HABIT_TYPES } from '@/hooks/useHabits';
-import HabitCard from '@/components/habits/HabitCard';
+import CompactHabitGrid from '@/components/habits/CompactHabitGrid';
+import HabitBatchModal from '@/components/habits/HabitBatchModal';
 import HabitQuizModal from '@/components/habits/HabitQuizModal';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, MoreVertical, Trash2, Settings2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Sparkles, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const DailyTrackerTabContent: React.FC = () => {
-  const { habits, isLoading, removeHabit, logHabit } = useHabits();
+  const { habits, isLoading, logHabit } = useHabits();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loggingHabit, setLoggingHabit] = useState<string | null>(null);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
-  const handleLogHabit = async (habitType: string, value: number) => {
-    setLoggingHabit(habitType);
+  // Batch save handler
+  const handleBatchSave = async (updates: { habitType: string; value: number }[]) => {
+    const promises = updates.map(({ habitType, value }) =>
+      logHabit.mutateAsync({ habitType, value })
+    );
+    
     try {
-      await logHabit.mutateAsync({ habitType, value });
-      
-      // Check for streak milestones
-      const habit = habits.find(h => h.habit_type === habitType);
-      if (habit && habit.streak === 6 && value > 0) {
-        toast.success('🔥 Stai per raggiungere 7 giorni consecutivi!');
-      }
+      await Promise.all(promises);
+      toast.success(`✅ ${updates.length} habits aggiornate!`);
     } catch (error) {
-      toast.error('Errore nel salvare');
-    } finally {
-      setLoggingHabit(null);
-    }
-  };
-
-  const handleRemoveHabit = async (habitType: string) => {
-    try {
-      await removeHabit.mutateAsync(habitType);
-      toast.success('Habit rimossa');
-    } catch (error) {
-      toast.error('Errore nella rimozione');
+      toast.error('Errore nel salvare alcune habits');
     }
   };
 
@@ -113,51 +102,20 @@ const DailyTrackerTabContent: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {habits.map((habit) => {
-              const habitMeta = HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
-              
-              return (
-                <div key={habit.habit_type} className="relative group">
-                  <HabitCard
-                    habit={habit}
-                    onLog={(value) => handleLogHabit(habit.habit_type, value)}
-                    isLogging={loggingHabit === habit.habit_type}
-                  />
-                  
-                  {/* Options menu overlay */}
-                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full bg-glass backdrop-blur-sm border border-glass-border"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-glass backdrop-blur-xl border-glass-border">
-                        <DropdownMenuItem className="gap-2">
-                          <Settings2 className="w-4 h-4" />
-                          Modifica target
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="gap-2 text-destructive"
-                          onClick={() => handleRemoveHabit(habit.habit_type)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Rimuovi
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <CompactHabitGrid 
+            habits={habits} 
+            onOpenBatchModal={() => setIsBatchModalOpen(true)} 
+          />
         )}
       </div>
+
+      {/* Batch Update Modal */}
+      <HabitBatchModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        habits={habits}
+        onSaveAll={handleBatchSave}
+      />
 
       {/* AI Habit Creation Modal */}
       <HabitQuizModal
