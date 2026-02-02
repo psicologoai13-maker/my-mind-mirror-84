@@ -98,10 +98,34 @@ serve(async (req) => {
     const psychology = psychologyRes.data || [];
     const sessions = sessionsRes.data || [];
 
-    // Calculate averages for all metrics
+    // Calculate averages for all metrics (for trends analysis)
     const avg = (arr: any[], key: string) => {
       const valid = arr.map(x => x[key]).filter(v => v !== null && v !== undefined && v > 0);
       return valid.length > 0 ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1) : 'N/D';
+    };
+
+    // 🎯 CRITICAL: Also get MOST RECENT values for consistency with Dashboard Focus Cards
+    // The focus_insight should reference the same values the user sees in "I tuoi focus"
+    const getMostRecent = <T>(arr: T[], getter: (item: T) => number | null | undefined): string => {
+      for (const item of arr) {
+        const val = getter(item);
+        if (val !== null && val !== undefined && val > 0) return val.toFixed(1);
+      }
+      return 'N/D';
+    };
+
+    const mostRecentVitals = {
+      mood: getMostRecent(sessions, s => s.mood_score_detected),
+      anxiety: getMostRecent(sessions, s => s.anxiety_score_detected),
+      sleep: getMostRecent(sessions, s => s.sleep_quality),
+    };
+
+    const mostRecentLifeAreas = {
+      love: getMostRecent(lifeAreas, l => l.love),
+      work: getMostRecent(lifeAreas, l => l.work),
+      health: getMostRecent(lifeAreas, l => l.health),
+      social: getMostRecent(lifeAreas, l => l.social),
+      growth: getMostRecent(lifeAreas, l => l.growth),
     };
 
     const avgVitals = {
@@ -197,6 +221,21 @@ Rispondi SOLO in JSON valido:
 
 OBIETTIVI UTENTE: ${userGoals.length > 0 ? userGoals.join(', ') : 'Nessuno selezionato'}
 
+═══════════════════════════════════════════════
+⚠️ VALORI ATTUALI (mostrati nelle Focus Cards della Home)
+Usa questi valori quando menzioni lo stato ATTUALE dell'utente:
+═══════════════════════════════════════════════
+- Umore attuale: ${mostRecentVitals.mood}
+- Ansia attuale: ${mostRecentVitals.anxiety}
+- Sonno attuale: ${mostRecentVitals.sleep}
+- Salute attuale: ${mostRecentLifeAreas.health}
+- Lavoro attuale: ${mostRecentLifeAreas.work}
+- Amore attuale: ${mostRecentLifeAreas.love}
+- Socialità attuale: ${mostRecentLifeAreas.social}
+
+═══════════════════════════════════════════════
+MEDIE DEL PERIODO (per trend e confronti storici):
+═══════════════════════════════════════════════
 VITALI (media):
 - Umore: ${avgVitals.mood}
 - Ansia: ${avgVitals.anxiety}
