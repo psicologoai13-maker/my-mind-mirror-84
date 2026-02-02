@@ -346,10 +346,10 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .maybeSingle();
 
-    // 🎯 Get all active objectives for progress tracking
+    // 🎯 Get all active objectives for progress tracking (including milestone fields)
     const { data: activeObjectives } = await supabase
       .from('user_objectives')
-      .select('id, title, category, target_value, current_value, unit, status, starting_value')
+      .select('id, title, category, target_value, current_value, unit, status, starting_value, description, input_method, preset_type, ai_custom_description, ai_progress_estimate, ai_milestones')
       .eq('user_id', user_id)
       .eq('status', 'active');
 
@@ -371,20 +371,85 @@ serve(async (req) => {
     // 🎯 Build objectives tracking instructions for progress extraction
     let objectivesTrackingPrompt = '';
     if (activeObjectives && activeObjectives.length > 0) {
-      const objectivesList = activeObjectives.map(o => {
-        // Include starting_value for context
+      // Separate numeric objectives from milestone objectives
+      const numericObjectives = activeObjectives.filter(o => 
+        o.target_value !== null || ['body', 'finance'].includes(o.category)
+      );
+      const milestoneObjectives = activeObjectives.filter(o => 
+        o.target_value === null && !['body', 'finance'].includes(o.category) &&
+        ['milestone', 'session_detected'].includes(o.input_method || '')
+      );
+      
+      // List for numeric objectives
+      const numericList = numericObjectives.map(o => {
         const startVal = o.starting_value !== null ? o.starting_value : 'NON DEFINITO';
         const currVal = o.current_value ?? 0;
         const targetVal = o.target_value !== null ? o.target_value : 'NON DEFINITO';
         return `- ID: ${o.id} | "${o.title}" (${o.category}) | Partenza: ${startVal} ${o.unit || ''} | Attuale: ${currVal} ${o.unit || ''} | Target: ${targetVal} ${o.unit || ''}`;
       }).join('\n');
       
+      // List for milestone objectives
+      const milestoneList = milestoneObjectives.map(o => {
+        const currentDesc = o.ai_custom_description || o.description || 'Nessuna descrizione';
+        const currentProgress = o.ai_progress_estimate ?? 0;
+        const currentMilestones = (o.ai_milestones as any[]) || [];
+        return `- ID: ${o.id} | "${o.title}" (${o.category})
+    Descrizione attuale: ${currentDesc}
+    Progresso AI stimato: ${currentProgress}%
+    Milestones raggiunte: ${currentMilestones.length > 0 ? currentMilestones.map((m: any) => m.milestone).join(', ') : 'Nessuna'}`;
+      }).join('\n');
+      
       objectivesTrackingPrompt = `
 ═══════════════════════════════════════════════
 🎯 OBIETTIVI ATTIVI - RILEVA PROGRESSI (CRUCIALE!)
 ═══════════════════════════════════════════════
-L'utente ha questi obiettivi REALI da tracciare:
-${objectivesList}
+
+${numericList ? `**OBIETTIVI NUMERICI:**
+${numericList}` : ''}
+
+${milestoneList ? `
+═══════════════════════════════════════════════
+🌟 OBIETTIVI MILESTONE/QUALITATIVI (AGGIORNAMENTO AI!)
+═══════════════════════════════════════════════
+Questi obiettivi NON hanno valori numerici. Il PROGRESSO è stimato SOLO da te in base alla conversazione!
+
+${milestoneList}
+
+**PER OGNI OBIETTIVO MILESTONE, DEVI:**
+
+1. **RACCOGLIERE DETTAGLI** - Se l'utente menziona dettagli sul suo obiettivo, AGGIORNA la descrizione!
+   Esempio: Se l'obiettivo è "Costruire personal brand" e l'utente dice:
+   - "Il mio brand è di vestiti e si chiama Moda"
+   → ai_custom_description: "Brand di abbigliamento 'Moda' - sviluppo presenza e identità nel settore fashion"
+
+2. **STIMARE PROGRESSO (0-100%)** - Basandoti su cosa l'utente ha fatto/raccontato:
+   - 0-20%: Solo idea, nessuna azione concreta
+   - 20-40%: Prime azioni (registrato dominio, creato profili social, iniziato bozze)
+   - 40-60%: Lavoro in corso (contenuti creati, primi post, networking iniziato)
+   - 60-80%: Buoni progressi (community in crescita, prime vendite/risultati, feedback positivi)
+   - 80-100%: Obiettivo quasi/completamente raggiunto
+
+3. **AGGIUNGERE MILESTONE** - Ogni volta che l'utente racconta un'azione concreta completata:
+   Esempi di milestone:
+   - "Ho creato il profilo Instagram" → milestone: "Creato profilo Instagram"
+   - "Ho fatto il mio primo post" → milestone: "Primo contenuto pubblicato"
+   - "Ho venduto il primo prodotto" → milestone: "Prima vendita"
+
+**FORMATO milestone_objective_updates:**
+"milestone_objective_updates": [
+  {
+    "objective_id": "<uuid>",
+    "ai_custom_description": "Descrizione AGGIORNATA con dettagli utente (o null se non cambia)",
+    "ai_progress_estimate": <0-100 basato su azioni concrete>,
+    "new_milestone": {"milestone": "Azione completata", "note": "Dettaglio opzionale"} | null
+  }
+]
+
+⚠️ IMPORTANTE:
+- Se l'utente NON parla dell'obiettivo → NON aggiornare
+- Se parla ma senza nuovi dettagli → puoi aggiornare solo ai_progress_estimate
+- Il progresso deve AUMENTARE solo se ci sono AZIONI CONCRETE, non solo intenzioni
+` : ''}
 
 **DEVI estrarre aggiornamenti di progresso dalla conversazione:**
 
@@ -784,6 +849,9 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
   ],
   "objective_progress_updates": [
     {"objective_id": "uuid dell'obiettivo", "new_value": <numero>, "note": "Nota opzionale", "completed": false}
+  ],
+  "milestone_objective_updates": [
+    {"objective_id": "uuid", "ai_custom_description": "descrizione aggiornata o null", "ai_progress_estimate": <0-100>, "new_milestone": {"milestone": "testo", "note": "opzionale"} | null}
   ]
 }
 
@@ -1462,6 +1530,85 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
             console.log(`[process-session] Updated objective ${update.objective_id}: ${update.new_value}`);
             if (newStatus === 'achieved') {
               console.log(`[process-session] 🎉 Objective achieved!`);
+            }
+          }
+        }
+      }
+    }
+
+    // 🌟 NEW: Update milestone/qualitative objectives with AI-generated content
+    const milestoneObjectiveUpdates = (analysis as any).milestone_objective_updates || [];
+    if (milestoneObjectiveUpdates.length > 0) {
+      console.log('[process-session] AI detected milestone objective updates:', milestoneObjectiveUpdates);
+      
+      for (const update of milestoneObjectiveUpdates) {
+        if (!update.objective_id) continue;
+        
+        // Get the existing milestone objective
+        const { data: existingObj } = await supabase
+          .from('user_objectives')
+          .select('id, ai_milestones, ai_progress_estimate, ai_custom_description')
+          .eq('id', update.objective_id)
+          .eq('user_id', user_id)
+          .maybeSingle();
+        
+        if (existingObj) {
+          const updateData: Record<string, any> = {
+            updated_at: new Date().toISOString()
+          };
+          
+          // Update custom description if provided
+          if (update.ai_custom_description) {
+            updateData.ai_custom_description = update.ai_custom_description;
+            console.log(`[process-session] 📝 Updated description for ${update.objective_id}: ${update.ai_custom_description}`);
+          }
+          
+          // Update progress estimate if provided
+          if (update.ai_progress_estimate !== undefined && update.ai_progress_estimate !== null) {
+            updateData.ai_progress_estimate = Math.min(100, Math.max(0, update.ai_progress_estimate));
+            console.log(`[process-session] 📊 Updated progress for ${update.objective_id}: ${update.ai_progress_estimate}%`);
+            
+            // If progress reaches 100%, mark as achieved
+            if (update.ai_progress_estimate >= 100) {
+              updateData.status = 'achieved';
+              console.log(`[process-session] 🎉 Milestone objective achieved!`);
+            }
+          }
+          
+          // Add new milestone if provided
+          if (update.new_milestone && update.new_milestone.milestone) {
+            const currentMilestones = Array.isArray(existingObj.ai_milestones) 
+              ? (existingObj.ai_milestones as any[]) 
+              : [];
+            
+            // Check if milestone already exists (avoid duplicates)
+            const milestoneExists = currentMilestones.some(
+              (m: any) => m.milestone?.toLowerCase() === update.new_milestone.milestone.toLowerCase()
+            );
+            
+            if (!milestoneExists) {
+              const newMilestone = {
+                milestone: update.new_milestone.milestone,
+                achieved_at: new Date().toISOString(),
+                note: update.new_milestone.note || null
+              };
+              updateData.ai_milestones = [...currentMilestones, newMilestone];
+              console.log(`[process-session] ✅ Added milestone: ${update.new_milestone.milestone}`);
+            }
+          }
+          
+          // Only update if we have changes
+          if (Object.keys(updateData).length > 1) { // More than just updated_at
+            const { error: milestoneUpdateError } = await supabase
+              .from('user_objectives')
+              .update(updateData)
+              .eq('id', update.objective_id)
+              .eq('user_id', user_id);
+            
+            if (milestoneUpdateError) {
+              console.error('[process-session] Error updating milestone objective:', milestoneUpdateError);
+            } else {
+              console.log(`[process-session] ✨ Updated milestone objective ${update.objective_id}`);
             }
           }
         }

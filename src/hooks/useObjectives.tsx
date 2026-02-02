@@ -12,6 +12,12 @@ export type TrackingPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one_ti
 
 export type CheckinVisibility = 'permanent' | 'daily' | 'hidden';
 
+export interface AIMilestone {
+  milestone: string;
+  achieved_at: string;
+  note?: string;
+}
+
 export interface Objective {
   id: string;
   user_id: string;
@@ -43,6 +49,10 @@ export interface Objective {
   clarification_asked_at?: string;
   // Check-in visibility setting
   checkin_visibility?: CheckinVisibility;
+  // AI-managed fields for milestone/qualitative objectives
+  ai_custom_description?: string;  // AI-generated description with user-specific details
+  ai_progress_estimate?: number;    // AI-estimated progress 0-100 for milestone objectives
+  ai_milestones?: AIMilestone[];    // Array of detected milestones
 }
 
 // Helper to calculate true progress considering starting point
@@ -131,11 +141,14 @@ export const useObjectives = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      // Map JSON progress_history to proper type
+      // Map JSON fields to proper types
       return (data || []).map(obj => ({
         ...obj,
         progress_history: Array.isArray(obj.progress_history) 
           ? obj.progress_history as Array<{ date: string; value: number; note?: string }>
+          : [],
+        ai_milestones: Array.isArray(obj.ai_milestones)
+          ? (obj.ai_milestones as unknown as AIMilestone[])
           : [],
       })) as Objective[];
     },
