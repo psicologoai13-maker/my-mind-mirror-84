@@ -470,6 +470,8 @@ export const usePersonalizedCheckins = () => {
     if (!sourceList) return [];
 
     return sourceList
+      // CRITICAL: Filter out 'growth' - it's AI-calculated, not a check-in item
+      .filter(item => item.key !== 'growth')
       // Keep repeatable items even if they have been completed today
       .filter(item => item.repeatable || !(item.key in completedToday))
       .map((item, index) => {
