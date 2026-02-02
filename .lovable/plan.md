@@ -1,165 +1,298 @@
 
-# Piano: Sistema di Tracking Intelligente con Gestione Temporale
+# Piano: Trasformazione Obiettivi e Habits a Gestione Esclusiva AI
 
-## Problemi Identificati
+## Panoramica
 
-1. **Confusione Traguardi vs Daily Tracker**: Non è chiaro quando usare uno o l'altro
-2. **Pagina troppo lunga**: Ogni habit ha una card separata
-3. **Timing errato**: "Hai fatto cardio oggi?" alle 7 di mattina non ha senso
-4. **Dati mancanti = "No"**: Se l'utente non apre l'app, perdiamo informazioni
-5. **Obbligo multipli accessi**: Non possiamo pretendere accesso mattina E sera
+Eliminare tutti gli inserimenti manuali per obiettivi e habits, centralizzando la gestione esclusivamente tramite conversazioni con Aria (sessioni e diari). L'unica eccezione sono le **habits auto_sync** (passi, battito cardiaco) che continueranno ad avere tracking automatico.
 
-## Soluzione Proposta
+---
 
-### Fase 1: Sistema Temporale Intelligente
+## Impatto Utente
 
-**1.1 Domande Contestuali per Orario**
+**Prima**: L'utente poteva creare e aggiornare habits/obiettivi manualmente tramite modal, pulsanti +/-, e check-in grid.
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  MATTINA (6:00 - 14:00)                                     │
-│  ─────────────────────                                      │
-│  Domande su:                                                │
-│  • Sonno di stanotte ("Quante ore hai dormito?")           │
-│  • Habits mattutine ("Hai preso le vitamine?")             │
-│  • Recap IERI ("Ieri hai fatto esercizio? Meditazione?")   │
-│                                                             │
-│  POMERIGGIO/SERA (14:00 - 6:00)                             │
-│  ───────────────────────────────                            │
-│  Domande su:                                                │
-│  • Attività di OGGI ("Hai fatto cardio oggi?")             │
-│  • Habits giornaliere ("Quanti bicchieri d'acqua?")        │
-│  • Abstain ("Hai evitato il junk food?")                   │
-└─────────────────────────────────────────────────────────────┘
-```
+**Dopo**: L'utente parla con Aria e lei:
+1. Rileva nuovi obiettivi/habits dalle conversazioni
+2. Chiede conferma prima di aggiungerli
+3. Aggiorna i progressi quando l'utente menziona risultati
+4. Mostra tutto in modo read-only nelle tab Progressi
 
-**1.2 Recap Giornaliero**
-- Se l'utente non ha risposto ieri, mostrare prima un mini-recap
-- "Come è andata ieri?" con le habits più importanti
-- Permette di recuperare dati retroattivamente
+---
 
-### Fase 2: UI Compatta per Daily Tracker
+## Modifiche Tecniche
 
-**2.1 Griglia Compatta invece di Cards Singole**
+### Fase 1: Rimozione UI Manuali
 
-Invece di:
-```text
-┌────────────────────┐
-│ 🧘 Meditazione     │
-│ Hai meditato oggi? │
-│ [Sì] [No]          │
-└────────────────────┘
-┌────────────────────┐
-│ 🏃 Esercizio       │
-│ ...                │
-└────────────────────┘
-(ripetuto 20 volte)
-```
+#### 1.1 Tab "Traguardi" (Obiettivi)
+**File**: `src/components/objectives/ObjectivesTabContent.tsx`
+- Rimuovere pulsante "+ Nuovo"
+- Rimuovere `ObjectiveQuizModal`
+- Card obiettivi diventano solo visualizzazione (no pulsante aggiorna progresso)
+- Aggiungere messaggio: "Parla con Aria per aggiungere o aggiornare obiettivi"
 
-Mostrare:
-```text
-┌────────────────────────────────────────────┐
-│  📊 Le Tue Habits (5/12 completate)        │
-├────────────────────────────────────────────┤
-│  ✅ 🧘 Meditazione     │  ⏳ 💪 Esercizio  │
-│  ✅ 💊 Vitamine        │  ⏳ 💧 Acqua 5/8  │
-│  ❌ 🍔 No Junk Food    │  ⏳ 🧘 Yoga       │
-│  [Espandi per dettagli]                    │
-└────────────────────────────────────────────┘
-```
+#### 1.2 Tab "Daily Tracker" (Habits)
+**File**: `src/components/objectives/DailyTrackerTabContent.tsx`
+- Rimuovere pulsante "Aggiungi"
+- Rimuovere `HabitQuizModal`
+- Rimuovere apertura di `HabitBatchModal` per aggiornamento manuale
+- Mantenere solo visualizzazione read-only delle habits
+- Eccezione: habits con `data_source: 'auto_sync'` mostrano ancora status auto-sincronizzato
 
-**2.2 Modal di Inserimento Batch**
-- Cliccando sulla griglia si apre un modal veloce
-- Tutte le habits in una lista scrollabile
-- Toggle/Counter rapidi per ogni voce
-- Un solo "Salva tutto" alla fine
+#### 1.3 Home Check-in Grid
+**File**: `src/components/home/SmartCheckinSection.tsx`
+- Rimuovere items di tipo `habit` dalla griglia (eccetto auto_sync)
+- Rimuovere items di tipo `objective` dalla griglia
+- Mantenere solo: vitals, emotions, life_areas, psychology
 
-### Fase 3: Chiarimento Traguardi vs Habits
+#### 1.4 Sezione Habits Home (se esiste separatamente)
+**File**: `src/components/habits/HabitTrackerSection.tsx`
+- Rimuovere completamente o convertire a read-only display
 
-**3.1 Tooltip/Info Esplicativo**
+### Fase 2: Potenziamento AI per Gestione Habits/Obiettivi
+
+#### 2.1 Aggiornamento `process-session`
+**File**: `supabase/functions/process-session/index.ts`
+
+Aggiungere istruzioni specifiche per:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  🎯 TRAGUARDI                                               │
-│  Obiettivi a lungo termine con un punto di arrivo          │
-│  Es: "Perdere 5kg", "Risparmiare €2000", "Smettere fumare" │
-│                                                             │
-│  📊 DAILY TRACKER                                           │
-│  Abitudini ricorrenti da fare ogni giorno                  │
-│  Es: "Meditare", "8 bicchieri d'acqua", "No social media"  │
-└─────────────────────────────────────────────────────────────┘
+═══════════════════════════════════════════════
+🔄 GESTIONE HABITS VIA CONVERSAZIONE
+═══════════════════════════════════════════════
+
+RILEVAMENTO NUOVE HABITS:
+Quando l'utente dice:
+- "Voglio iniziare a meditare ogni giorno"
+- "Devo smettere di fumare"
+- "Voglio bere più acqua"
+
+→ Aggiungi a "habits_to_create":
+{
+  "habit_type": "meditation|cigarettes|water|...",
+  "label": "Meditazione",
+  "daily_target": 1,
+  "streak_type": "daily|abstain",
+  "input_method": "toggle|counter|abstain",
+  "update_method": "chat", // SEMPRE "chat" per gestione AI
+  "ai_confirmation_needed": true
+}
+
+AGGIORNAMENTO PROGRESSI HABITS:
+Quando l'utente dice:
+- "Oggi ho meditato 20 minuti"
+- "Ho bevuto 6 bicchieri d'acqua"  
+- "Non ho fumato oggi!"
+- "Ieri sono andato in palestra"
+
+→ Aggiungi a "habits_to_update":
+{
+  "habit_type": "meditation",
+  "value": 20,
+  "date": "YYYY-MM-DD", // Oggi o data menzionata
+  "note": "Sessione mattutina"
+}
+
+REGOLE:
+- update_method = "chat" significa che l'habit si aggiorna SOLO tramite conversazione
+- Aria deve CONFERMARE prima di creare nuove habits
+- Aria deve CELEBRARE quando l'utente completa habits
 ```
 
-**3.2 Suggerimento Automatico**
-- Quando l'utente crea qualcosa, Aria suggerisce la categoria giusta
-- "Fumare meno" → Traguardo (obiettivo decrescente)
-- "Non fumare oggi" → Habit (abstain giornaliero)
+#### 2.2 Nuovo Endpoint per Creazione AI-Driven
+**File**: `supabase/functions/process-session/index.ts` (estensione)
 
-### Fase 4: Raccolta Dati Proattiva via Chat
+Aggiungere logica per:
+1. Salvare automaticamente habits rilevate con `ai_confirmation_needed: true`
+2. Inserire in `pending_habit_suggestions` o creare direttamente se esplicito
+3. Salvare aggiornamenti habits in `daily_habits` quando menzionati
 
-**4.1 Weekly Summary Questions**
-Per habits con update_method='chat', Aria chiede durante le sessioni:
+#### 2.3 Aggiornamento `ai-chat` per Risposte Contestuali
+**File**: `supabase/functions/ai-chat/index.ts`
+
+Aggiungere al system prompt di Aria:
 
 ```text
-Aria: "A proposito, come sta andando con il cardio? 
-       Quante volte l'hai fatto questa settimana?"
+GESTIONE OBIETTIVI E HABITS:
+- Tu sei l'UNICO modo per creare e aggiornare habits/obiettivi
+- Quando l'utente menziona progressi, REGISTRALI attivamente
+- Quando rilevi un nuovo obiettivo/habit, CHIEDI conferma:
+  "Ho capito che vuoi [X]. Vuoi che lo aggiunga ai tuoi traguardi?"
+- Quando l'utente aggiorna un progresso, CELEBRA e conferma:
+  "Perfetto! Ho registrato [X]. Ottimo lavoro!"
 ```
 
-**4.2 Backfill Intelligente**
-Se l'utente non ha loggato per 2-3 giorni:
+### Fase 3: Nuovo Flusso Dati
 
+#### 3.1 Schema Output `process-session`
+Aggiungere al JSON di output:
+
+```typescript
+interface ProcessSessionOutput {
+  // ... existing fields ...
+  
+  // NUOVO: Habits gestite da AI
+  habits_to_create?: {
+    habit_type: string;
+    label: string;
+    daily_target: number;
+    streak_type: 'daily' | 'abstain';
+    needs_user_confirmation: boolean;
+  }[];
+  
+  habits_to_update?: {
+    habit_type: string;
+    value: number;
+    date: string;
+    note?: string;
+  }[];
+  
+  // NUOVO: Flag per indicare che l'utente ha confermato
+  user_confirmed_habit?: string; // habit_type confermato
+}
+```
+
+#### 3.2 Persistenza Automatica
+In `process-session`, dopo l'analisi AI:
+
+```typescript
+// Salva aggiornamenti habits
+if (habits_to_update?.length > 0) {
+  for (const update of habits_to_update) {
+    await supabase.from('daily_habits').upsert({
+      user_id,
+      date: update.date,
+      habit_type: update.habit_type,
+      value: update.value,
+      notes: update.note
+    }, { onConflict: 'user_id,date,habit_type' });
+  }
+}
+```
+
+### Fase 4: UI Read-Only Migliorata
+
+#### 4.1 Nuovo `HabitDisplayCard` (read-only)
+**File**: `src/components/habits/HabitDisplayCard.tsx` (nuovo)
+
+```tsx
+// Card che mostra:
+// - Icona + Nome habit
+// - Valore attuale / Target
+// - Streak corrente
+// - "Ultimo aggiornamento via Aria"
+// - NO pulsanti di modifica
+```
+
+#### 4.2 Nuovo `ObjectiveDisplayCard` (read-only)
+Modificare `ObjectiveCard.tsx` per:
+- Rimuovere menu azioni (modifica, elimina)
+- Rimuovere click per aggiornare progresso
+- Aggiungere badge "Gestito da Aria"
+- Mantenere solo visualizzazione progresso
+
+#### 4.3 Call-to-Action per Aria
+In entrambe le tab, aggiungere sezione:
+
+```tsx
+<div className="text-center p-4 bg-glass rounded-2xl">
+  <Sparkles className="w-6 h-6 text-primary mx-auto mb-2" />
+  <p className="text-sm text-muted-foreground">
+    Parla con Aria per aggiornare i tuoi progressi
+  </p>
+  <Button onClick={navigateToAria}>
+    Vai ad Aria
+  </Button>
+</div>
+```
+
+---
+
+## File da Modificare/Eliminare
+
+| File | Azione |
+|------|--------|
+| `ObjectivesTabContent.tsx` | Rimuovere creazione manuale, rendere read-only |
+| `DailyTrackerTabContent.tsx` | Rimuovere creazione/update manuale |
+| `ObjectiveQuizModal.tsx` | **ELIMINARE** |
+| `ObjectiveCreationChat.tsx` | **ELIMINARE** |
+| `HabitQuizModal.tsx` | **ELIMINARE** |
+| `HabitCreationChat.tsx` | **ELIMINARE** |
+| `HabitBatchModal.tsx` | **ELIMINARE** o convertire a read-only |
+| `ProgressUpdateModal.tsx` | **ELIMINARE** |
+| `SmartCheckinSection.tsx` | Rimuovere items habit/objective |
+| `HabitTrackerSection.tsx` | Rimuovere o convertire a read-only |
+| `CompactHabitGrid.tsx` | Convertire a read-only |
+| `process-session/index.ts` | Aggiungere logica habits/objectives |
+| `ai-chat/index.ts` | Aggiungere istruzioni gestione |
+| `create-habit-chat/index.ts` | **ELIMINARE** |
+| `create-objective-chat/index.ts` | **ELIMINARE** |
+
+---
+
+## Eccezioni: Habits Auto-Sync
+
+Le seguenti habits mantengono il tracking automatico:
+- `steps` (Passi) - da Health Kit/Google Fit
+- `heart_rate` (Battito) - da wearable
+- `exercise` (Esercizio) - da fitness app
+- `cycling` (Ciclismo) - da GPS
+
+Per queste:
+- `data_source: 'auto_sync'` nel database
+- Mostrano badge "Sincronizzato automaticamente"
+- Non richiedono interazione utente né Aria
+
+---
+
+## Istruzioni AI Dettagliate
+
+### Per Rilevamento Obiettivi
 ```text
-Aria: "Non ti ho sentito per qualche giorno! 
-       Vuoi fare un rapido recap di come sono andati 
-       questi giorni con le tue abitudini?"
+PATTERN DA RICONOSCERE:
+- "Vorrei [verbo]" → Potenziale obiettivo
+- "Devo [verbo]" → Potenziale obiettivo urgente
+- "Il mio obiettivo è..." → Obiettivo esplicito
+- Numeri + unità ("5kg", "1000€") → Target value
+
+AZIONE:
+1. Estrai categoria (body/finance/study/work/relationships/growth)
+2. Estrai target_value se presente
+3. Chiedi conferma: "Vuoi che aggiunga '[titolo]' ai tuoi traguardi?"
 ```
 
-### Fase 5: Schema Database (Retroattività)
+### Per Aggiornamento Progressi
+```text
+PATTERN DA RICONOSCERE:
+- "Oggi ho [azione passata]"
+- "Ieri sono [azione]"
+- "Peso Xkg" (per obiettivi body)
+- "Ho risparmiato X€" (per obiettivi finance)
 
-**5.1 Nuova Colonna per Status**
-```sql
-ALTER TABLE daily_habits 
-ADD COLUMN entry_source TEXT DEFAULT 'same_day';
--- Values: 'same_day', 'next_day_recap', 'weekly_summary', 'chat_detected'
+AZIONE:
+1. Identifica quale obiettivo/habit aggiornare
+2. Estrai valore numerico
+3. Salva automaticamente
+4. Conferma: "Registrato! Sei a X% del tuo obiettivo."
 ```
 
-Questo permette di distinguere dati "certi" (inseriti lo stesso giorno) da dati "ricordati" (inseriti dopo).
+---
 
-## Dettagli Tecnici
+## Timeline Implementazione
 
-### File da Modificare
+1. **Fase 1** (UI): ~30 minuti
+2. **Fase 2** (AI): ~45 minuti  
+3. **Fase 3** (Flusso dati): ~30 minuti
+4. **Fase 4** (Polish): ~15 minuti
 
-1. `src/hooks/usePersonalizedCheckins.tsx`
-   - Aggiungere logica temporale (mattina vs sera)
-   - Generare domande su IERI se è mattina
+**Totale stimato**: ~2 ore
 
-2. `src/components/objectives/DailyTrackerTabContent.tsx`
-   - Sostituire cards individuali con griglia compatta
-   - Aggiungere modal batch input
+---
 
-3. `supabase/functions/ai-checkins/index.ts`
-   - Modificare prompt per considerare l'ora del giorno
-   - Generare domande retroattive per ieri
+## Rischi e Mitigazioni
 
-4. `src/pages/Objectives.tsx`
-   - Aggiungere tooltip esplicativo per le due tab
-
-### Nuovi Componenti
-
-1. `src/components/habits/HabitBatchModal.tsx` - Modal per inserimento multiplo
-2. `src/components/habits/CompactHabitGrid.tsx` - Griglia compatta habits
-3. `src/components/home/YesterdayRecapSection.tsx` - Sezione recap ieri
-
-## Risultato Atteso
-
-**Per l'utente:**
-1. Apre app alle 7am → Vede domande su IERI + sonno/vitamine
-2. Apre app alle 19pm → Vede domande su OGGI
-3. Non apre app per 2 giorni → Aria chiede recap in chat
-4. Daily Tracker → Pagina compatta con griglia, non 20 cards separate
-5. Chiara distinzione: Traguardi = obiettivi finali, Habits = routine quotidiane
-
-**Per i dati:**
-1. Più dati raccolti grazie al sistema retroattivo
-2. Dati taggati per fonte (stesso giorno vs recap)
-3. Habits con update_method='chat' vengono chieste durante conversazioni
+| Rischio | Mitigazione |
+|---------|-------------|
+| Utente non sa come aggiornare | Messaggi chiari + CTA "Parla con Aria" |
+| AI non rileva correttamente | Istruzioni dettagliate nel prompt |
+| Perdita dati esistenti | Nessuna migrazione DB, solo UI |
+| Habits auto_sync non funzionano | Eccezione esplicita nel codice |
