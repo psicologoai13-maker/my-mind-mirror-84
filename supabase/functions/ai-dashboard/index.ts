@@ -176,34 +176,51 @@ serve(async (req) => {
       });
     }
 
-    const avgVitals = {
-      mood: sessions.length > 0 ? sessions.reduce((sum, s) => sum + (s.mood_score_detected || 0), 0) / sessions.length : null,
-      anxiety: sessions.length > 0 ? sessions.reduce((sum, s) => sum + (s.anxiety_score_detected || 0), 0) / sessions.length : null,
+    // 🎯 CRITICAL: Use MOST RECENT values, not averages!
+    // This ensures consistency with what the Focus Cards display
+    // The frontend uses getMostRecentVital() which returns the first non-zero value
+    // The AI should evaluate the user's CURRENT state, not historical average
+    
+    const getMostRecent = <T>(arr: T[], getter: (item: T) => number | null): number | null => {
+      for (const item of arr) {
+        const val = getter(item);
+        if (val !== null && val > 0) return val;
+      }
+      return null;
     };
 
-    const avgEmotions = {
-      joy: emotions.length > 0 ? emotions.reduce((sum, e) => sum + (e.joy || 0), 0) / emotions.length : null,
-      sadness: emotions.length > 0 ? emotions.reduce((sum, e) => sum + (e.sadness || 0), 0) / emotions.length : null,
-      anger: emotions.length > 0 ? emotions.reduce((sum, e) => sum + (e.anger || 0), 0) / emotions.length : null,
-      fear: emotions.length > 0 ? emotions.reduce((sum, e) => sum + (e.fear || 0), 0) / emotions.length : null,
-      apathy: emotions.length > 0 ? emotions.reduce((sum, e) => sum + (e.apathy || 0), 0) / emotions.length : null,
+    // Sessions are already sorted DESC by start_time
+    const mostRecentVitals = {
+      mood: getMostRecent(sessions, s => s.mood_score_detected),
+      anxiety: getMostRecent(sessions, s => s.anxiety_score_detected),
     };
 
-    const avgLifeAreas = {
-      love: lifeAreas.length > 0 ? lifeAreas.reduce((sum, l) => sum + (l.love || 0), 0) / lifeAreas.length : null,
-      work: lifeAreas.length > 0 ? lifeAreas.reduce((sum, l) => sum + (l.work || 0), 0) / lifeAreas.length : null,
-      health: lifeAreas.length > 0 ? lifeAreas.reduce((sum, l) => sum + (l.health || 0), 0) / lifeAreas.length : null,
-      social: lifeAreas.length > 0 ? lifeAreas.reduce((sum, l) => sum + (l.social || 0), 0) / lifeAreas.length : null,
-      growth: lifeAreas.length > 0 ? lifeAreas.reduce((sum, l) => sum + (l.growth || 0), 0) / lifeAreas.length : null,
+    // Emotions sorted DESC by date (newest first)
+    const mostRecentEmotions = {
+      joy: getMostRecent(emotions, e => e.joy),
+      sadness: getMostRecent(emotions, e => e.sadness),
+      anger: getMostRecent(emotions, e => e.anger),
+      fear: getMostRecent(emotions, e => e.fear),
+      apathy: getMostRecent(emotions, e => e.apathy),
     };
 
-    const avgPsychology = {
-      rumination: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.rumination || 0), 0) / psychology.length : null,
-      burnout_level: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.burnout_level || 0), 0) / psychology.length : null,
-      somatic_tension: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.somatic_tension || 0), 0) / psychology.length : null,
-      self_efficacy: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.self_efficacy || 0), 0) / psychology.length : null,
-      mental_clarity: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.mental_clarity || 0), 0) / psychology.length : null,
-      gratitude: psychology.length > 0 ? psychology.reduce((sum, p) => sum + (p.gratitude || 0), 0) / psychology.length : null,
+    // Life areas sorted DESC by date (newest first)
+    const mostRecentLifeAreas = {
+      love: getMostRecent(lifeAreas, l => l.love),
+      work: getMostRecent(lifeAreas, l => l.work),
+      health: getMostRecent(lifeAreas, l => l.health),
+      social: getMostRecent(lifeAreas, l => l.social),
+      growth: getMostRecent(lifeAreas, l => l.growth),
+    };
+
+    // Psychology sorted DESC by date (newest first)
+    const mostRecentPsychology = {
+      rumination: getMostRecent(psychology, p => p.rumination),
+      burnout_level: getMostRecent(psychology, p => p.burnout_level),
+      somatic_tension: getMostRecent(psychology, p => p.somatic_tension),
+      self_efficacy: getMostRecent(psychology, p => p.self_efficacy),
+      mental_clarity: getMostRecent(psychology, p => p.mental_clarity),
+      gratitude: getMostRecent(psychology, p => p.gratitude),
     };
 
     const recentSummaries = sessions.slice(0, 3).map(s => s.ai_summary).filter(Boolean);
@@ -310,35 +327,35 @@ Rispondi SOLO in JSON valido:
   ]
 }`;
 
-    const userMessage = `Dati utente ultimi 7 giorni:
+    const userMessage = `Dati utente (valori PIÙ RECENTI disponibili):
 
 OBIETTIVI SELEZIONATI: ${userGoals.length > 0 ? userGoals.join(', ') : 'Nessuno'}
 
-VITALI (media 1-10):
-- Umore: ${avgVitals.mood?.toFixed(1) || 'N/D'}
-- Ansia: ${avgVitals.anxiety?.toFixed(1) || 'N/D'}
+VITALI (1-10, più recente):
+- Umore: ${mostRecentVitals.mood || 'N/D'}
+- Ansia: ${mostRecentVitals.anxiety || 'N/D'}
 
-EMOZIONI (media 1-10):
-- Gioia: ${avgEmotions.joy?.toFixed(1) || 'N/D'}
-- Tristezza: ${avgEmotions.sadness?.toFixed(1) || 'N/D'}
-- Rabbia: ${avgEmotions.anger?.toFixed(1) || 'N/D'}
-- Paura: ${avgEmotions.fear?.toFixed(1) || 'N/D'}
-- Apatia: ${avgEmotions.apathy?.toFixed(1) || 'N/D'}
+EMOZIONI (1-10, più recente):
+- Gioia: ${mostRecentEmotions.joy || 'N/D'}
+- Tristezza: ${mostRecentEmotions.sadness || 'N/D'}
+- Rabbia: ${mostRecentEmotions.anger || 'N/D'}
+- Paura: ${mostRecentEmotions.fear || 'N/D'}
+- Apatia: ${mostRecentEmotions.apathy || 'N/D'}
 
-AREE VITA (media 1-10):
-- Amore: ${avgLifeAreas.love?.toFixed(1) || 'N/D'}
-- Lavoro: ${avgLifeAreas.work?.toFixed(1) || 'N/D'}
-- Salute: ${avgLifeAreas.health?.toFixed(1) || 'N/D'}
-- Socialità: ${avgLifeAreas.social?.toFixed(1) || 'N/D'}
-- Crescita: ${avgLifeAreas.growth?.toFixed(1) || 'N/D'}
+AREE VITA (1-10, più recente):
+- Amore: ${mostRecentLifeAreas.love || 'N/D'}
+- Lavoro: ${mostRecentLifeAreas.work || 'N/D'}
+- Salute: ${mostRecentLifeAreas.health || 'N/D'}
+- Socialità: ${mostRecentLifeAreas.social || 'N/D'}
+- Crescita: ${mostRecentLifeAreas.growth || 'N/D'}
 
-PSICOLOGIA PROFONDA (media 1-10):
-- Ruminazione: ${avgPsychology.rumination?.toFixed(1) || 'N/D'}
-- Burnout: ${avgPsychology.burnout_level?.toFixed(1) || 'N/D'}
-- Tensione somatica: ${avgPsychology.somatic_tension?.toFixed(1) || 'N/D'}
-- Autoefficacia: ${avgPsychology.self_efficacy?.toFixed(1) || 'N/D'}
-- Chiarezza mentale: ${avgPsychology.mental_clarity?.toFixed(1) || 'N/D'}
-- Gratitudine: ${avgPsychology.gratitude?.toFixed(1) || 'N/D'}
+PSICOLOGIA PROFONDA (1-10, più recente):
+- Ruminazione: ${mostRecentPsychology.rumination || 'N/D'}
+- Burnout: ${mostRecentPsychology.burnout_level || 'N/D'}
+- Tensione somatica: ${mostRecentPsychology.somatic_tension || 'N/D'}
+- Autoefficacia: ${mostRecentPsychology.self_efficacy || 'N/D'}
+- Chiarezza mentale: ${mostRecentPsychology.mental_clarity || 'N/D'}
+- Gratitudine: ${mostRecentPsychology.gratitude || 'N/D'}
 
 RIASSUNTI SESSIONI RECENTI:
 ${recentSummaries.length > 0 ? recentSummaries.join('\n---\n') : 'Nessuna sessione recente'}
@@ -410,28 +427,28 @@ Genera la configurazione dashboard personalizzata.`;
       };
     }
 
-    // Add current values to metrics
+    // Add current values to metrics (using most recent, not averages)
     const metricValues: Record<string, number> = {
-      mood: avgVitals.mood || 0,
-      anxiety: avgVitals.anxiety || 0,
-      energy: avgVitals.mood ? avgVitals.mood * 0.8 : 0,
+      mood: mostRecentVitals.mood || 0,
+      anxiety: mostRecentVitals.anxiety || 0,
+      energy: mostRecentVitals.mood ? mostRecentVitals.mood * 0.8 : 0,
       sleep: 0,
-      joy: avgEmotions.joy || 0,
-      sadness: avgEmotions.sadness || 0,
-      anger: avgEmotions.anger || 0,
-      fear: avgEmotions.fear || 0,
-      apathy: avgEmotions.apathy || 0,
-      love: avgLifeAreas.love || 0,
-      work: avgLifeAreas.work || 0,
-      health: avgLifeAreas.health || 0,
-      social: avgLifeAreas.social || 0,
-      growth: avgLifeAreas.growth || 0,
-      rumination: avgPsychology.rumination || 0,
-      burnout_level: avgPsychology.burnout_level || 0,
-      somatic_tension: avgPsychology.somatic_tension || 0,
-      self_efficacy: avgPsychology.self_efficacy || 0,
-      mental_clarity: avgPsychology.mental_clarity || 0,
-      gratitude: avgPsychology.gratitude || 0,
+      joy: mostRecentEmotions.joy || 0,
+      sadness: mostRecentEmotions.sadness || 0,
+      anger: mostRecentEmotions.anger || 0,
+      fear: mostRecentEmotions.fear || 0,
+      apathy: mostRecentEmotions.apathy || 0,
+      love: mostRecentLifeAreas.love || 0,
+      work: mostRecentLifeAreas.work || 0,
+      health: mostRecentLifeAreas.health || 0,
+      social: mostRecentLifeAreas.social || 0,
+      growth: mostRecentLifeAreas.growth || 0,
+      rumination: mostRecentPsychology.rumination || 0,
+      burnout_level: mostRecentPsychology.burnout_level || 0,
+      somatic_tension: mostRecentPsychology.somatic_tension || 0,
+      self_efficacy: mostRecentPsychology.self_efficacy || 0,
+      mental_clarity: mostRecentPsychology.mental_clarity || 0,
+      gratitude: mostRecentPsychology.gratitude || 0,
     };
 
     // Enrich metrics with values
