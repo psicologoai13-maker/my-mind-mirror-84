@@ -54,7 +54,8 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   const allCompleted_ = { ...completedToday, ...locallyCompleted };
 
   const handleItemClick = (item: CheckinItem) => {
-    if (item.key in allCompleted_) return;
+    // Allow repeatable items to be clicked even if already answered
+    if (!item.repeatable && item.key in allCompleted_) return;
     
     startCheckinTimer();
     onStartCheckin?.();
@@ -99,16 +100,50 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     if (error) throw error;
   };
 
-  const saveObjectiveValue = async (objectiveId: string, value: number) => {
-    const { error } = await supabase
-      .from('user_objectives')
-      .update({ 
-        current_value: value,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', objectiveId);
-    
-    if (error) throw error;
+  const saveObjectiveValue = async (objectiveId: string, value: number, isRepeatable?: boolean) => {
+    if (isRepeatable) {
+      // For repeatable objectives (spending, savings), ADD to current value
+      const { data: currentObj, error: fetchError } = await supabase
+        .from('user_objectives')
+        .select('current_value, progress_history')
+        .eq('id', objectiveId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const currentValue = currentObj?.current_value ?? 0;
+      const newValue = currentValue + value;
+      
+      // Add to progress history
+      const history = Array.isArray(currentObj?.progress_history) ? currentObj.progress_history : [];
+      const newHistory = [...history, { 
+        date: new Date().toISOString(), 
+        value: value, // Log the increment, not total
+        note: `+${value}` 
+      }];
+      
+      const { error } = await supabase
+        .from('user_objectives')
+        .update({ 
+          current_value: newValue,
+          progress_history: newHistory,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', objectiveId);
+      
+      if (error) throw error;
+    } else {
+      // For non-repeatable objectives, SET the value directly
+      const { error } = await supabase
+        .from('user_objectives')
+        .update({ 
+          current_value: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', objectiveId);
+      
+      if (error) throw error;
+    }
   };
 
   // Handle 5-option selections (emoji, yesno, intensity, slider)
@@ -249,11 +284,21 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
       if (activeItem.type === 'habit' && activeItem.habitType) {
         await saveHabitValue(activeItem.habitType, counterValue);
       } else if (activeItem.type === 'objective' && activeItem.objectiveId) {
-        await saveObjectiveValue(activeItem.objectiveId, counterValue);
+        await saveObjectiveValue(activeItem.objectiveId, counterValue, activeItem.repeatable);
       }
 
-      completeCheckin(activeItem.key, counterValue);
-      toast.success(`${activeItem.label}: ${counterValue} ${activeItem.unit || ''}`);
+      // For repeatable items, don't mark as completed - just close the input
+      if (activeItem.repeatable) {
+        queryClient.invalidateQueries({ queryKey: ['objectives'] });
+        queryClient.invalidateQueries({ queryKey: ['user-objectives'] });
+        setActiveItem(null);
+        resetInputState();
+        setIsSubmitting(false);
+        toast.success(`+${counterValue} ${activeItem.unit || ''} registrato!`);
+      } else {
+        completeCheckin(activeItem.key, counterValue);
+        toast.success(`${activeItem.label}: ${counterValue} ${activeItem.unit || ''}`);
+      }
       
     } catch (error) {
       console.error('Error saving counter:', error);
@@ -298,13 +343,21 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
       if (activeItem.type === 'habit' && activeItem.habitType) {
         await saveHabitValue(activeItem.habitType, numValue);
       } else if (activeItem.type === 'objective' && activeItem.objectiveId) {
-        await saveObjectiveValue(activeItem.objectiveId, numValue);
-        // Also update progress history
+        await saveObjectiveValue(activeItem.objectiveId, numValue, activeItem.repeatable);
+        queryClient.invalidateQueries({ queryKey: ['objectives'] });
         queryClient.invalidateQueries({ queryKey: ['user-objectives'] });
       }
 
-      completeCheckin(activeItem.key, numValue);
-      toast.success(`${activeItem.label}: ${numValue} ${activeItem.unit || ''}`);
+      // For repeatable items, don't mark as completed - just close the input
+      if (activeItem.repeatable) {
+        setActiveItem(null);
+        resetInputState();
+        setIsSubmitting(false);
+        toast.success(`+${numValue}${activeItem.unit || ''} registrato!`);
+      } else {
+        completeCheckin(activeItem.key, numValue);
+        toast.success(`${activeItem.label}: ${numValue} ${activeItem.unit || ''}`);
+      }
       
     } catch (error) {
       console.error('Error saving numeric:', error);
@@ -379,7 +432,10 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const visibleCheckins = dailyCheckins.filter(item => !(item.key in allCompleted_));
+  // Repeatable items stay visible even if they've been answered today
+  const visibleCheckins = dailyCheckins.filter(item => 
+    item.repeatable || !(item.key in allCompleted_)
+  );
 
   // Loading state
   if (isLoading) {
@@ -749,6 +805,13 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
                 <X className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
+
+            {/* Show question prominently for objectives */}
+            {activeItem.question && activeItem.type === 'objective' && (
+              <p className="text-sm text-muted-foreground text-center mb-4 font-medium">
+                {activeItem.question}
+              </p>
+            )}
 
             {renderActiveInput()}
           </div>

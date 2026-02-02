@@ -393,6 +393,12 @@ serve(async (req) => {
         question = `Hai fatto progressi su "${obj.title}"?`;
       }
 
+      // Determine if this objective is repeatable (can be logged multiple times per day)
+      // Repeatable: spending/saving/income can happen multiple times per day
+      // Non-repeatable: body weight, total accumulation (absolute values)
+      const isRepeatable = obj.category === 'finance' && 
+        ['spending_limit', 'periodic_saving', 'periodic_income'].includes(financeType);
+
       allItems.push({
         key,
         label: obj.title,
@@ -404,6 +410,8 @@ serve(async (req) => {
         target: obj.target_value,
         financeType: financeType, // Pass finance type for UI context
         trackingPeriod: trackingPeriod,
+        repeatable: isRepeatable, // Repeatable items stay visible after response
+        currentValue: obj.current_value, // Pass current value for accumulation
         priority: 90, // Objectives have highest priority
       });
     });
