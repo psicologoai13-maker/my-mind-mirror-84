@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Sparkles, Trash2, ChevronDown } from 'lucide-react';
 import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
@@ -27,20 +26,18 @@ interface ObjectiveCardProps {
   objective: Objective;
   onUpdate?: (id: string, updates: Partial<Objective>) => void;
   onDelete?: (id: string) => void;
-  onAddProgress?: (id: string, value: number, note?: string) => void;
 }
 
 // Circular progress component
 const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ 
   progress, 
-  size = 72 
+  size = 64 
 }) => {
-  const strokeWidth = 6;
+  const strokeWidth = 5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
   
-  // Color based on progress
   const getProgressColor = () => {
     if (progress >= 80) return 'stroke-emerald-500';
     if (progress >= 50) return 'stroke-primary';
@@ -49,17 +46,16 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
   };
 
   const getGlowColor = () => {
-    if (progress >= 80) return 'drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]';
-    if (progress >= 50) return 'drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]';
-    if (progress >= 25) return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]';
+    if (progress >= 80) return 'drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]';
+    if (progress >= 50) return 'drop-shadow-[0_0_6px_rgba(var(--primary-rgb),0.5)]';
+    if (progress >= 25) return 'drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]';
     return '';
   };
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      {/* Background glow */}
       <div className={cn(
-        "absolute inset-0 rounded-full blur-lg opacity-30",
+        "absolute inset-0 rounded-full blur-md opacity-30",
         progress >= 80 ? "bg-emerald-500" :
         progress >= 50 ? "bg-primary" :
         progress >= 25 ? "bg-amber-500" : "bg-muted"
@@ -70,7 +66,6 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
         width={size}
         height={size}
       >
-        {/* Background circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -78,7 +73,6 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
           strokeWidth={strokeWidth}
           className="fill-none stroke-muted/30"
         />
-        {/* Progress circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -93,9 +87,8 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
         />
       </svg>
       
-      {/* Percentage text */}
       <div className="absolute inset-0 flex items-center justify-center z-20">
-        <span className="text-lg font-bold text-foreground">
+        <span className="text-base font-bold text-foreground">
           {Math.round(progress)}%
         </span>
       </div>
@@ -110,50 +103,55 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const categoryConfig = CATEGORY_CONFIG[objective.category];
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
+  const hasProgress = (objective.current_value ?? 0) > (objective.starting_value ?? 0) || 
+                      (objective.ai_progress_estimate ?? 0) > 0 ||
+                      (objective.ai_milestones && objective.ai_milestones.length > 0);
   
-  // Calculate progress - use AI estimate for qualitative goals
+  // Calculate progress
   const progress = hasTarget 
     ? calculateProgress(objective) 
     : (objective.ai_progress_estimate ?? 0);
 
-  // Generate AI explanation based on objective data
-  const getAIExplanation = () => {
+  // Generate summary based on state
+  const getSummary = () => {
+    // If AI feedback exists, use it
     if (objective.ai_feedback) {
       return objective.ai_feedback;
     }
     
-    if (hasTarget) {
-      const current = objective.current_value ?? 0;
-      const target = objective.target_value!;
-      const starting = objective.starting_value ?? 0;
-      const progressMade = Math.abs(current - starting);
-      const totalNeeded = Math.abs(target - starting);
-      
-      if (progress >= 100) {
-        return `🎉 Obiettivo raggiunto! Hai completato ${objective.title.toLowerCase()}.`;
+    // If custom AI description exists
+    if (objective.ai_custom_description) {
+      if (hasProgress && progress > 0) {
+        return `${objective.ai_custom_description} — ${getProgressComment()}`;
       }
-      if (progress >= 75) {
-        return `Sei quasi al traguardo! Manca poco per completare ${objective.title.toLowerCase()}.`;
-      }
-      if (progress >= 50) {
-        return `Buon progresso! Hai superato la metà del percorso verso ${objective.title.toLowerCase()}.`;
-      }
-      if (progress > 0) {
-        return `Hai iniziato il percorso verso ${objective.title.toLowerCase()}. Continua così!`;
-      }
-      return `Inizia a lavorare su ${objective.title.toLowerCase()} parlando con Aria dei tuoi progressi.`;
+      return objective.ai_custom_description;
     }
     
-    // Qualitative objective
-    if (objective.ai_milestones && objective.ai_milestones.length > 0) {
-      const lastMilestone = objective.ai_milestones[objective.ai_milestones.length - 1];
-      return `Ultimo traguardo: "${lastMilestone.milestone}". ${progress >= 50 ? 'Stai facendo ottimi progressi!' : 'Continua così!'}`;
+    // If regular description exists
+    if (objective.description) {
+      if (hasProgress && progress > 0) {
+        return `${objective.description} — ${getProgressComment()}`;
+      }
+      return objective.description;
     }
     
-    return `Parla con Aria per aggiornare i progressi su ${objective.title.toLowerCase()}.`;
+    // Generate default summary
+    if (hasProgress && progress > 0) {
+      return getProgressComment();
+    }
+    
+    return "Parla con Aria per iniziare a tracciare questo obiettivo";
+  };
+
+  const getProgressComment = () => {
+    if (progress >= 100) return "🎉 Obiettivo raggiunto!";
+    if (progress >= 80) return "Quasi al traguardo!";
+    if (progress >= 50) return "Ottimo, più di metà strada!";
+    if (progress >= 25) return "Buon inizio, continua così!";
+    if (progress > 0) return "Hai iniziato il percorso";
+    return "";
   };
 
   const handleDelete = () => {
@@ -177,73 +175,50 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Ambient gradient background based on progress */}
+        {/* Ambient gradient based on progress */}
         <div className={cn(
-          "absolute inset-0 opacity-20 transition-opacity duration-500",
-          progress >= 80 ? "bg-gradient-to-br from-emerald-500/30 to-teal-500/10" :
-          progress >= 50 ? "bg-gradient-to-br from-primary/30 to-primary/5" :
-          progress >= 25 ? "bg-gradient-to-br from-amber-500/30 to-orange-500/10" :
-          "bg-gradient-to-br from-muted/20 to-transparent"
+          "absolute inset-0 opacity-15 transition-opacity duration-500",
+          progress >= 80 ? "bg-gradient-to-br from-emerald-500/40 to-teal-500/10" :
+          progress >= 50 ? "bg-gradient-to-br from-primary/40 to-primary/5" :
+          progress >= 25 ? "bg-gradient-to-br from-amber-500/40 to-orange-500/10" :
+          "bg-gradient-to-br from-muted/30 to-transparent"
         )} />
         
-        {/* Inner light reflection */}
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/8 via-transparent to-transparent pointer-events-none" />
         
         <div className="relative z-10 p-5">
-          {/* Main content row */}
-          <div className="flex items-center gap-4">
-            {/* Category emoji */}
-            <div className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center text-2xl",
-              "bg-gradient-to-br shadow-soft shrink-0",
-              categoryConfig.color.includes('purple') ? 'from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-900/10' :
-              categoryConfig.color.includes('orange') ? 'from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-900/10' :
-              categoryConfig.color.includes('blue') ? 'from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/10' :
-              categoryConfig.color.includes('slate') ? 'from-slate-100 to-slate-50 dark:from-slate-800/30 dark:to-slate-800/10' :
-              categoryConfig.color.includes('pink') ? 'from-pink-100 to-pink-50 dark:from-pink-900/30 dark:to-pink-900/10' :
-              categoryConfig.color.includes('emerald') ? 'from-emerald-100 to-emerald-50 dark:from-emerald-900/30 dark:to-emerald-900/10' :
-              categoryConfig.color.includes('yellow') ? 'from-yellow-100 to-yellow-50 dark:from-yellow-900/30 dark:to-yellow-900/10' :
-              'from-gray-100 to-gray-50 dark:from-gray-800/30 dark:to-gray-800/10'
-            )}>
-              {categoryConfig.emoji}
-            </div>
-            
-            {/* Title and category */}
+          {/* Main row: Title + Circle */}
+          <div className="flex items-start gap-4">
+            {/* Title and summary */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground line-clamp-1 text-base">
+              <h3 className="font-semibold text-foreground text-base leading-tight mb-2">
                 {objective.title}
               </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className={cn("text-xs", categoryConfig.color)}>
-                  {categoryConfig.label}
-                </Badge>
-                {!hasTarget && objective.ai_progress_estimate !== null && (
-                  <div className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-primary" />
-                    <span className="text-[10px] text-primary font-medium">AI</span>
-                  </div>
-                )}
-              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                {getSummary()}
+              </p>
             </div>
             
             {/* Circular progress */}
-            <CircularProgress progress={progress} size={72} />
+            <div className="shrink-0">
+              <CircularProgress progress={progress} size={64} />
+            </div>
             
-            {/* Menu button - stop propagation */}
+            {/* Menu button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl shrink-0 -mr-1 -mt-1">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[180px]">
+              <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[160px]">
                 {onUpdate && objective.status === 'active' && (
                   <DropdownMenuItem onClick={(e) => {
                     e.stopPropagation();
                     onUpdate(objective.id, { status: 'achieved' });
                   }}>
                     <Target className="h-4 w-4 mr-2" />
-                    Segna come raggiunto
+                    Raggiunto
                   </DropdownMenuItem>
                 )}
                 {onUpdate && objective.status === 'active' && (
@@ -251,7 +226,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                     e.stopPropagation();
                     onUpdate(objective.id, { status: 'paused' });
                   }}>
-                    Metti in pausa
+                    In pausa
                   </DropdownMenuItem>
                 )}
                 {onUpdate && objective.status === 'paused' && (
@@ -280,16 +255,16 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </div>
           
           {/* Expand indicator */}
-          <div className="flex justify-center mt-2">
+          <div className="flex justify-center mt-3">
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ duration: 0.2 }}
             >
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground/50" />
             </motion.div>
           </div>
           
-          {/* Expandable AI explanation */}
+          {/* Expandable details */}
           <AnimatePresence>
             {isExpanded && (
               <motion.div
@@ -299,23 +274,23 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="pt-4 mt-3 border-t border-glass-border">
-                  {/* AI explanation card */}
+                <div className="pt-4 mt-2 border-t border-glass-border/50">
+                  {/* AI insight card */}
                   <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-xl bg-gradient-aria flex items-center justify-center shrink-0 shadow-aria-glow">
                         <Sparkles className="w-4 h-4 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-primary mb-1">Aria dice:</p>
+                        <p className="text-xs font-medium text-primary mb-1">Aria dice:</p>
                         <p className="text-sm text-foreground leading-relaxed">
-                          {getAIExplanation()}
+                          {objective.ai_feedback || getDetailedExplanation()}
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Milestones if available */}
+                  {/* Milestones */}
                   {objective.ai_milestones && objective.ai_milestones.length > 0 && (
                     <div className="mt-3 space-y-2">
                       <p className="text-xs font-medium text-muted-foreground">Traguardi raggiunti</p>
@@ -329,13 +304,6 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                       </div>
                     </div>
                   )}
-                  
-                  {/* Description if available */}
-                  {(objective.ai_custom_description || objective.description) && (
-                    <p className="text-xs text-muted-foreground mt-3 italic">
-                      {objective.ai_custom_description || objective.description}
-                    </p>
-                  )}
                 </div>
               </motion.div>
             )}
@@ -343,7 +311,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         </div>
       </motion.div>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
@@ -365,6 +333,40 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
       </AlertDialog>
     </>
   );
+  
+  function getDetailedExplanation() {
+    if (hasTarget) {
+      const current = objective.current_value ?? 0;
+      const target = objective.target_value!;
+      const starting = objective.starting_value ?? 0;
+      
+      if (progress >= 100) {
+        return `Complimenti! Hai raggiunto il tuo obiettivo di ${target}${objective.unit ? ' ' + objective.unit : ''}. Un traguardo importante! 🎉`;
+      }
+      if (progress >= 75) {
+        return `Sei al ${Math.round(progress)}%, manca poco! Continua così per raggiungere ${target}${objective.unit ? ' ' + objective.unit : ''}.`;
+      }
+      if (progress >= 50) {
+        return `Ottimo progresso! Sei oltre la metà del percorso. Attualmente a ${current}${objective.unit ? ' ' + objective.unit : ''} su ${target}.`;
+      }
+      if (progress > 0) {
+        return `Hai iniziato bene! Sei a ${current}${objective.unit ? ' ' + objective.unit : ''}, continua a lavorare verso ${target}.`;
+      }
+      return `Inizia a tracciare i tuoi progressi verso ${target}${objective.unit ? ' ' + objective.unit : ''}. Raccontami come sta andando!`;
+    }
+    
+    // Qualitative
+    if (progress >= 75) {
+      return "Stai facendo progressi eccellenti verso questo obiettivo!";
+    }
+    if (progress >= 50) {
+      return "Buoni progressi! Continua così, sei sulla strada giusta.";
+    }
+    if (progress > 0) {
+      return "Hai iniziato il tuo percorso. Raccontami i tuoi progressi per aggiornare la valutazione.";
+    }
+    return "Parla con me per iniziare a tracciare questo obiettivo e ricevere feedback personalizzato.";
+  }
 };
 
 export default ObjectiveCard;
