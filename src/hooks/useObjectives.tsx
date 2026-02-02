@@ -56,6 +56,7 @@ export interface Objective {
 }
 
 // Helper to calculate true progress considering starting point
+// Handles both increasing (gain weight, save money) and decreasing (lose weight, smoke less) goals
 export function calculateProgress(objective: Objective): number {
   const current = objective.current_value ?? 0;
   const target = objective.target_value;
@@ -63,23 +64,26 @@ export function calculateProgress(objective: Objective): number {
 
   if (target === null || target === undefined) return 0;
   
-  // For body objectives (weight, etc.) - use transformation calculation (from X to Y)
-  // For finance accumulation/debt - also use transformation
-  const isTransformation = objective.category === 'body' || 
-    (objective.category === 'finance' && 
-     ['accumulation', 'debt_reduction'].includes(objective.finance_tracking_type || ''));
-  
-  if (isTransformation && start !== null && start !== undefined) {
-    // Transformation: progress from starting point to target
-    const totalDistance = target - start;
-    if (totalDistance === 0) return current >= target ? 100 : 0;
+  // If starting_value is defined, it's a transformation goal (from X to Y)
+  // This works for BOTH increasing AND decreasing goals:
+  // - Increasing: start=60kg, target=70kg, current=65kg → 50%
+  // - Decreasing: start=5 cigarettes, target=2, current=3 → 66.7%
+  if (start !== null && start !== undefined) {
+    const totalDistance = target - start; // Can be positive (increasing) or negative (decreasing)
+    
+    if (totalDistance === 0) {
+      // Edge case: start equals target
+      return current === target ? 100 : 0;
+    }
     
     const progressDistance = current - start;
     const progress = (progressDistance / totalDistance) * 100;
+    
+    // Clamp between 0 and 100
     return Math.min(100, Math.max(0, progress));
   }
   
-  // Counter/milestone objectives: simple ratio (current / target)
+  // Counter/milestone objectives without starting_value: simple ratio (current / target)
   // E.g., "5 ragazze" where current=1 target=5 → 20%
   return Math.min(100, Math.max(0, (current / target) * 100));
 }
