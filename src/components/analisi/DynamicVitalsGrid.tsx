@@ -3,6 +3,7 @@ import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VitalMetricConfig } from '@/lib/chartLibrary';
+import CompactTimeSelector, { TimeRange } from './CompactTimeSelector';
 
 interface VitalData {
   value: number | null;
@@ -13,6 +14,8 @@ interface VitalData {
 interface DynamicVitalsGridProps {
   metrics: VitalMetricConfig[];
   data: Record<string, VitalData>;
+  timeRange?: TimeRange;
+  onTimeRangeChange?: (range: TimeRange) => void;
   onMetricClick?: (key: string) => void;
 }
 
@@ -117,6 +120,8 @@ const DynamicVitalCard: React.FC<{
 const DynamicVitalsGrid: React.FC<DynamicVitalsGridProps> = ({
   metrics,
   data,
+  timeRange,
+  onTimeRangeChange,
   onMetricClick,
 }) => {
   if (metrics.length === 0) {
@@ -133,10 +138,15 @@ const DynamicVitalsGrid: React.FC<DynamicVitalsGridProps> = ({
         <h2 className="font-display font-semibold text-foreground flex items-center gap-2">
           <span>💫</span> Parametri Vitali
         </h2>
-        <span className="px-2 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full flex items-center gap-1">
-          <Sparkles className="w-3 h-3" />
-          Personalizzati
-        </span>
+        <div className="flex items-center gap-2">
+          {timeRange && onTimeRangeChange && (
+            <CompactTimeSelector value={timeRange} onChange={onTimeRangeChange} />
+          )}
+          <span className="px-2 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            AI
+          </span>
+        </div>
       </div>
       
       <div className={cn(
