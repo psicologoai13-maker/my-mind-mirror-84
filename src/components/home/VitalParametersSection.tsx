@@ -44,7 +44,7 @@ const VitalParametersSection: React.FC = () => {
           label="Ansia"
           value={vitalsPercentage.anxiety}
           color="anxiety"
-          icon="💭"
+          icon="🧠"
           subtitle={getAnxietyLabel(vitalsPercentage.anxiety)}
         />
         <VitalParameterCard
