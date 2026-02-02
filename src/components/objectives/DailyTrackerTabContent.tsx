@@ -1,20 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useHabits, HABIT_TYPES, getHabitMeta } from '@/hooks/useHabits';
 import { Button } from '@/components/ui/button';
-import { Sparkles, MessageCircle, RefreshCw, Check, Clock, X, AlertCircle } from 'lucide-react';
+import { Sparkles, MessageCircle, RefreshCw, Check, Clock, X, AlertCircle, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical } from 'lucide-react';
 
-// Read-only habit display card
+// Read-only habit display card with delete option
 interface HabitDisplayProps {
   habit: ReturnType<typeof useHabits>['habits'][0];
+  onDelete: (habitType: string) => void;
 }
 
-const HabitDisplayCard: React.FC<HabitDisplayProps> = ({ habit }) => {
+const HabitDisplayCard: React.FC<HabitDisplayProps> = ({ habit, onDelete }) => {
   const habitMeta = getHabitMeta(habit.habit_type) || HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
   const isAbstain = habit.streak_type === 'abstain';
-  // Check if it's an auto-sync habit from the metadata
   const isAutoSync = habitMeta?.inputMethod === 'auto_sync';
   const target = habit.daily_target || habitMeta?.defaultTarget || 1;
   
@@ -83,6 +100,26 @@ const HabitDisplayCard: React.FC<HabitDisplayProps> = ({ habit }) => {
             🔥 {habit.streak}
           </div>
         )}
+
+        {/* Delete menu - only for non-auto-sync */}
+        {!isAutoSync && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuItem 
+                onClick={() => onDelete(habit.habit_type)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Elimina
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       
       {/* Auto-sync badge */}
@@ -99,7 +136,15 @@ const HabitDisplayCard: React.FC<HabitDisplayProps> = ({ habit }) => {
 
 const DailyTrackerTabContent: React.FC = () => {
   const navigate = useNavigate();
-  const { habits, isLoading } = useHabits();
+  const { habits, isLoading, removeHabit } = useHabits();
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (deleteConfirm) {
+      await removeHabit.mutateAsync(deleteConfirm);
+      setDeleteConfirm(null);
+    }
+  };
 
   // Calculate stats
   const completedToday = habits.filter(h => {
@@ -192,7 +237,11 @@ const DailyTrackerTabContent: React.FC = () => {
                   Sincronizzate automaticamente
                 </p>
                 {autoSyncHabits.map(habit => (
-                  <HabitDisplayCard key={habit.habit_type} habit={habit} />
+                  <HabitDisplayCard 
+                    key={habit.habit_type} 
+                    habit={habit} 
+                    onDelete={(habitType) => setDeleteConfirm(habitType)}
+                  />
                 ))}
               </>
             )}
@@ -206,7 +255,11 @@ const DailyTrackerTabContent: React.FC = () => {
                   </p>
                 )}
                 {manualHabits.map(habit => (
-                  <HabitDisplayCard key={habit.habit_type} habit={habit} />
+                  <HabitDisplayCard 
+                    key={habit.habit_type} 
+                    habit={habit} 
+                    onDelete={(habitType) => setDeleteConfirm(habitType)}
+                  />
                 ))}
               </>
             )}
@@ -238,6 +291,27 @@ const DailyTrackerTabContent: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questa habit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La habit verrà disattivata. Potrai riattivarla parlando con Aria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

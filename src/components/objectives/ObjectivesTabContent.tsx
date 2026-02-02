@@ -1,20 +1,40 @@
-import React from 'react';
-import { Target, Trophy, Loader2, Sparkles, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Target, Trophy, Loader2, Sparkles, MessageCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ObjectiveCard } from '@/components/objectives/ObjectiveCard';
 import { useObjectives, CATEGORY_CONFIG } from '@/hooks/useObjectives';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { ObjectiveCreationModal } from './ObjectiveCreationModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const ObjectivesTabContent: React.FC = () => {
-  const navigate = useNavigate();
+  const [showCreationModal, setShowCreationModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  
   const {
     activeObjectives,
     achievedObjectives,
     isLoading,
+    deleteObjective,
   } = useObjectives();
+
+  const handleDelete = async () => {
+    if (deleteConfirm) {
+      await deleteObjective.mutateAsync(deleteConfirm);
+      setDeleteConfirm(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -33,11 +53,15 @@ const ObjectivesTabContent: React.FC = () => {
             <Target className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-foreground">Obiettivi Attivi</h2>
           </div>
-          {/* Badge "Gestito da Aria" */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-            <Sparkles className="h-3 w-3" />
-            Gestito da Aria
-          </div>
+          {/* Add button */}
+          <Button
+            size="sm"
+            onClick={() => setShowCreationModal(true)}
+            className="rounded-xl gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Nuovo
+          </Button>
         </div>
 
         {activeObjectives.length === 0 ? (
@@ -45,18 +69,18 @@ const ObjectivesTabContent: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative z-10">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-primary" />
+                <Target className="w-8 h-8 text-primary" />
               </div>
               <h3 className="font-semibold text-foreground mb-2">Nessun obiettivo attivo</h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
-                Parla con Aria per definire i tuoi obiettivi. Lei ti aiuterà a crearli e monitorare i progressi.
+                Crea un nuovo obiettivo con l'aiuto di Aria o parlane durante una sessione.
               </p>
               <Button
-                onClick={() => navigate('/aria')}
+                onClick={() => setShowCreationModal(true)}
                 className="rounded-xl gap-2"
               >
                 <Sparkles className="h-4 w-4" />
-                Parla con Aria
+                Crea Obiettivo
               </Button>
             </div>
           </div>
@@ -66,11 +90,11 @@ const ObjectivesTabContent: React.FC = () => {
               <ObjectiveCard
                 key={objective.id}
                 objective={objective}
-                // Read-only mode: no update/delete/addProgress handlers
+                onDelete={(id) => setDeleteConfirm(id)}
               />
             ))}
             
-            {/* CTA to talk to Aria for updates */}
+            {/* CTA to create new or talk to Aria */}
             <div className="relative overflow-hidden rounded-2xl p-4 bg-glass backdrop-blur-xl border border-primary/20 shadow-soft">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
               <div className="relative z-10 flex items-center gap-3">
@@ -87,10 +111,10 @@ const ObjectivesTabContent: React.FC = () => {
                   size="sm"
                   variant="outline"
                   className="rounded-xl bg-glass backdrop-blur-sm border-glass-border"
-                  onClick={() => navigate('/aria')}
+                  onClick={() => setShowCreationModal(true)}
                 >
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                  Aria
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Nuovo
                 </Button>
               </div>
             </div>
@@ -128,6 +152,33 @@ const ObjectivesTabContent: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Creation Modal */}
+      <ObjectiveCreationModal
+        open={showCreationModal}
+        onOpenChange={setShowCreationModal}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questo obiettivo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Questa azione non può essere annullata. L'obiettivo e tutti i progressi verranno eliminati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
