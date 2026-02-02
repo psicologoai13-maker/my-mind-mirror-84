@@ -7,10 +7,11 @@ import { useReferrals } from '@/hooks/useReferrals';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, Copy, Gift, Flame, Users, Loader2, Info } from 'lucide-react';
+import { Check, Copy, Gift, Flame, Users, Loader2, Info, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Info tooltip component for streak criteria
 const StreakInfoTooltip: React.FC = () => (
@@ -54,6 +55,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
   const { referralCode, completedReferrals, pendingReferrals, copyReferralCode } = useReferrals();
   const [copied, setCopied] = useState(false);
   const [claimingStreak, setClaimingStreak] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Check streak progress - counts days with at least 1 check-in OR 1 session
   const { data: streakProgress } = useQuery({
@@ -201,168 +203,191 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
   if (compact) {
     return (
       <div className="mt-4 pt-4 border-t border-border/30">
-        <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
-          <Gift className="w-3.5 h-3.5 text-aria-violet" />
-          Guadagna Punti
-        </h4>
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between group"
+        >
+          <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Gift className="w-3.5 h-3.5 text-aria-violet" />
+            Guadagna Punti
+          </h4>
+          <ChevronDown 
+            className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform duration-200",
+              isExpanded && "rotate-180"
+            )}
+          />
+        </button>
         
-        <div className="grid grid-cols-1 gap-2">
-          {/* 7-Day Streak - Compact */}
-          <div className={cn(
-            "p-3 rounded-xl",
-            "bg-gradient-to-br from-orange-50/60 to-amber-50/40 dark:from-orange-950/20 dark:to-amber-950/15",
-            "border border-orange-200/20 dark:border-orange-800/20"
-          )}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                <span className="text-xs font-medium text-foreground truncate">7 giorni streak</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {weekProgress?.currentDays || 0}/7
-                </span>
-                <span className="text-xs font-bold text-aria-violet">
-                  +{STREAK_POINTS.week_streak}
-                </span>
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-              Usa l'app ogni giorno per 7 giorni consecutivi
-              <StreakInfoTooltip />
-            </p>
-            <Progress 
-              value={((weekProgress?.currentDays || 0) / 7) * 100} 
-              className="h-1.5 mt-2 bg-orange-200/40 dark:bg-orange-800/20"
-            />
-            {weekProgress?.alreadyClaimed && (
-              <div className="mt-2 flex items-center gap-1 text-[10px] text-emerald-600">
-                <Check className="w-3 h-3" />
-                Riscattato
-              </div>
-            )}
-            {weekProgress?.canClaim && !weekProgress.alreadyClaimed && (
-              <Button
-                size="sm"
-                className="mt-2 w-full h-7 text-xs bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-lg"
-                onClick={() => handleClaimStreak('week')}
-                disabled={claimingStreak === 'week'}
-              >
-                {claimingStreak === 'week' ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  'Riscatta'
-                )}
-              </Button>
-            )}
-          </div>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-1 gap-2 mt-3">
+                {/* 7-Day Streak - Compact */}
+                <div className={cn(
+                  "p-3 rounded-xl",
+                  "bg-gradient-to-br from-orange-50/60 to-amber-50/40 dark:from-orange-950/20 dark:to-amber-950/15",
+                  "border border-orange-200/20 dark:border-orange-800/20"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      <span className="text-xs font-medium text-foreground truncate">7 giorni streak</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {weekProgress?.currentDays || 0}/7
+                      </span>
+                      <span className="text-xs font-bold text-aria-violet">
+                        +{STREAK_POINTS.week_streak}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    Usa l'app ogni giorno per 7 giorni consecutivi
+                    <StreakInfoTooltip />
+                  </p>
+                  <Progress 
+                    value={((weekProgress?.currentDays || 0) / 7) * 100} 
+                    className="h-1.5 mt-2 bg-orange-200/40 dark:bg-orange-800/20"
+                  />
+                  {weekProgress?.alreadyClaimed && (
+                    <div className="mt-2 flex items-center gap-1 text-[10px] text-emerald-600">
+                      <Check className="w-3 h-3" />
+                      Riscattato
+                    </div>
+                  )}
+                  {weekProgress?.canClaim && !weekProgress.alreadyClaimed && (
+                    <Button
+                      size="sm"
+                      className="mt-2 w-full h-7 text-xs bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-lg"
+                      onClick={() => handleClaimStreak('week')}
+                      disabled={claimingStreak === 'week'}
+                    >
+                      {claimingStreak === 'week' ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        'Riscatta'
+                      )}
+                    </Button>
+                  )}
+                </div>
 
-          {/* 30-Day Streak - Compact */}
-          <div className={cn(
-            "p-3 rounded-xl",
-            "bg-gradient-aria-subtle",
-            "border border-aria-violet/15"
-          )}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Flame className="w-3.5 h-3.5 text-aria-violet shrink-0" />
-                <span className="text-xs font-medium text-foreground truncate">30 giorni streak</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {monthProgress?.currentDays || 0}/30
-                </span>
-                <span className="text-xs font-bold text-aria-violet">
-                  +{STREAK_POINTS.month_streak}
-                </span>
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-              Usa l'app ogni giorno per 30 giorni consecutivi
-              <StreakInfoTooltip />
-            </p>
-            <Progress 
-              value={((monthProgress?.currentDays || 0) / 30) * 100} 
-              className="h-1.5 mt-2 bg-aria-violet/15"
-            />
-            {monthProgress?.alreadyClaimed && (
-              <div className="mt-2 flex items-center gap-1 text-[10px] text-emerald-600">
-                <Check className="w-3 h-3" />
-                Riscattato
-              </div>
-            )}
-            {monthProgress?.canClaim && !monthProgress.alreadyClaimed && (
-              <Button
-                size="sm"
-                className="mt-2 w-full h-7 text-xs bg-gradient-aria hover:opacity-90 text-white rounded-lg"
-                onClick={() => handleClaimStreak('month')}
-                disabled={claimingStreak === 'month'}
-              >
-                {claimingStreak === 'month' ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  'Riscatta'
-                )}
-              </Button>
-            )}
-          </div>
+                {/* 30-Day Streak - Compact */}
+                <div className={cn(
+                  "p-3 rounded-xl",
+                  "bg-gradient-aria-subtle",
+                  "border border-aria-violet/15"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Flame className="w-3.5 h-3.5 text-aria-violet shrink-0" />
+                      <span className="text-xs font-medium text-foreground truncate">30 giorni streak</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {monthProgress?.currentDays || 0}/30
+                      </span>
+                      <span className="text-xs font-bold text-aria-violet">
+                        +{STREAK_POINTS.month_streak}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    Usa l'app ogni giorno per 30 giorni consecutivi
+                    <StreakInfoTooltip />
+                  </p>
+                  <Progress 
+                    value={((monthProgress?.currentDays || 0) / 30) * 100} 
+                    className="h-1.5 mt-2 bg-aria-violet/15"
+                  />
+                  {monthProgress?.alreadyClaimed && (
+                    <div className="mt-2 flex items-center gap-1 text-[10px] text-emerald-600">
+                      <Check className="w-3 h-3" />
+                      Riscattato
+                    </div>
+                  )}
+                  {monthProgress?.canClaim && !monthProgress.alreadyClaimed && (
+                    <Button
+                      size="sm"
+                      className="mt-2 w-full h-7 text-xs bg-gradient-aria hover:opacity-90 text-white rounded-lg"
+                      onClick={() => handleClaimStreak('month')}
+                      disabled={claimingStreak === 'month'}
+                    >
+                      {claimingStreak === 'month' ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        'Riscatta'
+                      )}
+                    </Button>
+                  )}
+                </div>
 
-          {/* Referral - Compact */}
-          <div className={cn(
-            "p-3 rounded-xl",
-            "bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/15",
-            "border border-emerald-200/20 dark:border-emerald-800/20"
-          )}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Users className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="text-xs font-medium text-foreground">Invita amici</span>
-              </div>
-              <span className="text-xs font-bold text-aria-violet">
-                +{STREAK_POINTS.referral}
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1 mb-2">
-              Guadagna {STREAK_POINTS.referral} punti per ogni amico che usa l'app per 7 giorni
-            </p>
-            
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "flex-1 rounded-lg py-1.5 px-3",
-                "bg-white/50 dark:bg-black/20 border border-emerald-200/30 dark:border-emerald-800/20"
-              )}>
-                <span className="text-xs font-mono font-bold tracking-wider text-emerald-700 dark:text-emerald-300">
-                  {referralCode || '------'}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
-                onClick={handleCopyReferral}
-              >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </Button>
-            </div>
+                {/* Referral - Compact */}
+                <div className={cn(
+                  "p-3 rounded-xl",
+                  "bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/15",
+                  "border border-emerald-200/20 dark:border-emerald-800/20"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-xs font-medium text-foreground">Invita amici</span>
+                    </div>
+                    <span className="text-xs font-bold text-aria-violet">
+                      +{STREAK_POINTS.referral}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+                    Guadagna {STREAK_POINTS.referral} punti per ogni amico che usa l'app per 7 giorni
+                  </p>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "flex-1 rounded-lg py-1.5 px-3",
+                      "bg-white/50 dark:bg-black/20 border border-emerald-200/30 dark:border-emerald-800/20"
+                    )}>
+                      <span className="text-xs font-mono font-bold tracking-wider text-emerald-700 dark:text-emerald-300">
+                        {referralCode || '------'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                      onClick={handleCopyReferral}
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
 
-            {(completedReferrals.length > 0 || pendingReferrals.length > 0) && (
-              <div className="mt-2 flex items-center gap-2 text-[10px]">
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                  {completedReferrals.length} completati
-                </span>
-                {pendingReferrals.length > 0 && (
-                  <span className="text-muted-foreground">
-                    • {pendingReferrals.length} in attesa
-                  </span>
-                )}
+                  {(completedReferrals.length > 0 || pendingReferrals.length > 0) && (
+                    <div className="mt-2 flex items-center gap-2 text-[10px]">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        {completedReferrals.length} completati
+                      </span>
+                      {pendingReferrals.length > 0 && (
+                        <span className="text-muted-foreground">
+                          • {pendingReferrals.length} in attesa
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
