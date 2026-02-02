@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, BarChart3, Target, User, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,9 +16,24 @@ const BottomNav: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isKeyboardOpen } = useVisualViewport();
+  const [isHidden, setIsHidden] = useState(false);
 
-  // Hide navbar when keyboard is open to avoid overlap
-  if (isKeyboardOpen) {
+  // Listen for custom event to hide/show nav
+  useEffect(() => {
+    const handleHideNav = () => setIsHidden(true);
+    const handleShowNav = () => setIsHidden(false);
+    
+    window.addEventListener('hide-bottom-nav', handleHideNav);
+    window.addEventListener('show-bottom-nav', handleShowNav);
+    
+    return () => {
+      window.removeEventListener('hide-bottom-nav', handleHideNav);
+      window.removeEventListener('show-bottom-nav', handleShowNav);
+    };
+  }, []);
+
+  // Hide navbar when keyboard is open or when explicitly hidden
+  if (isKeyboardOpen || isHidden) {
     return null;
   }
 
