@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.create-habit-chat]
 verify_jwt = false
+
+[functions.update-objective-chat]
+verify_jwt = false
