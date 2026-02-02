@@ -32,7 +32,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
   const [copied, setCopied] = useState(false);
   const [claimingStreak, setClaimingStreak] = useState<string | null>(null);
 
-  // Check streak progress
+  // Check streak progress - counts days with at least 1 check-in OR 1 session
   const { data: streakProgress } = useQuery({
     queryKey: ['streak-progress', user?.id],
     queryFn: async () => {
@@ -40,26 +40,44 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
 
       const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
       
-      const { data: checkins } = await supabase
-        .from('daily_checkins')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo);
+      // Fetch both check-ins and sessions
+      const [checkinsResult, sessionsResult] = await Promise.all([
+        supabase
+          .from('daily_checkins')
+          .select('created_at')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo),
+        supabase
+          .from('sessions')
+          .select('start_time')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .gte('start_time', thirtyDaysAgo),
+      ]);
 
-      const dailyCounts: Record<string, number> = {};
-      checkins?.forEach(c => {
-        const date = format(new Date(c.created_at), 'yyyy-MM-dd');
-        dailyCounts[date] = (dailyCounts[date] || 0) + 1;
+      // Build a set of active days (any check-in OR session counts)
+      const activeDays = new Set<string>();
+      
+      checkinsResult.data?.forEach(c => {
+        activeDays.add(format(new Date(c.created_at), 'yyyy-MM-dd'));
+      });
+      
+      sessionsResult.data?.forEach(s => {
+        activeDays.add(format(new Date(s.start_time), 'yyyy-MM-dd'));
       });
 
+      // Calculate consecutive days streak
       let consecutiveDays = 0;
       const today = new Date();
       
       for (let i = 0; i < 30; i++) {
         const checkDate = format(subDays(today, i), 'yyyy-MM-dd');
-        if ((dailyCounts[checkDate] || 0) >= 4) {
+        if (activeDays.has(checkDate)) {
           consecutiveDays++;
-        } else if (i > 0) {
+        } else if (i === 0) {
+          // Skip today if not active yet (day not over)
+          continue;
+        } else {
           break;
         }
       }
@@ -105,8 +123,8 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
       const points = streakType === 'week' ? STREAK_POINTS.week_streak : STREAK_POINTS.month_streak;
       const sourceId = `${streakType}_streak_claim`;
       const description = streakType === 'week' 
-        ? '7 giorni consecutivi con 4+ check-in'
-        : '30 giorni consecutivi con 4+ check-in';
+        ? '7 giorni consecutivi di utilizzo'
+        : '30 giorni consecutivi di utilizzo';
 
       const { error: txError } = await supabase.from('reward_transactions').insert({
         user_id: user.id,
@@ -187,7 +205,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Completa almeno 4 check-in al giorno per 7 giorni consecutivi
+              Usa l'app ogni giorno per 7 giorni consecutivi
             </p>
             <Progress 
               value={((weekProgress?.currentDays || 0) / 7) * 100} 
@@ -236,7 +254,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Completa almeno 4 check-in al giorno per 30 giorni consecutivi
+              Usa l'app ogni giorno per 30 giorni consecutivi
             </p>
             <Progress 
               value={((monthProgress?.currentDays || 0) / 30) * 100} 
@@ -356,7 +374,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground mb-2">
-              4+ check-in/giorno per 7 giorni
+              Usa l'app ogni giorno per 7 giorni
             </p>
             <div className="flex items-center gap-3">
               <Progress 
@@ -407,7 +425,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground mb-2">
-              4+ check-in/giorno per 30 giorni
+              Usa l'app ogni giorno per 30 giorni
             </p>
             <div className="flex items-center gap-3">
               <Progress 

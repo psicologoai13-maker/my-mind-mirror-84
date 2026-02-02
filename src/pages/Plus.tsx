@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Crown, Check, Gem, Gift, Flame, Users, Award, ClipboardCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Crown, Check, Gem, Gift, Flame, Users, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,9 +23,8 @@ const PREMIUM_FEATURES = [
 
 const POINTS_GUIDE = [
   { icon: Flame, text: '7 giorni consecutivi', points: 100, color: 'text-orange-500' },
+  { icon: Flame, text: '30 giorni consecutivi', points: 300, color: 'text-violet-500' },
   { icon: Users, text: 'Invita un amico', points: 400, color: 'text-emerald-500' },
-  { icon: Award, text: 'Sblocca badge', points: '25-400', color: 'text-amber-500' },
-  { icon: ClipboardCheck, text: '100 check-in', points: 200, color: 'text-violet-500' },
 ];
 
 const Plus: React.FC = () => {
