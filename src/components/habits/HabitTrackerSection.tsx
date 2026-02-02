@@ -1,25 +1,18 @@
 import React, { useState } from 'react';
-import { useHabits, HABIT_TYPES, HABIT_CATEGORIES, HabitCategory } from '@/hooks/useHabits';
+import { useHabits, HABIT_TYPES } from '@/hooks/useHabits';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, ChevronRight, Check } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import { Plus, Sparkles, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import HabitQuizModal from './HabitQuizModal';
 
 const HabitTrackerSection: React.FC = () => {
   const navigate = useNavigate();
-  const { habits, habitConfigs, isLoading, addHabit, removeHabit, logHabit } = useHabits();
-  const [isManageOpen, setIsManageOpen] = useState(false);
+  const { habits, isLoading, logHabit } = useHabits();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loggingHabit, setLoggingHabit] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
 
   const handleLogHabit = async (habitType: string, value: number) => {
     setLoggingHabit(habitType);
@@ -37,36 +30,13 @@ const HabitTrackerSection: React.FC = () => {
     }
   };
 
-  const handleToggleHabit = async (habitType: string) => {
-    const isActive = activeHabitTypes.has(habitType);
-    try {
-      if (isActive) {
-        await removeHabit.mutateAsync(habitType);
-        toast.success('Habit rimossa');
-      } else {
-        await addHabit.mutateAsync(habitType);
-        toast.success('Habit aggiunta');
-      }
-    } catch (error) {
-      toast.error('Errore');
-    }
-  };
-
-  const activeHabitTypes = new Set(habitConfigs?.map(c => c.habit_type) || []);
-
   // Filter out completed habits - only show incomplete ones
   const incompleteHabits = habits.filter(habit => {
     const habitMeta = HABIT_TYPES[habit.habit_type as keyof typeof HABIT_TYPES];
     const target = habit.daily_target || habitMeta?.defaultTarget || 1;
     const isAbstain = habit.streak_type === 'abstain';
-    const isComplete = isAbstain ? habit.todayValue === 0 : habit.todayValue >= target;
+    const isComplete = isAbstain ? habit.todayValue === 0 && habit.lastEntry : habit.todayValue >= target;
     return !isComplete;
-  });
-
-  // Filter habits for sheet by category
-  const filteredHabits = Object.entries(HABIT_TYPES).filter(([key, meta]) => {
-    if (selectedCategory === 'all') return true;
-    return meta.category === selectedCategory;
   });
 
   // AI would prioritize these - for now show first 4 incomplete
@@ -96,7 +66,7 @@ const HabitTrackerSection: React.FC = () => {
           const target = habit.daily_target || habitMeta?.defaultTarget || 1;
           const isAbstain = habit.streak_type === 'abstain';
           const progress = isAbstain
-            ? (habit.todayValue === 0 ? 100 : 0)
+            ? (habit.todayValue === 0 && habit.lastEntry ? 100 : 0)
             : Math.min(100, (habit.todayValue / target) * 100);
 
           return (
@@ -134,78 +104,15 @@ const HabitTrackerSection: React.FC = () => {
 
       {/* Manage habits link */}
       <div className="flex items-center justify-between">
-        <Sheet open={isManageOpen} onOpenChange={setIsManageOpen}>
-          <SheetTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-xs text-muted-foreground h-7 px-2"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Gestisci habits
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-            <SheetHeader className="pb-2">
-              <SheetTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Scegli le tue Habits
-              </SheetTitle>
-            </SheetHeader>
-            
-            {/* Category Filter */}
-            <div className="flex gap-2 overflow-x-auto py-3 -mx-2 px-2">
-              <Button
-                variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className="rounded-full flex-shrink-0 h-8 text-xs"
-                onClick={() => setSelectedCategory('all')}
-              >
-                Tutte
-              </Button>
-              {Object.entries(HABIT_CATEGORIES).map(([key, { label, icon }]) => (
-                <Button
-                  key={key}
-                  variant={selectedCategory === key ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full flex-shrink-0 h-8 text-xs"
-                  onClick={() => setSelectedCategory(key as HabitCategory)}
-                >
-                  {icon} {label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Grid of habit boxes */}
-            <div className="mt-2 grid grid-cols-3 gap-2 overflow-y-auto max-h-[calc(85vh-140px)] pb-8">
-              {filteredHabits.map(([key, meta]) => {
-                const isActive = activeHabitTypes.has(key);
-                return (
-                  <button
-                    key={key}
-                    onClick={() => handleToggleHabit(key)}
-                    className={cn(
-                      "relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all min-h-[80px]",
-                      isActive 
-                        ? "border-primary bg-primary/10" 
-                        : "border-border bg-card hover:border-muted-foreground/30"
-                    )}
-                  >
-                    {isActive && (
-                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
-                      </div>
-                    )}
-                    <span className="text-2xl mb-1">{meta.icon}</span>
-                    <span className="text-[10px] font-medium text-center text-muted-foreground line-clamp-2">
-                      {meta.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </SheetContent>
-        </Sheet>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-xs text-muted-foreground h-7 px-2 gap-1"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Sparkles className="w-3 h-3 text-primary" />
+          Aggiungi habit
+        </Button>
 
         {incompleteHabits.length > 4 && (
           <Button
@@ -219,6 +126,16 @@ const HabitTrackerSection: React.FC = () => {
           </Button>
         )}
       </div>
+
+      {/* AI Habit Creation Modal */}
+      <HabitQuizModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onHabitCreated={() => {
+          setIsModalOpen(false);
+          toast.success('Nuova habit creata!');
+        }}
+      />
     </div>
   );
 };
