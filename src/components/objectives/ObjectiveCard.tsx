@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3, Plus, Home, RefreshCw, EyeOff, Check } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Objective, CATEGORY_CONFIG, calculateProgress, TrackingPeriod, CheckinV
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, endOfDay, endOfWeek, endOfMonth, endOfYear, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,12 +75,21 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           : !hasTarget || !hasStartingValue)  // Non-periodic needs both
     : (requiresStartingValue && (!hasTarget || !hasStartingValue));
   
-  // Use new progress calculation that considers starting value
   const progress = hasTarget ? calculateProgress(objective) : 0;
 
   const daysRemaining = objective.deadline
     ? differenceInDays(new Date(objective.deadline), new Date())
     : null;
+
+  // Parse progress history for chart
+  const historyData = useMemo(() => {
+    return (objective.progress_history as any[] || [])
+      .slice(-14) // Last 14 entries
+      .map((entry: any) => ({
+        date: format(new Date(entry.date || new Date()), 'dd/MM', { locale: it }),
+        value: entry.value || 0,
+      }));
+  }, [objective.progress_history]);
 
   const getProgressGradient = () => {
     if (progress >= 80) return 'from-emerald-500 to-teal-400';
@@ -327,6 +337,58 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
             <div className="text-right text-xs font-medium text-muted-foreground mt-1">
               {Math.round(progress)}% completato
             </div>
+            
+            {/* Progress History Chart */}
+            {historyData.length >= 2 && (
+              <div className="h-20 mt-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={historyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={`progress-chart-${objective.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }}
+                    />
+                    <YAxis hide domain={[0, objective.target_value || 'auto']} />
+                    {objective.target_value && (
+                      <ReferenceLine 
+                        y={objective.target_value} 
+                        stroke="hsl(var(--primary))" 
+                        strokeDasharray="3 3"
+                        opacity={0.5}
+                      />
+                    )}
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '10px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number) => [
+                        `${value} ${objective.unit || ''}`,
+                        'Progresso'
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill={`url(#progress-chart-${objective.id})`}
+                      dot={{ fill: 'hsl(var(--primary))', r: 3 }}
+                      connectNulls
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         )}
 
