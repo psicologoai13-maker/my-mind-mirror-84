@@ -1750,7 +1750,7 @@ Il tuo unico obiettivo è che alla fine pensino: "Che bella questa Aria, mi piac
   
   let youngUserBlock = '';
   const ageRange = onboardingAnswers?.ageRange;
-  const isYoungByAgeRange = ageRange === '13-14' || ageRange === '15-17' || ageRange === '18-24';
+  const isYoungByAgeRange = ageRange === '<18' || ageRange === '18-24';
   
   // Also check by birth_date if available
   let isYoungByBirthDate = false;
