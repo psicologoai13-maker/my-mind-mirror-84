@@ -10,10 +10,10 @@ interface CompactTimeSelectorProps {
 }
 
 const ranges: { value: TimeRange; label: string }[] = [
-  { value: 'day', label: 'G' },
-  { value: 'week', label: 'S' },
-  { value: 'month', label: 'M' },
-  { value: 'all', label: '∞' },
+  { value: 'day', label: 'Giorno' },
+  { value: 'week', label: 'Settimana' },
+  { value: 'month', label: 'Mese' },
+  { value: 'all', label: 'Tutto' },
 ];
 
 const CompactTimeSelector: React.FC<CompactTimeSelectorProps> = ({ value, onChange, className }) => {
