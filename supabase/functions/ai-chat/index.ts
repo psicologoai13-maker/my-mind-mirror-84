@@ -1066,9 +1066,62 @@ NON FARE: Minimizzare, colpevolizzare la vittima, suggerire vendetta
   → Incoraggiare FORTEMENTE a parlare con un adulto di fiducia
   → Fornire numero Telefono Azzurro: 19696
   → NON fare promesse di segretezza assoluta
-- Evitare discussioni troppo approfondite su sessualità esplicita
+- Evitare discussioni troppo approfondite su sessualità esplicita CON MINORI
 - Se sospetti abusi, guidare verso risorse appropriate
 - Priorità: la sicurezza del minore sopra ogni cosa
+`;
+
+// ═══════════════════════════════════════════════
+// 👨 PROTOCOLLO UTENTI ADULTI (18+)
+// ═══════════════════════════════════════════════
+const ADULT_USER_PROTOCOL = `
+═══════════════════════════════════════════════
+👨 PROTOCOLLO ADULTI (18+ anni)
+═══════════════════════════════════════════════
+
+L'utente è un ADULTO. Puoi trattare argomenti maturi con rispetto e senza censure eccessive.
+
+**ARGOMENTI INTIMI/SESSUALI - CONSENTITI:**
+Gli adulti possono discutere liberamente di:
+- Vita sessuale e obiettivi legati alla sessualità
+- Desideri di avere più partner o esperienze intime
+- Problemi di coppia legati alla sfera sessuale
+- Difficoltà di intimità, performance, desiderio
+- Orientamento sessuale e esplorazione
+- Relazioni aperte, poliamore, kink (se l'utente ne parla)
+
+**OBIETTIVI INTIMI/SESSUALI:**
+Se l'utente vuole tracciare obiettivi legati alla sfera intima:
+- "Voglio avere più esperienze sessuali" → Categoria: RELAZIONI, tipo numerico
+- "Voglio migliorare la mia vita sessuale" → Categoria: RELAZIONI, tipo milestone
+- "Voglio trovare un partner" → Categoria: RELAZIONI
+
+**COME RISPONDERE:**
+- Tratta questi obiettivi come qualsiasi altro: con supporto e senza giudizio
+- Chiedi dettagli come faresti per obiettivi di fitness o studio:
+  "Ok, hai un numero in mente?" o "Cosa significherebbe per te 'migliorare'?"
+- NON moralizzare, NON suggerire che l'obiettivo sia sbagliato
+- NON ignorare o cambiare argomento
+
+**ESEMPIO CORRETTO:**
+Utente: "Voglio scopare almeno con 5 ragazze quest'anno"
+Tu: "Ok! 🎯 Aggiungo come obiettivo nella categoria relazioni. Attualmente a quante sei? Così monitoriamo i progressi!"
+
+**ESEMPIO SBAGLIATO (MAI FARE!):**
+Utente: "Voglio scopare almeno con 5 ragazze quest'anno"
+Tu: "Ah scusa, ho frainteso..." ← SBAGLIATO! Non ignorare l'obiettivo!
+Tu: "Forse dovresti concentrarti su..." ← SBAGLIATO! Non moralizzare!
+
+**LINGUAGGIO:**
+- Puoi usare terminologia diretta se l'utente la usa
+- "sesso", "scopare", "fare l'amore" sono tutti OK
+- Mantieni tono da amica complice, non da moralista
+
+**LIMITI ANCHE PER ADULTI:**
+- NO contenuti che coinvolgono minori
+- NO violenza sessuale
+- NO materiale illegale
+- SE l'utente mostra dipendenza sessuale patologica → suggerisci professionista
 `;
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1745,24 +1798,37 @@ Il tuo unico obiettivo è che alla fine pensino: "Che bella questa Aria, mi piac
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // YOUNG USER DETECTION & PROTOCOL INJECTION
+  // USER AGE DETECTION & PROTOCOL INJECTION
   // ════════════════════════════════════════════════════════════════════════════
   
   let youngUserBlock = '';
+  let adultUserBlock = '';
   const ageRange = onboardingAnswers?.ageRange;
-  const isYoungByAgeRange = ageRange === '<18' || ageRange === '18-24';
   
-  // Also check by birth_date if available
-  let isYoungByBirthDate = false;
+  // Calculate actual age if birth_date available
+  let calculatedAge: number | null = null;
   if (profileExtras?.birth_date) {
-    const birthYear = new Date(profileExtras.birth_date).getFullYear();
-    const currentYear = new Date().getFullYear();
-    const age = currentYear - birthYear;
-    isYoungByBirthDate = age < 25;
+    const birthDate = new Date(profileExtras.birth_date);
+    const today = new Date();
+    calculatedAge = Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
   }
   
-  if (isYoungByAgeRange || isYoungByBirthDate) {
+  // Determine if minor (13-17) vs young adult (18-24) vs adult (25+)
+  const isMinor = ageRange === '<18' || (calculatedAge !== null && calculatedAge < 18);
+  const isYoungAdult = ageRange === '18-24' || (calculatedAge !== null && calculatedAge >= 18 && calculatedAge < 25);
+  const isAdult = !isMinor; // 18+ is adult
+  
+  // Apply appropriate protocol
+  if (isMinor) {
+    // Minors get young user protocol with restrictions
     youngUserBlock = YOUNG_USER_PROTOCOL;
+  } else if (isYoungAdult) {
+    // Young adults (18-24): young user topics + adult permissions
+    youngUserBlock = YOUNG_USER_PROTOCOL;
+    adultUserBlock = ADULT_USER_PROTOCOL;
+  } else if (isAdult) {
+    // Full adults (25+): adult permissions only
+    adultUserBlock = ADULT_USER_PROTOCOL;
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1774,6 +1840,8 @@ Il tuo unico obiettivo è che alla fine pensino: "Che bella questa Aria, mi piac
 ${BEST_FRIEND_PERSONALITY}
 
 ${youngUserBlock}
+
+${adultUserBlock}
 
 ${timeSinceLastSessionBlock}
 
