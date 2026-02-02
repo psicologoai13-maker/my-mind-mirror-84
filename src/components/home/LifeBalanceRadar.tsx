@@ -13,8 +13,8 @@ const LIFE_AREAS = [
 ];
 
 const LifeBalanceRadar: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
-  const { lifeAreas, hasData: hasWeightedData, isLoading } = useTimeWeightedMetrics(30, 7);
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza (30 giorni, half-life 10 giorni)
+  const { lifeAreas, lifeAreasTrends, hasData: hasWeightedData, isLoading } = useTimeWeightedMetrics(30, 10);
 
   // Use time-weighted life areas scores
   const lifeAreasScores = {

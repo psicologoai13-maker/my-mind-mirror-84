@@ -21,8 +21,8 @@ const EMOTION_CONFIG = {
 type EmotionKey = keyof typeof EMOTION_CONFIG;
 
 const EmotionalMixBar: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza
-  const { emotions, hasData } = useTimeWeightedMetrics(30, 7);
+  // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza (30 giorni, half-life 10 giorni)
+  const { emotions, hasData } = useTimeWeightedMetrics(30, 10);
 
   // Filter out emotions with 0 or null value - don't show them
   const segments = React.useMemo(() => {
