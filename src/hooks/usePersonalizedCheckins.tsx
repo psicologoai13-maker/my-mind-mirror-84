@@ -35,6 +35,12 @@ export interface CheckinItem {
   habitType?: string;
   // For objectives
   objectiveId?: string;
+  // Repeatable items can be logged multiple times per day (e.g., spending)
+  repeatable?: boolean;
+  // Current value for accumulation
+  currentValue?: number;
+  // Finance tracking type
+  financeType?: string;
 }
 
 // Response type configurations - LEFT = negative, RIGHT = positive (always)
@@ -200,6 +206,9 @@ interface AICheckinResponse {
   habitType?: string;
   objectiveId?: string;
   icon?: string;
+  repeatable?: boolean;
+  currentValue?: number;
+  financeType?: string;
 }
 
 interface CachedCheckinsData {
@@ -460,7 +469,8 @@ export const usePersonalizedCheckins = () => {
     if (!sourceList) return [];
 
     return sourceList
-      .filter(item => !(item.key in completedToday))
+      // Keep repeatable items even if they have been completed today
+      .filter(item => item.repeatable || !(item.key in completedToday))
       .map((item, index) => {
         const isHabit = item.type === 'habit' || item.key.startsWith('habit_');
         const isObjective = item.type === 'objective' || item.key.startsWith('objective_');
@@ -503,6 +513,9 @@ export const usePersonalizedCheckins = () => {
           step: item.step,
           habitType: item.habitType || (isHabit ? item.key.replace('habit_', '') : undefined),
           objectiveId: item.objectiveId,
+          repeatable: item.repeatable,
+          currentValue: item.currentValue,
+          financeType: item.financeType,
         };
       });
   }, [aiData, completedToday]);
