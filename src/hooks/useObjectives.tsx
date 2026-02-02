@@ -63,20 +63,25 @@ export function calculateProgress(objective: Objective): number {
 
   if (target === null || target === undefined) return 0;
   
-  // If no starting value, assume 0 (old behavior for backwards compatibility)
-  if (start === null || start === undefined) {
-    return Math.min(100, Math.max(0, (current / target) * 100));
+  // For body objectives (weight, etc.) - use transformation calculation (from X to Y)
+  // For finance accumulation/debt - also use transformation
+  const isTransformation = objective.category === 'body' || 
+    (objective.category === 'finance' && 
+     ['accumulation', 'debt_reduction'].includes(objective.finance_tracking_type || ''));
+  
+  if (isTransformation && start !== null && start !== undefined) {
+    // Transformation: progress from starting point to target
+    const totalDistance = target - start;
+    if (totalDistance === 0) return current >= target ? 100 : 0;
+    
+    const progressDistance = current - start;
+    const progress = (progressDistance / totalDistance) * 100;
+    return Math.min(100, Math.max(0, progress));
   }
-
-  // Calculate direction-aware progress
-  const totalDistance = target - start;
-  if (totalDistance === 0) return current >= target ? 100 : 0;
   
-  const progressDistance = current - start;
-  const progress = (progressDistance / totalDistance) * 100;
-  
-  // Clamp between 0 and 100
-  return Math.min(100, Math.max(0, progress));
+  // Counter/milestone objectives: simple ratio (current / target)
+  // E.g., "5 ragazze" where current=1 target=5 → 20%
+  return Math.min(100, Math.max(0, (current / target) * 100));
 }
 
 export interface CreateObjectiveInput {
