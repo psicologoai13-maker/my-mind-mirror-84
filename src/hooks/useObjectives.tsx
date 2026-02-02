@@ -104,6 +104,9 @@ export interface CreateObjectiveInput {
   preset_type?: string;
   auto_sync_enabled?: boolean;
   objective_type?: 'counter' | 'transformation' | 'milestone';
+  // AI-generated fields
+  ai_custom_description?: string;
+  ai_feedback?: string;
 }
 
 export interface UpdateObjectiveInput {

@@ -114,32 +114,25 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
     ? calculateProgress(objective) 
     : (objective.ai_progress_estimate ?? 0);
 
-  // Generate summary based on state
+  // Generate summary based on state - prioritize AI feedback for current state
   const getSummary = () => {
-    // If AI feedback exists, use it
+    // If AI feedback exists (dynamic state description), show it as primary
     if (objective.ai_feedback) {
       return objective.ai_feedback;
     }
     
-    // If custom AI description exists
+    // If custom AI description exists (motivational phrase from creation)
     if (objective.ai_custom_description) {
-      if (hasProgress && progress > 0) {
-        return `${objective.ai_custom_description} — ${getProgressComment()}`;
-      }
       return objective.ai_custom_description;
     }
     
-    // If regular description exists
-    if (objective.description) {
-      if (hasProgress && progress > 0) {
-        return `${objective.description} — ${getProgressComment()}`;
-      }
-      return objective.description;
-    }
-    
-    // Generate default summary
+    // Generate contextual default
     if (hasProgress && progress > 0) {
       return getProgressComment();
+    }
+    
+    if (objective.description) {
+      return objective.description;
     }
     
     return "Parla con Aria per iniziare a tracciare questo obiettivo";
