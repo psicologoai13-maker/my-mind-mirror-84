@@ -699,7 +699,7 @@ export const OBJECTIVE_TYPES: Record<string, ObjectiveMeta> = {
     label: 'Costruire personal brand',
     icon: 'User',
     emoji: '🌟',
-    category: 'growth',
+    category: 'work',
     description: 'Sviluppa il tuo personal brand',
     inputMethod: 'milestone',
     brainDetectable: true,
