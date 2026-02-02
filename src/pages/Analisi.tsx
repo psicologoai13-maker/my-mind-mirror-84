@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { subDays, startOfDay, format } from 'date-fns';
+import { subDays, startOfDay } from 'date-fns';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import MenteTab from '@/components/analisi/AnalisiTabContent';
 import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
-import ObiettiviTab from '@/components/analisi/ObiettiviTab';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { useChartVisibility } from '@/hooks/useChartVisibility';
@@ -80,6 +79,11 @@ const Analisi: React.FC = () => {
     );
   }, [metricsRange]);
 
+  // Check if sections have data
+  const hasMenteData = daysWithData.length > 0;
+  const hasCorpoData = (bodyMetrics || []).some(m => m.weight || m.sleep_hours || m.resting_heart_rate);
+  const hasAbitudiniData = (habits || []).length > 0;
+
   // Calculate metrics from unified source (for compatibility)
   const metrics = useMemo<MetricData[]>(() => {
     const calculateAverage = (values: (number | null | undefined)[]) => {
@@ -141,6 +145,8 @@ const Analisi: React.FC = () => {
     }
   }, [timeRange]);
 
+  const hasAnyData = hasMenteData || hasCorpoData || hasAbitudiniData;
+
   return (
     <MobileLayout>
       <header className="px-5 pt-6 pb-4">
@@ -155,45 +161,56 @@ const Analisi: React.FC = () => {
         </div>
       </header>
 
-      {/* All Content - No Tabs */}
+      {/* All Content - Only show sections with data */}
       <div className="px-4 pb-8 space-y-8">
         {/* Mente Section */}
-        <section>
-          <MenteTab
-            metricsRange={metricsRange}
-            dynamicVitals={dynamicVitals}
-            visibleCharts={visibleCharts.mente}
-            psychologyData={psychologyData}
-            highlightedMetrics={aiLayout.highlighted_metrics}
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-            onMetricClick={(key) => setSelectedMetric(key as MetricType)}
-          />
-        </section>
+        {hasMenteData && (
+          <section>
+            <MenteTab
+              metricsRange={metricsRange}
+              dynamicVitals={dynamicVitals}
+              visibleCharts={visibleCharts.mente}
+              psychologyData={psychologyData}
+              highlightedMetrics={aiLayout.highlighted_metrics}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              onMetricClick={(key) => setSelectedMetric(key as MetricType)}
+            />
+          </section>
+        )}
 
         {/* Corpo Section */}
-        <section>
-          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-            <span>💪</span> Corpo
-          </h2>
-          <CorpoTab />
-        </section>
+        {hasCorpoData && (
+          <section>
+            <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+              <span>💪</span> Corpo
+            </h2>
+            <CorpoTab />
+          </section>
+        )}
 
         {/* Abitudini Section */}
-        <section>
-          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-            <span>📊</span> Abitudini
-          </h2>
-          <AbitudiniTab lookbackDays={lookbackDays} />
-        </section>
+        {hasAbitudiniData && (
+          <section>
+            <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+              <span>📊</span> Abitudini
+            </h2>
+            <AbitudiniTab lookbackDays={lookbackDays} />
+          </section>
+        )}
 
-        {/* Obiettivi Section */}
-        <section>
-          <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-            <span>🎯</span> Obiettivi
-          </h2>
-          <ObiettiviTab />
-        </section>
+        {/* Empty state */}
+        {!hasAnyData && !isLoading && (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-4">📊</div>
+            <h3 className="font-display font-semibold text-lg text-foreground mb-2">
+              Nessun dato disponibile
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Completa check-in, sessioni con Aria o traccia abitudini per vedere le tue analisi
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Metric Detail Sheet */}
