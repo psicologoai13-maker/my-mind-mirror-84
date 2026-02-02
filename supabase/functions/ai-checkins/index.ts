@@ -267,7 +267,7 @@ serve(async (req) => {
       recentSessionsRes
     ] = await Promise.all([
       supabase.from("user_habits_config").select("*").eq("user_id", userId).eq("is_active", true),
-      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type, finance_tracking_type, tracking_period, description").eq("user_id", userId).eq("status", "active"),
+      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type, finance_tracking_type, tracking_period, description, checkin_visibility").eq("user_id", userId).eq("status", "active"),
       supabase.from("daily_habits").select("habit_type, value").eq("user_id", userId).eq("date", today),
       supabase.from("sessions").select("ai_summary, emotion_tags").eq("user_id", userId).eq("status", "completed").order("start_time", { ascending: false }).limit(3),
     ]);
@@ -336,8 +336,17 @@ serve(async (req) => {
       // Skip objectives that sync automatically or via sessions
       if (mappedType === 'skip') return;
       
+      // Check checkin_visibility setting
+      // 'hidden' = don't show in check-in at all (manual only from Progressi)
+      // 'daily' = show once per day (default)
+      // 'permanent' = always show (repeatable)
+      const visibility = obj.checkin_visibility || 'daily';
+      if (visibility === 'hidden') return;
+      
       const key = `objective_${obj.id}`;
-      if (completedKeys.has(key)) return;
+      // For 'daily' visibility, check if already completed today
+      // For 'permanent', always show regardless of completion
+      if (visibility === 'daily' && completedKeys.has(key)) return;
 
       // Generate context-aware questions based on category and finance_tracking_type
       let question = `Progresso "${obj.title}"?`;
@@ -394,10 +403,12 @@ serve(async (req) => {
       }
 
       // Determine if this objective is repeatable (can be logged multiple times per day)
-      // Repeatable: spending/saving/income can happen multiple times per day
-      // Non-repeatable: body weight, total accumulation (absolute values)
-      const isRepeatable = obj.category === 'finance' && 
+      // Repeatable: 
+      // 1. checkin_visibility is 'permanent' (user setting)
+      // 2. OR finance type is spending/saving/income (can happen multiple times per day)
+      const isFinanceRepeatable = obj.category === 'finance' && 
         ['spending_limit', 'periodic_saving', 'periodic_income'].includes(financeType);
+      const isRepeatable = visibility === 'permanent' || isFinanceRepeatable;
 
       allItems.push({
         key,
@@ -412,6 +423,7 @@ serve(async (req) => {
         trackingPeriod: trackingPeriod,
         repeatable: isRepeatable, // Repeatable items stay visible after response
         currentValue: obj.current_value, // Pass current value for accumulation
+        checkinVisibility: visibility, // Pass visibility setting for client reference
         priority: 90, // Objectives have highest priority
       });
     });

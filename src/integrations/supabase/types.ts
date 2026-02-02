@@ -858,6 +858,7 @@ export type Database = {
           ai_feedback: string | null
           auto_sync_enabled: boolean | null
           category: string
+          checkin_visibility: string | null
           clarification_asked_at: string | null
           created_at: string | null
           current_value: number | null
@@ -886,6 +887,7 @@ export type Database = {
           ai_feedback?: string | null
           auto_sync_enabled?: boolean | null
           category: string
+          checkin_visibility?: string | null
           clarification_asked_at?: string | null
           created_at?: string | null
           current_value?: number | null
@@ -914,6 +916,7 @@ export type Database = {
           ai_feedback?: string | null
           auto_sync_enabled?: boolean | null
           category?: string
+          checkin_visibility?: string | null
           clarification_asked_at?: string | null
           created_at?: string | null
           current_value?: number | null

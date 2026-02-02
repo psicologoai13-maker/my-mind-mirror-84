@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3, Plus } from 'lucide-react';
-import { Objective, CATEGORY_CONFIG, calculateProgress, TrackingPeriod } from '@/hooks/useObjectives';
+import { MoreVertical, Target, Calendar, TrendingUp, AlertTriangle, Sparkles, Edit3, Plus, Home, RefreshCw, EyeOff, Check } from 'lucide-react';
+import { Objective, CATEGORY_CONFIG, calculateProgress, TrackingPeriod, CheckinVisibility } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, endOfDay, endOfWeek, endOfMonth, endOfYear, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TargetInputDialog } from './TargetInputDialog';
@@ -130,7 +131,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border">
+            <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[200px]">
               {hasTarget && !needsSetup && (
                 <DropdownMenuItem onClick={() => setShowProgressModal(true)}>
                   <TrendingUp className="h-4 w-4 mr-2" />
@@ -153,6 +154,42 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                   Riattiva
                 </DropdownMenuItem>
               )}
+              
+              {/* Check-in visibility settings */}
+              {onUpdate && hasTarget && !needsSetup && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Visibilità in Check-in Home
+                  </div>
+                  <DropdownMenuItem 
+                    onClick={() => onUpdate(objective.id, { checkin_visibility: 'permanent' })}
+                    className={cn(objective.checkin_visibility === 'permanent' && "bg-primary/10")}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sempre visibile
+                    {objective.checkin_visibility === 'permanent' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onUpdate(objective.id, { checkin_visibility: 'daily' })}
+                    className={cn((objective.checkin_visibility === 'daily' || !objective.checkin_visibility) && "bg-primary/10")}
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    Una volta al giorno
+                    {(objective.checkin_visibility === 'daily' || !objective.checkin_visibility) && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onUpdate(objective.id, { checkin_visibility: 'hidden' })}
+                    className={cn(objective.checkin_visibility === 'hidden' && "bg-primary/10")}
+                  >
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Solo da qui
+                    {objective.checkin_visibility === 'hidden' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                </>
+              )}
+              
+              <DropdownMenuSeparator />
               {onDelete && (
                 <DropdownMenuItem 
                   onClick={() => onDelete(objective.id)}
@@ -297,8 +334,8 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </div>
         )}
 
-        {/* Footer with deadline and update button */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        {/* Footer with deadline, visibility indicator, and update button */}
+        <div className="flex items-center flex-wrap gap-2 text-xs text-muted-foreground">
           {objective.deadline && (
             <div className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
@@ -314,6 +351,32 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                   : format(new Date(objective.deadline), 'd MMM yyyy', { locale: it })
                 }
               </span>
+            </div>
+          )}
+          
+          {/* Check-in visibility indicator */}
+          {hasTarget && !needsSetup && (
+            <div className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-full",
+              "bg-glass backdrop-blur-sm border border-glass-border",
+              objective.checkin_visibility === 'hidden' && "opacity-60"
+            )}>
+              {objective.checkin_visibility === 'permanent' ? (
+                <>
+                  <RefreshCw className="h-3 w-3 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400">Sempre in Home</span>
+                </>
+              ) : objective.checkin_visibility === 'hidden' ? (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  <span>Solo qui</span>
+                </>
+              ) : (
+                <>
+                  <Home className="h-3 w-3 text-primary" />
+                  <span className="text-primary">In Home</span>
+                </>
+              )}
             </div>
           )}
           

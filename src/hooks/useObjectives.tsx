@@ -10,6 +10,8 @@ export type ObjectiveStatus = 'active' | 'achieved' | 'paused' | 'abandoned';
 export type FinanceTrackingType = 'accumulation' | 'periodic_saving' | 'spending_limit' | 'periodic_income' | 'debt_reduction';
 export type TrackingPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one_time';
 
+export type CheckinVisibility = 'permanent' | 'daily' | 'hidden';
+
 export interface Objective {
   id: string;
   user_id: string;
@@ -39,6 +41,8 @@ export interface Objective {
   tracking_period?: TrackingPeriod;
   needs_clarification?: boolean;
   clarification_asked_at?: string;
+  // Check-in visibility setting
+  checkin_visibility?: CheckinVisibility;
 }
 
 // Helper to calculate true progress considering starting point
@@ -96,6 +100,8 @@ export interface UpdateObjectiveInput {
   finance_tracking_type?: FinanceTrackingType;
   tracking_period?: TrackingPeriod;
   needs_clarification?: boolean;
+  // Check-in visibility
+  checkin_visibility?: CheckinVisibility;
 }
 
 export const CATEGORY_CONFIG: Record<ObjectiveCategory, { label: string; emoji: string; color: string }> = {
