@@ -156,7 +156,7 @@ function getKeyLabel(key: string): string {
     love: 'Amore',
     work: 'Lavoro',
     social: 'Socialità',
-    growth: 'Crescita',
+    // NOTE: 'growth' removed - it's AI-calculated based on objectives/habits progress
     health: 'Salute',
     sadness: 'Tristezza',
     anger: 'Rabbia',
