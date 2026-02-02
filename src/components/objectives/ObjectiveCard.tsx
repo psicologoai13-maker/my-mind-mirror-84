@@ -15,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TargetInputDialog } from './TargetInputDialog';
-import { ProgressUpdateModal } from './ProgressUpdateModal';
 // Calculate deadline based on tracking period
 const calculatePeriodDeadline = (period: TrackingPeriod): string => {
   const now = new Date();
