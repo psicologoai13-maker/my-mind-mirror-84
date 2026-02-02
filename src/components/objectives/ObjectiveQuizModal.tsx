@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -6,15 +7,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Target, Sparkles, Check, Zap, Link2, Star, MessageSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Zap, Link2, MessageSquare, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CustomObjectiveQuiz } from './CustomObjectiveQuiz';
 import { 
   ObjectiveMeta, 
   isAutoSyncObjective,
-  ObjectiveInputMethod,
   ObjectiveCategory,
-  OBJECTIVE_TYPES,
   getObjectivesByCategory,
 } from '@/lib/objectiveTypes';
 import { CreateObjectiveInput, CATEGORY_CONFIG } from '@/hooks/useObjectives';
@@ -25,7 +23,7 @@ interface ObjectiveQuizModalProps {
   onSubmit: (input: CreateObjectiveInput) => void;
 }
 
-type QuizStep = 'category' | 'objective' | 'custom' | 'configure' | 'confirm';
+type QuizStep = 'category' | 'objective' | 'configure';
 
 const spring = {
   type: "spring" as const,
@@ -45,6 +43,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const navigate = useNavigate();
   const [step, setStep] = useState<QuizStep>('category');
   const [selectedCategory, setSelectedCategory] = useState<ObjectiveCategory | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<ObjectiveMeta | null>(null);
@@ -53,23 +52,13 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
   const [targetValue, setTargetValue] = useState('');
   const [startingValue, setStartingValue] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [customTitle, setCustomTitle] = useState('');
-  
-  // Custom objective data
-  const [customData, setCustomData] = useState<{
-    category: ObjectiveCategory;
-    inputMethod: ObjectiveInputMethod;
-    unit?: string;
-  } | null>(null);
 
   // Progress indicator
   const getProgress = () => {
     switch (step) {
-      case 'category': return 25;
-      case 'objective': return 50;
-      case 'custom': return 50;
-      case 'configure': return 75;
-      case 'confirm': return 100;
+      case 'category': return 33;
+      case 'objective': return 66;
+      case 'configure': return 100;
       default: return 0;
     }
   };
@@ -84,28 +73,16 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
     setStep('configure');
   };
 
-  const handleCustomComplete = (data: {
-    title: string;
-    category: ObjectiveCategory;
-    inputMethod: ObjectiveInputMethod;
-    unit?: string;
-    target?: number;
-    starting?: number;
-  }) => {
-    setCustomTitle(data.title);
-    setCustomData({
-      category: data.category,
-      inputMethod: data.inputMethod,
-      unit: data.unit,
-    });
-    if (data.target) setTargetValue(String(data.target));
-    if (data.starting) setStartingValue(String(data.starting));
-    setStep('confirm');
+  // Navigate to Aria for custom objective creation
+  const handleCustomObjective = () => {
+    resetForm();
+    onClose();
+    // Navigate to chat with a context message for creating a custom objective
+    navigate('/chat', { state: { intent: 'create_objective' } });
   };
 
   const handleSubmit = () => {
     if (selectedObjective) {
-      // Preset objective
       const isAutoSync = isAutoSyncObjective(selectedObjective.inputMethod);
       
       onSubmit({
@@ -123,19 +100,6 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
         linked_body_metric: selectedObjective.linkedBodyMetric,
         auto_sync_enabled: isAutoSync,
       });
-    } else if (customData) {
-      // Custom objective
-      onSubmit({
-        category: customData.category,
-        title: customTitle,
-        target_value: targetValue ? parseFloat(targetValue) : undefined,
-        starting_value: startingValue ? parseFloat(startingValue) : undefined,
-        current_value: startingValue ? parseFloat(startingValue) : 0,
-        unit: customData.unit,
-        deadline: deadline || undefined,
-        input_method: customData.inputMethod,
-        auto_sync_enabled: false,
-      });
     }
     
     // Reset and close
@@ -150,8 +114,6 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
     setTargetValue('');
     setStartingValue('');
     setDeadline('');
-    setCustomTitle('');
-    setCustomData(null);
   };
 
   const handleClose = () => {
@@ -163,19 +125,13 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
     if (step === 'objective') {
       setSelectedCategory(null);
       setStep('category');
-    } else if (step === 'custom') {
-      setStep('category');
     } else if (step === 'configure') {
       setSelectedObjective(null);
       setStep('objective');
-    } else if (step === 'confirm') {
-      if (customData) setStep('custom');
-      else setStep('configure');
     }
   };
 
-  const needsStarting = selectedObjective?.requiresStartingValue || 
-    (customData?.inputMethod === 'numeric' && ['body', 'finance'].includes(customData.category));
+  const needsStarting = selectedObjective?.requiresStartingValue;
 
   const categoryList = Object.entries(CATEGORY_CONFIG) as [ObjectiveCategory, typeof CATEGORY_CONFIG[ObjectiveCategory]][];
 
@@ -215,9 +171,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
               >
                 {step === 'category' && '🎯 Nuovo Obiettivo'}
                 {step === 'objective' && selectedCategory && CATEGORY_CONFIG[selectedCategory].emoji + ' ' + CATEGORY_CONFIG[selectedCategory].label}
-                {step === 'custom' && '✨ Personalizzato'}
                 {step === 'configure' && selectedObjective?.emoji}
-                {step === 'confirm' && '🎉 Perfetto!'}
               </motion.h2>
               <motion.p 
                 key={`desc-${step}`}
@@ -228,9 +182,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
               >
                 {step === 'category' && 'Cosa vuoi migliorare?'}
                 {step === 'objective' && 'Scegli il tuo obiettivo'}
-                {step === 'custom' && 'Descrivi cosa vuoi raggiungere'}
                 {step === 'configure' && selectedObjective?.label}
-                {step === 'confirm' && 'Conferma il tuo obiettivo'}
               </motion.p>
             </div>
           </div>
@@ -277,12 +229,12 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                   ))}
                 </div>
 
-                {/* Custom option */}
+                {/* Custom option - redirects to Aria */}
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ ...spring, delay: 0.4 }}
-                  onClick={() => setStep('custom')}
+                  onClick={handleCustomObjective}
                   className={cn(
                     "w-full p-4 rounded-2xl transition-all",
                     "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent",
@@ -296,7 +248,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                   </div>
                   <div className="text-left">
                     <span className="font-semibold text-primary block">Ho un'idea diversa</span>
-                    <span className="text-xs text-muted-foreground">Descrivi il tuo obiettivo</span>
+                    <span className="text-xs text-muted-foreground">Parla con Aria per creare il tuo obiettivo</span>
                   </div>
                 </motion.button>
               </motion.div>
@@ -359,12 +311,12 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                   </motion.button>
                 ))}
 
-                {/* See more / Custom */}
+                {/* See more / Custom - redirects to Aria */}
                 <motion.button
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
-                  onClick={() => setStep('custom')}
+                  onClick={handleCustomObjective}
                   className="w-full p-3 rounded-xl text-center text-sm text-primary font-medium hover:bg-primary/10 transition-colors"
                 >
                   <Zap className="h-4 w-4 inline mr-2" />
@@ -373,20 +325,7 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
               </motion.div>
             )}
 
-            {/* STEP 3: Custom Objective */}
-            {step === 'custom' && (
-              <motion.div
-                key="custom"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={spring}
-              >
-                <CustomObjectiveQuiz onComplete={handleCustomComplete} />
-              </motion.div>
-            )}
-
-            {/* STEP 4: Configure */}
+            {/* STEP 3: Configure */}
             {step === 'configure' && selectedObjective && (
               <motion.div
                 key="configure"
@@ -436,19 +375,21 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                     className="space-y-2"
                   >
                     <label className="text-sm font-semibold flex items-center gap-2">
-                      📍 Da dove parti?
+                      📍 Punto di partenza
                     </label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <Input
                         type="number"
-                        step={selectedObjective.step || 1}
+                        placeholder={selectedObjective.questionTemplate || 'Valore attuale'}
                         value={startingValue}
                         onChange={(e) => setStartingValue(e.target.value)}
-                        placeholder={`Es: ${selectedObjective.category === 'body' ? '80' : '1000'}`}
-                        className="rounded-xl h-12 text-lg font-semibold"
+                        step={selectedObjective.step || 1}
+                        min={selectedObjective.min}
+                        max={selectedObjective.max}
+                        className="rounded-xl h-12 text-lg font-medium"
                       />
                       {selectedObjective.unit && (
-                        <span className="text-sm text-muted-foreground whitespace-nowrap font-medium">
+                        <span className="text-sm text-muted-foreground font-medium min-w-[60px]">
                           {selectedObjective.unit}
                         </span>
                       )}
@@ -457,34 +398,38 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                 )}
 
                 {/* Target Value */}
-                {selectedObjective.inputMethod !== 'milestone' && 
-                 selectedObjective.inputMethod !== 'session_detected' && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="space-y-2"
-                  >
-                    <label className="text-sm font-semibold flex items-center gap-2">
-                      🎯 Qual è il tuo traguardo?
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        step={selectedObjective.step || 1}
-                        value={targetValue}
-                        onChange={(e) => setTargetValue(e.target.value)}
-                        placeholder={selectedObjective.defaultTarget?.toString() || 'Target'}
-                        className="rounded-xl h-12 text-lg font-semibold"
-                      />
-                      {selectedObjective.unit && (
-                        <span className="text-sm text-muted-foreground whitespace-nowrap font-medium">
-                          {selectedObjective.unit}
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="space-y-2"
+                >
+                  <label className="text-sm font-semibold flex items-center gap-2">
+                    🎯 Obiettivo finale
+                    {selectedObjective.defaultTarget && (
+                      <span className="text-muted-foreground font-normal">
+                        (suggerito: {selectedObjective.defaultTarget})
+                      </span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      placeholder={String(selectedObjective.defaultTarget || 'Inserisci il target')}
+                      value={targetValue}
+                      onChange={(e) => setTargetValue(e.target.value)}
+                      step={selectedObjective.step || 1}
+                      min={selectedObjective.min}
+                      max={selectedObjective.max}
+                      className="rounded-xl h-12 text-lg font-medium"
+                    />
+                    {selectedObjective.unit && (
+                      <span className="text-sm text-muted-foreground font-medium min-w-[60px]">
+                        {selectedObjective.unit}
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
 
                 {/* Deadline */}
                 <motion.div 
@@ -521,60 +466,6 @@ export const ObjectiveQuizModal: React.FC<ObjectiveQuizModalProps> = ({
                     Crea Obiettivo
                   </Button>
                 </motion.div>
-              </motion.div>
-            )}
-
-            {/* STEP 5: Confirm Custom */}
-            {step === 'confirm' && customData && (
-              <motion.div
-                key="confirm"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={spring}
-                className="space-y-5"
-              >
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                  <h3 className="font-bold text-xl text-foreground">{customTitle}</h3>
-                  <div className="flex gap-2 mt-3">
-                    <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium">
-                      {CATEGORY_CONFIG[customData.category]?.emoji} {CATEGORY_CONFIG[customData.category]?.label}
-                    </span>
-                  </div>
-                  {targetValue && (
-                    <p className="text-sm text-muted-foreground mt-3">
-                      🎯 Target: <span className="font-semibold text-foreground">{targetValue} {customData.unit}</span>
-                    </p>
-                  )}
-                  {startingValue && (
-                    <p className="text-sm text-muted-foreground">
-                      📍 Partenza: <span className="font-semibold text-foreground">{startingValue} {customData.unit}</span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Deadline */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold flex items-center gap-2">
-                    📅 Entro quando?
-                    <span className="text-muted-foreground font-normal">(opzionale)</span>
-                  </label>
-                  <Input
-                    type="date"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="rounded-xl h-12"
-                  />
-                </div>
-
-                <Button
-                  onClick={handleSubmit}
-                  className="w-full rounded-2xl h-14 text-base font-bold shadow-lg"
-                >
-                  <Check className="h-5 w-5 mr-2" />
-                  Conferma Obiettivo 🎉
-                </Button>
               </motion.div>
             )}
           </AnimatePresence>
