@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { Target, BarChart3 } from 'lucide-react';
+import { Target, BarChart3, Info } from 'lucide-react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import ObjectivesTabContent from '@/components/objectives/ObjectivesTabContent';
 import DailyTrackerTabContent from '@/components/objectives/DailyTrackerTabContent';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const Objectives: React.FC = () => {
   const [activeTab, setActiveTab] = useState('objectives');
@@ -44,13 +50,42 @@ const Objectives: React.FC = () => {
           </div>
         </header>
 
-        {/* Pill Tabs */}
-        <div className="flex justify-center mb-6">
+        {/* Pill Tabs with Info Tooltip */}
+        <div className="flex items-center justify-center gap-2 mb-6">
           <PillTabs
             tabs={tabs}
             value={activeTab}
             onValueChange={setActiveTab}
           />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-1.5 rounded-full hover:bg-muted transition-colors">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px] p-3">
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <p className="font-semibold text-foreground flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5" /> Traguardi
+                    </p>
+                    <p className="text-muted-foreground">
+                      Obiettivi a lungo termine con un punto di arrivo. Es: "Perdere 5kg", "Risparmiare €2000"
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground flex items-center gap-1.5">
+                      <BarChart3 className="w-3.5 h-3.5" /> Daily Tracker
+                    </p>
+                    <p className="text-muted-foreground">
+                      Abitudini ricorrenti da fare ogni giorno. Es: "Meditare", "8 bicchieri d'acqua"
+                    </p>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Tab Content */}
