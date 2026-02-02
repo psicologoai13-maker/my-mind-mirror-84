@@ -46,9 +46,10 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset when modal opens
+  // Hide/show bottom nav and reset when modal opens/closes
   useEffect(() => {
     if (open) {
+      window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
       setMessages([{
         id: '1',
         role: 'assistant',
@@ -57,6 +58,8 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
       setStep('category');
       setSelectedCategory(null);
       setInputValue('');
+    } else {
+      window.dispatchEvent(new CustomEvent('show-bottom-nav'));
     }
   }, [open]);
 
