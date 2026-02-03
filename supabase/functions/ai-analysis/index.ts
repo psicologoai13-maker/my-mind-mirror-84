@@ -123,6 +123,7 @@ serve(async (req) => {
     const mostRecentLifeAreas = {
       love: getMostRecent(lifeAreas, l => l.love),
       work: getMostRecent(lifeAreas, l => l.work),
+      school: getMostRecent(lifeAreas, l => l.school),
       health: getMostRecent(lifeAreas, l => l.health),
       social: getMostRecent(lifeAreas, l => l.social),
       growth: getMostRecent(lifeAreas, l => l.growth),
@@ -145,6 +146,7 @@ serve(async (req) => {
     const avgLifeAreas = {
       love: avg(lifeAreas, 'love'),
       work: avg(lifeAreas, 'work'),
+      school: avg(lifeAreas, 'school'),
       health: avg(lifeAreas, 'health'),
       social: avg(lifeAreas, 'social'),
       growth: avg(lifeAreas, 'growth'),
@@ -230,6 +232,7 @@ Usa questi valori quando menzioni lo stato ATTUALE dell'utente:
 - Sonno attuale: ${mostRecentVitals.sleep}
 - Salute attuale: ${mostRecentLifeAreas.health}
 - Lavoro attuale: ${mostRecentLifeAreas.work}
+- Scuola attuale: ${mostRecentLifeAreas.school}
 - Amore attuale: ${mostRecentLifeAreas.love}
 - Socialità attuale: ${mostRecentLifeAreas.social}
 
@@ -251,6 +254,7 @@ EMOZIONI (media 1-10):
 AREE VITA (media 1-10):
 - Amore: ${avgLifeAreas.love}
 - Lavoro: ${avgLifeAreas.work}
+- Scuola: ${avgLifeAreas.school}
 - Salute: ${avgLifeAreas.health}
 - Socialità: ${avgLifeAreas.social}
 - Crescita: ${avgLifeAreas.growth}

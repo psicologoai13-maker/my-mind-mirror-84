@@ -86,6 +86,9 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, o
         case 'work':
           value = dayData.life_areas.work ? dayData.life_areas.work * 10 : null;
           break;
+        case 'school':
+          value = dayData.life_areas.school ? dayData.life_areas.school * 10 : null;
+          break;
         case 'health':
           value = dayData.life_areas.health ? dayData.life_areas.health * 10 : null;
           break;

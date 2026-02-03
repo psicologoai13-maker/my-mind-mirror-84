@@ -7,7 +7,7 @@ import { TrendInfo, TrendType } from '@/hooks/useTimeWeightedMetrics';
 export type MetricKey = 
   | 'mood' | 'anxiety' | 'energy' | 'sleep' 
   | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy'
-  | 'love' | 'work' | 'friendship' | 'growth' | 'health'
+  | 'love' | 'work' | 'school' | 'friendship' | 'growth' | 'health'
   | 'stress' | 'calmness' | 'social' | 'loneliness' | 'emotional_clarity';
 
 interface AdaptiveVitalCardProps {
@@ -40,6 +40,7 @@ const getStatusLabel = (key: MetricKey, displayValue: number): string => {
     joy: ['Assente', 'Presente', 'Gioioso'],
     love: ['Carente', 'Stabile', 'Appagato'],
     work: ['Difficile', 'Nella media', 'Produttivo'],
+    school: ['Difficile', 'Nella media', 'Bene'],
     growth: ['Stagnante', 'In corso', 'In crescita'],
     health: ['Debole', 'Stabile', 'In forma'],
     calmness: ['Agitato', 'Neutro', 'Sereno'],
@@ -75,6 +76,7 @@ const METRIC_DESCRIPTIONS: Record<MetricKey, string> = {
   apathy: 'L\'apatia può indicare stanchezza emotiva. Piccole azioni quotidiane aiutano a ritrovare interesse.',
   love: 'Le relazioni affettive nutrono il benessere. Investi tempo in chi ami.',
   work: 'L\'equilibrio lavorativo influenza la soddisfazione generale. Celebra i piccoli successi.',
+  school: 'Lo studio richiede impegno e costanza. Organizzazione e pause aiutano la concentrazione.',
   friendship: 'Le amicizie arricchiscono la vita. Coltiva connessioni genuine e supportive.',
   growth: 'La crescita personale dà senso alla vita. Ogni sfida è un\'opportunità di apprendimento.',
   health: 'La salute fisica sostiene quella mentale. Movimento e alimentazione fanno la differenza.',
@@ -101,6 +103,7 @@ const METRIC_CONFIG: Record<MetricKey, {
   apathy: { icon: '😶', label: 'Apatia' },
   love: { icon: '❤️', label: 'Amore' },
   work: { icon: '💼', label: 'Lavoro' },
+  school: { icon: '🎓', label: 'Scuola' },
   friendship: { icon: '👥', label: 'Socialità' },
   growth: { icon: '🌱', label: 'Crescita' },
   health: { icon: '💪', label: 'Salute' },
