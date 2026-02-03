@@ -993,6 +993,7 @@ export type Database = {
           long_term_memory: string[] | null
           name: string | null
           notification_settings: Json | null
+          occupation_context: string | null
           onboarding_answers: Json | null
           onboarding_completed: boolean | null
           premium_type: string | null
@@ -1027,6 +1028,7 @@ export type Database = {
           long_term_memory?: string[] | null
           name?: string | null
           notification_settings?: Json | null
+          occupation_context?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
           premium_type?: string | null
@@ -1061,6 +1063,7 @@ export type Database = {
           long_term_memory?: string[] | null
           name?: string | null
           notification_settings?: Json | null
+          occupation_context?: string | null
           onboarding_answers?: Json | null
           onboarding_completed?: boolean | null
           premium_type?: string | null

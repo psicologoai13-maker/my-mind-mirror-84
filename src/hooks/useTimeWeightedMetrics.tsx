@@ -130,6 +130,7 @@ export interface TimeWeightedData {
   lifeAreas: {
     love: number | null;
     work: number | null;
+    school: number | null;
     health: number | null;
     social: number | null;
     growth: number | null;
@@ -137,6 +138,7 @@ export interface TimeWeightedData {
   lifeAreasTrends: {
     love: TrendInfo;
     work: TrendInfo;
+    school: TrendInfo;
     health: TrendInfo;
     social: TrendInfo;
     growth: TrendInfo;
@@ -149,6 +151,7 @@ export interface TimeWeightedData {
 interface LifeAreaRecord {
   love: number | null;
   work: number | null;
+  school: number | null;
   health: number | null;
   social: number | null;
   growth: number | null;
@@ -226,7 +229,7 @@ export const useTimeWeightedMetrics = (
       
       const { data, error } = await supabase
         .from('daily_life_areas')
-        .select('love, work, health, social, growth, updated_at')
+        .select('love, work, school, health, social, growth, updated_at')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
         .lte('date', todayRome) // Use Rome date to include today
@@ -273,8 +276,8 @@ export const useTimeWeightedMetrics = (
           shame: null, jealousy: null, hope: null, frustration: null, nostalgia: null,
           nervousness: null, overwhelm: null, excitement: null, disappointment: null
         },
-        lifeAreas: { love: null, work: null, health: null, social: null, growth: null },
-        lifeAreasTrends: { love: defaultTrend, work: defaultTrend, health: defaultTrend, social: defaultTrend, growth: defaultTrend },
+        lifeAreas: { love: null, work: null, school: null, health: null, social: null, growth: null },
+        lifeAreasTrends: { love: defaultTrend, work: defaultTrend, school: defaultTrend, health: defaultTrend, social: defaultTrend, growth: defaultTrend },
         deepPsychology: {
           rumination: null, self_efficacy: null, mental_clarity: null, concentration: null,
           burnout_level: null, coping_ability: null, loneliness_perceived: null,
@@ -352,6 +355,7 @@ export const useTimeWeightedMetrics = (
 
     const loveValues = extractLifeAreaWithTimestamp('love');
     const workValues = extractLifeAreaWithTimestamp('work');
+    const schoolValues = extractLifeAreaWithTimestamp('school');
     const healthValues = extractLifeAreaWithTimestamp('health');
     const socialValues = extractLifeAreaWithTimestamp('social');
     const growthValues = extractLifeAreaWithTimestamp('growth');
@@ -359,6 +363,7 @@ export const useTimeWeightedMetrics = (
     const lifeAreas = {
       love: calculateTimeWeightedAverage(loveValues, halfLifeDays),
       work: calculateTimeWeightedAverage(workValues, halfLifeDays),
+      school: calculateTimeWeightedAverage(schoolValues, halfLifeDays),
       health: calculateTimeWeightedAverage(healthValues, halfLifeDays),
       social: calculateTimeWeightedAverage(socialValues, halfLifeDays),
       growth: calculateTimeWeightedAverage(growthValues, halfLifeDays),
@@ -368,6 +373,7 @@ export const useTimeWeightedMetrics = (
     const lifeAreasTrends = {
       love: calculateTrend(loveValues, lifeAreas.love),
       work: calculateTrend(workValues, lifeAreas.work),
+      school: calculateTrend(schoolValues, lifeAreas.school),
       health: calculateTrend(healthValues, lifeAreas.health),
       social: calculateTrend(socialValues, lifeAreas.social),
       growth: calculateTrend(growthValues, lifeAreas.growth),

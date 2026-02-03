@@ -67,6 +67,7 @@ export interface DailyMetrics {
   life_areas: {
     love: number | null;
     work: number | null;
+    school: number | null;
     health: number | null;
     social: number | null;
     growth: number | null;

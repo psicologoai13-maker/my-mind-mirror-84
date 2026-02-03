@@ -1,41 +1,46 @@
 import React from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
-import { Compass, MessageCircle, Heart, Briefcase, Users, Sprout, Activity } from 'lucide-react';
+import { useOccupationContext, LifeAreaConfig } from '@/hooks/useOccupationContext';
+import { Compass, MessageCircle, Heart, Briefcase, Users, Sprout, Activity, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const LIFE_AREAS = [
-  { key: 'love', label: 'Amore', icon: Heart, color: 'hsl(340, 70%, 60%)' },
-  { key: 'work', label: 'Lavoro', icon: Briefcase, color: 'hsl(220, 70%, 55%)' },
-  { key: 'social', label: 'Socialità', icon: Users, color: 'hsl(45, 80%, 50%)' },
-  { key: 'growth', label: 'Crescita', icon: Sprout, color: 'hsl(280, 60%, 55%)' },
-  { key: 'health', label: 'Salute', icon: Activity, color: 'hsl(150, 60%, 45%)' },
-];
+// Icon map for dynamic areas
+const ICON_MAP: Record<string, React.ElementType> = {
+  love: Heart,
+  work: Briefcase,
+  school: GraduationCap,
+  social: Users,
+  growth: Sprout,
+  health: Activity,
+};
+
+const COLOR_MAP: Record<string, string> = {
+  love: 'hsl(340, 70%, 60%)',
+  work: 'hsl(45, 80%, 50%)',
+  school: 'hsl(220, 70%, 55%)',
+  social: 'hsl(200, 70%, 55%)',
+  growth: 'hsl(280, 60%, 55%)',
+  health: 'hsl(150, 60%, 45%)',
+};
 
 const LifeBalanceRadar: React.FC = () => {
   // 🎯 TIME-WEIGHTED AVERAGE: Dati più recenti hanno più rilevanza (30 giorni, half-life 10 giorni)
-  const { lifeAreas, lifeAreasTrends, hasData: hasWeightedData, isLoading } = useTimeWeightedMetrics(30, 10);
+  const { lifeAreas: scores, lifeAreasTrends, hasData: hasWeightedData, isLoading } = useTimeWeightedMetrics(30, 10);
+  // 🎯 OCCUPATION CONTEXT: Dynamic life areas based on age/occupation
+  const { lifeAreas: dynamicAreas, needsOccupationClarification } = useOccupationContext();
 
-  // Use time-weighted life areas scores
-  const lifeAreasScores = {
-    love: lifeAreas.love,
-    work: lifeAreas.work,
-    social: lifeAreas.social,
-    growth: lifeAreas.growth,
-    health: lifeAreas.health,
-  };
-
-  const radarData = LIFE_AREAS.map(area => ({
+  const radarData = dynamicAreas.map(area => ({
     subject: area.label,
-    value: (lifeAreasScores?.[area.key as keyof typeof lifeAreasScores] || 0) as number,
+    value: (scores?.[area.dbField as keyof typeof scores] || 0) as number,
     fullMark: 10,
   }));
 
   const hasData = radarData.some(d => d.value > 0);
   
   // Count missing areas for the prompt
-  const missingAreas = LIFE_AREAS.filter(
-    area => !lifeAreasScores?.[area.key as keyof typeof lifeAreasScores]
+  const missingAreas = dynamicAreas.filter(
+    area => !scores?.[area.dbField as keyof typeof scores]
   );
 
   return (
@@ -53,12 +58,12 @@ const LifeBalanceRadar: React.FC = () => {
             <Compass className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-sm font-semibold text-foreground">
               Aree della Vita
             </h3>
             {hasData && missingAreas.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                {5 - missingAreas.length}/5 aree tracciate
+                {dynamicAreas.length - missingAreas.length}/{dynamicAreas.length} aree tracciate
               </p>
             )}
           </div>
@@ -138,10 +143,13 @@ const LifeBalanceRadar: React.FC = () => {
       </div>
 
       {/* Legend with icons and values */}
-      <div className="relative z-10 grid grid-cols-5 gap-2 mt-4">
-        {LIFE_AREAS.map(area => {
-          const value = lifeAreasScores?.[area.key as keyof typeof lifeAreasScores];
-          const Icon = area.icon;
+      <div className={cn(
+        "relative z-10 grid gap-2 mt-4",
+        dynamicAreas.length <= 5 ? "grid-cols-5" : "grid-cols-6"
+      )}>
+        {dynamicAreas.map(area => {
+          const value = scores?.[area.dbField as keyof typeof scores];
+          const Icon = ICON_MAP[area.key] || Activity;
           const hasValue = value !== null && value !== undefined && value > 0;
           
           return (
@@ -156,7 +164,7 @@ const LifeBalanceRadar: React.FC = () => {
             >
               <Icon 
                 className="w-4 h-4" 
-                style={{ color: hasValue ? area.color : 'hsl(var(--muted-foreground))' }} 
+                style={{ color: hasValue ? COLOR_MAP[area.key] : 'hsl(var(--muted-foreground))' }} 
               />
               <span className={cn(
                 "text-sm font-bold",
