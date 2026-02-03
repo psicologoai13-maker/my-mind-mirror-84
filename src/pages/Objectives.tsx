@@ -18,7 +18,7 @@ const Objectives: React.FC = () => {
   const tabs = [
     { 
       value: 'objectives', 
-      label: 'Traguardi',
+      label: 'Obiettivi',
       icon: <Target className="w-4 h-4" />
     },
     { 
@@ -68,10 +68,10 @@ const Objectives: React.FC = () => {
                 <div className="space-y-2 text-xs">
                   <div>
                     <p className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5" /> Traguardi
+                      <Target className="w-3.5 h-3.5" /> Obiettivi
                     </p>
                     <p className="text-muted-foreground">
-                      Obiettivi a lungo termine con un punto di arrivo. Es: "Perdere 5kg", "Risparmiare €2000"
+                      Traguardi a lungo termine con un punto di arrivo. Es: "Perdere 5kg", "Risparmiare €2000"
                     </p>
                   </div>
                   <div>
