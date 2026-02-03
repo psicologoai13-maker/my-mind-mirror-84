@@ -2,7 +2,7 @@ import React from 'react';
 import { useAIDashboard, MetricConfig } from '@/hooks/useAIDashboard';
 import { useTimeWeightedMetrics, TrendInfo } from '@/hooks/useTimeWeightedMetrics';
 import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard';
-import { Loader2, Sparkles, ChevronDown } from 'lucide-react';
+import { Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AdaptiveVitalsSection: React.FC = () => {
@@ -102,20 +102,31 @@ const AdaptiveVitalsSection: React.FC = () => {
   }, [layout]);
 
   const isLoading = isLoadingAI || isLoadingMetrics;
-  const hasCachedData = primaryMetrics.length > 0 && primaryMetrics[0].key !== 'mood' || layout.wellness_score !== 5;
+  
+  // Show silent skeleton loader only if we truly have no data
+  // Use global cache presence to avoid flicker on remount
+  const hasAnyData = primaryMetrics.length > 0;
 
-  // Only show loading if we have NO data at all
-  if (isLoading && !hasCachedData) {
+  // Silent skeleton loader - no "AI" messaging since values are calculated locally
+  if (isLoading && !hasAnyData) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-1">
-          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            AI sta analizzando...
-          </span>
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
         </div>
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+        {/* Silent skeleton grid */}
+        <div className="flex gap-4">
+          <div className="flex-1 flex flex-col gap-4">
+            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+          </div>
+          <div className="flex-1 flex flex-col gap-4">
+            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+          </div>
         </div>
       </div>
     );
