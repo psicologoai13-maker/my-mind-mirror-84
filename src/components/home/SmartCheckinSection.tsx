@@ -832,7 +832,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               key={item.key}
               onClick={() => handleItemClick(item)}
               className={cn(
-                "relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all duration-300",
+                "relative flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all duration-300",
                 "bg-glass backdrop-blur-sm hover:bg-glass-hover",
                 "shadow-soft hover:shadow-glass hover:scale-[1.03] active:scale-[0.97]",
                 "border border-glass-border",
@@ -846,9 +846,14 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               )}>
                 <item.icon className={cn("w-4 h-4", item.color)} />
               </div>
-              <span className="font-medium text-[10px] text-center leading-tight text-foreground line-clamp-2">
+              <span className="font-medium text-[10px] text-center leading-tight text-foreground line-clamp-1">
                 {item.label}
               </span>
+              {item.question && (
+                <span className="text-[8px] text-muted-foreground text-center leading-tight line-clamp-2 px-0.5">
+                  {item.question}
+                </span>
+              )}
             </button>
           ))}
         </div>
