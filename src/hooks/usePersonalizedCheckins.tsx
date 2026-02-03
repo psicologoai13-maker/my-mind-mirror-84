@@ -535,9 +535,36 @@ export const usePersonalizedCheckins = () => {
     cachedDate: today,
   };
 
-  // 🎯 Label overrides - fix cached labels that may be outdated
+  // 🎯 Label and question overrides - ensures clarity for all check-in types
   const labelOverrides: Record<string, { label: string; question: string }> = {
+    // Vitals
+    mood: { label: 'Umore', question: 'Come ti senti emotivamente adesso?' },
+    anxiety: { label: 'Ansia', question: 'Quanto ti senti agitato/a o preoccupato/a?' },
+    energy: { label: 'Energia', question: 'Quanto ti senti attivo/a e pieno/a di energie?' },
+    sleep: { label: 'Sonno', question: 'Come hai dormito stanotte?' },
+    // Life Areas
+    love: { label: 'Amore', question: 'Come vanno le relazioni affettive?' },
+    work: { label: 'Lavoro', question: 'Come sta andando la giornata lavorativa?' },
+    social: { label: 'Socialità', question: 'Quanto ti senti connesso/a con gli altri?' },
+    health: { label: 'Salute', question: 'Come ti senti fisicamente oggi?' },
+    // Emotions
+    sadness: { label: 'Tristezza', question: 'Quanto ti senti giù o malinconico/a?' },
+    anger: { label: 'Rabbia', question: 'Quanto ti senti irritato/a o arrabbiato/a?' },
+    fear: { label: 'Paura', question: 'Quanto ti senti spaventato/a o in ansia?' },
+    joy: { label: 'Gioia', question: 'Quanto ti senti felice o contento/a?' },
+    // Psychology
     rumination: { label: 'Rimuginazione', question: 'Hai pensieri che tornano in loop?' },
+    burnout_level: { label: 'Burnout', question: 'Quanto ti senti esaurito/a o sovraccarico/a?' },
+    loneliness_perceived: { label: 'Solitudine', question: 'Quanto ti senti solo/a oggi?' },
+    gratitude: { label: 'Gratitudine', question: 'Quanto ti senti grato/a per qualcosa oggi?' },
+    mental_clarity: { label: 'Chiarezza', question: 'Quanto ti senti lucido/a mentalmente?' },
+    somatic_tension: { label: 'Tensione', question: 'Quanto senti tensione nel corpo?' },
+    coping_ability: { label: 'Resilienza', question: 'Quanto riesci a gestire lo stress?' },
+    sunlight_exposure: { label: 'Luce solare', question: 'Quanto tempo hai passato all\'aperto?' },
+    irritability: { label: 'Irritabilità', question: 'Quanto facilmente ti innervosisci oggi?' },
+    guilt: { label: 'Senso di colpa', question: 'Quanto ti senti in colpa per qualcosa?' },
+    self_efficacy: { label: 'Autoefficacia', question: 'Quanto ti senti capace di affrontare le sfide?' },
+    appetite_changes: { label: 'Appetito', question: 'Il tuo appetito è normale oggi?' },
   };
 
   // Convert AI response to CheckinItem format with proper icons
