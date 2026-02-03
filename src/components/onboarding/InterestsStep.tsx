@@ -6,9 +6,11 @@ interface InterestsStepProps {
   userName: string;
   selectedInterests: string[];
   onChange: (interests: string[]) => void;
+  ageRange?: string;
 }
 
-const INTERESTS_OPTIONS = [
+// Base interests for everyone
+const BASE_INTERESTS = [
   { id: 'sport', emoji: '⚽', label: 'Sport' },
   { id: 'music', emoji: '🎵', label: 'Musica' },
   { id: 'reading', emoji: '📚', label: 'Lettura' },
@@ -23,9 +25,10 @@ const INTERESTS_OPTIONS = [
   { id: 'photography', emoji: '📸', label: 'Fotografia' },
   { id: 'yoga', emoji: '🧘', label: 'Yoga/Meditazione' },
   { id: 'tech', emoji: '💻', label: 'Tecnologia' },
-  { id: 'fashion', emoji: '👗', label: 'Moda' },
-  { id: 'social', emoji: '👥', label: 'Socializzare' },
-  // Youth-specific interests
+];
+
+// Youth-specific interests (<25 years)
+const YOUTH_INTERESTS = [
   { id: 'tiktok', emoji: '📱', label: 'TikTok/Social' },
   { id: 'anime', emoji: '🎌', label: 'Anime/Manga' },
   { id: 'kpop', emoji: '🎤', label: 'K-pop' },
@@ -34,11 +37,32 @@ const INTERESTS_OPTIONS = [
   { id: 'esports', emoji: '🏆', label: 'Esport' },
 ];
 
+// Adult-specific interests (25+ years)
+const ADULT_INTERESTS = [
+  { id: 'wine', emoji: '🍷', label: 'Vino/Cucina' },
+  { id: 'gardening', emoji: '🌻', label: 'Giardinaggio' },
+  { id: 'investing', emoji: '📈', label: 'Investimenti' },
+  { id: 'diy', emoji: '🔧', label: 'Fai da te' },
+  { id: 'podcasts', emoji: '🎧', label: 'Podcast' },
+  { id: 'volunteering', emoji: '🤝', label: 'Volontariato' },
+];
+
+const isYouthAge = (ageRange?: string) => {
+  return ageRange === '<18' || ageRange === '18-24';
+};
+
 const InterestsStep: React.FC<InterestsStepProps> = ({
   userName,
   selectedInterests,
   onChange,
+  ageRange,
 }) => {
+  // Build options based on age
+  const INTERESTS_OPTIONS = [
+    ...BASE_INTERESTS,
+    ...(isYouthAge(ageRange) ? YOUTH_INTERESTS : ADULT_INTERESTS),
+  ];
+
   const toggleInterest = (id: string) => {
     if (selectedInterests.includes(id)) {
       onChange(selectedInterests.filter(i => i !== id));
