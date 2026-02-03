@@ -535,6 +535,11 @@ export const usePersonalizedCheckins = () => {
     cachedDate: today,
   };
 
+  // 🎯 Label overrides - fix cached labels that may be outdated
+  const labelOverrides: Record<string, { label: string; question: string }> = {
+    rumination: { label: 'Rimuginazione', question: 'Hai pensieri che tornano in loop?' },
+  };
+
   // Convert AI response to CheckinItem format with proper icons
   const dailyCheckins = useMemo<CheckinItem[]>(() => {
     const sourceList = aiData?.fixedDailyList || aiData?.checkins;
@@ -548,6 +553,11 @@ export const usePersonalizedCheckins = () => {
       .map((item, index) => {
         const isHabit = item.type === 'habit' || item.key.startsWith('habit_');
         const isObjective = item.type === 'objective' || item.key.startsWith('objective_');
+        
+        // Apply label overrides for cached items
+        const override = labelOverrides[item.key];
+        const finalLabel = override?.label || item.label;
+        const finalQuestion = override?.question || item.question;
         
         // Determine icon
         let Icon: LucideIcon = Sparkles;
@@ -574,8 +584,8 @@ export const usePersonalizedCheckins = () => {
         return {
           key: item.key,
           icon: Icon,
-          label: item.label,
-          question: item.question,
+          label: finalLabel,
+          question: finalQuestion,
           color: colors.color,
           bgColor: colors.bgColor,
           type: item.type as CheckinItemType,
