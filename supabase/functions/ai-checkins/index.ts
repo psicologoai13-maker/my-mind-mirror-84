@@ -28,7 +28,7 @@ const BASE_CHECKIN_ITEMS = [
   { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno" },
   { key: "fear", label: "Paura", question: "Hai paure o preoccupazioni?", type: "emotion", responseType: "yesno" },
   { key: "joy", label: "Gioia", question: "Quanta gioia senti?", type: "emotion", responseType: "intensity" },
-  { key: "rumination", label: "Pensieri", question: "Stai rimuginando su qualcosa?", type: "psychology", responseType: "yesno" },
+  { key: "rumination", label: "Rimuginazione", question: "Hai pensieri che tornano in loop?", type: "psychology", responseType: "yesno" },
   { key: "burnout_level", label: "Burnout", question: "Ti senti esausto/a?", type: "psychology", responseType: "yesno" },
   { key: "loneliness_perceived", label: "Solitudine", question: "Ti senti solo/a?", type: "psychology", responseType: "yesno" },
   { key: "gratitude", label: "Gratitudine", question: "Sei grato/a per qualcosa oggi?", type: "psychology", responseType: "yesno" },
