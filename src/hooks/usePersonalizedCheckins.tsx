@@ -364,17 +364,28 @@ export const usePersonalizedCheckins = () => {
     }
   }, [user, session, profileLoading, cachedData, today, refetchAI]);
 
-  // Fetch today's completed data
+  // Fetch today's completed data including SESSION data
   const { data: todayAllData, refetch: refetchTodayData } = useQuery({
     queryKey: ['today-all-sources', user?.id, today],
     queryFn: async () => {
-      if (!user) return { lifeAreas: [], emotions: [], psychology: [], habits: [] };
+      if (!user) return { lifeAreas: [], emotions: [], psychology: [], habits: [], sessions: [] };
 
-      const [lifeAreasResult, emotionsResult, psychologyResult, habitsResult] = await Promise.all([
+      // Get start/end of today in Rome timezone for session query
+      const todayStart = new Date(`${today}T00:00:00+01:00`).toISOString();
+      const todayEnd = new Date(`${today}T23:59:59+01:00`).toISOString();
+
+      const [lifeAreasResult, emotionsResult, psychologyResult, habitsResult, sessionsResult] = await Promise.all([
         supabase.from('daily_life_areas').select('*').eq('user_id', user.id).eq('date', today),
         supabase.from('daily_emotions').select('*').eq('user_id', user.id).eq('date', today),
         supabase.from('daily_psychology').select('*').eq('user_id', user.id).eq('date', today),
         supabase.from('daily_habits').select('*').eq('user_id', user.id).eq('date', today),
+        // 🎯 CRITICAL: Also check sessions for extracted vitals from conversations
+        supabase.from('sessions')
+          .select('mood_score_detected, anxiety_score_detected, sleep_quality, specific_emotions, life_balance_scores, deep_psychology')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .gte('start_time', todayStart)
+          .lte('start_time', todayEnd),
       ]);
 
       return {
@@ -382,24 +393,84 @@ export const usePersonalizedCheckins = () => {
         emotions: emotionsResult.data || [],
         psychology: psychologyResult.data || [],
         habits: habitsResult.data || [],
+        sessions: sessionsResult.data || [],
       };
     },
     enabled: !!user,
     staleTime: 1000 * 10,
   });
 
-  // Parse completed items from all sources
+  // Parse completed items from all sources INCLUDING SESSION DATA
   const completedToday = useMemo(() => {
     const completed: Record<string, number> = {};
     
+    // 🎯 CRITICAL FIX: Check session data FIRST for mood/anxiety/energy/sleep
+    // This ensures that if Aria collected these during conversation, they count as completed
+    if (todayAllData?.sessions) {
+      todayAllData.sessions.forEach((session: any) => {
+        // Vitals from session (1-10 scale → convert to 1-5)
+        if (session.mood_score_detected && typeof session.mood_score_detected === 'number') {
+          completed.mood = Math.max(completed.mood || 0, Math.ceil(session.mood_score_detected / 2));
+        }
+        if (session.anxiety_score_detected && typeof session.anxiety_score_detected === 'number') {
+          completed.anxiety = Math.max(completed.anxiety || 0, Math.ceil(session.anxiety_score_detected / 2));
+        }
+        if (session.sleep_quality && typeof session.sleep_quality === 'number') {
+          completed.sleep = Math.max(completed.sleep || 0, Math.ceil(session.sleep_quality / 2));
+        }
+        
+        // Emotions from session (specific_emotions JSON)
+        if (session.specific_emotions) {
+          const emotions = typeof session.specific_emotions === 'string' 
+            ? JSON.parse(session.specific_emotions) 
+            : session.specific_emotions;
+          ['joy', 'sadness', 'anger', 'fear', 'apathy'].forEach(key => {
+            const value = emotions[key];
+            if (value && typeof value === 'number' && value > 0) {
+              completed[key] = Math.max(completed[key] || 0, Math.ceil(value / 2));
+            }
+          });
+        }
+        
+        // Life areas from session (life_balance_scores JSON)
+        if (session.life_balance_scores) {
+          const areas = typeof session.life_balance_scores === 'string'
+            ? JSON.parse(session.life_balance_scores)
+            : session.life_balance_scores;
+          ['love', 'work', 'social', 'health', 'energy'].forEach(key => {
+            const value = areas[key];
+            if (value && typeof value === 'number' && value > 0) {
+              // Map 'energy' from life_balance to vitals energy
+              const targetKey = key === 'energy' ? 'energy' : key;
+              completed[targetKey] = Math.max(completed[targetKey] || 0, Math.ceil(value / 2));
+            }
+          });
+        }
+        
+        // Deep psychology from session
+        if (session.deep_psychology) {
+          const psych = typeof session.deep_psychology === 'string'
+            ? JSON.parse(session.deep_psychology)
+            : session.deep_psychology;
+          Object.keys(psych).forEach(key => {
+            const value = psych[key];
+            if (value && typeof value === 'number' && value > 0) {
+              completed[key] = Math.max(completed[key] || 0, Math.ceil(value / 2));
+            }
+          });
+        }
+      });
+    }
+    
+    // Also check daily_checkins (manual mood selector)
     if (todayCheckin) {
-      completed.mood = todayCheckin.mood_value;
+      completed.mood = Math.max(completed.mood || 0, todayCheckin.mood_value);
       if (todayCheckin.notes) {
         try {
           const notes = JSON.parse(todayCheckin.notes);
           Object.entries(notes).forEach(([key, value]) => {
             if (typeof value === 'number') {
-              completed[key] = Math.ceil(value / 2);
+              completed[key] = Math.max(completed[key] || 0, Math.ceil((value as number) / 2));
             }
           });
         } catch (e) {}
