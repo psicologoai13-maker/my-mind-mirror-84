@@ -555,7 +555,7 @@ function buildPersonalizedSystemPrompt(
   recentSessions: RecentSession[] = [],
   todayHabits: HabitData[] = [],
   bodyMetrics: BodyMetricsData | null = null,
-  profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null } | null = null
+  profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null; occupation_context: string | null } | null = null
 ): string {
   const name = userName?.split(' ')[0] || null;
   const memoryContent = memory.length > 0 
@@ -1720,12 +1720,16 @@ USO: Collega dati fisici al benessere mentale:
   // ════════════════════════════════════════════════════════════════════════════
   
   let profileExtrasBlock = '';
+  let occupationClarificationBlock = '';
+  
   if (profileExtras) {
     const items: string[] = [];
     if (profileExtras.gender) items.push(`Genere: ${profileExtras.gender}`);
+    
+    let calculatedAge: number | null = null;
     if (profileExtras.birth_date) {
-      const age = Math.floor((Date.now() - new Date(profileExtras.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-      items.push(`Età: ${age} anni`);
+      calculatedAge = Math.floor((Date.now() - new Date(profileExtras.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      items.push(`Età: ${calculatedAge} anni`);
     }
     if (profileExtras.height) items.push(`Altezza: ${profileExtras.height}cm`);
     if (profileExtras.therapy_status && profileExtras.therapy_status !== 'none') {
@@ -1737,6 +1741,16 @@ USO: Collega dati fisici al benessere mentale:
       items.push(`Terapia: ${therapyLabels[profileExtras.therapy_status] || profileExtras.therapy_status}`);
     }
     
+    // Add occupation context
+    if (profileExtras.occupation_context) {
+      const occupationLabels: Record<string, string> = {
+        'student': 'Studia',
+        'worker': 'Lavora',
+        'both': 'Studia e Lavora'
+      };
+      items.push(`Occupazione: ${occupationLabels[profileExtras.occupation_context] || profileExtras.occupation_context}`);
+    }
+    
     if (items.length > 0) {
       profileExtrasBlock = `
 ═══════════════════════════════════════════════
@@ -1745,7 +1759,75 @@ USO: Collega dati fisici al benessere mentale:
 ${items.join(' | ')}
 `;
     }
+    
+    // Calculate age from onboarding answers if birth_date not available
+    if (calculatedAge === null && onboardingAnswers?.ageRange) {
+      const ageRangeMap: Record<string, number> = {
+        '<18': 16,
+        '18-24': 21,
+        '25-34': 30,
+        '35-44': 40,
+        '45-54': 50,
+        '55+': 60
+      };
+      calculatedAge = ageRangeMap[onboardingAnswers.ageRange] || null;
+    }
+    
+    // OCCUPATION CLARIFICATION BLOCK
+    // Determines when Aria should ask about study/work
+    if (!profileExtras.occupation_context) {
+      const needsProactiveAsk = calculatedAge !== null && calculatedAge >= 18 && calculatedAge <= 27;
+      const isMinor = calculatedAge !== null && calculatedAge < 18;
+      
+      if (needsProactiveAsk) {
+        occupationClarificationBlock = `
+═══════════════════════════════════════════════
+🎓💼 OCCUPAZIONE DA CHIARIRE (PRIORITÀ!)
+═══════════════════════════════════════════════
+
+L'utente ha tra 18 e 27 anni ma NON sappiamo ancora se studia, lavora o entrambi.
+
+**CHIEDI IN MODO NATURALE** (solo se non è già emerso):
+- "A proposito, cosa fai nella vita? Studi, lavori...?"
+- "Mi hai detto che [X]... quindi stai studiando o lavori?"
+
+**QUANDO RICEVI RISPOSTA:**
+- Se dice che STUDIA → annota mentalmente, useremo "Scuola" nei check-in
+- Se dice che LAVORA → annota mentalmente, useremo "Lavoro" nei check-in  
+- Se dice ENTRAMBI → fantastico, tracciamo sia "Scuola" che "Lavoro"
+
+Questa info è importante per personalizzare le domande sulle aree della vita!`;
+      } else if (isMinor) {
+        occupationClarificationBlock = `
+═══════════════════════════════════════════════
+🎓 UTENTE GIOVANE (<18 anni)
+═══════════════════════════════════════════════
+
+Di default assumiamo che questo utente STUDI (è minorenne).
+MA se durante la conversazione emerge che LAVORA (es. apprendistato, lavoro part-time):
+- Adatta le domande di conseguenza
+- Chiedi "Quindi lavori anche? Che tipo di lavoro fai?"
+- Potremmo tracciare sia Scuola che Lavoro se fa entrambi`;
+      }
+    }
   }
+  
+  // OCCUPATION DETECTION INSTRUCTION (always active)
+  const occupationDetectionInstruction = `
+═══════════════════════════════════════════════
+🔍 RILEVAMENTO OCCUPAZIONE (SEMPRE ATTIVO)
+═══════════════════════════════════════════════
+
+SE l'utente menziona esplicitamente:
+- "Vado a scuola/università", "Studio [X]", "Sono studente" → OCCUPAZIONE = student
+- "Lavoro come [X]", "Sono [professione]", "In ufficio" → OCCUPAZIONE = worker  
+- "Studio e lavoro", "Part-time mentre studio" → OCCUPAZIONE = both
+
+Quando rilevi questa informazione, CONFERMA naturalmente:
+- "Ah quindi studi [X]! Che anno sei?"
+- "Capito, lavori come [Y]! Ti piace?"
+
+Questa info aiuterà a personalizzare le domande future sulle aree della vita.`;
 
   // ════════════════════════════════════════════════════════════════════════════
   // 🆕 PRIMA CONVERSAZIONE - Raccolta informazioni
@@ -1850,6 +1932,10 @@ ${firstConversationBlock}
 ${userContextBlock}
 
 ${profileExtrasBlock}
+
+${occupationClarificationBlock}
+
+${occupationDetectionInstruction}
 
 ${currentStateBlock}
 
@@ -1993,6 +2079,7 @@ interface UserProfile {
   birth_date: string | null;
   height: number | null;
   therapy_status: string | null;
+  occupation_context: string | null; // 'student' | 'worker' | 'both' | null
 }
 
 // Helper to get user's profile and memory from database
@@ -2015,6 +2102,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     birth_date: null,
     height: null,
     therapy_status: null,
+    occupation_context: null,
   };
   
   if (!authHeader) {
@@ -2057,7 +2145,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     ] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status')
+        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context')
         .eq('user_id', user.id)
         .single(),
       supabase
@@ -2176,6 +2264,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       birth_date: profile?.birth_date || null,
       height: profile?.height || null,
       therapy_status: profile?.therapy_status || null,
+      occupation_context: profile?.occupation_context || null,
     };
     
     console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}`);
@@ -2304,7 +2393,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
         gender: userProfile.gender, 
         birth_date: userProfile.birth_date, 
         height: userProfile.height, 
-        therapy_status: userProfile.therapy_status 
+        therapy_status: userProfile.therapy_status,
+        occupation_context: userProfile.occupation_context 
       }
     );
     

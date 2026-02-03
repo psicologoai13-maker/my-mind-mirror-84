@@ -64,9 +64,11 @@ const getAgeFromProfile = (profile: any): number | null => {
  * Hook to determine which life areas to show based on user's occupation context
  * 
  * Logic:
- * - < 18 years: Always "School" only (auto-set)
- * - 18-27 years: Depends on occupation_context (student/worker/both) - if null, Aria should ask
- * - > 27 years: Default "Work" only, but can be "both" if set
+ * - If occupation_context is set → use it (user can always override via Aria)
+ * - If occupation_context is null:
+ *   - < 18 years: Default "student" (but can be changed)
+ *   - 18-27 years: Aria should ask
+ *   - > 27 years: Default "worker" (but can be changed)
  */
 export const useOccupationContext = () => {
   const { profile, isLoading, updateProfile } = useProfile();
@@ -80,24 +82,26 @@ export const useOccupationContext = () => {
    * Returns: 'student' | 'worker' | 'both' | null (null = needs Aria to ask)
    */
   const effectiveOccupation = useMemo((): OccupationType | null => {
+    // If user has explicitly set their context, always use it
+    if (occupationContext) {
+      return occupationContext;
+    }
+    
     if (age === null) return null; // No age data
     
-    // < 18: Always student
+    // Default behaviors when occupation_context is not set
+    // < 18: Default to student (but can be changed via Aria)
     if (age < 18) {
       return 'student';
     }
     
-    // 18-27: Use saved context or null (needs to be asked)
+    // 18-27: Needs to be asked by Aria
     if (age >= 18 && age <= 27) {
-      return occupationContext || null;
+      return null;
     }
     
-    // > 27: Default to worker, but respect 'both' if set
-    if (age > 27) {
-      return occupationContext === 'both' ? 'both' : 'worker';
-    }
-    
-    return 'worker'; // fallback
+    // > 27: Default to worker (but can be changed via Aria)
+    return 'worker';
   }, [age, occupationContext]);
   
   /**
@@ -126,13 +130,21 @@ export const useOccupationContext = () => {
   }, [effectiveOccupation]);
   
   /**
-   * Whether Aria needs to ask the user about their occupation
+   * Whether Aria should proactively ask about occupation
    * True for 18-27 users without occupation_context set
+   * (younger/older users have defaults but can still change via conversation)
    */
   const needsOccupationClarification = useMemo(() => {
     if (age === null || isLoading) return false;
+    // Only proactively ask for 18-27 users without context
     return age >= 18 && age <= 27 && !occupationContext;
   }, [age, occupationContext, isLoading]);
+
+  /**
+   * Whether the user can change their occupation context
+   * (always true - anyone can change it via Aria)
+   */
+  const canChangeOccupation = true;
   
   /**
    * Update the user's occupation context
@@ -145,8 +157,10 @@ export const useOccupationContext = () => {
   return {
     age,
     occupationContext: effectiveOccupation,
+    rawOccupationContext: occupationContext, // The actual saved value
     lifeAreas,
     needsOccupationClarification,
+    canChangeOccupation,
     setOccupationContext,
     isLoading,
     // Expose constants for use elsewhere
