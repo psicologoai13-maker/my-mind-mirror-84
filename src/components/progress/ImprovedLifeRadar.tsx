@@ -1,22 +1,37 @@
 import React, { useMemo } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
-import { Heart, Briefcase, Users, Zap, Sprout, Compass } from 'lucide-react';
+import { useOccupationContext } from '@/hooks/useOccupationContext';
+import { Heart, Briefcase, Users, Zap, Sprout, Compass, GraduationCap } from 'lucide-react';
 import { subDays, format } from 'date-fns';
 
-const LIFE_AREAS = [
-  { key: 'love', label: 'Amore', icon: Heart, color: 'hsl(340, 70%, 60%)' },
-  { key: 'work', label: 'Lavoro', icon: Briefcase, color: 'hsl(220, 70%, 55%)' },
-  { key: 'social', label: 'Socialità', icon: Users, color: 'hsl(45, 80%, 50%)' },
-  { key: 'growth', label: 'Crescita', icon: Sprout, color: 'hsl(280, 60%, 55%)' },
-  { key: 'health', label: 'Salute', icon: Zap, color: 'hsl(150, 60%, 45%)' },
-];
+// Icon map for dynamic areas
+const ICON_MAP: Record<string, React.ElementType> = {
+  love: Heart,
+  work: Briefcase,
+  school: GraduationCap,
+  social: Users,
+  growth: Sprout,
+  health: Zap,
+};
+
+const COLOR_MAP: Record<string, string> = {
+  love: 'hsl(340, 70%, 60%)',
+  work: 'hsl(45, 80%, 50%)',
+  school: 'hsl(220, 70%, 55%)',
+  social: 'hsl(200, 70%, 55%)',
+  growth: 'hsl(280, 60%, 55%)',
+  health: 'hsl(150, 60%, 45%)',
+};
 
 const ImprovedLifeRadar: React.FC = () => {
   // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
   const today = new Date();
   const thirtyDaysAgo = subDays(today, 30);
   const sixtyDaysAgo = subDays(today, 60);
+  
+  // 🎯 OCCUPATION CONTEXT: Dynamic life areas based on age/occupation
+  const { lifeAreas: dynamicAreas } = useOccupationContext();
   
   // Current period (last 30 days)
   const { metricsRange: currentRange } = useDailyMetricsRange(thirtyDaysAgo, today);
@@ -34,6 +49,7 @@ const ImprovedLifeRadar: React.FC = () => {
     return {
       love: latest.life_areas?.love ?? null,
       work: latest.life_areas?.work ?? null,
+      school: latest.life_areas?.school ?? null,
       social: latest.life_areas?.social ?? null,
       growth: latest.life_areas?.growth ?? null,
       health: latest.life_areas?.health ?? null,
@@ -49,8 +65,8 @@ const ImprovedLifeRadar: React.FC = () => {
     const counts: Record<string, number> = {};
 
     daysWithData.forEach(dayMetrics => {
-      LIFE_AREAS.forEach(area => {
-        const value = dayMetrics.life_areas?.[area.key as keyof typeof dayMetrics.life_areas];
+      dynamicAreas.forEach(area => {
+        const value = dayMetrics.life_areas?.[area.dbField as keyof typeof dayMetrics.life_areas];
         if (value !== null && value !== undefined && value > 0) {
           averages[area.key] = (averages[area.key] || 0) + value;
           counts[area.key] = (counts[area.key] || 0) + 1;
@@ -64,11 +80,11 @@ const ImprovedLifeRadar: React.FC = () => {
     });
 
     return Object.keys(result).length > 0 ? result : null;
-  }, [previousRange]);
+  }, [previousRange, dynamicAreas]);
 
-  const radarData = LIFE_AREAS.map(area => ({
+  const radarData = dynamicAreas.map(area => ({
     subject: area.label,
-    current: (currentScores[area.key as keyof typeof currentScores] || 0) as number,
+    current: (currentScores[area.dbField as keyof typeof currentScores] || 0) as number,
     previous: lastMonthAverage?.[area.key] || 0,
     fullMark: 10,
   }));
@@ -140,13 +156,13 @@ const ImprovedLifeRadar: React.FC = () => {
 
           {/* Side legend with values */}
           <div className="w-24 space-y-1.5">
-            {LIFE_AREAS.map(area => {
-              const current = currentScores[area.key as keyof typeof currentScores] || 0;
-              const Icon = area.icon;
+            {dynamicAreas.map(area => {
+              const current = currentScores[area.dbField as keyof typeof currentScores] || 0;
+              const Icon = ICON_MAP[area.key] || Zap;
 
               return (
                 <div key={area.key} className="flex items-center gap-1.5">
-                  <Icon className="w-3.5 h-3.5" style={{ color: area.color }} />
+                  <Icon className="w-3.5 h-3.5" style={{ color: COLOR_MAP[area.key] }} />
                   <span className="text-[10px] text-muted-foreground flex-1 truncate">{area.label}</span>
                   <span className="text-[11px] font-semibold text-foreground">{current || '-'}</span>
                 </div>

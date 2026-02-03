@@ -38,6 +38,8 @@ export interface UserProfile {
   birth_date?: string | null;
   gender?: string | null;
   therapy_status?: string | null;
+  // Occupation context for life areas (student/worker/both)
+  occupation_context?: string | null;
 }
 
 export const useProfile = () => {

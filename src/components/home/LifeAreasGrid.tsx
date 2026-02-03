@@ -1,27 +1,13 @@
 import React from 'react';
 import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
+import { useOccupationContext } from '@/hooks/useOccupationContext';
 import { cn } from '@/lib/utils';
-
-type LifeAreaKey = 'love' | 'work' | 'social' | 'health' | 'growth';
-
-interface LifeArea {
-  key: LifeAreaKey;
-  icon: string;
-  label: string;
-  colorClass: string;
-}
-
-const lifeAreas: LifeArea[] = [
-  { key: 'love', icon: '❤️', label: 'Amore', colorClass: 'bg-rose-500' },
-  { key: 'work', icon: '💼', label: 'Lavoro', colorClass: 'bg-amber-500' },
-  { key: 'social', icon: '🤝', label: 'Socialità', colorClass: 'bg-sky-500' },
-  { key: 'health', icon: '🧘', label: 'Salute', colorClass: 'bg-emerald-500' },
-  { key: 'growth', icon: '🌱', label: 'Crescita', colorClass: 'bg-purple-500' },
-];
 
 const LifeAreasGrid: React.FC = () => {
   // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source (30 giorni, half-life 10 giorni)
   const { lifeAreas: scores, hasData, daysWithData } = useTimeWeightedMetrics(30, 10);
+  // 🎯 OCCUPATION CONTEXT: Dynamic life areas based on age/occupation
+  const { lifeAreas: dynamicAreas } = useOccupationContext();
   
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
@@ -56,8 +42,8 @@ const LifeAreasGrid: React.FC = () => {
         </div>
         
         <div className="space-y-4">
-          {lifeAreas.map((area) => {
-            const score = scores[area.key];
+          {dynamicAreas.map((area) => {
+            const score = scores[area.dbField as keyof typeof scores];
             const percentage = score !== null ? (score / 10) * 100 : 0;
             
             return (

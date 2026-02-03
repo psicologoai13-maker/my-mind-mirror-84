@@ -1,5 +1,6 @@
 import React from 'react';
 import { MetricData } from '@/pages/Analisi';
+import { useOccupationContext } from '@/hooks/useOccupationContext';
 import { cn } from '@/lib/utils';
 
 interface LifeAreasCardProps {
@@ -8,12 +9,25 @@ interface LifeAreasCardProps {
 }
 
 const LifeAreasCard: React.FC<LifeAreasCardProps> = ({ areas, onClick }) => {
+  // 🎯 OCCUPATION CONTEXT: Get dynamic life areas based on age/occupation
+  const { lifeAreas: dynamicAreas } = useOccupationContext();
+  
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-muted-foreground';
     if (score >= 7) return 'text-emerald-500';
     if (score >= 5) return 'text-amber-500';
     return 'text-orange-500';
   };
+
+  // Filter and map areas to only show relevant ones based on occupation context
+  const relevantAreas = dynamicAreas.map(dynamicArea => {
+    const matchingArea = areas.find(a => a.key === dynamicArea.dbField);
+    return matchingArea ? {
+      ...matchingArea,
+      icon: dynamicArea.icon,
+      label: dynamicArea.label,
+    } : null;
+  }).filter(Boolean) as MetricData[];
 
   return (
     <div className={cn(
@@ -29,8 +43,11 @@ const LifeAreasCard: React.FC<LifeAreasCardProps> = ({ areas, onClick }) => {
         <h3 className="font-semibold text-foreground">Aree della Vita</h3>
       </div>
 
-      <div className="relative z-10 grid grid-cols-2 gap-3">
-        {areas.map(area => {
+      <div className={cn(
+        "relative z-10 grid gap-3",
+        relevantAreas.length <= 5 ? "grid-cols-2" : "grid-cols-3"
+      )}>
+        {relevantAreas.map(area => {
           const score10 = area.average !== null ? Math.round(area.average) : null;
           
           return (
