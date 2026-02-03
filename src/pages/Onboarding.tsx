@@ -303,6 +303,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedGoals={data.primaryGoals}
             onChange={(goals) => setData(prev => ({ ...prev, primaryGoals: goals }))}
+            ageRange={data.ageRange}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -360,6 +361,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedMotivations={data.motivations}
             onChange={(motivations) => setData(prev => ({ ...prev, motivations }))}
+            ageRange={data.ageRange}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -386,6 +388,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedInterests={data.interests}
             onChange={(interests) => setData(prev => ({ ...prev, interests }))}
+            ageRange={data.ageRange}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"

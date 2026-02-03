@@ -14,20 +14,16 @@ interface GoalsStepProps {
   userName: string;
   selectedGoals: string[];
   onChange: (goals: string[]) => void;
+  ageRange?: string;
 }
 
-const goalOptions: GoalOption[] = [
+// Base goals for everyone
+const baseGoalOptions: GoalOption[] = [
   // Mental wellness
   { id: 'anxiety', label: 'Gestire ansia', emoji: '🧘', description: 'Ritrovare la calma' },
   { id: 'stress', label: 'Ridurre stress', emoji: '😮‍💨', description: 'Più leggerezza' },
   { id: 'mood', label: 'Migliorare umore', emoji: '😊', description: 'Più serenità' },
   { id: 'self_esteem', label: 'Autostima', emoji: '✨', description: 'Amarti di più' },
-  
-  // School (for young users)
-  { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
-  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche' },
-  { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
-  { id: 'teacher_relations', label: 'Rapporto con prof', emoji: '👩‍🏫', description: 'Comunicare meglio' },
   
   // Physical wellness
   { id: 'sleep', label: 'Dormire meglio', emoji: '😴', description: 'Notti rigeneranti' },
@@ -43,16 +39,36 @@ const goalOptions: GoalOption[] = [
   
   // Personal growth
   { id: 'growth', label: 'Crescita personale', emoji: '🌱', description: 'Evoluzione continua' },
-  { id: 'productivity', label: 'Produttività', emoji: '🎯', description: 'Fare di più' },
   { id: 'focus', label: 'Concentrazione', emoji: '🧠', description: 'Mente lucida' },
   { id: 'creativity', label: 'Creatività', emoji: '🎨', description: 'Esprimere idee' },
-  
-  // Life balance
-  { id: 'work_life', label: 'Work-life balance', emoji: '⚖️', description: 'Equilibrio vita-lavoro' },
   { id: 'mindfulness', label: 'Mindfulness', emoji: '🕊️', description: 'Vivere il presente' },
   { id: 'habits', label: 'Nuove abitudini', emoji: '🔄', description: 'Routine positive' },
   { id: 'motivation', label: 'Motivazione', emoji: '🔥', description: 'Ritrovare la spinta' },
 ];
+
+// Youth-specific goals (<25 years)
+const youthGoalOptions: GoalOption[] = [
+  { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
+  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche' },
+  { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
+  { id: 'teacher_relations', label: 'Rapporto con prof', emoji: '👩‍🏫', description: 'Comunicare meglio' },
+  { id: 'peer_pressure', label: 'Pressione sociale', emoji: '👥', description: 'Gestire confronti' },
+  { id: 'future_anxiety', label: 'Ansia per il futuro', emoji: '🔮', description: 'Cosa farò da grande?' },
+];
+
+// Adult-specific goals (25+ years)
+const adultGoalOptions: GoalOption[] = [
+  { id: 'work_life', label: 'Work-life balance', emoji: '⚖️', description: 'Equilibrio vita-lavoro' },
+  { id: 'productivity', label: 'Produttività', emoji: '🎯', description: 'Fare di più' },
+  { id: 'career', label: 'Carriera', emoji: '💼', description: 'Crescere professionalmente' },
+  { id: 'financial', label: 'Finanze', emoji: '💰', description: 'Gestire meglio i soldi' },
+  { id: 'parenting', label: 'Genitorialità', emoji: '👶', description: 'Essere genitori migliori' },
+  { id: 'aging', label: 'Invecchiare bene', emoji: '🌅', description: 'Accettare il tempo' },
+];
+
+const isYouthAge = (ageRange?: string) => {
+  return ageRange === '<18' || ageRange === '18-24';
+};
 
 const spring = {
   type: "spring" as const,
@@ -60,7 +76,13 @@ const spring = {
   damping: 25
 };
 
-const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange }) => {
+const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange, ageRange }) => {
+  // Build options based on age
+  const goalOptions = [
+    ...baseGoalOptions,
+    ...(isYouthAge(ageRange) ? youthGoalOptions : adultGoalOptions),
+  ];
+
   const handleSelect = (goalId: string) => {
     if (selectedGoals.includes(goalId)) {
       onChange(selectedGoals.filter(g => g !== goalId));

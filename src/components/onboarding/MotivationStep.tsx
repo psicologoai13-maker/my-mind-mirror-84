@@ -14,9 +14,11 @@ interface MotivationStepProps {
   userName: string;
   selectedMotivations: string[];
   onChange: (motivations: string[]) => void;
+  ageRange?: string;
 }
 
-const motivationOptions: MotivationOption[] = [
+// Base motivations for everyone
+const baseMotivationOptions: MotivationOption[] = [
   { id: 'vent', label: 'Sfogarmi', emoji: '💨', description: 'Avere uno spazio sicuro dove parlare' },
   { id: 'track_mood', label: 'Monitorare umore', emoji: '📊', description: 'Capire i miei pattern emotivi' },
   { id: 'self_improvement', label: 'Migliorarmi', emoji: '🚀', description: 'Lavorare sulla crescita personale' },
@@ -27,7 +29,10 @@ const motivationOptions: MotivationOption[] = [
   { id: 'journal', label: 'Tenere un diario', emoji: '📝', description: 'Scrivere i miei pensieri' },
   { id: 'therapy_support', label: 'Supporto terapia', emoji: '🩺', description: 'Affiancare un percorso clinico' },
   { id: 'curiosity', label: 'Curiosità', emoji: '✨', description: 'Voglio esplorare questa app' },
-  // Youth-specific motivations
+];
+
+// Youth-specific motivations (<25 years)
+const youthMotivationOptions: MotivationOption[] = [
   { id: 'school_stress', label: 'Stress scolastico', emoji: '📚', description: 'Gestire verifiche e interrogazioni' },
   { id: 'bullying', label: 'Bullismo', emoji: '🛡️', description: 'Affrontare situazioni difficili' },
   { id: 'parents', label: 'Rapporto genitori', emoji: '👨‍👩‍👧', description: 'Migliorare comunicazione in famiglia' },
@@ -36,13 +41,33 @@ const motivationOptions: MotivationOption[] = [
   { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche senza panico' },
 ];
 
+// Adult-specific motivations (25+ years)
+const adultMotivationOptions: MotivationOption[] = [
+  { id: 'work_stress', label: 'Stress lavorativo', emoji: '💼', description: 'Gestire pressioni sul lavoro' },
+  { id: 'career_growth', label: 'Crescita carriera', emoji: '📈', description: 'Avanzare professionalmente' },
+  { id: 'parenting', label: 'Essere genitore', emoji: '👶', description: 'Affrontare la genitorialità' },
+  { id: 'relationship_issues', label: 'Problemi di coppia', emoji: '💔', description: 'Migliorare la relazione' },
+  { id: 'burnout', label: 'Burnout', emoji: '🔥', description: 'Recuperare energie esaurite' },
+  { id: 'life_transition', label: 'Cambiamenti vita', emoji: '🔄', description: 'Affrontare nuove fasi' },
+];
+
+const isYouthAge = (ageRange?: string) => {
+  return ageRange === '<18' || ageRange === '18-24';
+};
+
 const spring = {
   type: "spring" as const,
   stiffness: 400,
   damping: 25
 };
 
-const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotivations, onChange }) => {
+const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotivations, onChange, ageRange }) => {
+  // Build options based on age
+  const motivationOptions = [
+    ...baseMotivationOptions,
+    ...(isYouthAge(ageRange) ? youthMotivationOptions : adultMotivationOptions),
+  ];
+
   const handleSelect = (id: string) => {
     if (selectedMotivations.includes(id)) {
       onChange(selectedMotivations.filter(m => m !== id));
