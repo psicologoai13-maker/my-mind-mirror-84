@@ -72,6 +72,43 @@ function buildMetricsFromGoals(goals: string[]): MetricConfig[] {
       { key: 'social', value: 0, label: 'Socialità', icon: '👥', priority: 3, reason: 'Relazioni' },
       { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 4, reason: 'Vitalità' },
     ],
+    // NEW: Additional goal mappings for onboarding goals
+    'fitness': [
+      { key: 'health', value: 0, label: 'Salute', icon: '💪', priority: 1, reason: 'Il tuo obiettivo fitness' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 2, reason: 'Performance fisica' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 3, reason: 'Recupero muscolare' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 4, reason: 'Benessere generale' },
+    ],
+    'mood': [
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 1, reason: 'Il tuo focus principale' },
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 2, reason: 'Influenza l\'umore' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 3, reason: 'Vitalità' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 4, reason: 'Impatta l\'umore' },
+    ],
+    'financial': [
+      { key: 'work', value: 0, label: 'Lavoro', icon: '💼', priority: 1, reason: 'Focus carriera/finanze' },
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 2, reason: 'Stress finanziario' },
+      { key: 'growth', value: 0, label: 'Crescita', icon: '🌱', priority: 3, reason: 'Sviluppo professionale' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 4, reason: 'Benessere generale' },
+    ],
+    'aging': [
+      { key: 'health', value: 0, label: 'Salute', icon: '💪', priority: 1, reason: 'Focus longevità' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 2, reason: 'Vitalità' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 3, reason: 'Rigenerazione' },
+      { key: 'growth', value: 0, label: 'Crescita', icon: '🌱', priority: 4, reason: 'Sviluppo continuo' },
+    ],
+    'relationships': [
+      { key: 'love', value: 0, label: 'Amore', icon: '❤️', priority: 1, reason: 'Focus relazioni' },
+      { key: 'social', value: 0, label: 'Socialità', icon: '👥', priority: 2, reason: 'Connessioni' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 3, reason: 'Stato emotivo' },
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 4, reason: 'Ansia sociale' },
+    ],
+    'stress': [
+      { key: 'anxiety', value: 0, label: 'Ansia', icon: '🧠', priority: 1, reason: 'Focus stress' },
+      { key: 'sleep', value: 0, label: 'Riposo', icon: '💤', priority: 2, reason: 'Impatto sonno' },
+      { key: 'energy', value: 0, label: 'Energia', icon: '⚡', priority: 3, reason: 'Livello energetico' },
+      { key: 'mood', value: 0, label: 'Umore', icon: '😌', priority: 4, reason: 'Benessere' },
+    ],
   };
 
   // Default metrics
@@ -86,12 +123,12 @@ function buildMetricsFromGoals(goals: string[]): MetricConfig[] {
     return defaultMetrics;
   }
 
-  // Get metrics for first goal
-  const primaryGoal = goals[0];
-  const primaryMetrics = goalMetricMap[primaryGoal];
-  
-  if (primaryMetrics) {
-    return primaryMetrics;
+  // Get metrics for first goal that has a mapping
+  for (const goal of goals) {
+    const metrics = goalMetricMap[goal];
+    if (metrics) {
+      return metrics;
+    }
   }
 
   return defaultMetrics;

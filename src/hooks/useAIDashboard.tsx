@@ -116,23 +116,36 @@ export function useAIDashboard() {
       const cacheUpdatedAt = profile?.ai_cache_updated_at ? new Date(profile.ai_cache_updated_at as string) : null;
       const cachedLayout = profile?.ai_dashboard_cache as unknown as DashboardLayout | null;
 
+      // Check if we have sessions (user has talked with Aria)
+      const { count: sessionsCount } = await supabase
+        .from('sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'completed');
+
+      const hasCompletedSessions = (sessionsCount ?? 0) > 0;
+
       // IMMEDIATELY show cached data if available (no loading state)
       if (cachedLayout && cachedLayout.primary_metrics?.length > 0) {
         setLayout(cachedLayout);
         globalCachedLayout = cachedLayout;
         setIsLoading(false); // Stop loading immediately
         
+        // 🎯 CRITICAL FIX: Force refresh if wellness_score is null BUT user has completed sessions
+        // This handles the case where cache was generated before the first session
+        const needsScoreRefresh = cachedLayout.wellness_score === null && hasCompletedSessions;
+        
         // 🎯 DAILY REFRESH LOGIC: Only refresh layout once per day at 6:00 AM Rome
         const needsLayoutRefresh = shouldRefreshLayout(cacheUpdatedAt);
         
-        if (!forceRefresh && !needsLayoutRefresh) {
+        if (!forceRefresh && !needsLayoutRefresh && !needsScoreRefresh) {
           console.log('[useAIDashboard] Layout is fresh (updated after today 6AM), no refresh needed');
           return;
         }
 
         // Refresh in background (don't show loading)
         if (!forceRefresh) {
-          console.log('[useAIDashboard] Daily refresh needed, updating in background...');
+          console.log('[useAIDashboard] Refresh needed:', { needsLayoutRefresh, needsScoreRefresh });
           setIsRefreshingInBackground(true);
         }
       } else {
@@ -140,8 +153,9 @@ export function useAIDashboard() {
         setIsLoading(true);
       }
 
-      // Skip if recently fetched (within 30 seconds) and not forcing
-      if (!forceRefresh && Date.now() - globalLastFetchTime < 30000 && globalCachedLayout) {
+      // Skip if recently fetched (within 30 seconds) and not forcing AND no score refresh needed
+      const needsScoreRefresh = cachedLayout?.wellness_score === null && hasCompletedSessions;
+      if (!forceRefresh && !needsScoreRefresh && Date.now() - globalLastFetchTime < 30000 && globalCachedLayout) {
         console.log('[useAIDashboard] Skipping fetch - recently updated');
         setIsLoading(false);
         setIsRefreshingInBackground(false);
