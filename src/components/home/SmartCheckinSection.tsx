@@ -797,8 +797,11 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
                 )}>
                   <activeItem.icon className={cn("w-5 h-5", activeItem.color)} />
                 </div>
-                <div>
+                <div className="flex-1">
                   <span className="font-semibold text-foreground">{activeItem.label}</span>
+                  {activeItem.question && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{activeItem.question}</p>
+                  )}
                   {activeItem.reason && (
                     <p className="text-xs text-primary mt-0.5">✨ {activeItem.reason}</p>
                   )}
@@ -812,12 +815,6 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
               </button>
             </div>
 
-            {/* Show question prominently for objectives */}
-            {activeItem.question && activeItem.type === 'objective' && (
-              <p className="text-sm text-muted-foreground text-center mb-4 font-medium">
-                {activeItem.question}
-              </p>
-            )}
 
             {renderActiveInput()}
           </div>
