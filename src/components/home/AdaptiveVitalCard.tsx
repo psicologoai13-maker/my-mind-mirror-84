@@ -91,7 +91,7 @@ const METRIC_CONFIG: Record<MetricKey, {
   label: string;
 }> = {
   mood: { icon: '😌', label: 'Umore' },
-  anxiety: { icon: '😰', label: 'Ansia' },
+  anxiety: { icon: '🧠', label: 'Ansia' },
   energy: { icon: '🔋', label: 'Energia' },
   sleep: { icon: '💤', label: 'Riposo' },
   joy: { icon: '😊', label: 'Gioia' },
