@@ -88,11 +88,11 @@ const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 
   // Labels for emotions
   const emotionLabels: Record<string, string> = {
-    joy: 'Joy',
-    sadness: 'Sadness',
-    anger: 'Anger',
-    fear: 'Fear',
-    apathy: 'Apathy',
+    joy: 'Gioia',
+    sadness: 'Tristezza',
+    anger: 'Rabbia',
+    fear: 'Paura',
+    apathy: 'Apatia',
   };
 
   // Labels for life areas
