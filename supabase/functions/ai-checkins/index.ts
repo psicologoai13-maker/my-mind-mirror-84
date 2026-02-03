@@ -15,13 +15,13 @@ const corsHeaders = {
 // - Maintained habits
 // - Session insights and user progress
 // This is shown only in Analysis section, not as a daily question.
-const STANDARD_CHECKIN_ITEMS = [
+// NOTE: "work" and "school" are handled dynamically based on occupation_context
+const BASE_CHECKIN_ITEMS = [
   { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji" },
   { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity" },
   { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider" },
   { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "emoji" },
   { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji" },
-  { key: "work", label: "Lavoro", question: "Come va il lavoro/studio?", type: "life_area", responseType: "emoji" },
   { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji" },
   { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji" },
   { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno" },
@@ -37,6 +37,65 @@ const STANDARD_CHECKIN_ITEMS = [
   { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno" },
   { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno" },
 ];
+
+// Helper to calculate age from birth date
+function calculateAge(birthDate: string | null): number | null {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// Build standard checkin items based on occupation context
+function getStandardCheckinItems(occupationContext: string | null, birthDate: string | null): typeof BASE_CHECKIN_ITEMS {
+  const age = calculateAge(birthDate);
+  const items = [...BASE_CHECKIN_ITEMS];
+  
+  // Determine which work/school items to add based on occupation context
+  // Priority: explicit occupation_context > age-based default
+  let showWork = false;
+  let showSchool = false;
+  
+  if (occupationContext === 'both') {
+    showWork = true;
+    showSchool = true;
+  } else if (occupationContext === 'worker') {
+    showWork = true;
+  } else if (occupationContext === 'student') {
+    showSchool = true;
+  } else {
+    // Default based on age
+    if (age !== null) {
+      if (age < 18) {
+        showSchool = true;
+      } else if (age >= 18 && age <= 27) {
+        // Default to both for 18-27 if no explicit context
+        showWork = true;
+        showSchool = true;
+      } else {
+        showWork = true;
+      }
+    } else {
+      // No age info, default to work
+      showWork = true;
+    }
+  }
+  
+  // Insert work/school items after the base life areas
+  if (showWork) {
+    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji" });
+  }
+  if (showSchool) {
+    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji" });
+  }
+  
+  return items;
+}
 
 // ============================================
 // HABIT METADATA (synced with useHabits.tsx)
@@ -231,14 +290,16 @@ serve(async (req) => {
     const userId = claimsData.user.id;
     const today = getRomeDateString();
 
-    // Check for cached fixed list
+    // Check for cached fixed list and get occupation context
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("ai_checkins_cache, selected_goals, onboarding_answers")
+      .select("ai_checkins_cache, selected_goals, onboarding_answers, occupation_context, birth_date")
       .eq("user_id", userId)
       .maybeSingle();
 
     const existingCache = profile?.ai_checkins_cache as CachedCheckinsData | null;
+    const occupationContext = profile?.occupation_context as string | null;
+    const birthDate = profile?.birth_date as string | null;
     
     // ============================================
     // FIXED DAILY LIST - Return UNCHANGED for entire day
@@ -432,8 +493,9 @@ serve(async (req) => {
       });
     });
 
-    // 3. STANDARD CHECK-INS (vitals, life_areas, etc.)
-    STANDARD_CHECKIN_ITEMS.forEach((item) => {
+    // 3. STANDARD CHECK-INS (vitals, life_areas, etc.) - dynamic based on occupation
+    const standardCheckins = getStandardCheckinItems(occupationContext, birthDate);
+    standardCheckins.forEach((item) => {
       if (completedKeys.has(item.key)) return;
       allItems.push({
         ...item,

@@ -8,6 +8,7 @@ export interface DailyLifeAreas {
   user_id: string;
   date: string;
   work: number | null;
+  school: number | null;
   love: number | null;
   health: number | null;
   social: number | null;

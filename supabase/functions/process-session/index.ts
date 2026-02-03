@@ -41,6 +41,7 @@ interface ClinicalIndices {
 
 interface LifeAreas {
   work: number | null;
+  school: number | null;
   love: number | null;
   health: number | null;
   social: number | null;
@@ -1079,7 +1080,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       analysis = {
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
         emotions: { joy: 0, sadness: 0, anger: 0, fear: 0, apathy: 0 },
-        life_areas: { work: null, love: null, health: null, social: null, growth: null },
+        life_areas: { work: null, school: null, love: null, health: null, social: null, growth: null },
         deep_psychology: {
           rumination: null,
           self_efficacy: null,
@@ -1269,6 +1270,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           user_id: user_id,
           date: today,
           work: analysis.life_areas.work,
+          school: analysis.life_areas.school,
           love: analysis.life_areas.love,
           health: analysis.life_areas.health,
           social: analysis.life_areas.social,
