@@ -150,23 +150,6 @@ const ObjectivesTabContent: React.FC = () => {
         </div>
       )}
       
-      {/* Empty state */}
-      {activeObjectives.length === 0 && achievedObjectives.length === 0 && (
-        <div className="text-center py-12">
-          <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-medium text-foreground mb-2">Nessun obiettivo</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Inizia a tracciare i tuoi progressi creando il primo obiettivo.
-          </p>
-          <Button 
-            onClick={() => setShowCreationModal(true)}
-            className="rounded-xl"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Crea il tuo primo obiettivo
-          </Button>
-        </div>
-      )}
 
       {/* Achieved Objectives */}
       {achievedObjectives.length > 0 && (
