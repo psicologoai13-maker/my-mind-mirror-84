@@ -60,6 +60,31 @@ const DEFAULT_LAYOUT: DashboardLayout = {
 let globalCachedLayout: DashboardLayout | null = null;
 let globalLastFetchTime: number = 0;
 
+// Helper: Get 6:00 AM Rome time for today
+function getTodayResetTime(): Date {
+  const now = new Date();
+  // Create date in Rome timezone
+  const romeTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+  const today6AM = new Date(romeTime);
+  today6AM.setHours(6, 0, 0, 0);
+  
+  // If it's before 6 AM Rome time, the reset was yesterday
+  if (romeTime < today6AM) {
+    today6AM.setDate(today6AM.getDate() - 1);
+  }
+  
+  return today6AM;
+}
+
+// Helper: Check if layout needs refresh (daily at 6:00 AM Rome)
+function shouldRefreshLayout(cacheUpdatedAt: Date | null): boolean {
+  if (!cacheUpdatedAt) return true;
+  
+  const todayReset = getTodayResetTime();
+  // Refresh if cache was updated BEFORE today's 6 AM reset
+  return cacheUpdatedAt < todayReset;
+}
+
 export function useAIDashboard() {
   const { user, session } = useAuth();
   const [layout, setLayout] = useState<DashboardLayout>(globalCachedLayout || DEFAULT_LAYOUT);
@@ -89,7 +114,6 @@ export function useAIDashboard() {
         .single();
 
       const cacheUpdatedAt = profile?.ai_cache_updated_at ? new Date(profile.ai_cache_updated_at as string) : null;
-      const lastDataChange = profile?.last_data_change_at ? new Date(profile.last_data_change_at as string) : null;
       const cachedLayout = profile?.ai_dashboard_cache as unknown as DashboardLayout | null;
 
       // IMMEDIATELY show cached data if available (no loading state)
@@ -98,18 +122,17 @@ export function useAIDashboard() {
         globalCachedLayout = cachedLayout;
         setIsLoading(false); // Stop loading immediately
         
-        // Check if we need to refresh in background
-        const cacheIsValid = cacheUpdatedAt && lastDataChange && cacheUpdatedAt >= lastDataChange;
+        // 🎯 DAILY REFRESH LOGIC: Only refresh layout once per day at 6:00 AM Rome
+        const needsLayoutRefresh = shouldRefreshLayout(cacheUpdatedAt);
         
-        // Don't refresh if cache is valid and we're not forcing
-        if (!forceRefresh && cacheIsValid) {
-          console.log('[useAIDashboard] Cache is valid, no refresh needed');
+        if (!forceRefresh && !needsLayoutRefresh) {
+          console.log('[useAIDashboard] Layout is fresh (updated after today 6AM), no refresh needed');
           return;
         }
 
         // Refresh in background (don't show loading)
         if (!forceRefresh) {
-          console.log('[useAIDashboard] Refreshing in background...');
+          console.log('[useAIDashboard] Daily refresh needed, updating in background...');
           setIsRefreshingInBackground(true);
         }
       } else {
@@ -125,7 +148,7 @@ export function useAIDashboard() {
         return;
       }
 
-      console.log('[useAIDashboard] Fetching fresh AI layout');
+      console.log('[useAIDashboard] Fetching fresh AI layout (daily refresh)');
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-dashboard`,
@@ -165,7 +188,7 @@ export function useAIDashboard() {
         setLayout(newLayout);
         globalCachedLayout = newLayout;
 
-        // Save to cache
+        // Save to cache with new timestamp
         await supabase
           .from('user_profiles')
           .update({
