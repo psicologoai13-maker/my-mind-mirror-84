@@ -191,9 +191,9 @@ const AbitudiniTab: React.FC<AbitudiniTabProps> = ({ lookbackDays = 30 }) => {
     return (
       <div className="text-center py-12">
         <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="font-medium text-foreground mb-2">Nessuna abitudine tracciata</h3>
+        <h3 className="font-medium text-foreground mb-2">Nessun obiettivo ricorrente</h3>
         <p className="text-sm text-muted-foreground">
-          Inizia a tracciare le tue abitudini dalla Home o dalla sezione Progressi.
+          Crea obiettivi ricorrenti dalla sezione Progressi parlando con Aria.
         </p>
       </div>
     );
@@ -208,7 +208,7 @@ const AbitudiniTab: React.FC<AbitudiniTabProps> = ({ lookbackDays = 30 }) => {
 
   return (
     <div className="space-y-5">
-      {/* Countable Habits (sigarette, acqua, etc.) */}
+      {/* Countable objectives (sigarette, acqua, etc.) */}
       {countableHabits.length > 0 && (
         <section>
           <h2 className="font-display font-semibold text-foreground mb-3 px-1 flex items-center gap-2">
@@ -222,11 +222,11 @@ const AbitudiniTab: React.FC<AbitudiniTabProps> = ({ lookbackDays = 30 }) => {
         </section>
       )}
 
-      {/* Abstain Habits (no smoking, no junk food) */}
+      {/* Abstain objectives (no smoking, no junk food) */}
       {abstainHabits.length > 0 && (
         <section>
           <h2 className="font-display font-semibold text-foreground mb-3 px-1 flex items-center gap-2">
-            <span>🚫</span> Vizi da evitare
+            <span>🚫</span> Obiettivi di astinenza
           </h2>
           <div className="space-y-4">
             {abstainHabits.map(habit => (
@@ -236,11 +236,11 @@ const AbitudiniTab: React.FC<AbitudiniTabProps> = ({ lookbackDays = 30 }) => {
         </section>
       )}
 
-      {/* Toggle Habits (yoga, meditation, exercise) */}
+      {/* Toggle objectives (yoga, meditation, exercise) */}
       {toggleHabits.length > 0 && (
         <section>
           <h2 className="font-display font-semibold text-foreground mb-3 px-1 flex items-center gap-2">
-            <span>✅</span> Attività quotidiane
+            <span>✅</span> Obiettivi quotidiani
           </h2>
           <div className="space-y-4">
             {toggleHabits.map(habit => (

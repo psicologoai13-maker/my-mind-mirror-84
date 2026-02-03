@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Target, Sparkles, Trash2, ChevronDown } from 'lucide-react';
+import { MoreVertical, Target, Sparkles, Trash2, ChevronDown, RefreshCw, Bot } from 'lucide-react';
 import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,32 @@ interface ObjectiveCardProps {
   onUpdate?: (id: string, updates: Partial<Objective>) => void;
   onDelete?: (id: string) => void;
 }
+
+// Helper to determine tracking type
+const getTrackingType = (objective: Objective): 'auto' | 'aria' => {
+  if (objective.auto_sync_enabled || objective.linked_habit || objective.linked_body_metric) {
+    return 'auto';
+  }
+  return 'aria';
+};
+
+// Tracking badge component
+const TrackingBadge: React.FC<{ type: 'auto' | 'aria' }> = ({ type }) => {
+  if (type === 'auto') {
+    return (
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+        <RefreshCw className="w-2.5 h-2.5" />
+        Auto
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 border-primary/40 text-primary bg-primary/10">
+      <Bot className="w-2.5 h-2.5" />
+      Aria
+    </Badge>
+  );
+};
 
 // Circular progress component
 const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ 
@@ -184,9 +211,12 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           <div className="flex items-start gap-4">
             {/* Title and summary */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-base leading-tight mb-2">
-                {objective.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1.5">
+                <h3 className="font-semibold text-foreground text-base leading-tight">
+                  {objective.title}
+                </h3>
+                <TrackingBadge type={getTrackingType(objective)} />
+              </div>
               <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
                 {getSummary()}
               </p>

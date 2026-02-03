@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, Trophy, Loader2, Sparkles, Plus, TrendingUp } from 'lucide-react';
+import { Target, Trophy, Loader2, Sparkles, Plus, TrendingUp, Info, RefreshCw, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ObjectiveCard } from '@/components/objectives/ObjectiveCard';
 import { useObjectives, CATEGORY_CONFIG } from '@/hooks/useObjectives';
@@ -19,6 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const ObjectivesTabContent: React.FC = () => {
   const [showCreationModal, setShowCreationModal] = useState(false);
@@ -30,6 +36,7 @@ const ObjectivesTabContent: React.FC = () => {
     achievedObjectives,
     isLoading,
     deleteObjective,
+    updateObjective,
   } = useObjectives();
 
   const handleDelete = async () => {
@@ -56,14 +63,47 @@ const ObjectivesTabContent: React.FC = () => {
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
         
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow">
-              <Sparkles className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Gestisci i tuoi obiettivi</h3>
+                <p className="text-xs text-muted-foreground">Parla con Aria per creare o aggiornare</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Gestisci i tuoi obiettivi</h3>
-              <p className="text-xs text-muted-foreground">Parla con Aria per creare o aggiornare</p>
-            </div>
+            
+            {/* Info tooltip for tracking types */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="p-1.5 rounded-full hover:bg-muted transition-colors">
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px] p-3">
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <p className="font-semibold text-foreground flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 text-emerald-500" /> Auto
+                      </p>
+                      <p className="text-muted-foreground">
+                        Obiettivi tracciati automaticamente da dati corporei, passi, sonno, etc.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground flex items-center gap-1.5">
+                        <Bot className="w-3.5 h-3.5 text-primary" /> Aria
+                      </p>
+                      <p className="text-muted-foreground">
+                        Obiettivi aggiornati parlando con Aria durante le sessioni.
+                      </p>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           
           <div className="flex gap-3">
@@ -103,9 +143,28 @@ const ObjectivesTabContent: React.FC = () => {
             <ObjectiveCard
               key={objective.id}
               objective={objective}
+              onUpdate={(id, updates) => updateObjective.mutate({ id, ...updates })}
               onDelete={(id) => setDeleteConfirm(id)}
             />
           ))}
+        </div>
+      )}
+      
+      {/* Empty state */}
+      {activeObjectives.length === 0 && achievedObjectives.length === 0 && (
+        <div className="text-center py-12">
+          <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="font-medium text-foreground mb-2">Nessun obiettivo</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Inizia a tracciare i tuoi progressi creando il primo obiettivo.
+          </p>
+          <Button 
+            onClick={() => setShowCreationModal(true)}
+            className="rounded-xl"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Crea il tuo primo obiettivo
+          </Button>
         </div>
       )}
 
