@@ -163,7 +163,7 @@ function getKeyLabel(key: string): string {
     fear: 'Paura',
     joy: 'Gioia',
     apathy: 'Apatia',
-    rumination: 'Pensieri',
+    rumination: 'Rimuginazione',
     burnout_level: 'Burnout',
     loneliness_perceived: 'Solitudine',
     gratitude: 'Gratitudine',
