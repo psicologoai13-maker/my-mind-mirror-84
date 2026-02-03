@@ -107,25 +107,9 @@ const ObjectivesTabContent: React.FC = () => {
         </div>
 
         {activeObjectives.length === 0 ? (
-          <div className="relative overflow-hidden rounded-3xl p-6 text-center bg-glass backdrop-blur-xl border border-glass-border shadow-soft">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-            <div className="relative z-10">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                <Target className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Nessun obiettivo attivo</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
-                Crea il tuo primo obiettivo con l'aiuto di Aria
-              </p>
-              <Button
-                onClick={() => setShowCreationModal(true)}
-                className="rounded-xl gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Crea Obiettivo
-              </Button>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Nessun obiettivo attivo. Usa il box sopra per crearne uno nuovo!
+          </p>
         ) : (
           <div className="space-y-3">
             {activeObjectives.map(objective => (
