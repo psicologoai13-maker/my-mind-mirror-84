@@ -181,32 +181,21 @@ export function selectDynamicVitals(
   const selectedMetrics: VitalMetricConfig[] = [];
   const { userGoals, psychologyMetrics } = availability;
   
-  // Priority 1: Always include core vitals if available
-  const coreVitals = ['mood', 'energy'];
+  // Priority 1: Always include ALL 4 core vitals if they have data
+  const coreVitals = ['mood', 'energy', 'anxiety', 'sleep'];
   coreVitals.forEach(key => {
     const metric = ALL_VITAL_METRICS.find(m => m.key === key);
-    if (metric && availability[`has${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof UserDataAvailability]) {
+    const availabilityKey = `has${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof UserDataAvailability;
+    if (metric && availability[availabilityKey]) {
       selectedMetrics.push(metric);
     }
   });
   
-  // Priority 2: Add anxiety if user tracks it
-  if (availability.hasAnxiety && selectedMetrics.length < maxMetrics) {
-    const anxiety = ALL_VITAL_METRICS.find(m => m.key === 'anxiety');
-    if (anxiety) selectedMetrics.push(anxiety);
-  }
-  
-  // Priority 3: Add sleep if user tracks it
-  if (availability.hasSleep && selectedMetrics.length < maxMetrics) {
-    const sleep = ALL_VITAL_METRICS.find(m => m.key === 'sleep');
-    if (sleep) selectedMetrics.push(sleep);
-  }
-  
-  // Priority 4: Add psychology metrics based on user goals
+  // Priority 2: Add psychology metrics based on user goals (only if we have room)
   const goalToMetricMap: Record<string, string[]> = {
-    'reduce_anxiety': ['anxiety', 'mental_clarity', 'somatic_tension'],
-    'improve_sleep': ['sleep', 'energy', 'burnout_level'],
-    'boost_mood': ['mood', 'gratitude', 'joy'],
+    'reduce_anxiety': ['mental_clarity', 'somatic_tension'],
+    'improve_sleep': ['burnout_level'],
+    'boost_mood': ['gratitude', 'joy'],
     'manage_stress': ['burnout_level', 'rumination', 'somatic_tension'],
     'build_confidence': ['self_efficacy', 'self_worth', 'motivation'],
     'increase_focus': ['concentration', 'mental_clarity', 'motivation'],
@@ -220,15 +209,14 @@ export function selectDynamicVitals(
       if (selectedMetrics.some(m => m.key === metricKey)) return;
       
       // Only add if we have data for this metric
-      if (psychologyMetrics.includes(metricKey) || 
-          ['mood', 'anxiety', 'energy', 'sleep'].includes(metricKey)) {
+      if (psychologyMetrics.includes(metricKey)) {
         const metric = ALL_VITAL_METRICS.find(m => m.key === metricKey);
         if (metric) selectedMetrics.push(metric);
       }
     });
   });
   
-  // Priority 5: Fill remaining slots with available psychology metrics
+  // Priority 3: Fill remaining slots with available positive psychology metrics
   if (selectedMetrics.length < maxMetrics) {
     const positiveMetrics = ['mental_clarity', 'self_efficacy', 'motivation', 'gratitude', 'concentration'];
     positiveMetrics.forEach(key => {
