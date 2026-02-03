@@ -46,10 +46,10 @@ const baseGoalOptions: GoalOption[] = [
   { id: 'motivation', label: 'Motivazione', emoji: '🔥', description: 'Ritrovare la spinta' },
 ];
 
-// Youth-specific goals (<25 years)
+// Youth-specific goals (ONLY for <18 and 18-24 age ranges)
+// These should NEVER appear for 25+, 35+, 45+, 55+ users
 const youthGoalOptions: GoalOption[] = [
   { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
-  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche' },
   { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
   { id: 'teacher_relations', label: 'Rapporto con prof', emoji: '👩‍🏫', description: 'Comunicare meglio' },
   { id: 'peer_pressure', label: 'Pressione sociale', emoji: '👥', description: 'Gestire confronti' },
@@ -66,8 +66,13 @@ const adultGoalOptions: GoalOption[] = [
   { id: 'aging', label: 'Invecchiare bene', emoji: '🌅', description: 'Accettare il tempo' },
 ];
 
-const isYouthAge = (ageRange?: string) => {
-  return ageRange === '<18' || ageRange === '18-24';
+// YOUTH_AGES: Only these two values qualify as "youth"
+const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
+
+const isYouthAge = (ageRange?: string): boolean => {
+  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
+  console.log('[GoalsStep] Age filter:', { ageRange, isYouth });
+  return isYouth;
 };
 
 const spring = {

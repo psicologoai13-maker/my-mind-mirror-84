@@ -27,7 +27,7 @@ const BASE_INTERESTS = [
   { id: 'tech', emoji: '💻', label: 'Tecnologia' },
 ];
 
-// Youth-specific interests (<25 years)
+// Youth-specific interests (ONLY for <18 and 18-24 age ranges)
 const YOUTH_INTERESTS = [
   { id: 'tiktok', emoji: '📱', label: 'TikTok/Social' },
   { id: 'anime', emoji: '🎌', label: 'Anime/Manga' },
@@ -47,8 +47,13 @@ const ADULT_INTERESTS = [
   { id: 'volunteering', emoji: '🤝', label: 'Volontariato' },
 ];
 
-const isYouthAge = (ageRange?: string) => {
-  return ageRange === '<18' || ageRange === '18-24';
+// YOUTH_AGES: Only these two values qualify as "youth"
+const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
+
+const isYouthAge = (ageRange?: string): boolean => {
+  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
+  console.log('[InterestsStep] Age filter:', { ageRange, isYouth });
+  return isYouth;
 };
 
 const InterestsStep: React.FC<InterestsStepProps> = ({

@@ -31,14 +31,14 @@ const baseMotivationOptions: MotivationOption[] = [
   { id: 'curiosity', label: 'Curiosità', emoji: '✨', description: 'Voglio esplorare questa app' },
 ];
 
-// Youth-specific motivations (<25 years)
+// Youth-specific motivations (ONLY for <18 and 18-24 age ranges)
+// These should NEVER appear for 25+, 35+, 45+, 55+ users
 const youthMotivationOptions: MotivationOption[] = [
   { id: 'school_stress', label: 'Stress scolastico', emoji: '📚', description: 'Gestire verifiche e interrogazioni' },
   { id: 'bullying', label: 'Bullismo', emoji: '🛡️', description: 'Affrontare situazioni difficili' },
   { id: 'parents', label: 'Rapporto genitori', emoji: '👨‍👩‍👧', description: 'Migliorare comunicazione in famiglia' },
   { id: 'identity', label: 'Capire chi sono', emoji: '🔍', description: 'Esplorare la propria identità' },
   { id: 'social_pressure', label: 'Pressione sociale', emoji: '📱', description: 'Gestire aspettative e confronti' },
-  { id: 'exam_anxiety', label: 'Ansia da esame', emoji: '😰', description: 'Affrontare verifiche senza panico' },
 ];
 
 // Adult-specific motivations (25+ years)
@@ -51,8 +51,14 @@ const adultMotivationOptions: MotivationOption[] = [
   { id: 'life_transition', label: 'Cambiamenti vita', emoji: '🔄', description: 'Affrontare nuove fasi' },
 ];
 
-const isYouthAge = (ageRange?: string) => {
-  return ageRange === '<18' || ageRange === '18-24';
+// YOUTH_AGES: Only these two values qualify as "youth"
+// Everything else (25-34, 35-44, 45-54, 55+, undefined) = adult
+const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
+
+const isYouthAge = (ageRange?: string): boolean => {
+  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
+  console.log('[MotivationStep] Age filter:', { ageRange, isYouth });
+  return isYouth;
 };
 
 const spring = {
