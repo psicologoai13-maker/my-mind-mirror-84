@@ -96,32 +96,18 @@ const ObjectivesTabContent: React.FC = () => {
         </div>
       </div>
 
-      {/* Active Objectives */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Target className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-foreground">Obiettivi Attivi</h2>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {activeObjectives.length}
-          </span>
+      {/* Active Objectives - no header, just cards */}
+      {activeObjectives.length > 0 && (
+        <div className="space-y-3">
+          {activeObjectives.map(objective => (
+            <ObjectiveCard
+              key={objective.id}
+              objective={objective}
+              onDelete={(id) => setDeleteConfirm(id)}
+            />
+          ))}
         </div>
-
-        {activeObjectives.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Nessun obiettivo attivo. Usa il box sopra per crearne uno nuovo!
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {activeObjectives.map(objective => (
-              <ObjectiveCard
-                key={objective.id}
-                objective={objective}
-                onDelete={(id) => setDeleteConfirm(id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      )}
 
       {/* Achieved Objectives */}
       {achievedObjectives.length > 0 && (
