@@ -221,9 +221,12 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
             [activeItem.key]: scaledTo10,
           };
           
+          // 🐛 FIX: Don't overwrite mood with default when saving other vitals
+          // Preserve existing mood if present, or use 0 to indicate "no mood check-in"
+          // The RPC will prioritize session mood when checkin mood is 0
           await saveCheckin.mutateAsync({
-            mood_value: todayCheckin?.mood_value ?? 3,
-            mood_emoji: todayCheckin?.mood_emoji ?? '😐',
+            mood_value: todayCheckin?.mood_value || 0,
+            mood_emoji: todayCheckin?.mood_emoji || '',
             notes: JSON.stringify(updatedNotes),
           });
         }
