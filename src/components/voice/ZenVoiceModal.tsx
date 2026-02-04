@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
-import { useGeminiVoice } from "@/hooks/useGeminiVoice";
+import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +20,7 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     audioLevel,
     start,
     stop
-  } = useGeminiVoice();
+  } = useRealtimeVoice();
 
   const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -275,12 +275,12 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-8 text-center px-4"
+                className="mb-8"
               >
                 <p className="text-base text-foreground/60 font-light tracking-wide">
                   {isConnecting ? 'Connessione...' : 
                    isSpeaking ? 'Aria sta parlando' : 
-                   isActive ? 'Ti ascolto...' : 
+                   isActive ? 'Ti ascolto' : 
                    'Tocca per iniziare'}
                 </p>
               </motion.div>

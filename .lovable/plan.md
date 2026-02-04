@@ -1,103 +1,238 @@
 
+# Quiz Personalizzato per Eta e Genere
 
-# Piano: Sostituire SOLO la Voce di Gemini con Carla
+## Analisi del Gap Attuale
 
-## Problema
+| Elemento | Stato Attuale | Problema |
+|----------|---------------|----------|
+| Eta | Binary (giovani vs adulti) | Troppo generico, mancano fasce intermedie |
+| Genere | Raccolto ma **mai usato** | Spreco di dato prezioso |
+| Occupazione | Non chiesta | Fondamentale per life areas (scuola/lavoro) |
 
-`useGeminiVoice` funzionava perfettamente su iOS e desktop con tutta l'intelligenza di Aria intatta. L'unico difetto era la voce robotica del modello `gemini-2.5-flash-preview-native-audio-dialog`.
+## Proposta: Matrice di Personalizzazione 4x3
 
-## Soluzione Minima
+### Fasce d'Eta Migliorate
 
-Modificare `useGeminiVoice` per:
-1. **MANTENERE** l'input audio via Gemini (STT + VAD funzionanti)
-2. **MANTENERE** tutta l'intelligenza di Aria (prompt completo)
-3. **IGNORARE** l'audio di risposta di Gemini
-4. **USARE** il testo della risposta per generare audio con ElevenLabs TTS (voce Carla)
+| Fascia | Label | Focus Principale |
+|--------|-------|------------------|
+| <18 | Adolescenti | Scuola, identita, famiglia |
+| 18-24 | Giovani Adulti | Transizione, universita/primo lavoro |
+| 25-44 | Adulti | Carriera, famiglia, equilibrio |
+| 45+ | Adulti Maturi | Salute, legacy, riscoperta |
 
-## Architettura Prima/Dopo
+### Personalizzazioni per Genere
+
+**Motivazioni Specifiche per Genere:**
+
+| Genere | Opzioni Esclusive |
+|--------|-------------------|
+| Donna | Sindrome dell'impostora, ciclo mestruale, carico mentale, maternita |
+| Uomo | Esprimere emozioni, pressione del "provider", vulnerabilita |
+| Altro/Non specificato | Identita di genere, accettazione |
+
+**Goals Specifici per Genere:**
+
+| Genere | Goals Esclusivi |
+|--------|-----------------|
+| Donna | Body positivity, self-care, gestire ciclo |
+| Uomo | Emotional intelligence, paternita consapevole |
+
+**Interessi Specifici per Genere:**
+
+| Genere | Interessi Proposti |
+|--------|-------------------|
+| Donna (<25) | Skincare, fashion, drama coreani |
+| Donna (25+) | Wellness, self-help books, pilates |
+| Uomo (<25) | Calcio, gaming, gym |
+| Uomo (25+) | Investimenti, tech, sport |
+
+## Nuovo Flusso Quiz (7 Step)
 
 ```text
-PRIMA (voce robotica):
-Utente parla → Gemini STT → Gemini Brain → Gemini Audio → Utente sente (robotico)
-
-DOPO (voce Carla):
-Utente parla → Gemini STT → Gemini Brain → ElevenLabs TTS → Utente sente (Carla)
+Step 1: Welcome
+   |
+Step 2: Name
+   |
+Step 3: AboutYou (Mood + Genere + Eta)
+   |
+Step 4: Occupation (NUOVO - solo se 18-27)
+   |
+   +--> Studente: mostra school
+   +--> Lavoratore: mostra work  
+   +--> Entrambi: mostra entrambe
+   |
+Step 5: Motivation (personalizzato eta + genere)
+   |
+Step 6: Goals (personalizzato eta + genere)
+   |
+Step 7: Interests (personalizzato eta + genere)
+   |
+Step 8: Ready
 ```
+
+## Dettaglio Opzioni per Profilo Utente
+
+### ADOLESCENTI (<18)
+
+**Donna <18:**
+- Motivazioni: Stress scolastico, Pressione social, Body image, Ciclo mestruale, Rapporto genitori
+- Goals: Autostima, Accettare il corpo, Rendimento scolastico, Gestire ansia da verifiche
+- Interessi: TikTok, K-pop, Skincare, Drama, Anime
+
+**Uomo <18:**
+- Motivazioni: Stress scolastico, Performance sportiva, Bullismo, Rapporto genitori, Identita
+- Goals: Concentrazione, Forma fisica, Rendimento scolastico, Gestire rabbia
+- Interessi: Gaming, Esport, Calcio, YouTube, Anime
+
+### GIOVANI ADULTI (18-24)
+
+**Donna 18-24:**
+- Motivazioni: Ansia universitaria, Futuro incerto, Relazioni, Confronto social, Indipendenza
+- Goals: Work-life balance, Autostima, Relazioni sane, Finanze personali
+- Interessi: Wellness, Self-care, Travel, Fashion, Podcasts
+
+**Uomo 18-24:**
+- Motivazioni: Carriera, Performance, Relazioni, Indipendenza, Pressione sociale
+- Goals: Produttivita, Fitness, Finanze, Networking
+- Interessi: Gym, Investimenti, Tech, Gaming, Sport
+
+### ADULTI (25-44)
+
+**Donna 25-44:**
+- Motivazioni: Work-life balance, Carico mentale, Maternita, Relazione di coppia, Self-care trascurato
+- Goals: Equilibrio, Me time, Gestire stress, Relazioni migliori, Forma fisica
+- Interessi: Yoga, Lettura, Cucina, Giardinaggio, Wellness
+
+**Uomo 25-44:**
+- Motivazioni: Pressione lavorativa, Provider stress, Paternita, Burnout, Tempo per se
+- Goals: Work-life balance, Presenza in famiglia, Fitness, Gestire stress
+- Interessi: Sport, Investimenti, DIY, Tech, Podcasts
+
+### ADULTI MATURI (45+)
+
+**Donna 45+:**
+- Motivazioni: Menopausa, Empty nest, Riscoperta personale, Salute, Invecchiare bene
+- Goals: Accettazione, Nuovi hobby, Salute, Relazioni figli adulti
+- Interessi: Giardinaggio, Volontariato, Viaggi, Benessere, Arte
+
+**Uomo 45+:**
+- Motivazioni: Midlife, Salute, Legacy, Rapporto figli, Pensione
+- Goals: Fitness over 40, Nuovi interessi, Bilanciare vita, Accettazione
+- Interessi: Golf/Sport, Viaggi, Investimenti, Hobby artigianali
 
 ## Modifiche Tecniche
 
-### File Modificato
+### 1. Nuovo Step: OccupationStep.tsx (solo per 18-27)
 
-| File | Modifica |
-|------|----------|
-| `src/hooks/useGeminiVoice.tsx` | Ignorare audio Gemini, chiamare ElevenLabs TTS con il testo |
+Chiedere: "Cosa fai principalmente?"
+- Studio
+- Lavoro  
+- Entrambi
 
-### Dettaglio Modifiche
+Questo imposta `occupation_context` nel profilo per personalizzare le life areas nell'app.
 
-Nel blocco che gestisce `serverContent.modelTurn.parts`:
+### 2. Aggiornare AboutYouStep.tsx
 
-**Prima** (riproduce audio Gemini):
+Spostare la domanda sul genere PRIMA dell'eta per dare piu peso visivo.
+
+### 3. Aggiornare MotivationStep.tsx
+
 ```typescript
-if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
-  setIsSpeaking(true);
-  const audioData = pcm16Base64ToFloat32(part.inlineData.data);
-  workletNodeRef.current.port.postMessage({ samples: Array.from(audioData) });
-}
+// Nuova logica di filtering
+const getMotivationOptions = (ageRange: string, gender: string) => {
+  const base = [...baseMotivationOptions];
+  
+  // Age-specific
+  if (isYouth(ageRange)) {
+    base.push(...youthMotivations);
+  } else {
+    base.push(...adultMotivations);
+  }
+  
+  // Gender-specific
+  if (gender === 'female') {
+    base.push(...femaleMotivations);
+    if (isYouth(ageRange)) {
+      base.push(...youngFemaleMotivations);
+    }
+  } else if (gender === 'male') {
+    base.push(...maleMotivations);
+  }
+  
+  return base;
+};
 ```
 
-**Dopo** (usa ElevenLabs TTS):
-```typescript
-// Ignoriamo l'audio di Gemini, usiamo solo il testo
-if (part.text) {
-  currentAssistantTextRef.current += part.text;
-}
+### 4. Aggiornare GoalsStep.tsx
 
-// Quando turnComplete, convertiamo il testo in audio con ElevenLabs
-if (serverContent.turnComplete && currentAssistantTextRef.current) {
-  setIsSpeaking(true);
-  const ttsResponse = await fetch('/functions/v1/elevenlabs-tts', {
-    body: JSON.stringify({ text: currentAssistantTextRef.current })
-  });
-  const ttsData = await ttsResponse.json();
-  playAudioBlob(ttsData.audioContent); // Voce Carla!
-}
-```
+Stessa logica di MotivationStep con goals specifici per combinazione eta+genere.
 
-### Componente UI
+### 5. Aggiornare InterestsStep.tsx
 
-| File | Modifica |
-|------|----------|
-| `src/components/voice/ZenVoiceModal.tsx` | Cambiare import da `useHybridVoice` a `useGeminiVoice` |
+Stessa logica con interessi specifici.
 
-## Cosa Rimane Intatto
+### 6. Aggiornare Onboarding.tsx
 
-- STT di Gemini (funziona su iOS via WebSocket)
-- VAD di Gemini (rileva automaticamente fine frase)
-- Prompt completo di Aria (2500+ righe)
-- Memoria a lungo termine
-- Contesto in tempo reale (meteo, data, ecc.)
-- Protocolli clinici (CBT, DBT, ACT, ecc.)
-- Data Hunter (raccolta dati aree vita)
-- Salvataggio sessione e analisi
+- Aggiungere `occupation` allo stato
+- Inserire OccupationStep condizionale (solo se eta 18-27)
+- Passare `gender` a tutti gli step oltre a `ageRange`
+- Salvare `occupation_context` nel profilo
 
-## Cosa Cambia
+## File da Modificare
 
-| Aspetto | Prima | Dopo |
-|---------|-------|------|
-| **Voce** | Gemini (robotica) | Carla (naturale) |
-| **STT** | Gemini | Gemini (invariato) |
-| **Brain** | Gemini | Gemini (invariato) |
-| **iOS** | Funziona | Funziona |
+| File | Modifiche |
+|------|-----------|
+| `src/pages/Onboarding.tsx` | Aggiungere occupation state, step condizionale, passare gender agli step |
+| `src/components/onboarding/OccupationStep.tsx` | **NUOVO** - Step occupazione |
+| `src/components/onboarding/AboutYouStep.tsx` | Riordinare genere prima di eta |
+| `src/components/onboarding/MotivationStep.tsx` | Aggiungere prop gender, nuove opzioni |
+| `src/components/onboarding/GoalsStep.tsx` | Aggiungere prop gender, nuove opzioni |
+| `src/components/onboarding/InterestsStep.tsx` | Aggiungere prop gender, nuove opzioni |
 
-## Vantaggi
+## Nuove Opzioni da Aggiungere
 
-- Modifica minima (poche righe di codice)
-- Nessun rischio di perdere funzionalita
-- iOS continua a funzionare
-- Voce naturale italiana
-- Nessuna nuova edge function necessaria (ElevenLabs TTS esiste gia)
+### Motivazioni per Genere
 
-## Note
+**Solo Donne:**
+- `imposter_syndrome`: Sindrome dell'impostora
+- `mental_load`: Carico mentale
+- `body_image`: Rapporto col corpo
+- `cycle_management`: Gestire il ciclo
 
-La edge function `elevenlabs-tts` e gia configurata con la voce Carla (ID: `litDcG1avVppv4R90BLu`).
+**Solo Uomini:**
+- `express_emotions`: Esprimere emozioni
+- `provider_pressure`: Pressione del "dover mantenere"
+- `show_vulnerability`: Mostrarsi vulnerabile
 
+### Goals per Genere
+
+**Solo Donne:**
+- `body_positivity`: Accettare il corpo
+- `me_time`: Tempo per me
+- `mental_load_balance`: Bilanciare carico mentale
+
+**Solo Uomini:**
+- `emotional_intelligence`: Intelligenza emotiva
+- `present_father`: Paternita presente
+- `open_up`: Aprirsi di piu
+
+### Interessi per Genere/Eta
+
+**Donne Giovani:**
+- `skincare`, `kdramas`, `fashion`, `astrology`
+
+**Donne Adulte:**
+- `pilates`, `self_help`, `wellness_retreats`
+
+**Uomini Giovani:**
+- `football`, `gym`, `crypto`
+
+**Uomini Adulti:**
+- `golf`, `whisky`, `classic_cars`
+
+## Risultato Atteso
+
+1. **Esperienza Personalizzata** - Ogni utente vede opzioni rilevanti per la sua situazione
+2. **Engagement Migliore** - Meno scroll, piu rilevanza
+3. **Dati Migliori per Aria** - Contesto piu ricco per conversazioni personalizzate
+4. **Occupation Context** - Imposta automaticamente scuola/lavoro per le life areas

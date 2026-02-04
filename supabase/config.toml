@@ -50,12 +50,3 @@ verify_jwt = false
 
 [functions.update-objective-chat]
 verify_jwt = false
-
-[functions.elevenlabs-conversation-token]
-verify_jwt = false
-
-[functions.elevenlabs-tts]
-verify_jwt = false
-
-[functions.hybrid-voice-chat]
-verify_jwt = false
