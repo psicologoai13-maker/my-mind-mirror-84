@@ -1,163 +1,106 @@
 
-# Piano: Ripristino Completo del Contesto di Aria per ElevenLabs
 
-## Diagnosi del Problema
+# Piano: Architettura Ibrida - Cervello Gemini + Voce ElevenLabs
 
-### Problema 1: Contesto Perso
-L'agente ElevenLabs utilizza il suo LLM interno con il prompt base configurato nella dashboard. **Non ha accesso a:**
-- Memoria a lungo termine dell'utente
-- Contesto in tempo reale (meteo, data, notizie)
-- Knowledge base clinica completa (~2500 righe di istruzioni)
-- Profilo utente (obiettivi, sfide, risposte onboarding)
-- Sessioni precedenti
-- Abitudini del giorno
-- Metriche corporee e giornaliere
-- Obiettivi attivi
+## Obiettivo
+Mantenere **TUTTA** l'intelligenza di Aria (2500+ righe di istruzioni) cambiando **SOLO** la voce.
 
-### Problema 2: Connessione Bloccata su "Connessione..."
-I log mostrano che il token viene generato correttamente. Il problema probabilmente sta nella gestione del flusso nel hook client-side.
+## Soluzione: ElevenLabs TTS (Text-to-Speech) invece di Conversational AI
 
----
+### Architettura Attuale (Problematica)
+```
+Utente parla → ElevenLabs Agent (suo LLM limitato) → Voce ElevenLabs
+                         ↓
+              ❌ Perso: 2500 righe di istruzioni cliniche
+```
 
-## Soluzione Tecnica
+### Nuova Architettura (Proposta)
+```
+Utente parla → Browser Speech-to-Text → Gemini Flash (TUTTO il cervello) → ElevenLabs TTS → Voce naturale
+                                                    ↓
+                                       ✅ Mantiene: TUTTE le istruzioni
+```
 
-### Fase 1: Aggiornare Edge Function per Costruire il System Prompt Completo
+## Flusso Tecnico Dettagliato
 
-**File:** `supabase/functions/elevenlabs-conversation-token/index.ts`
+1. **Input Vocale**: Browser Web Speech API (gratuito, built-in)
+2. **Elaborazione**: Gemini 2.5 Flash con il system prompt COMPLETO (2500+ righe)
+3. **Output Vocale**: ElevenLabs Text-to-Speech API (solo sintesi vocale)
 
-L'edge function deve:
-1. Recuperare TUTTI i dati dell'utente da Supabase (come fa `gemini-voice`):
-   - `user_profiles` (memoria, nome, obiettivi, wellness_score, onboarding_answers, dashboard_config)
-   - `daily_life_areas` (aree vita del giorno)
-   - `user_objectives` (obiettivi attivi)
-   - `sessions` (ultime 3 sessioni)
-   - `daily_habits` (abitudini del giorno)
-   - `body_metrics` (metriche corporee)
-   - `user_interests` (interessi per personalizzazione)
+## Vantaggi
+- **100% delle istruzioni cliniche** mantenute
+- **66 metriche** rilevate come prima
+- **Memoria a lungo termine** funzionante
+- **Knowledge base** completa
+- **Voce naturale italiana** di ElevenLabs (es. Laura, Alice, Carla)
 
-2. Costruire il system prompt completo con:
-   - Persona "Best Friend + Expert" (da `BEST_FRIEND_VOICE`)
-   - Contesto in tempo reale (weather, date, location, news)
-   - Memoria delle sessioni precedenti
-   - Knowledge base clinica (CBT, ACT, DBT, MI, SFBT)
-   - Stile personalizzato basato su preferenze utente
-   - Istruzioni Data Hunter per metriche mancanti
-   - Obiettivi attivi e tracking
-   - Regole vocali (brevita, naturale)
+## File da Creare/Modificare
 
-3. Restituire sia `signedUrl` che `systemPrompt` al client
+| File | Azione |
+|------|--------|
+| `supabase/functions/elevenlabs-tts/index.ts` | **NUOVO**: Edge function per convertire testo in voce |
+| `src/hooks/useHybridVoice.tsx` | **NUOVO**: Hook che combina Speech-to-Text + Gemini + ElevenLabs TTS |
+| `src/components/voice/ZenVoiceModal.tsx` | **MODIFICA**: Usare il nuovo hook ibrido |
 
-### Fase 2: Aggiornare Hook per Usare Dynamic Overrides
-
-**File:** `src/hooks/useElevenLabsVoice.tsx`
-
-Modifiche:
-1. Ricevere `systemPrompt` dall'edge function
-2. Usare il parametro `overrides` in `conversation.startSession()`:
+## Implementazione Edge Function (ElevenLabs TTS)
 
 ```typescript
-await conversation.startSession({
-  signedUrl: data.signedUrl,
-  overrides: {
-    agent: {
-      prompt: {
-        prompt: data.systemPrompt, // Full context injected here
-      },
-      language: "it",
+// supabase/functions/elevenlabs-tts/index.ts
+// Converte testo in audio usando voce italiana naturale
+const response = await fetch(
+  `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`,
+  {
+    method: "POST",
+    headers: {
+      "xi-api-key": ELEVENLABS_API_KEY,
+      "Content-Type": "application/json",
     },
-  },
-});
+    body: JSON.stringify({
+      text: ariaResponse,
+      model_id: "eleven_multilingual_v2", // Supporto italiano nativo
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+      },
+    }),
+  }
+);
 ```
 
-3. Aggiungere logging migliorato per debug connessione
-4. Gestire meglio gli errori con toast informativi
+## Implementazione Hook Ibrido
 
-### Fase 3: Fix Connessione
-
-Verifiche e correzioni:
-1. Assicurarsi che `conversation.startSession()` sia chiamato correttamente
-2. Verificare che lo stato `status` del hook ElevenLabs venga aggiornato
-3. Aggiungere timeout per gestire connessioni bloccate
-4. Logging dettagliato per tracciare il flusso
-
-### Fase 4: Configurazione Dashboard ElevenLabs (Richiesta Utente)
-
-L'utente deve abilitare "Client Overrides" nella dashboard ElevenLabs:
-1. Aprire l'agente su ElevenLabs
-2. Andare in Settings/Advanced
-3. Abilitare "Allow client overrides" per:
-   - System Prompt
-   - First Message
-   - Language
-
----
-
-## Struttura del System Prompt Iniettato
-
-Il prompt completo includera le seguenti sezioni (adattate per voce):
-
-```text
-[IDENTITA: Migliore Amica + Psicologa Esperta]
-
-[CONTESTO TEMPO REALE]
-- Data/Ora corrente
-- Posizione utente (se condivisa)
-- Meteo attuale
-- Notizie rilevanti
-
-[PROFILO UTENTE]
-- Nome: {userName}
-- Obiettivi: {selectedGoals}
-- Sfida principale: {mainChallenge}
-- Stile supporto preferito: {supportType}
-- Metriche prioritarie: {priorityMetrics}
-
-[MEMORIA SESSIONI PRECEDENTI]
-- {longTermMemory entries}
-
-[OBIETTIVI ATTIVI]
-- {activeObjectives with progress}
-
-[DATA HUNTER - METRICHE MANCANTI]
-- Aree vita senza dati: {missingAreas}
-
-[CONOSCENZE CLINICHE - Compact]
-- CBT, ACT, DBT, MI, SFBT
-- Riconoscimento pattern: GAD, Panico, Depressione, PTSD
-- Tecniche: Grounding, TIPP, Respirazione
-
-[REGOLE VOCALI]
-- 2-3 frasi max
-- Tono naturale da amica
-- Risate e reazioni genuine
-- No meta-commenti
-- Protocollo sicurezza per crisi
+```typescript
+// src/hooks/useHybridVoice.tsx
+// 1. Web Speech API per speech-to-text (input utente)
+// 2. Chiamata a gemini-voice con TUTTO il contesto
+// 3. Risposta testuale → ElevenLabs TTS per voce naturale
 ```
 
----
+## Voci Italiane Disponibili (ElevenLabs)
 
-## File da Modificare
+- **Laura** (FGY2WhTYpPnrIDTdsKH5) - Femminile, calda
+- **Alice** (Xb7hH8MSUJpSbSDYk0k2) - Femminile, naturale
+- Oppure voce personalizzata configurata nell'agente
 
-| File | Modifiche |
-|------|-----------|
-| `supabase/functions/elevenlabs-conversation-token/index.ts` | Rebuild completo con fetch dati + costruzione system prompt |
-| `src/hooks/useElevenLabsVoice.tsx` | Aggiunta overrides + fix connessione + logging |
-| `src/components/voice/ZenVoiceModal.tsx` | Eventuale integrazione hook real-time context |
+## Confronto Approcci
 
----
+| Aspetto | ElevenLabs Agent (attuale) | Ibrido Gemini+TTS (proposto) |
+|---------|---------------------------|------------------------------|
+| Cervello | LLM ElevenLabs (limitato) | Gemini Flash (completo) |
+| Istruzioni | ~500 caratteri max | 2500+ righe |
+| 66 Metriche | ❌ Perse | ✅ Tutte |
+| Memoria | ❌ Limitata | ✅ Completa |
+| Knowledge Base | ❌ Minima | ✅ Enciclopedia completa |
+| Voce | ✅ Naturale | ✅ Naturale (stesso livello) |
 
-## Prerequisito Utente
-
-Prima di implementare, l'utente deve abilitare "Client Overrides" nella dashboard ElevenLabs per l'agente Aria. Senza questo, il prompt iniettato verra ignorato.
-
----
-
-## Risultato Atteso
+## Risultato Finale
 
 Dopo l'implementazione:
-1. Aria avra accesso a TUTTE le informazioni precedenti
-2. Ricordera le sessioni passate
-3. Conoscera gli obiettivi dell'utente
-4. Usera tecniche cliniche appropriate
-5. Sara personalizzata in base a preferenze e contesto
-6. La connessione funzionera correttamente
+- Aria avrà **ESATTAMENTE** lo stesso cervello di prima
+- Rileverà le **66 metriche** come sempre
+- Userà **tutte le tecniche cliniche** (CBT, DBT, MI, ACT, SFBT)
+- Ricorderà le **sessioni precedenti**
+- Avrà **voce naturale italiana** di qualità ElevenLabs
+
+La differenza sarà **SOLO** la qualità della voce, più naturale e umana.
+
