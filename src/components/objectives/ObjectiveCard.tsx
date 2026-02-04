@@ -29,15 +29,15 @@ interface ObjectiveCardProps {
   onDelete?: (id: string) => void;
 }
 
-// Category border colors for the card
+// Category border colors for the card (full border)
 const CATEGORY_BORDER_COLORS: Record<ObjectiveCategory, string> = {
-  mind: 'border-l-purple-500',
-  body: 'border-l-orange-500',
-  study: 'border-l-blue-500',
-  work: 'border-l-slate-500',
-  relationships: 'border-l-pink-500',
-  growth: 'border-l-emerald-500',
-  finance: 'border-l-yellow-500',
+  mind: 'border-purple-500/50',
+  body: 'border-orange-500/50',
+  study: 'border-blue-500/50',
+  work: 'border-slate-400/50',
+  relationships: 'border-pink-500/50',
+  growth: 'border-emerald-500/50',
+  finance: 'border-amber-500/50',
 };
 
 // Helper to determine tracking type
@@ -214,14 +214,14 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
       <motion.div 
         layout
         className={cn(
-          "relative overflow-hidden rounded-3xl",
-          "bg-glass backdrop-blur-xl border border-glass-border",
+          "relative overflow-hidden rounded-2xl",
+          "bg-glass backdrop-blur-xl",
           "shadow-glass hover:shadow-glass-elevated",
           "transition-all duration-300 ease-out",
           "cursor-pointer",
-          // Category color border on left
-          "border-l-4",
-          CATEGORY_BORDER_COLORS[objective.category as ObjectiveCategory] || 'border-l-primary'
+          // Category color border
+          "border-2",
+          CATEGORY_BORDER_COLORS[objective.category as ObjectiveCategory] || 'border-primary/50'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.98 }}
