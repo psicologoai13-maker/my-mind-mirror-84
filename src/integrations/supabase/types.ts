@@ -516,6 +516,7 @@ export type Database = {
           emotion_breakdown: Json | null
           emotion_tags: string[] | null
           end_time: string | null
+          energy_score_detected: number | null
           id: string
           insights: string | null
           key_events: string[] | null
@@ -539,6 +540,7 @@ export type Database = {
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
           end_time?: string | null
+          energy_score_detected?: number | null
           id?: string
           insights?: string | null
           key_events?: string[] | null
@@ -562,6 +564,7 @@ export type Database = {
           emotion_breakdown?: Json | null
           emotion_tags?: string[] | null
           end_time?: string | null
+          energy_score_detected?: number | null
           id?: string
           insights?: string | null
           key_events?: string[] | null
