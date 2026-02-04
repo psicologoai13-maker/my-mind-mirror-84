@@ -64,7 +64,7 @@ const Analisi: React.FC = () => {
   const { objectives } = useObjectives();
 
   // 🎯 DYNAMIC CHART VISIBILITY: Based on user data
-  const { visibleCharts, dynamicVitals, availability } = useChartVisibility(
+  const { visibleCharts, allAvailableVitals, availability } = useChartVisibility(
     metricsRange,
     bodyMetrics || [],
     habits || [],
@@ -168,7 +168,7 @@ const Analisi: React.FC = () => {
           <section>
             <MenteTab
               metricsRange={metricsRange}
-              dynamicVitals={dynamicVitals}
+              dynamicVitals={allAvailableVitals}
               visibleCharts={visibleCharts.mente}
               psychologyData={psychologyData}
               highlightedMetrics={aiLayout.highlighted_metrics}

@@ -232,6 +232,42 @@ export function selectDynamicVitals(
   return selectedMetrics.slice(0, maxMetrics);
 }
 
+// Select ALL available vital metrics (no limit) - for Analisi page
+export function selectAllAvailableVitals(
+  availability: UserDataAvailability
+): VitalMetricConfig[] {
+  const selectedMetrics: VitalMetricConfig[] = [];
+  const { psychologyMetrics } = availability;
+  
+  // Add ALL core vitals that have data
+  const coreVitals = ['mood', 'anxiety', 'energy', 'sleep'];
+  coreVitals.forEach(key => {
+    const metric = ALL_VITAL_METRICS.find(m => m.key === key);
+    const availabilityKey = `has${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof UserDataAvailability;
+    if (metric && availability[availabilityKey]) {
+      selectedMetrics.push(metric);
+    }
+  });
+  
+  // Add ALL psychology metrics that have data
+  const psychologyVitals = ALL_VITAL_METRICS.filter(m => m.source === 'psychology');
+  psychologyVitals.forEach(metric => {
+    if (psychologyMetrics.includes(metric.key)) {
+      selectedMetrics.push(metric);
+    }
+  });
+  
+  // Add emotion metrics if we have emotion data
+  if (availability.hasEmotions) {
+    const emotionVitals = ALL_VITAL_METRICS.filter(m => m.source === 'emotions');
+    emotionVitals.forEach(metric => {
+      selectedMetrics.push(metric);
+    });
+  }
+  
+  return selectedMetrics;
+}
+
 // Main hook
 export function useChartVisibility(
   metricsRange: DailyMetrics[],
@@ -252,8 +288,15 @@ export function useChartVisibility(
     obiettivi: selectVisibleCharts(availability, 'obiettivi'),
   }), [availability]);
   
+  // For Home: limited to 6 metrics
   const dynamicVitals = useMemo(() => 
     selectDynamicVitals(availability, 6),
+    [availability]
+  );
+  
+  // For Analisi: ALL available metrics (no limit)
+  const allAvailableVitals = useMemo(() => 
+    selectAllAvailableVitals(availability),
     [availability]
   );
   
@@ -261,5 +304,6 @@ export function useChartVisibility(
     availability,
     visibleCharts,
     dynamicVitals,
+    allAvailableVitals,
   };
 }
