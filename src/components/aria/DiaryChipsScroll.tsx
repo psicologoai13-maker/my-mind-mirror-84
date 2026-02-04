@@ -46,21 +46,21 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
   onAddDiary,
 }) => {
   return (
-    <section className="px-5">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-display font-semibold text-sm text-foreground">I tuoi diari</h2>
+    <section className="px-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display font-semibold text-base text-foreground">I tuoi diari</h2>
         {activeDiaryIds.length < 6 && (
           <button
             onClick={onAddDiary}
-            className="text-xs text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
+            className="text-sm text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             Aggiungi
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-3">
         {activeDiaryIds.slice(0, 4).map((themeId, index) => {
           const config = DIARY_CONFIG[themeId];
           const diary = diaries?.find(d => d.theme === themeId);
@@ -72,7 +72,7 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               key={themeId}
               onClick={() => onOpenDiary(themeId)}
               className={cn(
-                "flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl",
+                "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl",
                 "bg-glass backdrop-blur-sm border border-glass-border/50",
                 "hover:shadow-glass transition-all duration-200",
                 "active:scale-[0.97]"
@@ -82,13 +82,13 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               transition={{ delay: index * 0.05 }}
             >
               <div className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center",
+                "w-11 h-11 rounded-xl flex items-center justify-center",
                 `bg-gradient-to-br ${config.gradient}`,
                 "text-white shadow-sm"
               )}>
                 {config.icon}
               </div>
-              <span className="text-[11px] font-medium text-foreground truncate w-full text-center">
+              <span className="text-xs font-semibold text-foreground truncate w-full text-center">
                 {config.label}
               </span>
             </motion.button>

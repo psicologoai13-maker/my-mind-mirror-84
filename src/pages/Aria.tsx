@@ -122,7 +122,7 @@ const Aria: React.FC = () => {
 
   return (
     <MobileLayout>
-      <div className="pb-20 space-y-3 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
+      <div className="pb-20 space-y-4 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
         {/* Hero Section with integrated insight */}
         <AriaHeroSection
           userName={profile?.name || undefined}
