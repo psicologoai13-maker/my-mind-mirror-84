@@ -10,8 +10,8 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.0 Flash Experimental - working model for Live API bidiGenerateContent
-const MODEL = "models/gemini-2.0-flash-exp";
+// Gemini 2.5 Flash Live - Official model for Live API (from Google docs)
+const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 
 serve(async (req) => {
   const { headers } = req;
