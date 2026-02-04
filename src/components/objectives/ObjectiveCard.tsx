@@ -249,7 +249,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                   {objective.title}
                 </h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
                 {getSummary()}
               </p>
             </div>
