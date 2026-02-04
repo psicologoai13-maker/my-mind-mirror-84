@@ -323,14 +323,28 @@ Inizia con un saluto caldo e chiedi come sta oggi ${userName}.`;
 
     const data = await response.json();
     
-    console.log("[elevenlabs-token] Token generated successfully, prompt length:", systemPrompt.length);
+    // Build dynamic variables for ElevenLabs
+    const dynamicVariables = {
+      user_name: userName,
+      real_time_context: realTimeBlock,
+      voice_style: getVoicePersonaStyle(),
+      memory: memoryBlock || "Nessuna memoria precedente.",
+      sessions_summary: sessionsBlock || "Nessuna sessione precedente.",
+      objectives: objectivesBlock || "Nessun obiettivo attivo.",
+      habits: habitsBlock || "Nessuna abitudine tracciata oggi.",
+      data_hunter: dataHunterBlock || "",
+      selected_goals: selectedGoals.length > 0 ? selectedGoals.join(', ') : "Non specificati",
+      main_challenge: onboardingAnswers?.mainChallenge || "Non specificato",
+    };
+    
+    console.log("[elevenlabs-token] Token generated successfully, variables:", Object.keys(dynamicVariables));
 
     return new Response(
       JSON.stringify({ 
         signedUrl: data.signed_url,
         agentId: ELEVENLABS_AGENT_ID,
         userName,
-        systemPrompt // Full context for dynamic override
+        dynamicVariables
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
