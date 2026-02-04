@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { subDays, startOfDay, format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { useHabits } from '@/hooks/useHabits';
@@ -11,6 +14,7 @@ import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
 import EmotionalSpectrumSection from '@/components/analisi/EmotionalSpectrumSection';
+import LifeAreasSection from '@/components/analisi/LifeAreasSection';
 import { 
   CLINICAL_DOMAINS, 
   getMetricsByDomain, 
@@ -34,6 +38,7 @@ export interface MetricData {
 }
 
 const Analisi: React.FC = () => {
+  const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
@@ -57,6 +62,25 @@ const Analisi: React.FC = () => {
   const { metricsRange, isLoading } = useDailyMetricsRange(dateRange.start, dateRange.end);
   const { metricsHistory: bodyMetrics } = useBodyMetrics();
   const { habits } = useHabits();
+  
+  // Fetch emotions directly from daily_emotions table (full 14 emotions)
+  const { data: emotionsData } = useQuery({
+    queryKey: ['daily-emotions-range', user?.id, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('daily_emotions')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', format(dateRange.start, 'yyyy-MM-dd'))
+        .lte('date', format(dateRange.end, 'yyyy-MM-dd'))
+        .order('date', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+  });
 
   // Check if today has data (for time selector)
   const hasTodayData = useMemo(() => {
@@ -202,15 +226,21 @@ const Analisi: React.FC = () => {
 
       {/* Clinical Domains */}
       <div className="px-4 pb-8 space-y-6">
-        {/* Emotional Spectrum - Full emotions breakdown with radar */}
+        {/* Emotional Spectrum - Full emotions breakdown */}
         <EmotionalSpectrumSection
+          emotionsData={emotionsData || []}
+          onMetricClick={(key) => setSelectedMetric(key)}
+        />
+        
+        {/* Life Areas - Lavoro, Amore, etc. */}
+        <LifeAreasSection
           allMetricsData={allMetricsData}
           onMetricClick={(key) => setSelectedMetric(key)}
         />
         
-        {/* Render clinical domains (excluding emotional since we show it above) */}
+        {/* Render clinical domains (excluding emotional and functioning since we show them above) */}
         {CLINICAL_DOMAINS
-          .filter(domain => domain.id !== 'emotional')
+          .filter(domain => domain.id !== 'emotional' && domain.id !== 'functioning')
           .map(domain => {
             const domainMetrics = getMetricsByDomain(domain.id);
             
