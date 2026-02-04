@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
-import { useHybridVoice } from "@/hooks/useHybridVoice";
+import { useGeminiVoice } from "@/hooks/useGeminiVoice";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,10 +18,9 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     isSpeaking,
     isListening,
     audioLevel,
-    currentTranscript,
     start,
     stop
-  } = useHybridVoice();
+  } = useGeminiVoice();
 
   const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -281,7 +280,6 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
                 <p className="text-base text-foreground/60 font-light tracking-wide">
                   {isConnecting ? 'Connessione...' : 
                    isSpeaking ? 'Aria sta parlando' : 
-                   isActive && currentTranscript ? `"${currentTranscript}"` :
                    isActive ? 'Ti ascolto...' : 
                    'Tocca per iniziare'}
                 </p>
