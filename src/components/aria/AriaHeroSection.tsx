@@ -1,5 +1,5 @@
 import React from 'react';
-import { PenLine, AudioLines } from 'lucide-react';
+import { PenLine, AudioLines, ChevronRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -7,9 +7,9 @@ import { it } from 'date-fns/locale';
 
 interface Session {
   id: string;
-  type: string;
-  start_time: string;
+  type?: string;
   ai_summary?: string | null;
+  start_time: string;
 }
 
 interface AriaHeroSectionProps {
@@ -27,134 +27,120 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
   onStartVoice,
   onContinue,
 }) => {
-  const displayName = userName || 'amico';
-
-  // Format last session context
-  const getInsightText = () => {
-    if (!lastSession) return null;
-    
-    const sessionDate = new Date(lastSession.start_time);
-    let dateContext = '';
-    if (isToday(sessionDate)) {
-      dateContext = 'Oggi';
-    } else if (isYesterday(sessionDate)) {
-      dateContext = 'Ieri';
-    } else {
-      dateContext = format(sessionDate, "d MMM", { locale: it });
-    }
-
-    const preview = lastSession.ai_summary 
-      ? lastSession.ai_summary.slice(0, 70) + (lastSession.ai_summary.length > 70 ? '...' : '')
-      : `hai parlato ${lastSession.type === 'voice' ? 'vocalmente' : 'in chat'}`;
-
-    return { dateContext, preview };
+  const formatSessionDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (isToday(date)) return 'Oggi';
+    if (isYesterday(date)) return 'Ieri';
+    return format(date, 'd MMMM', { locale: it });
   };
 
-  const insight = getInsightText();
+  const getInsightPreview = () => {
+    if (!lastSession?.ai_summary) return null;
+    const preview = lastSession.ai_summary.slice(0, 60);
+    return preview.length < lastSession.ai_summary.length ? `${preview}...` : preview;
+  };
+
+  const insightPreview = getInsightPreview();
 
   return (
-    <section className="px-4 pt-4">
-      <div className={cn(
-        "relative overflow-hidden rounded-3xl p-6",
-        "bg-glass backdrop-blur-xl border border-glass-border",
-        "shadow-glass"
-      )}>
-        {/* Background gradient mesh */}
-        <div className="absolute inset-0 bg-gradient-aria-subtle opacity-50 rounded-3xl" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-3xl" />
-        
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center">
-          {/* Orb + Intro */}
-          <div className="flex items-center gap-4 mb-5 w-full">
-            <motion.div
-              className={cn(
-                "relative w-14 h-14 rounded-full flex-shrink-0",
-                "bg-gradient-aria",
-                "shadow-aria-glow"
-              )}
-              animate={{
-                scale: [1, 1.08, 1],
-                boxShadow: [
-                  '0 0 20px rgba(155, 111, 208, 0.4)',
-                  '0 0 35px rgba(155, 111, 208, 0.6)',
-                  '0 0 20px rgba(155, 111, 208, 0.4)'
-                ]
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              <div className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/30" />
-            </motion.div>
-
-            <div className="text-left flex-1">
-              <p className="text-sm text-aria-violet font-semibold tracking-wide mb-0.5">
-                Sono Aria
-              </p>
-              <h1 className="font-display text-xl font-bold text-foreground leading-tight">
-                Ciao {displayName}, come stai?
-              </h1>
-            </div>
-          </div>
-
-          {/* CTA Buttons - BIGGER */}
-          <div className="w-full flex gap-3 mb-4">
-            <motion.button
-              onClick={onStartChat}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-3 py-4 px-5 rounded-2xl",
-                "bg-gradient-to-br from-primary to-primary-glow",
-                "text-white font-bold text-base",
-                "shadow-glass-glow hover:shadow-elevated",
-                "transition-all duration-300"
-              )}
-              whileTap={{ scale: 0.97 }}
-            >
-              <PenLine className="w-5 h-5" />
-              <span>Scrivi</span>
-            </motion.button>
-
-            <motion.button
-              onClick={onStartVoice}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-3 py-4 px-5 rounded-2xl",
-                "bg-gradient-aria",
-                "text-white font-bold text-base",
-                "shadow-aria-glow hover:shadow-elevated",
-                "transition-all duration-300"
-              )}
-              whileTap={{ scale: 0.97 }}
-            >
-              <AudioLines className="w-5 h-5" />
-              <span>Parla</span>
-            </motion.button>
-          </div>
-
-          {/* Insight at BOTTOM */}
-          {insight && (
-            <motion.button
-              onClick={onContinue}
-              className={cn(
-                "w-full px-4 py-3 rounded-xl text-left",
-                "bg-aria-violet/10 border border-aria-violet/20",
-                "hover:bg-aria-violet/15 transition-colors"
-              )}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <p className="text-sm text-foreground/80">
-                <span className="text-aria-violet font-semibold">{insight.dateContext}:</span> {insight.preview}
-              </p>
-              <p className="text-xs text-primary font-medium mt-1">Tocca per continuare →</p>
-            </motion.button>
-          )}
+    <div className="flex flex-col items-center text-center space-y-6">
+      {/* Animated Orb - Compact & Centered */}
+      <motion.div
+        className="relative"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div className={cn(
+          "w-16 h-16 rounded-full",
+          "bg-gradient-aria",
+          "flex items-center justify-center",
+          "shadow-aria-glow animate-aria-breathe"
+        )}>
+          <Sparkles className="w-7 h-7 text-white" />
         </div>
-      </div>
-    </section>
+        {/* Glow ring */}
+        <div className="absolute inset-0 rounded-full bg-gradient-aria opacity-30 blur-xl -z-10 scale-150" />
+      </motion.div>
+
+      {/* Introduction - Clean & Centered */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+        className="space-y-1"
+      >
+        <h1 className="font-display text-2xl text-foreground">Sono Aria</h1>
+        <p className="text-muted-foreground text-base">Come posso aiutarti oggi?</p>
+      </motion.div>
+
+      {/* HUGE Action Buttons - PROTAGONISTI */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="w-full space-y-3"
+      >
+        {/* Write Button - Glass style, HUGE */}
+        <motion.button
+          onClick={onStartChat}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={cn(
+            "w-full flex items-center justify-center gap-4",
+            "py-6 px-8 rounded-3xl",
+            "bg-gradient-to-br from-white/90 to-white/70 dark:from-white/15 dark:to-white/10",
+            "backdrop-blur-xl border border-white/50 dark:border-white/20",
+            "text-foreground font-bold text-lg",
+            "shadow-glass-elevated hover:shadow-glass-glow",
+            "transition-all duration-300"
+          )}
+        >
+          <PenLine className="w-7 h-7" />
+          <span>Scrivi con Aria</span>
+        </motion.button>
+
+        {/* Voice Button - Aurora gradient, HUGE */}
+        <motion.button
+          onClick={onStartVoice}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={cn(
+            "w-full flex items-center justify-center gap-4",
+            "py-6 px-8 rounded-3xl",
+            "bg-gradient-aria",
+            "text-white font-bold text-lg",
+            "shadow-aria-glow hover:shadow-[0_8px_40px_rgba(155,111,208,0.4)]",
+            "transition-all duration-300"
+          )}
+        >
+          <AudioLines className="w-7 h-7" />
+          <span>Parla con Aria</span>
+        </motion.button>
+      </motion.div>
+
+      {/* Insight Line - Subtle, at bottom */}
+      {insightPreview && lastSession && (
+        <motion.button
+          onClick={onContinue}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+          className={cn(
+            "w-full flex items-center gap-2 px-4 py-2",
+            "text-muted-foreground hover:text-foreground",
+            "transition-colors duration-200"
+          )}
+        >
+          <span className="text-primary">💜</span>
+          <span className="text-sm flex-1 text-left truncate">
+            <span className="font-medium">{formatSessionDate(lastSession.start_time)}:</span>
+            {' '}{insightPreview}
+          </span>
+          <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-50" />
+        </motion.button>
+      )}
+    </div>
   );
 };
 
