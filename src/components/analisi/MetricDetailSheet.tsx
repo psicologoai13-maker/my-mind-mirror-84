@@ -1,47 +1,21 @@
 import React, { useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useDailyMetricsRange, DailyMetrics } from '@/hooks/useDailyMetrics';
+import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { format, subDays, startOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { MetricData, TimeRange, MetricType } from '@/pages/Analisi';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getMetricConfig, MetricConfig } from '@/lib/metricConfigs';
-
-export type TimeRange = 'day' | 'week' | 'month' | 'all';
 
 interface MetricDetailSheetProps {
-  metricKey: string | null;
+  metric: MetricData | null | undefined;
   isOpen: boolean;
   onClose: () => void;
   timeRange: TimeRange;
 }
 
-// Helper to extract value from daily metrics based on metric key
-const extractMetricValue = (dayData: DailyMetrics, key: string, config: MetricConfig): number | null => {
-  let value: number | null = null;
-
-  switch (config.source) {
-    case 'vitals':
-      value = dayData.vitals[key as keyof typeof dayData.vitals];
-      break;
-    case 'emotions':
-      value = (dayData.emotions as Record<string, number>)?.[key] ?? null;
-      break;
-    case 'psychology':
-      value = (dayData.deep_psychology as unknown as Record<string, number | null>)?.[key] ?? null;
-      break;
-    case 'life_areas':
-      value = dayData.life_areas[key as keyof typeof dayData.life_areas];
-      break;
-  }
-
-  return value && value > 0 ? value : null;
-};
-
-const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metricKey, isOpen, onClose, timeRange }) => {
-  const config = metricKey ? getMetricConfig(metricKey) : null;
-
+const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metric, isOpen, onClose, timeRange }) => {
   // Calculate date range based on timeRange
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -58,72 +32,94 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metricKey, isOpen
     }
   }, [timeRange]);
 
-  // Use the unified RPC hook
+  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
   const { metricsRange } = useDailyMetricsRange(dateRange.start, dateRange.end);
 
   // Generate chart data from unified source
   const chartData = useMemo(() => {
-    if (!config || !metricKey) return [];
+    if (!metric) return [];
 
     // Filter days with actual data
     const daysWithData = metricsRange.filter(m => 
-      m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology
+      m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas
     );
 
-    // Map to chart data based on metric
+    // Map to chart data based on metric type
     return daysWithData.map(dayData => {
-      const value = extractMetricValue(dayData, metricKey, config);
-      
+      let value: number | null = null;
+
+      // Get value based on metric category and key
+      switch (metric.key) {
+        // Vitali (scala 1-10)
+        case 'mood':
+          value = dayData.vitals.mood > 0 ? dayData.vitals.mood * 10 : null;
+          break;
+        case 'anxiety':
+          value = dayData.vitals.anxiety > 0 ? dayData.vitals.anxiety * 10 : null;
+          break;
+        case 'energy':
+          value = dayData.vitals.energy > 0 ? dayData.vitals.energy * 10 : null;
+          break;
+        case 'sleep':
+          value = dayData.vitals.sleep > 0 ? dayData.vitals.sleep * 10 : null;
+          break;
+        // Emozioni (scala 0-10)
+        case 'joy':
+          value = dayData.emotions.joy > 0 ? dayData.emotions.joy * 10 : null;
+          break;
+        case 'sadness':
+          value = dayData.emotions.sadness > 0 ? dayData.emotions.sadness * 10 : null;
+          break;
+        case 'anger':
+          value = dayData.emotions.anger > 0 ? dayData.emotions.anger * 10 : null;
+          break;
+        case 'fear':
+          value = dayData.emotions.fear > 0 ? dayData.emotions.fear * 10 : null;
+          break;
+        case 'apathy':
+          value = dayData.emotions.apathy > 0 ? dayData.emotions.apathy * 10 : null;
+          break;
+        // Aree Vita (scala 1-10)
+        case 'love':
+          value = dayData.life_areas.love ? dayData.life_areas.love * 10 : null;
+          break;
+        case 'work':
+          value = dayData.life_areas.work ? dayData.life_areas.work * 10 : null;
+          break;
+        case 'school':
+          value = dayData.life_areas.school ? dayData.life_areas.school * 10 : null;
+          break;
+        case 'health':
+          value = dayData.life_areas.health ? dayData.life_areas.health * 10 : null;
+          break;
+        case 'social':
+          value = dayData.life_areas.social ? dayData.life_areas.social * 10 : null;
+          break;
+        case 'growth':
+          value = dayData.life_areas.growth ? dayData.life_areas.growth * 10 : null;
+          break;
+        default:
+          value = null;
+      }
+
       return {
         date: format(new Date(dayData.date), 'd MMM', { locale: it }),
         fullDate: format(new Date(dayData.date), 'd MMMM yyyy', { locale: it }),
-        value: value !== null ? Math.round(value * 10) : null,
-        rawValue: value,
+        value: value !== null ? Math.round(value) : null,
       };
-    }).filter(d => d.value !== null);
-  }, [config, metricKey, metricsRange]);
+    }).filter(d => d.value !== null); // Only include days with data for this metric
+  }, [metric, metricsRange]);
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    if (chartData.length === 0) return { average: null, trend: 'stable' as const };
+  if (!metric) return null;
 
-    const values = chartData.map(d => d.rawValue!).filter(v => v !== null && v > 0);
-    if (values.length === 0) return { average: null, trend: 'stable' as const };
+  const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
+  const trendColor = metric.trend === 'up' ? 'text-emerald-500' : metric.trend === 'down' ? 'text-destructive' : 'text-muted-foreground';
+  const trendLabel = metric.trend === 'up' ? 'In aumento' : metric.trend === 'down' ? 'In calo' : 'Stabile';
 
-    const average = values.reduce((a, b) => a + b, 0) / values.length;
-
-    // Calculate trend
-    let trend: 'up' | 'down' | 'stable' = 'stable';
-    if (values.length >= 2) {
-      const midpoint = Math.floor(values.length / 2);
-      const firstHalf = values.slice(0, midpoint);
-      const secondHalf = values.slice(midpoint);
-      const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-      if (secondAvg > firstAvg + 0.3) trend = 'up';
-      else if (secondAvg < firstAvg - 0.3) trend = 'down';
-    }
-
-    return { average: Math.round(average * 10) / 10, trend };
-  }, [chartData]);
-
-  if (!config || !metricKey) return null;
-
-  const TrendIcon = stats.trend === 'up' ? TrendingUp : stats.trend === 'down' ? TrendingDown : Minus;
-  
-  // Trend color (inverted for negative metrics)
-  const trendColor = config.isNegative
-    ? (stats.trend === 'up' ? 'text-orange-500' : stats.trend === 'down' ? 'text-emerald-500' : 'text-muted-foreground')
-    : (stats.trend === 'up' ? 'text-emerald-500' : stats.trend === 'down' ? 'text-orange-500' : 'text-muted-foreground');
-  
-  const trendLabel = config.isNegative
-    ? (stats.trend === 'up' ? 'In aumento ⚠️' : stats.trend === 'down' ? 'In diminuzione ✓' : 'Stabile')
-    : (stats.trend === 'up' ? 'In aumento ✓' : stats.trend === 'down' ? 'In calo' : 'Stabile');
-
-  // Display value (inverted for negative metrics)
-  const displayAverage = stats.average !== null 
-    ? (config.isNegative ? Math.round((10 - stats.average) * 10) / 10 : stats.average)
-    : null;
+  // Display value as X.X/10
+  const displayValue = metric.average !== null 
+    ? `${metric.average}/10`
+    : '—';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -132,45 +128,38 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metricKey, isOpen
           <div className="flex items-center gap-3">
             <div 
               className="w-12 h-12 rounded-2xl flex items-center justify-center bg-glass backdrop-blur-sm border border-glass-border shadow-soft"
-              style={{ background: `linear-gradient(135deg, ${config.color}15, ${config.color}05)` }}
+              style={{ background: `linear-gradient(135deg, ${metric.color}15, ${metric.color}05)` }}
             >
-              <span className="text-2xl">{config.icon}</span>
+              <span className="text-2xl">{metric.icon}</span>
             </div>
             <div>
-              <SheetTitle className="text-xl font-display">{config.label}</SheetTitle>
+              <SheetTitle className="text-xl font-display">{metric.label}</SheetTitle>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {config.description}
+                Storico {timeRange === 'day' ? 'giornaliero' : timeRange === 'week' ? 'settimanale' : timeRange === 'month' ? 'mensile' : 'completo'}
               </p>
             </div>
           </div>
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* Time Range Label */}
-          <div className="text-center">
-            <span className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground">
-              {timeRange === 'day' ? 'Oggi' : timeRange === 'week' ? 'Ultima settimana' : timeRange === 'month' ? 'Ultimo mese' : 'Tutto lo storico'}
-            </span>
-          </div>
-
-          {/* Summary Stats */}
+          {/* Summary Stats - Glass cards */}
           <div className="flex gap-4">
             <div className="flex-1 bg-glass backdrop-blur-xl rounded-2xl p-4 border border-glass-border shadow-soft">
               <p className="text-xs text-muted-foreground mb-1">Media</p>
-              <p className="text-2xl font-bold" style={{ color: config.color }}>
-                {displayAverage !== null ? `${displayAverage}/10` : '—'}
+              <p className="text-2xl font-bold" style={{ color: metric.color }}>
+                {displayValue}
               </p>
             </div>
             <div className="flex-1 bg-glass backdrop-blur-xl rounded-2xl p-4 border border-glass-border shadow-soft">
               <p className="text-xs text-muted-foreground mb-1">Trend</p>
               <div className="flex items-center gap-2">
                 <TrendIcon className={cn("w-5 h-5", trendColor)} />
-                <span className={cn("font-medium text-sm", trendColor)}>{trendLabel}</span>
+                <span className={cn("font-medium", trendColor)}>{trendLabel}</span>
               </div>
             </div>
           </div>
 
-          {/* Chart */}
+          {/* Chart - Glass container */}
           <div className="bg-glass backdrop-blur-xl rounded-3xl p-4 border border-glass-border shadow-soft">
             {chartData.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
@@ -181,9 +170,9 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metricKey, isOpen
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
-                      <linearGradient id={`gradient-detail-${metricKey}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={config.color} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={config.color} stopOpacity={0} />
+                      <linearGradient id={`gradient-${metric.key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={metric.color} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={metric.color} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <XAxis 
@@ -208,20 +197,20 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({ metricKey, isOpen
                         padding: '12px 16px',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
                       }}
-                      formatter={(value: number) => {
-                        const displayVal = config.isNegative ? (100 - value) / 10 : value / 10;
-                        return [`${displayVal.toFixed(1)}/10`, config.label];
-                      }}
+                      formatter={(value: number) => [
+                        `${(value / 10).toFixed(1)}/10`,
+                        metric.label
+                      ]}
                       labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
                     />
                     <Area
                       type="monotone"
                       dataKey="value"
-                      stroke={config.color}
+                      stroke={metric.color}
                       strokeWidth={2.5}
-                      fill={`url(#gradient-detail-${metricKey})`}
-                      dot={{ fill: config.color, strokeWidth: 0, r: 3 }}
-                      activeDot={{ r: 5, fill: config.color, filter: `drop-shadow(0 0 6px ${config.color})` }}
+                      fill={`url(#gradient-${metric.key})`}
+                      dot={{ fill: metric.color, strokeWidth: 0, r: 3 }}
+                      activeDot={{ r: 5, fill: metric.color, filter: `drop-shadow(0 0 6px ${metric.color})` }}
                       connectNulls
                     />
                   </AreaChart>
