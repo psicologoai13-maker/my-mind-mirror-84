@@ -1,238 +1,148 @@
 
-# Quiz Personalizzato per Eta e Genere
 
-## Analisi del Gap Attuale
+# Migliorare la Voce di Aria con ElevenLabs
 
-| Elemento | Stato Attuale | Problema |
-|----------|---------------|----------|
-| Eta | Binary (giovani vs adulti) | Troppo generico, mancano fasce intermedie |
-| Genere | Raccolto ma **mai usato** | Spreco di dato prezioso |
-| Occupazione | Non chiesta | Fondamentale per life areas (scuola/lavoro) |
+## Analisi del Sistema Attuale
 
-## Proposta: Matrice di Personalizzazione 4x3
+| Componente | Tecnologia | Problema |
+|------------|-----------|----------|
+| `useRealtimeVoice.tsx` | OpenAI Realtime GPT-4o | Voce "shimmer" robotica |
+| `openai-realtime-session/index.ts` | WebRTC + OpenAI | Latenza ok, ma voce innaturale |
+| `useVoiceSession.tsx` | Web Speech API browser | TTS molto robotico (fallback) |
 
-### Fasce d'Eta Migliorate
+## Soluzione: ElevenLabs Conversational AI
 
-| Fascia | Label | Focus Principale |
-|--------|-------|------------------|
-| <18 | Adolescenti | Scuola, identita, famiglia |
-| 18-24 | Giovani Adulti | Transizione, universita/primo lavoro |
-| 25-44 | Adulti | Carriera, famiglia, equilibrio |
-| 45+ | Adulti Maturi | Salute, legacy, riscoperta |
+ElevenLabs offre voci **indistinguibili da quelle umane** con supporto completo per l'italiano. L'integrazione usa WebRTC per latenza minima.
 
-### Personalizzazioni per Genere
-
-**Motivazioni Specifiche per Genere:**
-
-| Genere | Opzioni Esclusive |
-|--------|-------------------|
-| Donna | Sindrome dell'impostora, ciclo mestruale, carico mentale, maternita |
-| Uomo | Esprimere emozioni, pressione del "provider", vulnerabilita |
-| Altro/Non specificato | Identita di genere, accettazione |
-
-**Goals Specifici per Genere:**
-
-| Genere | Goals Esclusivi |
-|--------|-----------------|
-| Donna | Body positivity, self-care, gestire ciclo |
-| Uomo | Emotional intelligence, paternita consapevole |
-
-**Interessi Specifici per Genere:**
-
-| Genere | Interessi Proposti |
-|--------|-------------------|
-| Donna (<25) | Skincare, fashion, drama coreani |
-| Donna (25+) | Wellness, self-help books, pilates |
-| Uomo (<25) | Calcio, gaming, gym |
-| Uomo (25+) | Investimenti, tech, sport |
-
-## Nuovo Flusso Quiz (7 Step)
+### Architettura Proposta
 
 ```text
-Step 1: Welcome
-   |
-Step 2: Name
-   |
-Step 3: AboutYou (Mood + Genere + Eta)
-   |
-Step 4: Occupation (NUOVO - solo se 18-27)
-   |
-   +--> Studente: mostra school
-   +--> Lavoratore: mostra work  
-   +--> Entrambi: mostra entrambe
-   |
-Step 5: Motivation (personalizzato eta + genere)
-   |
-Step 6: Goals (personalizzato eta + genere)
-   |
-Step 7: Interests (personalizzato eta + genere)
-   |
-Step 8: Ready
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │            ZenVoiceModal.tsx                             │  │
+│  │                    │                                     │  │
+│  │                    ▼                                     │  │
+│  │         useElevenLabsVoice.tsx (NUOVO)                   │  │
+│  │           │                                              │  │
+│  │           │  @elevenlabs/react                           │  │
+│  │           │  useConversation()                           │  │
+│  │           │                                              │  │
+│  └───────────┼──────────────────────────────────────────────┘  │
+│              │                                                  │
+└──────────────┼──────────────────────────────────────────────────┘
+               │ WebRTC (bassa latenza)
+               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    EDGE FUNCTION                                 │
+│  elevenlabs-conversation-token/index.ts (NUOVO)                  │
+│    - Genera token sicuro                                         │
+│    - Inietta system prompt con memoria Aria                      │
+│    - Real-time context                                           │
+└──────────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    ELEVENLABS                                    │
+│  Agent configurato con:                                          │
+│    - Voce italiana naturale (es. "Laura" o custom)               │
+│    - Persona Aria iniettata                                      │
+│    - Bassa latenza via WebRTC                                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## Dettaglio Opzioni per Profilo Utente
+## File da Creare/Modificare
 
-### ADOLESCENTI (<18)
-
-**Donna <18:**
-- Motivazioni: Stress scolastico, Pressione social, Body image, Ciclo mestruale, Rapporto genitori
-- Goals: Autostima, Accettare il corpo, Rendimento scolastico, Gestire ansia da verifiche
-- Interessi: TikTok, K-pop, Skincare, Drama, Anime
-
-**Uomo <18:**
-- Motivazioni: Stress scolastico, Performance sportiva, Bullismo, Rapporto genitori, Identita
-- Goals: Concentrazione, Forma fisica, Rendimento scolastico, Gestire rabbia
-- Interessi: Gaming, Esport, Calcio, YouTube, Anime
-
-### GIOVANI ADULTI (18-24)
-
-**Donna 18-24:**
-- Motivazioni: Ansia universitaria, Futuro incerto, Relazioni, Confronto social, Indipendenza
-- Goals: Work-life balance, Autostima, Relazioni sane, Finanze personali
-- Interessi: Wellness, Self-care, Travel, Fashion, Podcasts
-
-**Uomo 18-24:**
-- Motivazioni: Carriera, Performance, Relazioni, Indipendenza, Pressione sociale
-- Goals: Produttivita, Fitness, Finanze, Networking
-- Interessi: Gym, Investimenti, Tech, Gaming, Sport
-
-### ADULTI (25-44)
-
-**Donna 25-44:**
-- Motivazioni: Work-life balance, Carico mentale, Maternita, Relazione di coppia, Self-care trascurato
-- Goals: Equilibrio, Me time, Gestire stress, Relazioni migliori, Forma fisica
-- Interessi: Yoga, Lettura, Cucina, Giardinaggio, Wellness
-
-**Uomo 25-44:**
-- Motivazioni: Pressione lavorativa, Provider stress, Paternita, Burnout, Tempo per se
-- Goals: Work-life balance, Presenza in famiglia, Fitness, Gestire stress
-- Interessi: Sport, Investimenti, DIY, Tech, Podcasts
-
-### ADULTI MATURI (45+)
-
-**Donna 45+:**
-- Motivazioni: Menopausa, Empty nest, Riscoperta personale, Salute, Invecchiare bene
-- Goals: Accettazione, Nuovi hobby, Salute, Relazioni figli adulti
-- Interessi: Giardinaggio, Volontariato, Viaggi, Benessere, Arte
-
-**Uomo 45+:**
-- Motivazioni: Midlife, Salute, Legacy, Rapporto figli, Pensione
-- Goals: Fitness over 40, Nuovi interessi, Bilanciare vita, Accettazione
-- Interessi: Golf/Sport, Viaggi, Investimenti, Hobby artigianali
-
-## Modifiche Tecniche
-
-### 1. Nuovo Step: OccupationStep.tsx (solo per 18-27)
-
-Chiedere: "Cosa fai principalmente?"
-- Studio
-- Lavoro  
-- Entrambi
-
-Questo imposta `occupation_context` nel profilo per personalizzare le life areas nell'app.
-
-### 2. Aggiornare AboutYouStep.tsx
-
-Spostare la domanda sul genere PRIMA dell'eta per dare piu peso visivo.
-
-### 3. Aggiornare MotivationStep.tsx
+### 1. Nuovo Hook: `useElevenLabsVoice.tsx`
 
 ```typescript
-// Nuova logica di filtering
-const getMotivationOptions = (ageRange: string, gender: string) => {
-  const base = [...baseMotivationOptions];
-  
-  // Age-specific
-  if (isYouth(ageRange)) {
-    base.push(...youthMotivations);
-  } else {
-    base.push(...adultMotivations);
-  }
-  
-  // Gender-specific
-  if (gender === 'female') {
-    base.push(...femaleMotivations);
-    if (isYouth(ageRange)) {
-      base.push(...youngFemaleMotivations);
-    }
-  } else if (gender === 'male') {
-    base.push(...maleMotivations);
-  }
-  
-  return base;
-};
+// Usa @elevenlabs/react useConversation
+// - Richiede token da edge function
+// - Gestisce microfono con permessi
+// - Stato: isActive, isSpeaking, isListening
+// - Passa memoria e contesto utente
 ```
 
-### 4. Aggiornare GoalsStep.tsx
+### 2. Nuova Edge Function: `elevenlabs-conversation-token/index.ts`
 
-Stessa logica di MotivationStep con goals specifici per combinazione eta+genere.
+```typescript
+// Genera token WebRTC per ElevenLabs
+// - Carica profilo utente e memoria
+// - Costruisce system prompt Aria
+// - Ritorna conversationToken
+```
 
-### 5. Aggiornare InterestsStep.tsx
+### 3. Aggiornare: `ZenVoiceModal.tsx`
 
-Stessa logica con interessi specifici.
+- Switch da `useRealtimeVoice` a `useElevenLabsVoice`
+- Mantenere stessa UI/UX
 
-### 6. Aggiornare Onboarding.tsx
+### 4. Configurare Agent ElevenLabs (Dashboard)
 
-- Aggiungere `occupation` allo stato
-- Inserire OccupationStep condizionale (solo se eta 18-27)
-- Passare `gender` a tutti gli step oltre a `ageRange`
-- Salvare `occupation_context` nel profilo
+- Creare Agent con voce italiana
+- Settare parametri voce naturale
 
-## File da Modificare
+## Configurazione Voce Naturale
 
-| File | Modifiche |
-|------|-----------|
-| `src/pages/Onboarding.tsx` | Aggiungere occupation state, step condizionale, passare gender agli step |
-| `src/components/onboarding/OccupationStep.tsx` | **NUOVO** - Step occupazione |
-| `src/components/onboarding/AboutYouStep.tsx` | Riordinare genere prima di eta |
-| `src/components/onboarding/MotivationStep.tsx` | Aggiungere prop gender, nuove opzioni |
-| `src/components/onboarding/GoalsStep.tsx` | Aggiungere prop gender, nuove opzioni |
-| `src/components/onboarding/InterestsStep.tsx` | Aggiungere prop gender, nuove opzioni |
+### Parametri ElevenLabs Consigliati
 
-## Nuove Opzioni da Aggiungere
+| Parametro | Valore | Effetto |
+|-----------|--------|---------|
+| `stability` | 0.4-0.5 | Piu espressiva e variata |
+| `similarity_boost` | 0.7 | Mantiene carattere voce |
+| `style` | 0.3-0.5 | Aggiunge personalita |
+| `speed` | 0.95 | Leggermente piu lento, naturale |
 
-### Motivazioni per Genere
+### Voci Italiane Consigliate
 
-**Solo Donne:**
-- `imposter_syndrome`: Sindrome dell'impostora
-- `mental_load`: Carico mentale
-- `body_image`: Rapporto col corpo
-- `cycle_management`: Gestire il ciclo
+| Voce | ID | Carattere |
+|------|-----|-----------|
+| Laura | FGY2WhTYpPnrIDTdsKH5 | Femminile, calda, professionale |
+| Alice | Xb7hH8MSUJpSbSDYk0k2 | Femminile, giovane, amichevole |
+| Matilda | XrExE9yKIg1WjnnlVkGX | Femminile, matura, rassicurante |
 
-**Solo Uomini:**
-- `express_emotions`: Esprimere emozioni
-- `provider_pressure`: Pressione del "dover mantenere"
-- `show_vulnerability`: Mostrarsi vulnerabile
+## Miglioramenti al Prompt Vocale
 
-### Goals per Genere
+Oltre a cambiare TTS, ottimizziamo le istruzioni per renderle piu naturali:
 
-**Solo Donne:**
-- `body_positivity`: Accettare il corpo
-- `me_time`: Tempo per me
-- `mental_load_balance`: Bilanciare carico mentale
+### Da Aggiungere al System Prompt
 
-**Solo Uomini:**
-- `emotional_intelligence`: Intelligenza emotiva
-- `present_father`: Paternita presente
-- `open_up`: Aprirsi di piu
+```text
+STILE VOCALE NATURALE:
+- Usa esclamazioni genuine: "Ah!", "Mamma mia!", "Dai!", "Oddio!"
+- Pause pensierose: "Mmm... sai cosa penso?"
+- Risate brevi quando appropriato: "Ahah", "Eh eh"
+- Variazioni di tono: sussurato per momenti intimi, energico per incoraggiare
+- Interiezioni italiane: "Insomma...", "Cioe...", "Ecco..."
+- Mai elenchi puntati - parla in modo discorsivo
+- Respiri naturali tra le frasi
+```
 
-### Interessi per Genere/Eta
+## Dipendenze da Installare
 
-**Donne Giovani:**
-- `skincare`, `kdramas`, `fashion`, `astrology`
+```bash
+npm install @elevenlabs/react
+```
 
-**Donne Adulte:**
-- `pilates`, `self_help`, `wellness_retreats`
+## Secrets Necessari
 
-**Uomini Giovani:**
-- `football`, `gym`, `crypto`
+| Secret | Descrizione |
+|--------|-------------|
+| `ELEVENLABS_API_KEY` | API key da ElevenLabs dashboard |
 
-**Uomini Adulti:**
-- `golf`, `whisky`, `classic_cars`
+## Riepilogo Modifiche
+
+| File | Azione | Descrizione |
+|------|--------|-------------|
+| `src/hooks/useElevenLabsVoice.tsx` | NUOVO | Hook per ElevenLabs Conversational AI |
+| `supabase/functions/elevenlabs-conversation-token/index.ts` | NUOVO | Edge function per token generation |
+| `src/components/voice/ZenVoiceModal.tsx` | MODIFICA | Usa nuovo hook ElevenLabs |
+| `supabase/config.toml` | MODIFICA | Aggiunge nuova function |
 
 ## Risultato Atteso
 
-1. **Esperienza Personalizzata** - Ogni utente vede opzioni rilevanti per la sua situazione
-2. **Engagement Migliore** - Meno scroll, piu rilevanza
-3. **Dati Migliori per Aria** - Contesto piu ricco per conversazioni personalizzate
-4. **Occupation Context** - Imposta automaticamente scuola/lavoro per le life areas
+1. **Voce umana** - ElevenLabs produce voci indistinguibili da persone reali
+2. **Bassa latenza** - WebRTC mantiene conversazione fluida
+3. **Personalita Aria** - Stesso prompt, voce molto migliore
+4. **Italiano nativo** - Voci italiane di alta qualita
+
