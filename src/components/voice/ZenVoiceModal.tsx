@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
-import { useElevenLabsVoice } from "@/hooks/useElevenLabsVoice";
+import { useHybridVoice } from "@/hooks/useHybridVoice";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,9 +18,10 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     isSpeaking,
     isListening,
     audioLevel,
+    currentTranscript,
     start,
     stop
-  } = useElevenLabsVoice();
+  } = useHybridVoice();
 
   const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -275,12 +276,13 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-8"
+                className="mb-8 text-center px-4"
               >
                 <p className="text-base text-foreground/60 font-light tracking-wide">
                   {isConnecting ? 'Connessione...' : 
                    isSpeaking ? 'Aria sta parlando' : 
-                   isActive ? 'Ti ascolto' : 
+                   isActive && currentTranscript ? `"${currentTranscript}"` :
+                   isActive ? 'Ti ascolto...' : 
                    'Tocca per iniziare'}
                 </p>
               </motion.div>
