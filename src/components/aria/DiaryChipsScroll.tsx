@@ -2,9 +2,7 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
-import type { ThematicDiary, DiaryTheme } from '@/hooks/useThematicDiaries';
+import type { ThematicDiary } from '@/hooks/useThematicDiaries';
 
 // Extended diary themes
 const ALL_DIARY_THEMES = [
@@ -52,63 +50,63 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
         <h2 className="font-display font-semibold text-sm text-foreground">I Tuoi Diari</h2>
       </div>
 
-      {/* Horizontal Scroll Container */}
-      <div className="overflow-x-auto scrollbar-hide -mx-5 px-5">
-        <div className="flex gap-2.5 pb-1">
-          {activeDiaryIds.map((diaryId, index) => {
-            const diary = diaries?.find(d => d.theme === diaryId);
-            const { emoji, label } = getDiaryLabel(diaryId);
-            const hasActivity = diary && diary.last_updated_at;
-            
-            return (
-              <motion.button
-                key={diaryId}
-                onClick={() => onOpenDiary(diaryId)}
-                className={cn(
-                  "relative flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap",
-                  "bg-glass backdrop-blur-xl border border-glass-border",
-                  "shadow-glass hover:shadow-glass-glow",
-                  "transition-all duration-300",
-                  "active:scale-[0.97]"
-                )}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                {/* Inner highlight */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-transparent pointer-events-none" />
-                
-                <span className="text-base relative z-10">{emoji}</span>
-                <span className="font-medium text-sm text-foreground relative z-10">{label}</span>
-                
-                {/* Activity dot */}
-                {hasActivity && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary absolute -top-0.5 -right-0.5" />
-                )}
-              </motion.button>
-            );
-          })}
-
-          {/* Add Diary Button */}
-          {activeDiaryIds.length < 6 && (
+      {/* 2x2 Grid for bigger diary cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {activeDiaryIds.slice(0, 4).map((diaryId, index) => {
+          const diary = diaries?.find(d => d.theme === diaryId);
+          const { emoji, label } = getDiaryLabel(diaryId);
+          const hasActivity = diary && diary.last_updated_at;
+          
+          return (
             <motion.button
-              onClick={onAddDiary}
+              key={diaryId}
+              onClick={() => onOpenDiary(diaryId)}
               className={cn(
-                "flex items-center justify-center w-10 h-10 rounded-2xl",
-                "bg-glass backdrop-blur-xl border border-glass-border border-dashed",
-                "text-muted-foreground hover:text-primary hover:border-primary/30",
+                "relative flex items-center gap-3 px-4 py-4 rounded-2xl text-left",
+                "bg-glass backdrop-blur-xl border border-glass-border",
+                "shadow-glass hover:shadow-glass-glow",
                 "transition-all duration-300",
-                "active:scale-[0.95]"
+                "active:scale-[0.98]"
               )}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: activeDiaryIds.length * 0.05 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
             >
-              <Plus className="w-4 h-4" />
+              {/* Inner highlight */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-transparent pointer-events-none" />
+              
+              <div className="w-11 h-11 rounded-xl bg-muted/60 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">{emoji}</span>
+              </div>
+              <span className="font-semibold text-sm text-foreground relative z-10">{label}</span>
+              
+              {/* Activity dot */}
+              {hasActivity && (
+                <span className="w-2 h-2 rounded-full bg-primary absolute top-2 right-2" />
+              )}
             </motion.button>
-          )}
-        </div>
+          );
+        })}
       </div>
+
+      {/* Add more button if less than 4 */}
+      {activeDiaryIds.length < 4 && (
+        <motion.button
+          onClick={onAddDiary}
+          className={cn(
+            "w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl",
+            "bg-glass/50 border border-dashed border-glass-border",
+            "text-muted-foreground hover:text-primary hover:border-primary/30",
+            "transition-all duration-200"
+          )}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Plus className="w-4 h-4" />
+          <span className="text-sm font-medium">Aggiungi diario</span>
+        </motion.button>
+      )}
     </section>
   );
 };
