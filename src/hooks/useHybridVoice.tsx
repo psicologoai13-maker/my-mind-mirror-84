@@ -44,6 +44,12 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const isProcessingRef = useRef(false);
   const audioQueueRef = useRef<HTMLAudioElement[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isActiveRef = useRef(false); // Track active state for callbacks
+
+  // Keep isActiveRef in sync with isActive state
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   // Update audio level visualization
   const updateAudioLevel = useCallback(() => {
@@ -56,27 +62,60 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
   }, [isListening]);
 
+  // Convert base64 to Blob for better browser compatibility
+  const base64ToBlob = useCallback((base64: string, mimeType: string): Blob => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }, []);
+
   // Play audio from base64
   const playAudio = useCallback(async (base64Audio: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       try {
-        const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+        console.log('[HybridVoice] Creating audio from base64, length:', base64Audio.length);
+        
+        // Use Blob instead of data URI for better compatibility
+        const audioBlob = base64ToBlob(base64Audio, 'audio/mpeg');
+        const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
         
         audio.onended = () => {
+          console.log('[HybridVoice] Audio playback ended');
+          URL.revokeObjectURL(audioUrl);
           setIsSpeaking(false);
           resolve();
         };
         
         audio.onerror = (e) => {
           console.error('[HybridVoice] Audio playback error:', e);
+          URL.revokeObjectURL(audioUrl);
           setIsSpeaking(false);
           reject(e);
         };
 
+        audio.oncanplaythrough = () => {
+          console.log('[HybridVoice] Audio ready to play');
+        };
+
         currentAudioRef.current = audio;
         setIsSpeaking(true);
-        audio.play();
+        
+        // Handle play() promise rejection
+        audio.play()
+          .then(() => {
+            console.log('[HybridVoice] Audio playback started');
+          })
+          .catch((playError) => {
+            console.error('[HybridVoice] Play failed:', playError);
+            URL.revokeObjectURL(audioUrl);
+            setIsSpeaking(false);
+            reject(playError);
+          });
       } catch (error) {
         console.error('[HybridVoice] Error creating audio:', error);
         setIsSpeaking(false);
@@ -165,12 +204,13 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       }
 
       // Resume listening after speaking
-      if (recognitionRef.current && isActive) {
+      if (recognitionRef.current && isActiveRef.current) {
+        console.log('[HybridVoice] Resuming listening after speech');
         setIsListening(true);
         try {
           recognitionRef.current.start();
         } catch (e) {
-          // Already started
+          console.log('[HybridVoice] Recognition already started or error:', e);
         }
       }
     } catch (error) {
@@ -178,7 +218,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       toast.error('Errore nella risposta di Aria');
       
       // Resume listening on error
-      if (recognitionRef.current && isActive) {
+      if (recognitionRef.current && isActiveRef.current) {
         setIsListening(true);
         try {
           recognitionRef.current.start();
@@ -189,7 +229,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [realTimeContext, playAudio, isActive]);
+  }, [realTimeContext, playAudio]);
 
   // Initialize Web Speech API
   const initSpeechRecognition = useCallback(() => {
@@ -236,7 +276,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     recognition.onend = () => {
       console.log('[HybridVoice] Recognition ended');
       // Don't auto-restart if we're processing or not active
-      if (!isProcessingRef.current && isActive && isListening) {
+      if (!isProcessingRef.current && isActiveRef.current) {
         try {
           recognition.start();
         } catch (e) {
@@ -245,7 +285,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('[HybridVoice] Recognition error:', event.error);
       if (event.error === 'not-allowed') {
         toast.error('Permesso microfono negato');
@@ -253,7 +293,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     return recognition;
-  }, [processUserInput, isActive, isListening]);
+  }, [processUserInput]);
 
   // Start hybrid voice session
   const start = useCallback(async () => {
@@ -348,7 +388,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
                 if (ttsData.audioContent) {
                   recognitionRef.current?.stop();
                   await playAudio(ttsData.audioContent);
-                  if (recognitionRef.current && isActive) {
+                  if (recognitionRef.current && isActiveRef.current) {
                     setIsListening(true);
                     recognitionRef.current.start();
                   }
@@ -372,7 +412,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
       }
     }
-  }, [user, startSession, initSpeechRecognition, updateAudioLevel, realTimeContext, playAudio, isActive]);
+  }, [user, startSession, initSpeechRecognition, updateAudioLevel, realTimeContext, playAudio]);
 
   // Stop hybrid voice session
   const stop = useCallback(async () => {
