@@ -13,6 +13,7 @@ import SessionDetailModal from '@/components/sessions/SessionDetailModal';
 import LocationPermissionModal from '@/components/location/LocationPermissionModal';
 import AriaHeroSection from '@/components/aria/AriaHeroSection';
 import DiaryChipsScroll from '@/components/aria/DiaryChipsScroll';
+import FloatingParticles from '@/components/aria/FloatingParticles';
 import CompactSessionItem from '@/components/aria/CompactSessionItem';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -38,7 +39,6 @@ const Aria: React.FC = () => {
   });
 
   const recentSessions = journalSessions?.slice(0, 10) || [];
-  const lastSession = journalSessions?.[0] || null;
   const shouldAskLocation = permission === 'prompt' && profile?.location_permission_granted !== false;
 
   const handleStartChat = () => {
@@ -123,8 +123,14 @@ const Aria: React.FC = () => {
   return (
     <MobileLayout>
       {/* Immersive Portal Background */}
-      <div className="aria-portal-bg min-h-[calc(100vh-80px)] pb-20 flex flex-col">
-        {/* Corner History Icon - Fixed position */}
+      <div className="aria-portal-bg min-h-[calc(100vh-80px)] pb-20 flex flex-col relative overflow-hidden">
+        {/* Floating Particles */}
+        <FloatingParticles />
+        
+        {/* Vignette Effect */}
+        <div className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--background)/0.4)_100%)]" />
+        
+        {/* Corner History Icon */}
         {recentSessions.length > 0 && (
           <div className="absolute top-5 right-5 z-10">
             <Sheet>
@@ -133,12 +139,12 @@ const Aria: React.FC = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "w-12 h-12 rounded-2xl flex items-center justify-center",
-                    "bg-glass/60 backdrop-blur-xl border border-glass-border/50",
-                    "shadow-glass hover:shadow-glass-glow transition-all duration-300"
+                    "w-11 h-11 rounded-2xl flex items-center justify-center",
+                    "bg-glass/40 backdrop-blur-sm border border-glass-border/30",
+                    "shadow-subtle hover:shadow-glass-glow transition-all duration-300"
                   )}
                 >
-                  <History className="w-5 h-5 text-muted-foreground" />
+                  <History className="w-4 h-4 text-muted-foreground/60" />
                 </motion.button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[85vw] sm:w-[400px]">
@@ -160,20 +166,20 @@ const Aria: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content - Portal Entry Animation */}
+        {/* Main Content - Centered Portal */}
         <motion.div 
-          className="flex-1 flex flex-col justify-center space-y-5 px-5 relative z-[1] animate-portal-enter"
+          className="flex-1 flex flex-col justify-center items-center space-y-16 px-5 relative z-[1]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Hero Section with huge buttons */}
+          {/* Hero Section - Orb + Actions */}
           <AriaHeroSection
             onStartChat={handleStartChat}
             onStartVoice={handleStartVoice}
           />
 
-          {/* Diary Grid - bigger */}
+          {/* Diary Icons - Compact Row at Bottom */}
           <DiaryChipsScroll
             activeDiaryIds={activeDiaryIds}
             diaries={diaries}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PenLine, AudioLines, Sparkles } from 'lucide-react';
+import { PenLine, AudioLines } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -13,79 +13,119 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
   onStartVoice,
 }) => {
   return (
-    <div className="flex flex-col items-center text-center space-y-8">
-      {/* Animated Orb - Bigger & Centered */}
+    <div className="flex flex-col items-center text-center space-y-10">
+      {/* Protagonist Orb with Concentric Rings */}
       <motion.div
         className="relative"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
+        {/* Outer Ring 3 - Most distant */}
+        <div 
+          className="absolute inset-[-40px] rounded-full border border-[hsl(var(--aria-violet)/0.08)] animate-breathe"
+          style={{ animationDelay: '2s', animationDuration: '5s' }}
+        />
+        
+        {/* Outer Ring 2 - Middle */}
+        <div 
+          className="absolute inset-[-24px] rounded-full border border-[hsl(var(--aria-violet)/0.12)] animate-breathe"
+          style={{ animationDelay: '1s', animationDuration: '4.5s' }}
+        />
+        
+        {/* Outer Ring 1 - Closest */}
+        <div 
+          className="absolute inset-[-10px] rounded-full border border-[hsl(var(--aria-violet)/0.20)] animate-breathe"
+          style={{ animationDelay: '0s', animationDuration: '4s' }}
+        />
+
+        {/* Main Orb - Large, Pure, Luminous */}
         <div className={cn(
-          "w-20 h-20 rounded-full",
-          "bg-gradient-aria",
-          "flex items-center justify-center",
-          "shadow-aria-glow animate-aria-breathe"
+          "w-28 h-28 rounded-full",
+          "bg-gradient-to-b from-[hsl(var(--aria-violet))] to-[hsl(var(--aria-indigo)/0.85)]",
+          "animate-aria-breathe",
+          "shadow-aria-glow"
         )}>
-          <Sparkles className="w-9 h-9 text-white" />
+          {/* Inner glow */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/20" />
         </div>
-        {/* Glow ring */}
-        <div className="absolute inset-0 rounded-full bg-gradient-aria opacity-30 blur-xl -z-10 scale-150" />
+        
+        {/* Diffused Glow Layer */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-b from-[hsl(var(--aria-violet)/0.4)] to-[hsl(var(--aria-indigo)/0.3)] blur-2xl -z-10 scale-150" />
       </motion.div>
 
-      {/* Introduction - Clean & Centered */}
+      {/* Intimate Text */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.4 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
         className="space-y-2"
       >
-        <h1 className="font-display text-3xl text-foreground">Sono Aria</h1>
-        <p className="text-muted-foreground text-lg">Come posso aiutarti oggi?</p>
+        <h1 className="font-display text-2xl text-foreground/90 font-normal">
+          Sono qui per te
+        </h1>
+        <p className="text-muted-foreground/70 text-base">
+          Quando vuoi, come vuoi
+        </p>
       </motion.div>
 
-      {/* HUGE Action Buttons - PROTAGONISTI */}
+      {/* Gentle Action Invites - No Boxes */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.4 }}
-        className="w-full space-y-4"
+        transition={{ delay: 0.5, duration: 0.4 }}
+        className="flex items-center justify-center gap-12"
       >
-        {/* Write Button - Glass style, HUGE */}
+        {/* Write Invite */}
         <motion.button
           onClick={onStartChat}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           className={cn(
-            "w-full flex items-center justify-center gap-4",
-            "py-7 px-8 rounded-3xl",
-            "bg-gradient-to-br from-white/90 to-white/70 dark:from-white/15 dark:to-white/10",
-            "backdrop-blur-xl border border-white/50 dark:border-white/20",
-            "text-foreground font-bold text-xl",
-            "shadow-glass-elevated hover:shadow-glass-glow",
-            "transition-all duration-300"
+            "flex flex-col items-center gap-3 px-6 py-4",
+            "text-foreground/60 hover:text-foreground/90",
+            "transition-all duration-300",
+            "group"
           )}
         >
-          <PenLine className="w-8 h-8" />
-          <span>Scrivi con Aria</span>
+          <div className={cn(
+            "w-14 h-14 rounded-2xl flex items-center justify-center",
+            "bg-glass/50 backdrop-blur-sm border border-glass-border/30",
+            "group-hover:bg-glass/70 group-hover:border-[hsl(var(--aria-violet)/0.3)]",
+            "group-hover:shadow-[0_0_20px_rgba(155,111,208,0.15)]",
+            "transition-all duration-300"
+          )}>
+            <PenLine className="w-6 h-6 text-[hsl(var(--aria-violet)/0.7)] group-hover:text-[hsl(var(--aria-violet))]" />
+          </div>
+          <span className="text-sm font-medium tracking-wide">scrivi</span>
         </motion.button>
 
-        {/* Voice Button - Aurora gradient, HUGE */}
+        {/* Soft Divider */}
+        <div className="h-16 w-px bg-gradient-to-b from-transparent via-border/30 to-transparent" />
+
+        {/* Voice Invite */}
         <motion.button
           onClick={onStartVoice}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           className={cn(
-            "w-full flex items-center justify-center gap-4",
-            "py-7 px-8 rounded-3xl",
-            "bg-gradient-aria",
-            "text-white font-bold text-xl",
-            "shadow-aria-glow hover:shadow-[0_8px_40px_rgba(155,111,208,0.4)]",
-            "transition-all duration-300"
+            "flex flex-col items-center gap-3 px-6 py-4",
+            "text-foreground/60 hover:text-foreground/90",
+            "transition-all duration-300",
+            "group"
           )}
         >
-          <AudioLines className="w-8 h-8" />
-          <span>Parla con Aria</span>
+          <div className={cn(
+            "w-14 h-14 rounded-2xl flex items-center justify-center",
+            "bg-glass/50 backdrop-blur-sm border border-glass-border/30",
+            "group-hover:bg-gradient-to-br group-hover:from-[hsl(var(--aria-violet)/0.2)] group-hover:to-[hsl(var(--aria-indigo)/0.15)]",
+            "group-hover:border-[hsl(var(--aria-violet)/0.4)]",
+            "group-hover:shadow-[0_0_25px_rgba(155,111,208,0.2)]",
+            "transition-all duration-300"
+          )}>
+            <AudioLines className="w-6 h-6 text-[hsl(var(--aria-violet)/0.7)] group-hover:text-[hsl(var(--aria-violet))]" />
+          </div>
+          <span className="text-sm font-medium tracking-wide">parla</span>
         </motion.button>
       </motion.div>
     </div>
