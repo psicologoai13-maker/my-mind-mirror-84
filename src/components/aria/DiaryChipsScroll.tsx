@@ -16,26 +16,22 @@ interface DiaryChipsScrollProps {
   onAddDiary: () => void;
 }
 
-const DIARY_CONFIG: Record<string, { icon: React.ReactNode; label: string; gradient: string }> = {
+const DIARY_CONFIG: Record<string, { icon: React.ReactNode; gradient: string }> = {
   love: { 
-    icon: <Heart className="w-7 h-7" />, 
-    label: 'Amore',
-    gradient: 'from-rose-500 to-pink-500'
+    icon: <Heart className="w-5 h-5" />, 
+    gradient: 'from-rose-400/80 to-pink-400/80'
   },
   work: { 
-    icon: <Briefcase className="w-7 h-7" />, 
-    label: 'Lavoro',
-    gradient: 'from-amber-500 to-orange-500'
+    icon: <Briefcase className="w-5 h-5" />, 
+    gradient: 'from-amber-400/80 to-orange-400/80'
   },
   relationships: { 
-    icon: <Users className="w-7 h-7" />, 
-    label: 'Relazioni',
-    gradient: 'from-sky-500 to-blue-500'
+    icon: <Users className="w-5 h-5" />, 
+    gradient: 'from-sky-400/80 to-blue-400/80'
   },
   self: { 
-    icon: <User className="w-7 h-7" />, 
-    label: 'Me stesso',
-    gradient: 'from-emerald-500 to-teal-500'
+    icon: <User className="w-5 h-5" />, 
+    gradient: 'from-emerald-400/80 to-teal-400/80'
   },
 };
 
@@ -46,24 +42,16 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
   onAddDiary,
 }) => {
   return (
-    <section>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-medium text-sm text-muted-foreground">I tuoi diari</h2>
-        {activeDiaryIds.length < 6 && (
-          <button
-            onClick={onAddDiary}
-            className="text-xs text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Aggiungi
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-4 gap-3">
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.7, duration: 0.4 }}
+      className="w-full"
+    >
+      {/* Compact horizontal row */}
+      <div className="flex items-center justify-center gap-4">
         {activeDiaryIds.slice(0, 4).map((themeId, index) => {
           const config = DIARY_CONFIG[themeId];
-          const diary = diaries?.find(d => d.theme === themeId);
           
           if (!config) return null;
 
@@ -72,33 +60,50 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               key={themeId}
               onClick={() => onOpenDiary(themeId)}
               className={cn(
-                "flex flex-col items-center justify-center gap-3 p-5 rounded-2xl",
-                "bg-glass/70 backdrop-blur-xl border border-glass-border/50",
-                "hover:shadow-glass-glow hover:border-primary/30",
+                "w-12 h-12 rounded-2xl flex items-center justify-center",
+                "bg-glass/40 backdrop-blur-sm border border-glass-border/20",
+                "hover:bg-glass/60 hover:border-[hsl(var(--aria-violet)/0.25)]",
+                "hover:shadow-[0_0_15px_rgba(155,111,208,0.12)]",
                 "transition-all duration-300",
-                "active:scale-[0.95]"
+                "active:scale-95"
               )}
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: 0.8 + index * 0.05 }}
               whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.95 }}
             >
               <div className={cn(
-                "w-14 h-14 rounded-2xl flex items-center justify-center",
+                "w-8 h-8 rounded-xl flex items-center justify-center",
                 `bg-gradient-to-br ${config.gradient}`,
-                "text-white shadow-lg"
+                "text-white/90"
               )}>
                 {config.icon}
               </div>
-              <span className="text-xs font-semibold text-foreground truncate w-full text-center">
-                {config.label}
-              </span>
             </motion.button>
           );
         })}
+
+        {/* Add button - subtle */}
+        {activeDiaryIds.length < 6 && (
+          <motion.button
+            onClick={onAddDiary}
+            className={cn(
+              "w-12 h-12 rounded-2xl flex items-center justify-center",
+              "bg-transparent border border-dashed border-muted-foreground/20",
+              "hover:border-[hsl(var(--aria-violet)/0.3)] hover:bg-glass/30",
+              "transition-all duration-300",
+              "text-muted-foreground/40 hover:text-muted-foreground/60"
+            )}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1 }}
+            whileHover={{ y: -2 }}
+          >
+            <Plus className="w-5 h-5" />
+          </motion.button>
+        )}
       </div>
-    </section>
+    </motion.section>
   );
 };
 

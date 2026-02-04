@@ -583,6 +583,24 @@ select:focus {
   50% { transform: scale(1.05); opacity: 1; }
 }
 
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* Gentle glow for text hover */
+@keyframes gentle-glow {
+  0%, 100% { 
+    text-shadow: 0 0 0 transparent;
+  }
+  50% { 
+    text-shadow: 0 0 20px rgba(155, 111, 208, 0.3);
+  }
+}
+
+.animate-gentle-glow {
+  animation: gentle-glow 3s ease-in-out infinite;
+}
+
 /* Aria-specific breathing with glow */
 @keyframes aria-breathe {
   0%, 100% { 
