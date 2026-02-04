@@ -1,4 +1,4 @@
-// v2.0 - Data Hunting Check-ins (2026-02-04)
+// v2.1 - Smart Frequency Check-ins (2026-02-04)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,44 +8,140 @@ const corsHeaders = {
 };
 
 // ============================================
-// UNIFIED CHECK-IN ITEMS - EXPANDED
-// Now includes all vitals, life areas, psychology
+// METRIC CHANGE RATE CLASSIFICATION
+// fast = can change daily (ask every day)
+// slow = stable over time (ask weekly or less)
+// ============================================
+type ChangeRate = 'fast' | 'slow';
+
+const METRIC_CHANGE_RATES: Record<string, ChangeRate> = {
+  // FAST-CHANGING (daily) - emotions and states that fluctuate
+  mood: 'fast',
+  anxiety: 'fast',
+  energy: 'fast',
+  sleep: 'fast',
+  joy: 'fast',
+  sadness: 'fast',
+  anger: 'fast',
+  fear: 'fast',
+  hope: 'fast',
+  frustration: 'fast',
+  rumination: 'fast',
+  burnout_level: 'fast',
+  somatic_tension: 'fast',
+  irritability: 'fast',
+  gratitude: 'fast',
+  sunlight_exposure: 'fast',
+  
+  // SLOW-CHANGING (weekly) - life areas and stable traits
+  love: 'slow',
+  family: 'slow',
+  finances: 'slow',
+  leisure: 'slow',
+  work: 'slow',
+  school: 'slow',
+  social: 'slow',
+  health: 'slow',
+  growth: 'slow',
+  concentration: 'slow',
+  self_worth: 'slow',
+  motivation: 'slow',
+  coping_ability: 'slow',
+  mental_clarity: 'slow',
+  loneliness_perceived: 'slow',
+  procrastination: 'slow',
+  
+  // SAFETY (always monitor if detected)
+  hopelessness: 'fast',
+  suicidal_ideation: 'fast',
+  self_harm_urges: 'fast',
+};
+
+// ============================================
+// PERSONALIZED QUESTIONS FOR FIRST-TIME/MISSING DATA
+// These replace "mancante da X gg" with contextual questions
+// ============================================
+const DISCOVERY_QUESTIONS: Record<string, string> = {
+  // Life areas - conversational discovery
+  love: "Come va la tua vita sentimentale ultimamente?",
+  family: "Come vanno i rapporti con la tua famiglia?",
+  finances: "Come ti senti riguardo alla tua situazione economica?",
+  leisure: "Hai tempo per rilassarti e divertirti?",
+  work: "Come sta andando il lavoro ultimamente?",
+  school: "Come procede lo studio?",
+  social: "Come vanno le tue relazioni sociali?",
+  health: "Come ti senti fisicamente?",
+  growth: "Senti di crescere come persona?",
+  
+  // Psychology - self-reflection prompts
+  concentration: "Riesci a concentrarti ultimamente?",
+  self_worth: "Come ti senti riguardo a te stesso/a?",
+  motivation: "Ti senti motivato/a in questo periodo?",
+  coping_ability: "Ti senti capace di affrontare le sfide?",
+  mental_clarity: "Hai chiarezza mentale in questo momento?",
+  loneliness_perceived: "Ti senti connesso/a con le persone intorno a te?",
+  procrastination: "Riesci a portare a termine le cose importanti?",
+  
+  // Emotions - current state check
+  joy: "Quanta gioia senti oggi?",
+  sadness: "Ti senti un po' giù?",
+  anger: "C'è qualcosa che ti irrita?",
+  fear: "Hai preoccupazioni o paure?",
+  hope: "Ti senti speranzoso/a?",
+  frustration: "Ti senti frustrato/a?",
+  
+  // Vitals - daily check
+  mood: "Come ti senti emotivamente oggi?",
+  anxiety: "Quanta ansia senti in questo momento?",
+  energy: "Quanta energia hai oggi?",
+  sleep: "Come hai dormito stanotte?",
+  
+  // Psychology acute
+  rumination: "Hai pensieri che continuano a tornare?",
+  burnout_level: "Ti senti esausto/a?",
+  somatic_tension: "Senti tensione nel corpo?",
+  gratitude: "C'è qualcosa per cui sei grato/a oggi?",
+  sunlight_exposure: "Sei uscito/a alla luce del sole?",
+};
+
+// ============================================
+// UNIFIED CHECK-IN ITEMS
 // ============================================
 const BASE_CHECKIN_ITEMS = [
-  // VITALS (4)
+  // VITALS (4) - fast changing, ask daily
   { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji", baseScore: 60 },
   { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity", baseScore: 55 },
   { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider", baseScore: 50 },
   { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "emoji", baseScore: 50 },
   
-  // LIFE AREAS (9) - includes new family, leisure, finances
-  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji", baseScore: 40 },
-  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji", baseScore: 40 },
-  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji", baseScore: 40 },
-  { key: "family", label: "Famiglia", question: "Come vanno i rapporti familiari?", type: "life_area", responseType: "emoji", baseScore: 35 },
-  { key: "leisure", label: "Svago", question: "Hai avuto tempo per te?", type: "life_area", responseType: "emoji", baseScore: 30 },
-  { key: "finances", label: "Finanze", question: "Come ti senti riguardo ai soldi?", type: "life_area", responseType: "emoji", baseScore: 30 },
+  // LIFE AREAS (9) - slow changing, ask every few days
+  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji", baseScore: 35 },
+  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji", baseScore: 35 },
+  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji", baseScore: 35 },
+  { key: "family", label: "Famiglia", question: "Come vanno i rapporti familiari?", type: "life_area", responseType: "emoji", baseScore: 30 },
+  { key: "leisure", label: "Svago", question: "Hai avuto tempo per te?", type: "life_area", responseType: "emoji", baseScore: 25 },
+  { key: "finances", label: "Finanze", question: "Come ti senti riguardo ai soldi?", type: "life_area", responseType: "emoji", baseScore: 25 },
   
-  // EMOTIONS (key ones for check-in)
+  // EMOTIONS (key ones) - fast changing
   { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "fear", label: "Paura", question: "Hai paure o preoccupazioni?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "joy", label: "Gioia", question: "Quanta gioia senti?", type: "emotion", responseType: "intensity", baseScore: 30 },
   { key: "hope", label: "Speranza", question: "Ti senti speranzoso/a?", type: "emotion", responseType: "yesno", baseScore: 30 },
   
-  // PSYCHOLOGY - Resources & Attention Signals
-  { key: "motivation", label: "Motivazione", question: "Ti senti motivato/a oggi?", type: "psychology", responseType: "yesno", baseScore: 40 },
+  // PSYCHOLOGY - mixed change rates
+  { key: "motivation", label: "Motivazione", question: "Ti senti motivato/a oggi?", type: "psychology", responseType: "yesno", baseScore: 35 },
   { key: "rumination", label: "Rimuginazione", question: "Hai pensieri che tornano in loop?", type: "psychology", responseType: "yesno", baseScore: 45 },
   { key: "burnout_level", label: "Burnout", question: "Ti senti esausto/a?", type: "psychology", responseType: "yesno", baseScore: 45 },
-  { key: "loneliness_perceived", label: "Solitudine", question: "Ti senti solo/a?", type: "psychology", responseType: "yesno", baseScore: 40 },
+  { key: "loneliness_perceived", label: "Solitudine", question: "Ti senti solo/a?", type: "psychology", responseType: "yesno", baseScore: 35 },
   { key: "gratitude", label: "Gratitudine", question: "Sei grato/a per qualcosa oggi?", type: "psychology", responseType: "yesno", baseScore: 30 },
-  { key: "mental_clarity", label: "Chiarezza", question: "Hai chiarezza mentale?", type: "psychology", responseType: "slider", baseScore: 35 },
+  { key: "mental_clarity", label: "Chiarezza", question: "Hai chiarezza mentale?", type: "psychology", responseType: "slider", baseScore: 30 },
   { key: "somatic_tension", label: "Tensione", question: "Senti tensione nel corpo?", type: "psychology", responseType: "yesno", baseScore: 35 },
-  { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno", baseScore: 30 },
   { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno", baseScore: 25 },
-  { key: "self_worth", label: "Autostima", question: "Come ti senti riguardo a te stesso/a?", type: "psychology", responseType: "emoji", baseScore: 40 },
-  { key: "concentration", label: "Concentrazione", question: "Riesci a concentrarti?", type: "psychology", responseType: "yesno", baseScore: 35 },
-  { key: "procrastination", label: "Procrastinazione", question: "Stai rimandando cose importanti?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  { key: "self_worth", label: "Autostima", question: "Come ti senti riguardo a te stesso/a?", type: "psychology", responseType: "emoji", baseScore: 30 },
+  { key: "concentration", label: "Concentrazione", question: "Riesci a concentrarti?", type: "psychology", responseType: "yesno", baseScore: 30 },
+  { key: "procrastination", label: "Procrastinazione", question: "Stai rimandando cose importanti?", type: "psychology", responseType: "yesno", baseScore: 30 },
   
   // SAFETY (only if detected historically - handled separately)
   { key: "hopelessness", label: "Speranza", question: "Ti senti senza speranza?", type: "safety", responseType: "yesno", baseScore: 0, safetyCritical: true },
@@ -95,10 +191,10 @@ function getStandardCheckinItems(occupationContext: string | null, birthDate: st
   }
   
   if (showWork) {
-    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji", baseScore: 40 });
+    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji", baseScore: 35 });
   }
   if (showSchool) {
-    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji", baseScore: 40 });
+    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji", baseScore: 35 });
   }
   
   return items;
@@ -219,7 +315,7 @@ function getRomeDateString(): string {
 
 // ============================================
 // DATA HUNTING: Calculate dynamic scores
-// based on missing data and critical metrics
+// based on missing data, change rate, and criticality
 // ============================================
 interface MetricHistory {
   key: string;
@@ -327,7 +423,6 @@ async function getMetricHistory(
   // Process vitals from checkins
   const vitalKeys = ['mood', 'anxiety', 'energy', 'sleep'];
   vitalKeys.forEach(key => {
-    // For now, simplified - mood from checkins
     if (key === 'mood') {
       const records = checkinsRes.data || [];
       const lastDate = records.length > 0 ? records[0].created_at?.split('T')[0] : null;
@@ -342,7 +437,6 @@ async function getMetricHistory(
         isCritical: false,
       });
     } else {
-      // Other vitals from checkin notes
       const records = (checkinsRes.data || []).filter((r: any) => {
         try {
           const notes = JSON.parse(r.notes || '{}');
@@ -372,39 +466,83 @@ async function getMetricHistory(
   return historyMap;
 }
 
-// Calculate dynamic score for each metric
+// Calculate dynamic score with frequency-aware logic
 function calculateDynamicScore(
   item: any,
   history: MetricHistory | undefined
 ): number {
   let score = item.baseScore || 50;
+  const changeRate = METRIC_CHANGE_RATES[item.key] || 'fast';
+  const daysSince = history?.daysSinceRecorded ?? 999;
+  const isFirstTime = daysSince >= 999 || history?.lastRecordedDate === null;
 
-  if (!history) {
-    // Never recorded = highest priority
-    score += 100;
+  // FIRST TIME DISCOVERY - high priority but not overwhelming
+  if (isFirstTime) {
+    // First time: moderate boost to discover new data
+    score += changeRate === 'fast' ? 60 : 40;
     return score;
   }
 
-  // Data hunting bonuses
-  if (history.daysSinceRecorded >= 14 || history.lastRecordedDate === null) {
-    score += 100; // Never recorded
-  } else if (history.daysSinceRecorded >= 7) {
-    score += 50; // Missing >7 days
-  } else if (history.daysSinceRecorded >= 3) {
-    score += 30; // Missing >3 days
+  // FREQUENCY-BASED SCORING
+  if (changeRate === 'fast') {
+    // Fast-changing metrics: want daily updates
+    if (daysSince >= 1) score += 30; // Ask if not today
+    if (daysSince >= 2) score += 20; // Boost if 2+ days
+  } else {
+    // Slow-changing metrics: don't need daily updates
+    // Only boost score if missing for longer periods
+    if (daysSince >= 3) score += 15;  // Slightly boost after 3 days
+    if (daysSince >= 5) score += 20;  // More boost after 5 days
+    if (daysSince >= 7) score += 30;  // Full boost after a week
   }
 
-  // Critical monitoring bonus
-  if (history.isCritical) {
+  // Critical monitoring bonus (applies to both)
+  if (history?.isCritical) {
     score += 40;
   }
 
   // Safety indicators always included if ever detected
-  if (item.safetyCritical && history.historicalAvg !== null && history.historicalAvg > 0) {
+  if (item.safetyCritical && history && history.historicalAvg !== null && history.historicalAvg > 0) {
     score += 80;
   }
 
   return score;
+}
+
+// Generate contextual reason based on metric state
+function generateReason(item: any, history: MetricHistory | undefined): string | undefined {
+  const daysSince = history?.daysSinceRecorded ?? 999;
+  const isFirstTime = daysSince >= 999 || history?.lastRecordedDate === null;
+  const changeRate = METRIC_CHANGE_RATES[item.key] || 'fast';
+
+  if (item.type === 'habit') {
+    return 'Habit giornaliera';
+  }
+
+  if (item.safetyCritical && history?.isCritical) {
+    return 'Monitoraggio importante';
+  }
+
+  if (history?.isCritical) {
+    return 'Monitoraggio';
+  }
+
+  // For first-time or long-missing, return undefined (use personalized question instead)
+  if (isFirstTime || daysSince >= 7) {
+    return undefined;
+  }
+
+  // For slow-changing metrics recently answered, don't show reason
+  if (changeRate === 'slow' && daysSince < 3) {
+    return undefined;
+  }
+
+  // Default for priority items
+  if (item.type === 'vital') {
+    return 'Check giornaliero';
+  }
+
+  return undefined;
 }
 
 serve(async (req) => {
@@ -472,7 +610,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("[ai-checkins] v2.0 DATA-HUNTING - Generating smart list for", today);
+    console.log("[ai-checkins] v2.1 SMART-FREQUENCY - Generating intelligent list for", today);
 
     // ============================================
     // FETCH ALL DATA + METRIC HISTORY IN PARALLEL
@@ -509,11 +647,11 @@ serve(async (req) => {
     });
 
     // ============================================
-    // BUILD UNIFIED CHECK-IN ITEMS WITH DYNAMIC SCORING
+    // BUILD UNIFIED CHECK-IN ITEMS WITH SMART FREQUENCY
     // ============================================
     const allItems: any[] = [];
 
-    // 1. HABITS
+    // 1. HABITS (always daily)
     activeHabits.forEach((config: any) => {
       const resolvedType = resolveHabitType(config.habit_type);
       const key = `habit_${resolvedType}`;
@@ -536,11 +674,12 @@ serve(async (req) => {
         unit: meta.unit || config.unit,
         target: config.daily_target || meta.defaultTarget,
         step: meta.step,
-        dynamicScore: 80, // Habits always have decent priority
+        dynamicScore: 80,
+        reason: 'Habit giornaliera',
       });
     });
 
-    // 2. STANDARD CHECK-INS with DYNAMIC SCORING
+    // 2. STANDARD CHECK-INS with SMART FREQUENCY SCORING
     const standardCheckins = getStandardCheckinItems(occupationContext, birthDate);
     standardCheckins.forEach((item) => {
       if (completedKeys.has(item.key)) return;
@@ -555,17 +694,34 @@ serve(async (req) => {
       
       const history = metricHistory.get(item.key);
       const dynamicScore = calculateDynamicScore(item, history);
+      const changeRate = METRIC_CHANGE_RATES[item.key] || 'fast';
+      const daysSince = history?.daysSinceRecorded ?? 999;
+      const isFirstTime = daysSince >= 999 || history?.lastRecordedDate === null;
+      
+      // For slow-changing metrics answered recently, skip
+      if (changeRate === 'slow' && daysSince < 3 && !item.safetyCritical && !history?.isCritical) {
+        return;
+      }
+      
+      // Use personalized discovery question if first time or long missing
+      const question = (isFirstTime || daysSince >= 7) 
+        ? (DISCOVERY_QUESTIONS[item.key] || item.question)
+        : item.question;
+      
+      const reason = generateReason(item, history);
       
       allItems.push({
         ...item,
+        question,
         dynamicScore,
-        missingDays: history?.daysSinceRecorded || 999,
-        historicalAvg: history?.historicalAvg,
+        reason,
+        changeRate,
+        isFirstTime,
       });
     });
 
     // ============================================
-    // AI SELECTION WITH DATA HUNTING CONTEXT
+    // AI SELECTION WITH FREQUENCY-AWARE CONTEXT
     // ============================================
     const MAX_ITEMS = 8;
     
@@ -581,10 +737,10 @@ serve(async (req) => {
       const sessionContext = recentSessions.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
       const emotionTags = recentSessions.flatMap((s: any) => s.emotion_tags || []) || [];
 
-      // Build missing data context for AI
-      const missingDataContext = candidateItems
-        .filter(i => i.missingDays >= 3)
-        .map(i => `${i.label}: mancante da ${i.missingDays} giorni`)
+      // Build context for AI with frequency info
+      const firstTimeMetrics = candidateItems
+        .filter(i => i.isFirstTime)
+        .map(i => i.label)
         .slice(0, 5)
         .join(", ");
 
@@ -592,28 +748,29 @@ serve(async (req) => {
 
 REGOLE:
 - Scegli MAX ${MAX_ITEMS} items dalla lista, ORDINATI per importanza
-- PRIORITÀ 1: Metriche mancanti da più tempo (data hunting)
-- PRIORITÀ 2: Vitali base (mood, anxiety, sleep, energy)
-- PRIORITÀ 3: Bilancia categorie (almeno 1 life area, 1 psychology)
-- PRIORITÀ 4: Habits attive dell'utente
-- Se ci sono segnali critici (hopelessness, burnout alto), SEMPRE includerli
+- PRIORITÀ 1: Vitali giornalieri (mood, anxiety, sleep, energy) se non ancora risposti oggi
+- PRIORITÀ 2: Metriche nuove da scoprire (prima volta)
+- PRIORITÀ 3: Metriche critiche da monitorare
+- PRIORITÀ 4: Bilancia categorie (1-2 life areas, 1-2 psychology)
+- PRIORITÀ 5: Habits attive
+- NON includere troppe life areas insieme (max 2)
 - Rispondi SOLO con JSON array di "key" nell'ordine giusto
 
-Esempio: ["mood", "love", "motivation", "habit_meditation"]`;
+Esempio: ["mood", "anxiety", "family", "motivation", "habit_meditation"]`;
 
       const itemsText = candidateItems.map((i: any) => 
-        `- ${i.key}: "${i.label}" (${i.type}, score=${Math.round(i.dynamicScore)}, mancante=${i.missingDays || 0}gg)`
+        `- ${i.key}: "${i.label}" (${i.type}, freq=${i.changeRate || 'fast'}, score=${Math.round(i.dynamicScore)}${i.isFirstTime ? ', NUOVO' : ''})`
       ).join("\n");
 
       const userPrompt = `Obiettivi utente: ${goals.join(", ") || "Non specificati"}
 Contesto sessioni: ${sessionContext || "Nessuna"}
 Emozioni recenti: ${emotionTags.join(", ") || "Non rilevate"}
-Dati mancanti: ${missingDataContext || "Nessuno critico"}
+Metriche nuove da scoprire: ${firstTimeMetrics || "Nessuna"}
 
 Check-in disponibili (ordinati per urgenza):
 ${itemsText}
 
-Scegli i ${MAX_ITEMS} più importanti IN ORDINE, bilanciando categorie e dati mancanti:`;
+Scegli i ${MAX_ITEMS} più importanti IN ORDINE, privilegiando vitali giornalieri e metriche nuove:`;
 
       try {
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -661,16 +818,25 @@ Scegli i ${MAX_ITEMS} più importanti IN ORDINE, bilanciando categorie e dati ma
       finalItems = candidateItems.slice(0, MAX_ITEMS);
     }
 
-    // Add reasons for display
-    finalItems = finalItems.map((item: any, index: number) => ({
-      ...item,
-      reason: item.type === 'habit' ? 'Habit attiva' : 
-              item.missingDays >= 7 ? `Mancante da ${item.missingDays}gg` :
-              item.isCritical ? 'Monitoraggio' :
-              index === 0 ? 'Priorità oggi' : undefined,
+    // Clean up output (remove internal fields)
+    finalItems = finalItems.map((item: any) => ({
+      key: item.key,
+      label: item.label,
+      question: item.question,
+      type: item.type,
+      responseType: item.responseType,
+      reason: item.reason,
+      // Habit-specific fields
+      ...(item.type === 'habit' && {
+        habitType: item.habitType,
+        icon: item.icon,
+        unit: item.unit,
+        target: item.target,
+        step: item.step,
+      }),
     }));
 
-    console.log("[ai-checkins] Created DATA-DRIVEN list with", finalItems.length, "items");
+    console.log("[ai-checkins] Created SMART-FREQUENCY list with", finalItems.length, "items");
 
     // Cache the fixed list
     const cachePayload: CachedCheckinsData = {
