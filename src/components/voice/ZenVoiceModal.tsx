@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
-import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
+import { useGeminiVoice } from "@/hooks/useGeminiVoice";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +20,7 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     audioLevel,
     start,
     stop
-  } = useRealtimeVoice();
+  } = useGeminiVoice();
 
   const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
