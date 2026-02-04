@@ -13,7 +13,7 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
   onStartVoice,
 }) => {
   return (
-    <div className="flex flex-col items-center text-center space-y-10">
+    <div className="flex flex-col items-center text-center space-y-6">
       {/* Protagonist Orb with Concentric Rings */}
       <motion.div
         className="relative"
@@ -74,7 +74,7 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.4 }}
-        className="flex items-center justify-center gap-12"
+        className="flex items-center justify-center gap-8"
       >
         {/* Write Invite */}
         <motion.button

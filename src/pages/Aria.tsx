@@ -168,7 +168,7 @@ const Aria: React.FC = () => {
 
         {/* Main Content - Centered Portal */}
         <motion.div 
-          className="flex-1 flex flex-col justify-center items-center space-y-16 px-5 relative z-[1]"
+          className="flex-1 flex flex-col justify-center items-center space-y-8 px-5 relative z-[1]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
