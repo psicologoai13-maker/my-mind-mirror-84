@@ -1,298 +1,192 @@
 
-# Piano: Trasformazione Obiettivi e Habits a Gestione Esclusiva AI
+# Piano di Ristrutturazione Grafici Emotivi
 
-## Panoramica
-
-Eliminare tutti gli inserimenti manuali per obiettivi e habits, centralizzando la gestione esclusivamente tramite conversazioni con Aria (sessioni e diari). L'unica eccezione sono le **habits auto_sync** (passi, battito cardiaco) che continueranno ad avere tracking automatico.
-
----
-
-## Impatto Utente
-
-**Prima**: L'utente poteva creare e aggiornare habits/obiettivi manualmente tramite modal, pulsanti +/-, e check-in grid.
-
-**Dopo**: L'utente parla con Aria e lei:
-1. Rileva nuovi obiettivi/habits dalle conversazioni
-2. Chiede conferma prima di aggiungerli
-3. Aggiorna i progressi quando l'utente menziona risultati
-4. Mostra tutto in modo read-only nelle tab Progressi
+## Obiettivo
+Unificare e migliorare tutti i grafici emotivi per mostrare dinamicamente tutte le 14 emozioni tracciate quando hanno valori > 0, con un design coerente e visivamente accattivante.
 
 ---
 
-## Modifiche Tecniche
+## 1. Creare Configurazione Centralizzata Emozioni
 
-### Fase 1: Rimozione UI Manuali
-
-#### 1.1 Tab "Traguardi" (Obiettivi)
-**File**: `src/components/objectives/ObjectivesTabContent.tsx`
-- Rimuovere pulsante "+ Nuovo"
-- Rimuovere `ObjectiveQuizModal`
-- Card obiettivi diventano solo visualizzazione (no pulsante aggiorna progresso)
-- Aggiungere messaggio: "Parla con Aria per aggiungere o aggiornare obiettivi"
-
-#### 1.2 Tab "Daily Tracker" (Habits)
-**File**: `src/components/objectives/DailyTrackerTabContent.tsx`
-- Rimuovere pulsante "Aggiungi"
-- Rimuovere `HabitQuizModal`
-- Rimuovere apertura di `HabitBatchModal` per aggiornamento manuale
-- Mantenere solo visualizzazione read-only delle habits
-- Eccezione: habits con `data_source: 'auto_sync'` mostrano ancora status auto-sincronizzato
-
-#### 1.3 Home Check-in Grid
-**File**: `src/components/home/SmartCheckinSection.tsx`
-- Rimuovere items di tipo `habit` dalla griglia (eccetto auto_sync)
-- Rimuovere items di tipo `objective` dalla griglia
-- Mantenere solo: vitals, emotions, life_areas, psychology
-
-#### 1.4 Sezione Habits Home (se esiste separatamente)
-**File**: `src/components/habits/HabitTrackerSection.tsx`
-- Rimuovere completamente o convertire a read-only display
-
-### Fase 2: Potenziamento AI per Gestione Habits/Obiettivi
-
-#### 2.1 Aggiornamento `process-session`
-**File**: `supabase/functions/process-session/index.ts`
-
-Aggiungere istruzioni specifiche per:
+Creo un nuovo file `src/lib/emotionConfig.ts` che definisce:
 
 ```text
-═══════════════════════════════════════════════
-🔄 GESTIONE HABITS VIA CONVERSAZIONE
-═══════════════════════════════════════════════
-
-RILEVAMENTO NUOVE HABITS:
-Quando l'utente dice:
-- "Voglio iniziare a meditare ogni giorno"
-- "Devo smettere di fumare"
-- "Voglio bere più acqua"
-
-→ Aggiungi a "habits_to_create":
-{
-  "habit_type": "meditation|cigarettes|water|...",
-  "label": "Meditazione",
-  "daily_target": 1,
-  "streak_type": "daily|abstain",
-  "input_method": "toggle|counter|abstain",
-  "update_method": "chat", // SEMPRE "chat" per gestione AI
-  "ai_confirmation_needed": true
-}
-
-AGGIORNAMENTO PROGRESSI HABITS:
-Quando l'utente dice:
-- "Oggi ho meditato 20 minuti"
-- "Ho bevuto 6 bicchieri d'acqua"  
-- "Non ho fumato oggi!"
-- "Ieri sono andato in palestra"
-
-→ Aggiungi a "habits_to_update":
-{
-  "habit_type": "meditation",
-  "value": 20,
-  "date": "YYYY-MM-DD", // Oggi o data menzionata
-  "note": "Sessione mattutina"
-}
-
-REGOLE:
-- update_method = "chat" significa che l'habit si aggiorna SOLO tramite conversazione
-- Aria deve CONFERMARE prima di creare nuove habits
-- Aria deve CELEBRARE quando l'utente completa habits
+┌─────────────────────────────────────────────────────────┐
+│                   EMOTION_CONFIG                         │
+├─────────────────────────────────────────────────────────┤
+│  PRIMARIE (5)                                           │
+│  • joy      → Gioia      → 🌟 Giallo dorato            │
+│  • sadness  → Tristezza  → 💧 Blu                      │
+│  • anger    → Rabbia     → 🔥 Rosso                    │
+│  • fear     → Paura      → 👁️ Viola scuro              │
+│  • apathy   → Apatia     → ☁️ Grigio                   │
+├─────────────────────────────────────────────────────────┤
+│  SECONDARIE (9)                                         │
+│  • shame       → Vergogna     → Rosa scuro             │
+│  • jealousy    → Gelosia      → Verde scuro            │
+│  • hope        → Speranza     → Azzurro cielo          │
+│  • frustration → Frustrazione → Arancione              │
+│  • nostalgia   → Nostalgia    → Lavanda                │
+│  • nervousness → Nervosismo   → Giallo acceso          │
+│  • overwhelm   → Sopraffazione→ Viola intenso          │
+│  • excitement  → Eccitazione  → Magenta                │
+│  • disappointment → Delusione → Grigio-blu             │
+└─────────────────────────────────────────────────────────┘
 ```
 
-#### 2.2 Nuovo Endpoint per Creazione AI-Driven
-**File**: `supabase/functions/process-session/index.ts` (estensione)
+Questo file esporterà:
+- Mappa completa emozioni con label italiano, colore, icona
+- Funzione helper per filtrare emozioni con valore > 0
+- Categorizzazione (primarie/secondarie)
 
-Aggiungere logica per:
-1. Salvare automaticamente habits rilevate con `ai_confirmation_needed: true`
-2. Inserire in `pending_habit_suggestions` o creare direttamente se esplicito
-3. Salvare aggiornamenti habits in `daily_habits` quando menzionati
+---
 
-#### 2.3 Aggiornamento `ai-chat` per Risposte Contestuali
-**File**: `supabase/functions/ai-chat/index.ts`
+## 2. Aggiornare EmotionalMixBar (Home)
 
-Aggiungere al system prompt di Aria:
+**Scopo**: Mostra la proporzione relativa delle emozioni negli ultimi 30 giorni
+
+**Modifiche**:
+- Importare configurazione centralizzata
+- Supportare tutte 14 emozioni dinamicamente
+- Mostrare solo emozioni con valore > 0
+- Migliorare la barra pillola con gradiente glass
+- Aggiungere tooltip al tocco per vedere dettaglio emozione
 
 ```text
-GESTIONE OBIETTIVI E HABITS:
-- Tu sei l'UNICO modo per creare e aggiornare habits/obiettivi
-- Quando l'utente menziona progressi, REGISTRALI attivamente
-- Quando rilevi un nuovo obiettivo/habit, CHIEDI conferma:
-  "Ho capito che vuoi [X]. Vuoi che lo aggiunga ai tuoi traguardi?"
-- Quando l'utente aggiorna un progresso, CELEBRA e conferma:
-  "Perfetto! Ho registrato [X]. Ottimo lavoro!"
-```
-
-### Fase 3: Nuovo Flusso Dati
-
-#### 3.1 Schema Output `process-session`
-Aggiungere al JSON di output:
-
-```typescript
-interface ProcessSessionOutput {
-  // ... existing fields ...
-  
-  // NUOVO: Habits gestite da AI
-  habits_to_create?: {
-    habit_type: string;
-    label: string;
-    daily_target: number;
-    streak_type: 'daily' | 'abstain';
-    needs_user_confirmation: boolean;
-  }[];
-  
-  habits_to_update?: {
-    habit_type: string;
-    value: number;
-    date: string;
-    note?: string;
-  }[];
-  
-  // NUOVO: Flag per indicare che l'utente ha confermato
-  user_confirmed_habit?: string; // habit_type confermato
-}
-```
-
-#### 3.2 Persistenza Automatica
-In `process-session`, dopo l'analisi AI:
-
-```typescript
-// Salva aggiornamenti habits
-if (habits_to_update?.length > 0) {
-  for (const update of habits_to_update) {
-    await supabase.from('daily_habits').upsert({
-      user_id,
-      date: update.date,
-      habit_type: update.habit_type,
-      value: update.value,
-      notes: update.note
-    }, { onConflict: 'user_id,date,habit_type' });
-  }
-}
-```
-
-### Fase 4: UI Read-Only Migliorata
-
-#### 4.1 Nuovo `HabitDisplayCard` (read-only)
-**File**: `src/components/habits/HabitDisplayCard.tsx` (nuovo)
-
-```tsx
-// Card che mostra:
-// - Icona + Nome habit
-// - Valore attuale / Target
-// - Streak corrente
-// - "Ultimo aggiornamento via Aria"
-// - NO pulsanti di modifica
-```
-
-#### 4.2 Nuovo `ObjectiveDisplayCard` (read-only)
-Modificare `ObjectiveCard.tsx` per:
-- Rimuovere menu azioni (modifica, elimina)
-- Rimuovere click per aggiornare progresso
-- Aggiungere badge "Gestito da Aria"
-- Mantenere solo visualizzazione progresso
-
-#### 4.3 Call-to-Action per Aria
-In entrambe le tab, aggiungere sezione:
-
-```tsx
-<div className="text-center p-4 bg-glass rounded-2xl">
-  <Sparkles className="w-6 h-6 text-primary mx-auto mb-2" />
-  <p className="text-sm text-muted-foreground">
-    Parla con Aria per aggiornare i tuoi progressi
-  </p>
-  <Button onClick={navigateToAria}>
-    Vai ad Aria
-  </Button>
-</div>
+┌──────────────────────────────────────────┐
+│  ✨ Mix Emotivo (30 giorni)              │
+├──────────────────────────────────────────┤
+│  ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+│  Gioia 45% | Speranza 25% | Ansia 15%...│
+│                                          │
+│  • Gioia 45%  • Speranza 25%  • Ansia 15%│
+│  • Frustrazione 10%  • Tristezza 5%      │
+└──────────────────────────────────────────┘
 ```
 
 ---
 
-## File da Modificare/Eliminare
+## 3. Rifare EmotionalSpectrumCard (Analisi)
 
-| File | Azione |
-|------|--------|
-| `ObjectivesTabContent.tsx` | Rimuovere creazione manuale, rendere read-only |
-| `DailyTrackerTabContent.tsx` | Rimuovere creazione/update manuale |
-| `ObjectiveQuizModal.tsx` | **ELIMINARE** |
-| `ObjectiveCreationChat.tsx` | **ELIMINARE** |
-| `HabitQuizModal.tsx` | **ELIMINARE** |
-| `HabitCreationChat.tsx` | **ELIMINARE** |
-| `HabitBatchModal.tsx` | **ELIMINARE** o convertire a read-only |
-| `ProgressUpdateModal.tsx` | **ELIMINARE** |
-| `SmartCheckinSection.tsx` | Rimuovere items habit/objective |
-| `HabitTrackerSection.tsx` | Rimuovere o convertire a read-only |
-| `CompactHabitGrid.tsx` | Convertire a read-only |
-| `process-session/index.ts` | Aggiungere logica habits/objectives |
-| `ai-chat/index.ts` | Aggiungere istruzioni gestione |
-| `create-habit-chat/index.ts` | **ELIMINARE** |
-| `create-objective-chat/index.ts` | **ELIMINARE** |
+**Scopo**: Mostra l'intensita di ogni emozione con barre orizzontali
 
----
+**Modifiche**:
+- Supportare tutte 14 emozioni
+- Ordinare per valore decrescente
+- Raggruppare visivamente primarie vs secondarie
+- Aggiungere indicatore qualitativo (Alta/Media/Bassa)
+- Nascondere completamente emozioni a 0
 
-## Eccezioni: Habits Auto-Sync
-
-Le seguenti habits mantengono il tracking automatico:
-- `steps` (Passi) - da Health Kit/Google Fit
-- `heart_rate` (Battito) - da wearable
-- `exercise` (Esercizio) - da fitness app
-- `cycling` (Ciclismo) - da GPS
-
-Per queste:
-- `data_source: 'auto_sync'` nel database
-- Mostrano badge "Sincronizzato automaticamente"
-- Non richiedono interazione utente né Aria
-
----
-
-## Istruzioni AI Dettagliate
-
-### Per Rilevamento Obiettivi
 ```text
-PATTERN DA RICONOSCERE:
-- "Vorrei [verbo]" → Potenziale obiettivo
-- "Devo [verbo]" → Potenziale obiettivo urgente
-- "Il mio obiettivo è..." → Obiettivo esplicito
-- Numeri + unità ("5kg", "1000€") → Target value
-
-AZIONE:
-1. Estrai categoria (body/finance/study/work/relationships/growth)
-2. Estrai target_value se presente
-3. Chiedi conferma: "Vuoi che aggiunga '[titolo]' ai tuoi traguardi?"
+┌──────────────────────────────────────────┐
+│  🎭 Spettro Emotivo                      │
+├──────────────────────────────────────────┤
+│  EMOZIONI PRIMARIE                       │
+│  Gioia      ████████████░░░░  7.2  Buona │
+│  Tristezza  ████░░░░░░░░░░░░  2.1  Bassa │
+│                                          │
+│  EMOZIONI SECONDARIE                     │
+│  Speranza   ██████████░░░░░░  6.5  Media │
+│  Frustrazione ██████░░░░░░░░  4.0  Media │
+└──────────────────────────────────────────┘
 ```
 
-### Per Aggiornamento Progressi
+---
+
+## 4. Rifare EmotionalSpectrumRadar (Analisi)
+
+**Scopo**: Visualizzazione radar dello stato emotivo attuale
+
+**Modifiche**:
+- Mostrare dinamicamente solo emozioni con dati
+- Minimo 3 emozioni per il radar (altrimenti nascondere)
+- Massimo 8 emozioni per leggibilita
+- Prioritizzare emozioni con valori piu alti
+- Aggiungere legenda interattiva
+
 ```text
-PATTERN DA RICONOSCERE:
-- "Oggi ho [azione passata]"
-- "Ieri sono [azione]"
-- "Peso Xkg" (per obiettivi body)
-- "Ho risparmiato X€" (per obiettivi finance)
-
-AZIONE:
-1. Identifica quale obiettivo/habit aggiornare
-2. Estrai valore numerico
-3. Salva automaticamente
-4. Conferma: "Registrato! Sei a X% del tuo obiettivo."
+┌──────────────────────────────────────────┐
+│  🌈 Radar Emotivo                        │
+├──────────────────────────────────────────┤
+│                                          │
+│           Gioia                          │
+│             ●                            │
+│       Speranza   Tristezza               │
+│           ●   ●                          │
+│                                          │
+│    Frustrazione   Rabbia                 │
+│            ●   ●                         │
+│                                          │
+│  Dominante: Gioia (7.2/10)              │
+└──────────────────────────────────────────┘
 ```
 
 ---
 
-## Timeline Implementazione
+## 5. Aggiornare EmotionalWeather (Progress)
 
-1. **Fase 1** (UI): ~30 minuti
-2. **Fase 2** (AI): ~45 minuti  
-3. **Fase 3** (Flusso dati): ~30 minuti
-4. **Fase 4** (Polish): ~15 minuti
+**Scopo**: Trend settimanale delle emozioni
 
-**Totale stimato**: ~2 ore
+**Modifiche**:
+- Supportare tutte 14 emozioni nello stacked bar
+- Colorare dinamicamente solo emozioni presenti
+- Migliorare tooltip con nomi italiani
+- Aggiungere opzione per vedere breakdown per giorno
 
 ---
 
-## Rischi e Mitigazioni
+## 6. Nuovo Componente: EmotionalTrends
 
-| Rischio | Mitigazione |
-|---------|-------------|
-| Utente non sa come aggiornare | Messaggi chiari + CTA "Parla con Aria" |
-| AI non rileva correttamente | Istruzioni dettagliate nel prompt |
-| Perdita dati esistenti | Nessuna migrazione DB, solo UI |
-| Habits auto_sync non funzionano | Eccezione esplicita nel codice |
+**Scopo**: Mostra come le emozioni cambiano nel tempo
+
+**Caratteristiche**:
+- Line chart con multiple serie
+- Filtro per selezionare quali emozioni vedere
+- Confronto settimana vs settimana precedente
+- Insight AI sulle variazioni significative
+
+---
+
+## 7. Hook Unificato per Emozioni
+
+Creo `useEmotionsData.tsx` che:
+- Recupera tutte 14 emozioni dal database
+- Calcola medie ponderate temporali
+- Filtra automaticamente emozioni a 0
+- Fornisce dati formattati per ogni tipo di grafico
+- Gestisce il loading state
+
+---
+
+## Sequenza di Implementazione
+
+| Fase | Componente | Priorita |
+|------|------------|----------|
+| 1 | `emotionConfig.ts` (config centralizzata) | Alta |
+| 2 | `useEmotionsData.tsx` (hook unificato) | Alta |
+| 3 | `EmotionalMixBar` (Home) | Alta |
+| 4 | `EmotionalSpectrumCard` (Analisi) | Alta |
+| 5 | `EmotionalSpectrumRadar` (Analisi) | Media |
+| 6 | `EmotionalWeather` (Progress) | Media |
+| 7 | `EmotionalTrends` (nuovo) | Bassa |
+
+---
+
+## Design System Applicato
+
+Tutti i grafici seguiranno il design "Liquid Glass 2026":
+- Sfondo `bg-glass` con `backdrop-blur-xl`
+- Bordi `border-glass-border`
+- Ombre `shadow-glass`
+- Animazioni spring con `framer-motion`
+- Palette colori HSL coerente
+- Responsive per mobile
+
+---
+
+## Risultato Atteso
+
+- Tutti i grafici mostreranno le emozioni dinamicamente (solo quelle > 0)
+- Design coerente tra tutti i componenti
+- Esperienza utente migliorata con etichette italiane chiare
+- Nessuna confusione tra grafici diversi che mostrano dati diversi
