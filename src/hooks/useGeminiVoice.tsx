@@ -264,40 +264,80 @@ export const useGeminiVoice = (): UseGeminiVoiceReturn => {
           if (data.serverContent) {
             const serverContent = data.serverContent;
             
-            // Check if AI is speaking
+            // Check if AI is responding
             if (serverContent.modelTurn?.parts) {
               for (const part of serverContent.modelTurn.parts) {
-                // Handle audio data
-                if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
-                  setIsSpeaking(true);
-                  setIsListening(false);
-                  
-                  const audioData = pcm16Base64ToFloat32(part.inlineData.data);
-                  if (workletNodeRef.current) {
-                    workletNodeRef.current.port.postMessage({ samples: Array.from(audioData) });
-                  }
-                }
-                
-                // Handle text (transcript)
+                // IGNORE Gemini's robotic audio - we'll use ElevenLabs TTS instead
+                // Just collect the text
                 if (part.text) {
                   currentAssistantTextRef.current += part.text;
                 }
               }
             }
             
-            // Turn complete - save assistant response
-            if (serverContent.turnComplete) {
-              console.log('[GeminiVoice] Turn complete');
+            // Turn complete - convert text to speech with ElevenLabs (Carla voice)
+            if (serverContent.turnComplete && currentAssistantTextRef.current) {
+              console.log('[GeminiVoice] Turn complete, using ElevenLabs TTS for:', currentAssistantTextRef.current.substring(0, 50) + '...');
+              
+              // Save to transcript
+              const textToSpeak = currentAssistantTextRef.current;
+              transcriptRef.current.push({
+                role: 'assistant',
+                text: textToSpeak
+              });
+              currentAssistantTextRef.current = '';
+              
+              // Play with ElevenLabs TTS (Carla voice) - async IIFE
+              setIsSpeaking(true);
+              setIsListening(false);
+              
+              (async () => {
+                try {
+                  const ttsResponse = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                      },
+                      body: JSON.stringify({ text: textToSpeak }),
+                    }
+                  );
+                  
+                  if (ttsResponse.ok) {
+                    const ttsData = await ttsResponse.json();
+                    // Play audio using data URI (browser natively decodes base64)
+                    const audioUrl = `data:audio/mpeg;base64,${ttsData.audioContent}`;
+                    const audio = new Audio(audioUrl);
+                    
+                    audio.onended = () => {
+                      setIsSpeaking(false);
+                      setIsListening(true);
+                    };
+                    
+                    audio.onerror = () => {
+                      console.error('[GeminiVoice] Audio playback error');
+                      setIsSpeaking(false);
+                      setIsListening(true);
+                    };
+                    
+                    await audio.play();
+                  } else {
+                    console.error('[GeminiVoice] TTS request failed:', ttsResponse.status);
+                    setIsSpeaking(false);
+                    setIsListening(true);
+                  }
+                } catch (ttsError) {
+                  console.error('[GeminiVoice] TTS error:', ttsError);
+                  setIsSpeaking(false);
+                  setIsListening(true);
+                }
+              })();
+            } else if (serverContent.turnComplete) {
+              // Turn complete but no text
               setIsSpeaking(false);
               setIsListening(true);
-              
-              if (currentAssistantTextRef.current) {
-                transcriptRef.current.push({
-                  role: 'assistant',
-                  text: currentAssistantTextRef.current
-                });
-                currentAssistantTextRef.current = '';
-              }
             }
             
             // Check for interruption
