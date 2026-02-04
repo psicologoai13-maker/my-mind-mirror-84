@@ -771,3 +771,122 @@ select:focus {
 .stagger-3 { animation-delay: 0.3s; }
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
+
+/* ========================================
+   ONBOARDING LIQUID GLASS 2026 ADDITIONS
+======================================== */
+
+/* Card shimmer effect */
+@keyframes card-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.card-glass-interactive {
+  @apply bg-glass rounded-2xl backdrop-blur-xl border border-glass-border relative overflow-hidden;
+  box-shadow: var(--shadow-glass);
+  transition: all 0.3s ease;
+}
+
+.card-glass-interactive::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card-glass-interactive:hover::before {
+  opacity: 1;
+  animation: card-shimmer 1.5s linear infinite;
+}
+
+/* Selection glow pulse */
+@keyframes selection-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(155, 111, 208, 0.25); }
+  50% { box-shadow: 0 0 25px rgba(155, 111, 208, 0.45); }
+}
+
+.selection-glow {
+  animation: selection-glow 2s ease-in-out infinite;
+}
+
+/* Input glass focus effect */
+.input-glass-focus {
+  @apply bg-glass backdrop-blur-xl border-2 border-glass-border transition-all duration-300;
+}
+
+.input-glass-focus:focus {
+  border-color: hsl(var(--aria-violet));
+  box-shadow: 0 0 20px rgba(155, 111, 208, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Pill selection style */
+.pill-selection {
+  @apply bg-glass backdrop-blur-xl border border-glass-border rounded-full px-4 py-2 transition-all duration-300;
+}
+
+.pill-selection.selected {
+  border-color: hsl(var(--aria-violet) / 0.5);
+  color: hsl(var(--aria-violet));
+  box-shadow: var(--shadow-aria-glow);
+}
+
+/* Concentric rings animation */
+@keyframes ring-pulse-1 {
+  0%, 100% { 
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.25;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ring-pulse-2 {
+  0%, 100% { 
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.2;
+    transform: scale(1.08);
+  }
+}
+
+.ring-concentric-1 {
+  animation: ring-pulse-1 3s ease-in-out infinite;
+}
+
+.ring-concentric-2 {
+  animation: ring-pulse-2 4s ease-in-out infinite 0.5s;
+}
+
+/* Counter badge pulse */
+@keyframes counter-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.counter-pulse {
+  animation: counter-pulse 0.3s ease-out;
+}
+
+/* Gradient divider */
+.divider-gradient {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--aria-violet) / 0.3),
+    transparent
+  );
+}

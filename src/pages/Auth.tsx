@@ -9,6 +9,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 import { Sparkles, Mail, Lock, User, Stethoscope, Loader2, ArrowRight } from 'lucide-react';
 import { z } from 'zod';
+import FloatingParticles from '@/components/aria/FloatingParticles';
 
 const emailSchema = z.string().email('Email non valida');
 const passwordSchema = z.string().min(6, 'La password deve avere almeno 6 caratteri');
@@ -21,6 +22,7 @@ const Auth: React.FC = () => {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const { role, isLoading: roleLoading, setUserRole, refetch: refetchRole } = useUserRole();
   const { profile, isLoading: profileLoading } = useProfile();
@@ -97,13 +99,14 @@ const Auth: React.FC = () => {
   if (isRedirecting || (user && (authLoading || roleLoading || profileLoading))) {
     return (
       <div className="min-h-dvh bg-background bg-gradient-mesh flex flex-col items-center justify-center">
+        <FloatingParticles />
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-4"
+          className="flex flex-col items-center gap-4 relative z-10"
         >
-          <div className="w-20 h-20 rounded-3xl card-glass flex items-center justify-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <div className="w-20 h-20 rounded-3xl card-glass flex items-center justify-center shadow-aria-glow">
+            <Loader2 className="w-10 h-10 animate-spin text-aria-violet" />
           </div>
           <p className="text-muted-foreground font-medium">Caricamento...</p>
         </motion.div>
@@ -117,7 +120,10 @@ const Auth: React.FC = () => {
       <div className="absolute inset-0 bg-gradient-mesh" />
       <div className="absolute inset-0 bg-gradient-aria-subtle opacity-60" />
       
-      {/* Floating orbs with Aurora colors */}
+      {/* Floating Particles */}
+      <FloatingParticles />
+      
+      {/* Floating orbs with Aurora colors - Enhanced */}
       <motion.div 
         className="absolute top-20 left-10 w-64 h-64 rounded-full bg-aria-violet/15 blur-3xl"
         animate={{ 
@@ -144,9 +150,19 @@ const Auth: React.FC = () => {
         }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       />
+      {/* Third smaller orb */}
+      <motion.div 
+        className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-aria-violet/20 blur-2xl"
+        animate={{ 
+          x: [0, 15, -10, 0],
+          y: [0, -10, 15, 0],
+          scale: [1, 1.1, 0.95, 1]
+        }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
       
       <div className="relative z-10 w-full max-w-sm">
-        {/* Logo */}
+        {/* Logo with Concentric Rings */}
         <motion.div 
           className="mb-10 text-center"
           initial={{ opacity: 0, y: -30 }}
@@ -154,44 +170,57 @@ const Auth: React.FC = () => {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div 
-            className="w-28 h-28 mx-auto mb-6 rounded-3xl card-glass flex items-center justify-center"
+            className="relative w-28 h-28 mx-auto mb-6"
             initial={{ scale: 0.5, rotate: -10 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
           >
-            <AnimatePresence mode="wait">
-              {isDoctor ? (
-                <motion.div
-                  key="doctor"
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  exit={{ scale: 0, rotate: 180 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  <Stethoscope className="w-14 h-14 text-primary" />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="patient"
-                  initial={{ scale: 0, rotate: 180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  exit={{ scale: 0, rotate: -180 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="relative"
-                >
-                  <Sparkles className="w-14 h-14 text-primary" />
+            {/* Outer ring */}
+            <motion.div 
+              className="absolute inset-[-16px] rounded-full border border-aria-violet/20 ring-concentric-2"
+            />
+            
+            {/* Middle ring */}
+            <motion.div 
+              className="absolute inset-[-8px] rounded-full border border-aria-violet/30 ring-concentric-1"
+            />
+            
+            {/* Main logo container */}
+            <div className="w-28 h-28 rounded-3xl card-glass flex items-center justify-center shadow-aria-glow">
+              <AnimatePresence mode="wait">
+                {isDoctor ? (
                   <motion.div
-                    className="absolute inset-0"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    key="doctor"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, rotate: 180 }}
+                    transition={{ type: "spring", stiffness: 300 }}
                   >
-                    <div className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-aria-violet/60" />
-                    <div className="absolute top-1/2 -right-1 w-1.5 h-1.5 rounded-full bg-aria-indigo/50" />
-                    <div className="absolute -bottom-1 left-1/3 w-1 h-1 rounded-full bg-aria-purple/40" />
+                    <Stethoscope className="w-14 h-14 text-aria-violet" />
                   </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                ) : (
+                  <motion.div
+                    key="patient"
+                    initial={{ scale: 0, rotate: 180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, rotate: -180 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                    className="relative"
+                  >
+                    <Sparkles className="w-14 h-14 text-aria-violet" />
+                    <motion.div
+                      className="absolute inset-0"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    >
+                      <div className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-aria-violet/60" />
+                      <div className="absolute top-1/2 -right-1 w-1.5 h-1.5 rounded-full bg-aria-indigo/50" />
+                      <div className="absolute -bottom-1 left-1/3 w-1 h-1 rounded-full bg-aria-purple/40" />
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </motion.div>
           
           <motion.h1 
@@ -212,16 +241,17 @@ const Auth: React.FC = () => {
           </motion.p>
         </motion.div>
 
-        {/* Auth Card */}
+        {/* Auth Card - Enhanced Glass */}
         <motion.div 
-          className="card-glass p-8"
+          className="card-glass p-8 relative overflow-hidden"
           initial={{ opacity: 0, y: 30, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Inner glow effect */}
+          {/* Inner glow effect - More visible */}
           <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent" />
+            <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-gradient-to-tl from-aria-violet/5 to-transparent" />
           </div>
           
           <motion.h2 
@@ -243,13 +273,19 @@ const Auth: React.FC = () => {
                   exit={{ opacity: 0, height: 0, y: -10 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
                   <Input
                     type="text"
                     placeholder={isDoctor ? "Nome e Cognome (Dr.)" : "Il tuo nome"}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                    className={`pl-12 h-14 rounded-2xl bg-glass backdrop-blur-xl border-2 transition-all duration-300 ${
+                      focusedField === 'name' 
+                        ? 'border-aria-violet shadow-[0_0_20px_rgba(155,111,208,0.25)]' 
+                        : 'border-glass-border'
+                    }`}
                   />
                 </motion.div>
               )}
@@ -261,14 +297,20 @@ const Auth: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
                 required
-                className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                className={`pl-12 h-14 rounded-2xl bg-glass backdrop-blur-xl border-2 transition-all duration-300 ${
+                  focusedField === 'email' 
+                    ? 'border-aria-violet shadow-[0_0_20px_rgba(155,111,208,0.25)]' 
+                    : 'border-glass-border'
+                }`}
               />
             </motion.div>
 
@@ -278,14 +320,20 @@ const Auth: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6 }}
             >
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 required
-                className="pl-12 h-14 rounded-2xl bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                className={`pl-12 h-14 rounded-2xl bg-glass backdrop-blur-xl border-2 transition-all duration-300 ${
+                  focusedField === 'password' 
+                    ? 'border-aria-violet shadow-[0_0_20px_rgba(155,111,208,0.25)]' 
+                    : 'border-glass-border'
+                }`}
               />
             </motion.div>
 
@@ -330,12 +378,14 @@ const Auth: React.FC = () => {
             <AnimatePresence>
               {!isLogin && (
                 <motion.div 
-                  className="pt-4 border-t border-border/50"
+                  className="pt-4"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
+                  {/* Gradient divider */}
+                  <div className="divider-gradient mb-4" />
                   <button
                     onClick={() => setIsDoctor(!isDoctor)}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 mx-auto group"
