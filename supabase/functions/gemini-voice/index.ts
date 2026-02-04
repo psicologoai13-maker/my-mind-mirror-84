@@ -10,8 +10,8 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.5 Flash Native Audio - correct model for BidiGenerateContent
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+// Gemini 2.0 Flash Live - stable model for BidiGenerateContent on Google AI Studio
+const MODEL = "models/gemini-2.0-flash-live-001";
 
 serve(async (req) => {
   const { headers } = req;
