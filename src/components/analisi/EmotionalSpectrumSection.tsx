@@ -1,163 +1,138 @@
 import React, { useMemo } from 'react';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import { EMOTION_CONFIG, EmotionKey, ALL_EMOTION_KEYS } from '@/lib/emotionConfig';
 import DomainCard from './DomainCard';
 import { ClinicalDomain } from '@/lib/clinicalDomains';
 
+interface EmotionRecord {
+  joy: number | null;
+  sadness: number | null;
+  anger: number | null;
+  fear: number | null;
+  apathy: number | null;
+  shame: number | null;
+  jealousy: number | null;
+  hope: number | null;
+  frustration: number | null;
+  nostalgia: number | null;
+  nervousness: number | null;
+  overwhelm: number | null;
+  excitement: number | null;
+  disappointment: number | null;
+}
+
 interface EmotionalSpectrumSectionProps {
-  allMetricsData: Record<string, { value: number | null }>;
+  emotionsData: EmotionRecord[];
   onMetricClick: (key: string) => void;
 }
 
 const EMOTION_DOMAIN: ClinicalDomain = {
   id: 'emotional',
-  label: 'Spettro Emotivo',
-  icon: '🌈',
-  description: 'Tutte le tue emozioni',
+  label: 'Distribuzione Emotiva',
+  icon: '🎭',
+  description: 'Il tuo mix emotivo',
   color: 'hsl(280, 60%, 55%)'
 };
 
 const EmotionalSpectrumSection: React.FC<EmotionalSpectrumSectionProps> = ({
-  allMetricsData,
+  emotionsData,
   onMetricClick
 }) => {
-  // Build radar data from all emotions
-  const { radarData, emotionsList, totalValue } = useMemo(() => {
-    const emotions = ALL_EMOTION_KEYS
-      .map(key => {
-        const data = allMetricsData[key];
-        const config = EMOTION_CONFIG[key];
-        const value = data?.value ?? 0;
-        return {
-          key,
-          label: config?.label || key,
-          value: Math.round(value * 10) / 10,
-          color: config?.color || 'hsl(220, 10%, 50%)',
-          icon: config?.icon || '😐',
-          isNegative: config?.isNegative ?? true,
-        };
-      })
-      .filter(e => e.value > 0)
-      .sort((a, b) => b.value - a.value);
+  // Calculate averages for all emotions from raw data
+  const { emotionsList, totalValue } = useMemo(() => {
+    if (!emotionsData || emotionsData.length === 0) {
+      return { emotionsList: [], totalValue: 0 };
+    }
+
+    const emotionAverages = ALL_EMOTION_KEYS.map(key => {
+      const config = EMOTION_CONFIG[key];
+      const values = emotionsData
+        .map(d => d[key as keyof EmotionRecord])
+        .filter((v): v is number => v !== null && v !== undefined && v > 0);
+      
+      const avg = values.length > 0 
+        ? values.reduce((a, b) => a + b, 0) / values.length 
+        : 0;
+      
+      return {
+        key,
+        label: config?.label || key,
+        value: Math.round(avg * 10) / 10,
+        color: config?.color || 'hsl(280, 60%, 55%)',
+        icon: config?.icon || '😐',
+      };
+    })
+    .filter(e => e.value > 0)
+    .sort((a, b) => b.value - a.value);
     
     // Total for percentage calculation
-    const total = emotions.reduce((sum, e) => sum + e.value, 0);
+    const total = emotionAverages.reduce((sum, e) => sum + e.value, 0);
     
     // Calculate percentages
-    const withPercentages = emotions.map(e => ({
+    const withPercentages = emotionAverages.map(e => ({
       ...e,
       percentage: total > 0 ? Math.round((e.value / total) * 100) : 0,
-      fullMark: 10,
     }));
     
-    // For radar, take top 8
-    const radarEmotions = withPercentages.slice(0, 8);
-    
     return {
-      radarData: radarEmotions,
       emotionsList: withPercentages,
       totalValue: total,
     };
-  }, [allMetricsData]);
+  }, [emotionsData]);
   
   // Don't render if no emotions data
   if (emotionsList.length === 0) return null;
   
   return (
     <DomainCard domain={EMOTION_DOMAIN}>
-      {/* Radar Chart - only if 3+ emotions */}
-      {radarData.length >= 3 && (
-        <div className="h-52 w-full mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-              <PolarGrid 
-                stroke="hsl(var(--muted-foreground))" 
-                strokeOpacity={0.15} 
-              />
-              <PolarAngleAxis
-                dataKey="label"
-                tick={{ 
-                  fill: 'hsl(var(--muted-foreground))', 
-                  fontSize: 10,
-                  fontWeight: 500,
-                }}
-                tickLine={false}
-              />
-              <Radar
-                name="Emozioni"
-                dataKey="value"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="hsl(var(--primary))"
-                fillOpacity={0.2}
-                dot={{
-                  r: 3,
-                  fill: 'hsl(var(--primary))',
-                  strokeWidth: 0,
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-      
-      {/* Emotions List with percentages */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1 mb-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {emotionsList.length} emozioni rilevate
-          </span>
-        </div>
-        
-        {emotionsList.map((emotion, index) => (
+      {/* Horizontal Bar Chart */}
+      <div className="space-y-1.5 mb-2">
+        {emotionsList.map((emotion) => (
           <button
             key={emotion.key}
             onClick={() => onMetricClick(emotion.key)}
             className={cn(
-              "w-full flex items-center gap-3 p-2.5 rounded-xl",
-              "bg-glass/20 border border-glass-border/40",
-              "hover:bg-glass/40 transition-all duration-200",
-              "active:scale-[0.98]"
+              "w-full flex items-center gap-2 py-1.5 px-1 rounded-lg",
+              "hover:bg-glass/30 transition-all duration-200",
+              "active:scale-[0.99]"
             )}
           >
-            {/* Rank */}
-            <span className="text-xs font-bold text-muted-foreground/60 w-4">
-              {index + 1}
+            {/* Label */}
+            <span className="text-xs font-medium text-foreground w-24 text-left truncate">
+              {emotion.label}
             </span>
             
-            {/* Icon */}
-            <span className="text-lg">{emotion.icon}</span>
-            
-            {/* Label & Bar */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground truncate">
-                  {emotion.label}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">
-                    {emotion.percentage}%
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    ({emotion.value}/10)
-                  </span>
-                </div>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ 
-                    width: `${emotion.percentage}%`,
-                    backgroundColor: emotion.color,
-                  }}
-                />
-              </div>
+            {/* Bar */}
+            <div className="flex-1 h-5 bg-muted/20 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{ 
+                  width: `${emotion.percentage}%`,
+                  backgroundColor: emotion.color,
+                }}
+              />
             </div>
+            
+            {/* Percentage */}
+            <span className="text-xs font-bold text-muted-foreground w-10 text-right">
+              {emotion.percentage}%
+            </span>
           </button>
         ))}
+      </div>
+      
+      {/* Summary */}
+      <div className="mt-3 pt-3 border-t border-glass-border/30 flex items-center justify-between px-1">
+        <span className="text-xs text-muted-foreground">
+          {emotionsList.length} emozioni rilevate
+        </span>
+        {emotionsList[0] && (
+          <span className="text-xs font-medium text-foreground flex items-center gap-1">
+            <span>{emotionsList[0].icon}</span>
+            <span>Dominante: {emotionsList[0].label}</span>
+          </span>
+        )}
       </div>
     </DomainCard>
   );
