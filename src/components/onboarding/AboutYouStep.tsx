@@ -58,7 +58,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-8"
+        className="mb-6"
       >
         <h1 className="text-2xl font-bold text-foreground mb-2">
           Come ti senti in questo periodo?
@@ -143,6 +143,61 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         <div className="flex-1 divider-gradient" />
         <span className="text-xs text-muted-foreground font-medium px-2">Un po' su di te</span>
         <div className="flex-1 divider-gradient" />
+      </motion.div>
+
+      {/* Gender Section - NOW FIRST */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="mb-6"
+      >
+        <p className="text-sm font-medium text-foreground mb-3">Come ti identifichi?</p>
+        <div className="flex flex-wrap gap-2">
+          {genderOptions.map((option) => (
+            <motion.button
+              key={option.id}
+              onClick={() => onGenderChange(option.id)}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
+                "bg-glass backdrop-blur-xl border",
+                gender === option.id
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
+                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+              )}
+            >
+              {option.label}
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Age Range Section - NOW SECOND */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
+        <div className="flex flex-wrap gap-2">
+          {ageRanges.map((age) => (
+            <motion.button
+              key={age}
+              onClick={() => onAgeChange(age)}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
+                "bg-glass backdrop-blur-xl border",
+                ageRange === age
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
+                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+              )}
+            >
+              {age}
+            </motion.button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Gender Section */}

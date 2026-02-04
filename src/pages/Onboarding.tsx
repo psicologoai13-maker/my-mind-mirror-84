@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
@@ -8,6 +8,7 @@ import MotivationStep from '@/components/onboarding/MotivationStep';
 import GoalsStep from '@/components/onboarding/GoalsStep';
 import AboutYouStep from '@/components/onboarding/AboutYouStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
+import OccupationStep from '@/components/onboarding/OccupationStep';
 import ReadyScreen from '@/components/onboarding/ReadyScreen';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -25,6 +26,7 @@ interface OnboardingData {
   therapyStatus?: string;
   gender?: string;
   interests: string[];
+  occupation?: string;
 }
 
 interface DashboardConfig {
@@ -80,14 +82,19 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
   };
 };
 
-type Step = 'welcome' | 'name' | 'aboutYou' | 'motivation' | 'goals' | 'interests' | 'ready';
+// Check if age needs occupation question (18-27)
+const needsOccupationStep = (ageRange?: string): boolean => {
+  return ageRange === '18-24' || ageRange === '25-34';
+};
+
+type BaseStep = 'welcome' | 'name' | 'aboutYou' | 'occupation' | 'motivation' | 'goals' | 'interests' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
   const { updateInterests } = useUserInterests();
   
-  const [currentStep, setCurrentStep] = useState<Step>('welcome');
+  const [currentStep, setCurrentStep] = useState<BaseStep>('welcome');
   const [data, setData] = useState<OnboardingData>({
     name: '',
     motivations: [],
@@ -98,11 +105,26 @@ const Onboarding: React.FC = () => {
     therapyStatus: undefined,
     gender: undefined,
     interests: [],
+    occupation: undefined,
   });
 
-  const stepOrder: Step[] = ['welcome', 'name', 'aboutYou', 'motivation', 'goals', 'interests', 'ready'];
+  // Dynamic step order based on age
+  const stepOrder = useMemo((): BaseStep[] => {
+    const baseSteps: BaseStep[] = ['welcome', 'name', 'aboutYou'];
+    
+    // Add occupation step only for 18-34 age range
+    if (needsOccupationStep(data.ageRange)) {
+      baseSteps.push('occupation');
+    }
+    
+    baseSteps.push('motivation', 'goals', 'interests', 'ready');
+    return baseSteps;
+  }, [data.ageRange]);
+
   const currentIndex = stepOrder.indexOf(currentStep);
-  const quizSteps = 5; // name, aboutYou, motivation, goals, interests
+  
+  // Calculate quiz steps (excluding welcome and ready)
+  const quizSteps = stepOrder.filter(s => s !== 'welcome' && s !== 'ready').length;
 
   const handleNext = () => {
     const nextIndex = currentIndex + 1;
@@ -129,6 +151,8 @@ const Onboarding: React.FC = () => {
       case 'aboutYou':
         // All fields are required (mood, gender, age)
         return data.moodSelected && !!data.gender && !!data.ageRange;
+      case 'occupation':
+        return !!data.occupation;
       case 'interests':
         return true; // interests are optional
       default:
@@ -137,14 +161,9 @@ const Onboarding: React.FC = () => {
   };
 
   const getProgressStep = () => {
-    const progressMap: Partial<Record<Step, number>> = {
-      name: 1,
-      aboutYou: 2,
-      motivation: 3,
-      goals: 4,
-      interests: 5,
-    };
-    return progressMap[currentStep] || 0;
+    const quizStepsOnly = stepOrder.filter(s => s !== 'welcome' && s !== 'ready');
+    const idx = quizStepsOnly.indexOf(currentStep as any);
+    return idx >= 0 ? idx + 1 : 0;
   };
 
   const handleComplete = async (goToAria: boolean) => {
@@ -164,6 +183,17 @@ const Onboarding: React.FC = () => {
       
       const legacyGoals = data.primaryGoals.map(g => legacyGoalMap[g] || g);
       
+      // Determine occupation_context based on age and selection
+      let occupationContext = data.occupation;
+      if (!occupationContext) {
+        // Default based on age if not explicitly asked
+        if (data.ageRange === '<18') {
+          occupationContext = 'student';
+        } else if (data.ageRange && ['35-44', '45-54', '55+'].includes(data.ageRange)) {
+          occupationContext = 'worker';
+        }
+      }
+      
       // Save profile with dedicated columns for Aria's brain
       await updateProfile.mutateAsync({
         name: data.name,
@@ -171,6 +201,7 @@ const Onboarding: React.FC = () => {
         // Save to dedicated columns so Aria can access them
         therapy_status: data.therapyStatus || 'none',
         gender: data.gender,
+        occupation_context: occupationContext,
         onboarding_answers: {
           name: data.name,
           motivations: data.motivations,
@@ -180,6 +211,7 @@ const Onboarding: React.FC = () => {
           therapyStatus: data.therapyStatus,
           gender: data.gender,
           interests: data.interests,
+          occupation: data.occupation,
           // Keep empty for legacy compatibility
           lifeSituation: null,
           vices: [],
@@ -296,33 +328,6 @@ const Onboarding: React.FC = () => {
         />
       )}
 
-      {/* Goals Step */}
-      {currentStep === 'goals' && (
-        <>
-          <GoalsStep
-            userName={data.name}
-            selectedGoals={data.primaryGoals}
-            onChange={(goals) => setData(prev => ({ ...prev, primaryGoals: goals }))}
-            ageRange={data.ageRange}
-          />
-          <motion.div 
-            className="px-5 pb-8 pt-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
-            >
-              Continua
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </motion.div>
-        </>
-      )}
-
       {/* About You Step */}
       {currentStep === 'aboutYou' && (
         <>
@@ -354,6 +359,32 @@ const Onboarding: React.FC = () => {
         </>
       )}
 
+      {/* Occupation Step - Only for 18-34 */}
+      {currentStep === 'occupation' && (
+        <>
+          <OccupationStep
+            userName={data.name}
+            occupation={data.occupation}
+            onChange={(occupation) => setData(prev => ({ ...prev, occupation }))}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+            >
+              Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
       {/* Motivation Step */}
       {currentStep === 'motivation' && (
         <>
@@ -362,6 +393,35 @@ const Onboarding: React.FC = () => {
             selectedMotivations={data.motivations}
             onChange={(motivations) => setData(prev => ({ ...prev, motivations }))}
             ageRange={data.ageRange}
+            gender={data.gender}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+            >
+              Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
+      {/* Goals Step */}
+      {currentStep === 'goals' && (
+        <>
+          <GoalsStep
+            userName={data.name}
+            selectedGoals={data.primaryGoals}
+            onChange={(goals) => setData(prev => ({ ...prev, primaryGoals: goals }))}
+            ageRange={data.ageRange}
+            gender={data.gender}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -389,6 +449,7 @@ const Onboarding: React.FC = () => {
             selectedInterests={data.interests}
             onChange={(interests) => setData(prev => ({ ...prev, interests }))}
             ageRange={data.ageRange}
+            gender={data.gender}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"

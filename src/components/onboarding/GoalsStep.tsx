@@ -15,6 +15,7 @@ interface GoalsStepProps {
   selectedGoals: string[];
   onChange: (goals: string[]) => void;
   ageRange?: string;
+  gender?: string;
 }
 
 // Base goals for everyone
@@ -33,35 +34,93 @@ const baseGoalOptions: GoalOption[] = [
   { id: 'boundaries', label: 'Confini sani', emoji: '🛡️', description: 'Dire di no' },
   { id: 'growth', label: 'Crescita personale', emoji: '🌱', description: 'Evoluzione continua' },
   { id: 'focus', label: 'Concentrazione', emoji: '🧠', description: 'Mente lucida' },
-  { id: 'creativity', label: 'Creatività', emoji: '🎨', description: 'Esprimere idee' },
   { id: 'mindfulness', label: 'Mindfulness', emoji: '🕊️', description: 'Vivere il presente' },
   { id: 'habits', label: 'Nuove abitudini', emoji: '🔄', description: 'Routine positive' },
   { id: 'motivation', label: 'Motivazione', emoji: '🔥', description: 'Ritrovare la spinta' },
 ];
 
-// Youth-specific goals
+// Youth-specific goals (<18, 18-24)
 const youthGoalOptions: GoalOption[] = [
   { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
   { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
-  { id: 'teacher_relations', label: 'Rapporto con prof', emoji: '👩‍🏫', description: 'Comunicare meglio' },
   { id: 'peer_pressure', label: 'Pressione sociale', emoji: '👥', description: 'Gestire confronti' },
   { id: 'future_anxiety', label: 'Ansia per il futuro', emoji: '🔮', description: 'Cosa farò da grande?' },
 ];
 
-// Adult-specific goals
+// Adult-specific goals (25-44)
 const adultGoalOptions: GoalOption[] = [
   { id: 'work_life', label: 'Work-life balance', emoji: '⚖️', description: 'Equilibrio vita-lavoro' },
   { id: 'productivity', label: 'Produttività', emoji: '🎯', description: 'Fare di più' },
   { id: 'career', label: 'Carriera', emoji: '💼', description: 'Crescere professionalmente' },
   { id: 'financial', label: 'Finanze', emoji: '💰', description: 'Gestire meglio i soldi' },
-  { id: 'parenting', label: 'Genitorialità', emoji: '👶', description: 'Essere genitori migliori' },
-  { id: 'aging', label: 'Invecchiare bene', emoji: '🌅', description: 'Accettare il tempo' },
 ];
 
-const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
+// Mature adult goals (45+)
+const matureGoalOptions: GoalOption[] = [
+  { id: 'aging_well', label: 'Invecchiare bene', emoji: '🌅', description: 'Accettare il tempo' },
+  { id: 'health_focus', label: 'Priorità salute', emoji: '❤️', description: 'Prendersi cura di sé' },
+  { id: 'new_chapter', label: 'Nuovo capitolo', emoji: '📖', description: 'Reinventarsi' },
+  { id: 'legacy', label: 'Lasciare un segno', emoji: '🌟', description: 'Il proprio contributo' },
+];
 
-const isYouthAge = (ageRange?: string): boolean => {
-  return YOUTH_AGE_RANGES.includes(ageRange as any);
+// Female-specific goals
+const femaleGoalOptions: GoalOption[] = [
+  { id: 'body_positivity', label: 'Accettare il corpo', emoji: '💃', description: 'Body positivity' },
+  { id: 'me_time', label: 'Tempo per me', emoji: '🛁', description: 'Self-care' },
+  { id: 'mental_load_balance', label: 'Bilanciare il carico', emoji: '⚖️', description: 'Non fare tutto da sola' },
+];
+
+// Male-specific goals
+const maleGoalOptions: GoalOption[] = [
+  { id: 'emotional_intelligence', label: 'Intelligenza emotiva', emoji: '🫀', description: 'Capire le emozioni' },
+  { id: 'open_up', label: 'Aprirsi di più', emoji: '🗣️', description: 'Condividere con altri' },
+  { id: 'present_father', label: 'Paternità presente', emoji: '👨‍👧', description: 'Essere più presente' },
+];
+
+// Young female specific
+const youngFemaleGoals: GoalOption[] = [
+  { id: 'social_comparison', label: 'Stop confronti social', emoji: '📵', description: 'Vivere senza paragoni' },
+];
+
+// Young male specific  
+const youngMaleGoals: GoalOption[] = [
+  { id: 'healthy_masculinity', label: 'Mascolinità sana', emoji: '🌟', description: 'Essere sé stessi' },
+];
+
+const getAgeGroup = (ageRange?: string): 'youth' | 'adult' | 'mature' => {
+  if (ageRange === '<18' || ageRange === '18-24') return 'youth';
+  if (ageRange === '45-54' || ageRange === '55+') return 'mature';
+  return 'adult';
+};
+
+const getGoalOptions = (ageRange?: string, gender?: string): GoalOption[] => {
+  const ageGroup = getAgeGroup(ageRange);
+  const options: GoalOption[] = [...baseGoalOptions];
+
+  // Age-specific
+  if (ageGroup === 'youth') {
+    options.push(...youthGoalOptions);
+  } else if (ageGroup === 'mature') {
+    options.push(...adultGoalOptions);
+    options.push(...matureGoalOptions);
+  } else {
+    options.push(...adultGoalOptions);
+  }
+
+  // Gender-specific
+  if (gender === 'female') {
+    options.push(...femaleGoalOptions);
+    if (ageGroup === 'youth') {
+      options.push(...youngFemaleGoals);
+    }
+  } else if (gender === 'male') {
+    options.push(...maleGoalOptions);
+    if (ageGroup === 'youth') {
+      options.push(...youngMaleGoals);
+    }
+  }
+
+  return options;
 };
 
 const spring = {
@@ -70,11 +129,14 @@ const spring = {
   damping: 25
 };
 
-const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange, ageRange }) => {
-  const goalOptions = [
-    ...baseGoalOptions,
-    ...(isYouthAge(ageRange) ? youthGoalOptions : adultGoalOptions),
-  ];
+const GoalsStep: React.FC<GoalsStepProps> = ({ 
+  userName, 
+  selectedGoals, 
+  onChange, 
+  ageRange,
+  gender 
+}) => {
+  const goalOptions = getGoalOptions(ageRange, gender);
 
   const handleSelect = (goalId: string) => {
     if (selectedGoals.includes(goalId)) {

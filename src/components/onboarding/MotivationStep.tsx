@@ -15,6 +15,7 @@ interface MotivationStepProps {
   selectedMotivations: string[];
   onChange: (motivations: string[]) => void;
   ageRange?: string;
+  gender?: string;
 }
 
 // Base motivations for everyone
@@ -31,7 +32,7 @@ const baseMotivationOptions: MotivationOption[] = [
   { id: 'curiosity', label: 'Curiosità', emoji: '✨', description: 'Voglio esplorare questa app' },
 ];
 
-// Youth-specific motivations (ONLY for <18 and 18-24 age ranges)
+// Youth-specific motivations (<18 and 18-24)
 const youthMotivationOptions: MotivationOption[] = [
   { id: 'school_stress', label: 'Stress scolastico', emoji: '📚', description: 'Gestire verifiche e interrogazioni' },
   { id: 'bullying', label: 'Bullismo', emoji: '🛡️', description: 'Affrontare situazioni difficili' },
@@ -40,7 +41,7 @@ const youthMotivationOptions: MotivationOption[] = [
   { id: 'social_pressure', label: 'Pressione sociale', emoji: '📱', description: 'Gestire aspettative e confronti' },
 ];
 
-// Adult-specific motivations (25+ years)
+// Adult-specific motivations (25+)
 const adultMotivationOptions: MotivationOption[] = [
   { id: 'work_stress', label: 'Stress lavorativo', emoji: '💼', description: 'Gestire pressioni sul lavoro' },
   { id: 'career_growth', label: 'Crescita carriera', emoji: '📈', description: 'Avanzare professionalmente' },
@@ -50,10 +51,65 @@ const adultMotivationOptions: MotivationOption[] = [
   { id: 'life_transition', label: 'Cambiamenti vita', emoji: '🔄', description: 'Affrontare nuove fasi' },
 ];
 
-const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
+// Female-specific motivations
+const femaleMotivationOptions: MotivationOption[] = [
+  { id: 'imposter_syndrome', label: 'Sindrome impostora', emoji: '🎭', description: 'Sentirsi inadeguate nonostante i successi' },
+  { id: 'mental_load', label: 'Carico mentale', emoji: '🧠', description: 'Gestire troppe cose insieme' },
+  { id: 'body_image', label: 'Rapporto col corpo', emoji: '🪞', description: 'Accettare e amare il proprio corpo' },
+  { id: 'cycle_management', label: 'Gestire il ciclo', emoji: '🌙', description: 'Capire come influenza le emozioni' },
+];
 
-const isYouthAge = (ageRange?: string): boolean => {
-  return YOUTH_AGE_RANGES.includes(ageRange as any);
+// Male-specific motivations
+const maleMotivationOptions: MotivationOption[] = [
+  { id: 'express_emotions', label: 'Esprimere emozioni', emoji: '💭', description: 'Imparare ad aprirsi' },
+  { id: 'provider_pressure', label: 'Pressione economica', emoji: '💰', description: 'Gestire aspettative di "mantenere"' },
+  { id: 'show_vulnerability', label: 'Mostrarsi vulnerabile', emoji: '🫂', description: 'Permettersi di essere fragili' },
+];
+
+// Mature adult motivations (45+)
+const matureMotivationOptions: MotivationOption[] = [
+  { id: 'empty_nest', label: 'Nido vuoto', emoji: '🏠', description: 'Figli che se ne vanno' },
+  { id: 'aging', label: 'Invecchiare', emoji: '⏳', description: 'Accettare il passare del tempo' },
+  { id: 'legacy', label: 'Lasciare un segno', emoji: '🌟', description: 'Riflettere sul proprio percorso' },
+  { id: 'health_concerns', label: 'Preoccupazioni salute', emoji: '❤️‍🩹', description: 'Gestire ansie sulla salute' },
+];
+
+// Female mature specific
+const femaleMatureOptions: MotivationOption[] = [
+  { id: 'menopause', label: 'Menopausa', emoji: '🌸', description: 'Affrontare questa transizione' },
+];
+
+const getAgeGroup = (ageRange?: string): 'youth' | 'adult' | 'mature' => {
+  if (ageRange === '<18' || ageRange === '18-24') return 'youth';
+  if (ageRange === '45-54' || ageRange === '55+') return 'mature';
+  return 'adult';
+};
+
+const getMotivationOptions = (ageRange?: string, gender?: string): MotivationOption[] => {
+  const ageGroup = getAgeGroup(ageRange);
+  const options: MotivationOption[] = [...baseMotivationOptions];
+
+  // Age-specific options
+  if (ageGroup === 'youth') {
+    options.push(...youthMotivationOptions);
+  } else if (ageGroup === 'mature') {
+    options.push(...adultMotivationOptions);
+    options.push(...matureMotivationOptions);
+    if (gender === 'female') {
+      options.push(...femaleMatureOptions);
+    }
+  } else {
+    options.push(...adultMotivationOptions);
+  }
+
+  // Gender-specific options
+  if (gender === 'female') {
+    options.push(...femaleMotivationOptions);
+  } else if (gender === 'male') {
+    options.push(...maleMotivationOptions);
+  }
+
+  return options;
 };
 
 const spring = {
@@ -62,11 +118,14 @@ const spring = {
   damping: 25
 };
 
-const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotivations, onChange, ageRange }) => {
-  const motivationOptions = [
-    ...baseMotivationOptions,
-    ...(isYouthAge(ageRange) ? youthMotivationOptions : adultMotivationOptions),
-  ];
+const MotivationStep: React.FC<MotivationStepProps> = ({ 
+  userName, 
+  selectedMotivations, 
+  onChange, 
+  ageRange,
+  gender 
+}) => {
+  const motivationOptions = getMotivationOptions(ageRange, gender);
 
   const handleSelect = (id: string) => {
     if (selectedMotivations.includes(id)) {
