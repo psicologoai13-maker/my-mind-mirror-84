@@ -124,16 +124,16 @@ const Aria: React.FC = () => {
     <MobileLayout>
       {/* Immersive Portal Background */}
       <div className="aria-portal-bg min-h-[calc(100vh-80px)] pb-20 flex flex-col">
-        {/* Corner History Icon */}
+        {/* Corner History Icon - Fixed position */}
         {recentSessions.length > 0 && (
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-5 right-5 z-10">
             <Sheet>
               <SheetTrigger asChild>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "w-11 h-11 rounded-xl flex items-center justify-center",
+                    "w-12 h-12 rounded-2xl flex items-center justify-center",
                     "bg-glass/60 backdrop-blur-xl border border-glass-border/50",
                     "shadow-glass hover:shadow-glass-glow transition-all duration-300"
                   )}
@@ -169,11 +169,8 @@ const Aria: React.FC = () => {
         >
           {/* Hero Section with huge buttons */}
           <AriaHeroSection
-            userName={profile?.name || undefined}
-            lastSession={lastSession}
             onStartChat={handleStartChat}
             onStartVoice={handleStartVoice}
-            onViewLastSession={() => lastSession && setSelectedSessionId(lastSession.id)}
           />
 
           {/* Diary Grid - bigger */}

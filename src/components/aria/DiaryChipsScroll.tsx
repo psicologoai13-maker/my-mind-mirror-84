@@ -18,22 +18,22 @@ interface DiaryChipsScrollProps {
 
 const DIARY_CONFIG: Record<string, { icon: React.ReactNode; label: string; gradient: string }> = {
   love: { 
-    icon: <Heart className="w-6 h-6" />, 
+    icon: <Heart className="w-7 h-7" />, 
     label: 'Amore',
     gradient: 'from-rose-500 to-pink-500'
   },
   work: { 
-    icon: <Briefcase className="w-6 h-6" />, 
+    icon: <Briefcase className="w-7 h-7" />, 
     label: 'Lavoro',
     gradient: 'from-amber-500 to-orange-500'
   },
   relationships: { 
-    icon: <Users className="w-6 h-6" />, 
+    icon: <Users className="w-7 h-7" />, 
     label: 'Relazioni',
     gradient: 'from-sky-500 to-blue-500'
   },
   self: { 
-    icon: <User className="w-6 h-6" />, 
+    icon: <User className="w-7 h-7" />, 
     label: 'Me stesso',
     gradient: 'from-emerald-500 to-teal-500'
   },
@@ -47,14 +47,14 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
 }) => {
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-semibold text-base text-foreground">I tuoi diari</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-medium text-sm text-muted-foreground">I tuoi diari</h2>
         {activeDiaryIds.length < 6 && (
           <button
             onClick={onAddDiary}
-            className="text-sm text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
+            className="text-xs text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Aggiungi
           </button>
         )}
@@ -72,7 +72,7 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               key={themeId}
               onClick={() => onOpenDiary(themeId)}
               className={cn(
-                "flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl",
+                "flex flex-col items-center justify-center gap-3 p-5 rounded-2xl",
                 "bg-glass/70 backdrop-blur-xl border border-glass-border/50",
                 "hover:shadow-glass-glow hover:border-primary/30",
                 "transition-all duration-300",
@@ -85,7 +85,7 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               whileTap={{ scale: 0.95 }}
             >
               <div className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center",
+                "w-14 h-14 rounded-2xl flex items-center justify-center",
                 `bg-gradient-to-br ${config.gradient}`,
                 "text-white shadow-lg"
               )}>
