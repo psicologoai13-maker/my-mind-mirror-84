@@ -1208,6 +1208,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         transcript: transcript,
         mood_score_detected: analysis.vitals.mood,
         anxiety_score_detected: analysis.vitals.anxiety,
+        energy_score_detected: analysis.vitals.energy, // NEW: Store energy in session
         emotion_tags: analysis.emotion_tags,
         ai_summary: analysis.summary,
         life_balance_scores: lifeBalanceScores,
@@ -1219,7 +1220,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         specific_emotions: analysis.emotions,
         clinical_indices: analysis.clinical_indices,
         sleep_quality: analysis.vitals.sleep,
-        deep_psychology: analysis.deep_psychology // NEW: Store deep psychology in session
+        deep_psychology: analysis.deep_psychology // Store deep psychology in session
       })
       .eq('id', session_id);
 
