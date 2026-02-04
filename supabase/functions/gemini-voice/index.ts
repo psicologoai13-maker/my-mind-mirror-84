@@ -11,7 +11,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // Gemini 2.5 Flash Native Audio - optimized for real-time voice
-const MODEL = "models/gemini-2.5-flash-preview-native-audio-dialog";
+const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 
 serve(async (req) => {
   const { headers } = req;
