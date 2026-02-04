@@ -82,23 +82,10 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
         <div className="flex-1">
           <motion.div 
-            className={`
-              relative rounded-2xl transition-all duration-300
-              ${isFocused ? 'shadow-[0_0_25px_rgba(155,111,208,0.3)]' : 'shadow-glass'}
-            `}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            {/* Gradient border effect */}
-            <div className={`
-              absolute inset-0 rounded-2xl transition-opacity duration-300
-              bg-gradient-to-r from-aria-violet/50 via-aria-indigo/50 to-aria-purple/50
-              ${isFocused ? 'opacity-100' : 'opacity-0'}
-            `} style={{ padding: '2px' }}>
-              <div className="w-full h-full rounded-2xl bg-background" />
-            </div>
-            
             <Input
               ref={inputRef}
               type="text"
@@ -109,7 +96,14 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
               onKeyDown={handleKeyDown}
               placeholder="Il tuo nome"
               enterKeyHint="done"
-              className="relative h-16 text-xl text-center rounded-2xl border border-glass-border bg-glass backdrop-blur-xl transition-all duration-300 focus:border-aria-violet focus:ring-0 focus:outline-none"
+              className={`
+                h-16 text-xl text-center rounded-2xl bg-glass backdrop-blur-xl 
+                transition-all duration-300 focus:ring-0 focus:outline-none
+                ${isFocused 
+                  ? 'border-2 border-aria-violet shadow-[0_0_25px_rgba(155,111,208,0.3)]' 
+                  : 'border border-glass-border shadow-glass'
+                }
+              `}
               autoFocus
             />
           </motion.div>
