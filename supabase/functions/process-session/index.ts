@@ -1009,10 +1009,135 @@ Solo valori ESPLICITI o FORTEMENTE INFERIBILI → assegna punteggio.
 NON inventare NIENTE basandoti su inferenze generali!
 `;
 
+    // NEW: VITALS semantic extraction rules (HARDENED)
+    const vitalsSemanticPrompt = `
+═══════════════════════════════════════════════
+💓 VITALI - REGOLE SEMANTICHE (OBBLIGATORIE!)
+═══════════════════════════════════════════════
+⚠️ REGOLA FONDAMENTALE: Se l'utente NON parla ESPLICITAMENTE di questi temi → NULL. MAI inventare!
+
+**mood** (umore generale 1-10):
+- RILEVA: espressioni ESPLICITE dello stato d'animo generale
+- BASSO (1-4): "mi sento giù", "sono triste", "depresso", "abbattuto", "giornata nera", "umore a terra", "umore pessimo", "mi sento male", "sono a pezzi"
+- MEDIO (5-6): "così così", "normale", "né bene né male", "meh", "insomma", "niente di che"
+- ALTO (7-10): "mi sento bene", "sono felice", "sono contento", "ottimo umore", "alla grande", "in forma smagliante", "giornata fantastica"
+- ⚠️ SOLO se l'utente ESPRIME il proprio umore! Sintomi fisici ≠ mood
+- Se NON menzionato esplicitamente → null
+
+**anxiety** (ansia 1-10):
+- RILEVA: preoccupazioni, tensione, sintomi fisici da ansia
+- ALTA (7-10): "sono in ansia", "sono preoccupatissimo", "agitato", "nervoso", "pensieri che girano", "non riesco a calmarmi", "panico", "ho l'ansia", "cuore che batte forte", "fiato corto"
+- MEDIA (4-6): "un po' teso", "leggermente preoccupato", "mi preoccupa un po'", "sono nervosetto"
+- BASSA (1-3): "sono tranquillo", "sereno", "rilassato", "calmo", "zen", "nessuna preoccupazione"
+- ⚠️ DISTINGUI ansia da tristezza! Tristezza ≠ ansia. Ansia = preoccupazione + attivazione.
+- Se NON menzionato → null
+
+**energy** (energia 1-10):
+- RILEVA: livelli di energia fisica/mentale
+- BASSA (1-4): "sono stanco", "esausto", "senza forze", "spossato", "zero energie", "morto", "distrutto", "sfinito", "non ho energie", "sono a terra"
+- MEDIA (5-6): "energia normale", "ok", "nella media"
+- ALTA (7-10): "pieno di energia", "sono carico", "attivo", "dinamico", "in forma", "energico", "pieno di voglia di fare"
+- ⚠️ ATTENZIONE: Distingui tra stanchezza FISICA (energy) ed EMOTIVA (mood/burnout)
+- ⚠️ "Sono stanco" senza contesto → potrebbe essere energia OPPURE burnout. Chiedi contesto.
+- Se NON menzionato → null
+
+**sleep** (qualità sonno 1-10):
+- RILEVA: SOLO menzioni ESPLICITE del sonno/riposo notturno
+- SCARSO (1-4): "ho dormito male", "insonnia", "mi sono svegliato alle 3", "incubi", "non dormo", "notte in bianco", "non riesco a dormire", "mi sveglio sempre"
+- MEDIO (5-6): "ho dormito ok", "dormito abbastanza", "così così", "poteva andare meglio"
+- BUONO (7-10): "ho dormito benissimo", "sono riposato", "8 ore filate", "dormito come un sasso", "notte perfetta"
+- ⚠️ REGOLA STRETTA: Assegna SOLO se l'utente PARLA del sonno!
+- ⚠️ NON inferire sonno da stanchezza! "Sono stanco" ≠ "ho dormito male"
+- Se NON menziona sonno/dormire/riposo → null (MAI inventare!)
+`;
+
+    // NEW: Base Emotions semantic extraction rules (HARDENED)
+    const baseEmotionsPrompt = `
+═══════════════════════════════════════════════
+😊 EMOZIONI BASE - REGOLE SEMANTICHE (OBBLIGATORIE!)
+═══════════════════════════════════════════════
+⚠️ Per le EMOZIONI: Se NON espressa → 0 (default). MAI inventare intensità non presenti!
+
+**joy** (gioia 0-10):
+- RILEVA: espressioni ESPLICITE di felicità, contentezza
+- ALTA (7-10): "sono felice", "che bello!", "fantastico!", "entusiasta", "evviva!", "sono contentissimo", "gioia immensa"
+- MEDIA (4-6): "sono contento", "soddisfatto", "mi fa piacere", "bene così"
+- BASSA (1-3): "un po' contento", "niente male"
+- ⚠️ NON inferire gioia da assenza di tristezza! Richiede espressione POSITIVA esplicita.
+- Se NON espressa → 0
+
+**sadness** (tristezza 0-10):
+- RILEVA: espressioni di tristezza, abbattimento
+- ALTA (7-10): "sono tristissimo", "ho pianto", "mi sento disperato", "sono a pezzi", "devastato"
+- MEDIA (4-6): "sono triste", "mi sento giù", "abbattuto", "sconsolato", "malinconico"
+- BASSA (1-3): "un po' giù", "non sono al massimo"
+- ⚠️ Tristezza ≠ stanchezza. Tristezza ≠ ansia. Cerca parole EMOTIVE.
+- Se NON espressa → 0
+
+**anger** (rabbia 0-10):
+- RILEVA: espressioni di rabbia, frustrazione intensa, irritazione
+- ALTA (7-10): "sono furioso", "incazzato nero", "mi ha fatto arrabbiare tantissimo", "sono furente", "voglio spaccare tutto"
+- MEDIA (4-6): "sono arrabbiato", "mi dà fastidio", "sono irritato", "mi ha fatto innervosire"
+- BASSA (1-3): "un po' seccato", "leggermente irritato"
+- ⚠️ DIVERSO da frustration (più passiva). Anger = emozione ATTIVA, aggressiva.
+- Se NON espressa → 0
+
+**fear** (paura 0-10):
+- RILEVA: espressioni di paura, terrore, timore
+- ALTA (7-10): "ho paura", "sono terrorizzato", "mi spaventa da morire", "panico", "sono spaventatissimo"
+- MEDIA (4-6): "mi preoccupa", "mi fa paura", "ho timore", "mi spaventa"
+- BASSA (1-3): "un po' di apprensione", "leggermente timoroso"
+- ⚠️ Fear ≠ anxiety. Fear è più acuta e specifica, anxiety è cronica e diffusa.
+- ⚠️ Se anxiety >= 6, considera fear >= 3-4 (correlazione)
+- Se NON espressa → 0
+
+**shame** (vergogna 0-10):
+- RILEVA: espressioni di vergogna, imbarazzo
+- ALTA (7-10): "mi vergogno tantissimo", "vorrei sparire", "che figura di m***", "sono mortificato"
+- MEDIA (4-6): "mi vergogno", "che figura!", "sono imbarazzato", "mi sento a disagio"
+- BASSA (1-3): "un po' imbarazzato", "leggermente a disagio"
+- ⚠️ DIVERSO da guilt (colpa per azioni). Shame = giudizio su SÉ STESSO.
+- Se NON espressa → 0
+
+**jealousy** (gelosia/invidia 0-10):
+- RILEVA: espressioni di gelosia o invidia
+- ALTA (7-10): "sono gelosissimo", "rosico da morire", "perché lui sì e io no?!", "non è giusto!"
+- MEDIA (4-6): "sono geloso", "lo invidio", "lui ha tutto", "vorrei essere come lui/lei"
+- BASSA (1-3): "un po' invidioso", "ammetto che mi rode"
+- ⚠️ Può riferirsi a RELAZIONI (gelosia romantica) o POSSESSI (invidia)
+- Se NON espressa → 0
+
+**hope** (speranza 0-10):
+- RILEVA: espressioni di speranza, ottimismo per il futuro
+- ALTA (7-10): "ho tanta speranza", "sono sicuro che andrà bene", "ce la faremo!", "vedo la luce"
+- MEDIA (4-6): "spero", "forse andrà bene", "ho fiducia", "sono ottimista"
+- BASSA (1-3): "un filo di speranza", "magari..."
+- ⚠️ DIVERSO da excitement (eccitazione). Hope = futuro incerto ma positivo.
+- Se NON espressa → 0
+
+**frustration** (frustrazione 0-10):
+- RILEVA: espressioni di frustrazione, senso di blocco
+- ALTA (7-10): "che frustrazione!", "non ce la faccio più", "sono bloccato", "non funziona niente!"
+- MEDIA (4-6): "sono frustrato", "mi sento bloccato", "non riesco ad andare avanti"
+- BASSA (1-3): "un po' frustrato", "poteva andare meglio"
+- ⚠️ DIVERSO da anger (rabbia attiva). Frustration = impotenza, blocco PASSIVO.
+- Se NON espressa → 0
+
+**nostalgia** (nostalgia 0-10):
+- RILEVA: espressioni di nostalgia per il passato
+- ALTA (7-10): "mi manca tantissimo", "bei tempi andati", "rimpiango tanto", "non sarà mai più così"
+- MEDIA (4-6): "mi manca", "una volta era meglio", "che nostalgia", "penso spesso a..."
+- BASSA (1-3): "a volte mi manca", "ogni tanto ci penso"
+- ⚠️ Nostalgia può essere DOLCE (positiva) o DOLOROSA (negativa). Rileva il tono.
+- Se NON espressa → 0
+`;
+
     // Build the OMNISCIENT analysis prompt with personalization
     const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE con formazione in Psichiatria, Psicologia Clinica e Neuroscienze.
 Analizza la conversazione e restituisci SEMPRE un JSON valido.
 ${personalizedInstructions}
+${vitalsSemanticPrompt}
+${baseEmotionsPrompt}
 ${dataHunterLifeAreas}
 ${deepPsychologyPrompt}
 ${objectivesTrackingPrompt}
