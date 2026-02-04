@@ -240,30 +240,44 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       return null;
     }
 
+    // Detect iOS for special handling
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    console.log('[HybridVoice] Platform:', { isIOS, userAgent: navigator.userAgent });
+
     const recognition = new SpeechRecognition();
     recognition.lang = 'it-IT';
-    recognition.continuous = true;
+    // iOS Safari doesn't handle continuous mode well
+    recognition.continuous = !isIOS;
     recognition.interimResults = true;
 
     let finalTranscript = '';
     let interimTranscript = '';
-    let silenceTimeoutId: NodeJS.Timeout | null = null;
+    let silenceTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let restartTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     // Process interim transcript after silence
     const processAfterSilence = () => {
-      if (interimTranscript.trim() && !isProcessingRef.current) {
-        const toProcess = interimTranscript.trim();
-        console.log('[HybridVoice] Processing after silence:', toProcess);
+      const textToProcess = interimTranscript.trim() || finalTranscript.trim();
+      if (textToProcess && !isProcessingRef.current) {
+        console.log('[HybridVoice] Processing after silence:', textToProcess);
         interimTranscript = '';
         finalTranscript = '';
         setCurrentTranscript('');
-        recognition.stop();
-        processUserInput(toProcess);
+        try {
+          recognition.stop();
+        } catch (e) {
+          // Already stopped
+        }
+        processUserInput(textToProcess);
       }
     };
 
     recognition.onresult = (event) => {
-      // Clear previous silence timeout
+      console.log('[HybridVoice] onresult event received, results:', event.results.length);
+      
+      // Clear previous timeouts
       if (silenceTimeoutId) {
         clearTimeout(silenceTimeoutId);
         silenceTimeoutId = null;
@@ -273,6 +287,13 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
+        console.log('[HybridVoice] Result:', { 
+          index: i, 
+          isFinal: result.isFinal, 
+          transcript: result[0].transcript,
+          confidence: result[0].confidence 
+        });
+        
         if (result.isFinal) {
           finalTranscript += result[0].transcript + ' ';
         } else {
@@ -280,33 +301,55 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         }
       }
 
-      interimTranscript = interim || finalTranscript;
-      setCurrentTranscript(interimTranscript);
-      console.log('[HybridVoice] Transcript:', { interim, final: finalTranscript, combined: interimTranscript });
+      interimTranscript = interim;
+      const displayText = interim || finalTranscript;
+      setCurrentTranscript(displayText);
+      console.log('[HybridVoice] Transcript update:', { interim, final: finalTranscript, display: displayText });
 
       // Process immediately if we have a final result
       if (finalTranscript.trim()) {
         const toProcess = finalTranscript.trim();
+        console.log('[HybridVoice] Processing final transcript:', toProcess);
         finalTranscript = '';
         interimTranscript = '';
         setCurrentTranscript('');
-        recognition.stop();
+        try {
+          recognition.stop();
+        } catch (e) {
+          // Already stopped
+        }
         processUserInput(toProcess);
       } else if (interim.trim()) {
-        // Set timeout to process interim transcript after 1.5s of silence
-        silenceTimeoutId = setTimeout(processAfterSilence, 1500);
+        // Set timeout to process interim transcript after silence
+        // Shorter timeout on iOS since it doesn't give final results reliably
+        const silenceDelay = isIOS ? 1200 : 1500;
+        silenceTimeoutId = setTimeout(processAfterSilence, silenceDelay);
       }
     };
 
     recognition.onend = () => {
-      console.log('[HybridVoice] Recognition ended');
-      // Don't auto-restart if we're processing or not active
+      console.log('[HybridVoice] Recognition ended, isProcessing:', isProcessingRef.current, 'isActive:', isActiveRef.current);
+      
+      // On iOS, check if we have pending interim transcript to process
+      if (isIOS && interimTranscript.trim() && !isProcessingRef.current) {
+        console.log('[HybridVoice] iOS: Processing pending interim on end:', interimTranscript);
+        processAfterSilence();
+        return;
+      }
+      
+      // Auto-restart if we're not processing and session is active
       if (!isProcessingRef.current && isActiveRef.current) {
-        try {
-          recognition.start();
-        } catch (e) {
-          // Already started or error
-        }
+        // Small delay before restart to avoid rapid cycling
+        restartTimeoutId = setTimeout(() => {
+          if (isActiveRef.current && !isProcessingRef.current) {
+            try {
+              console.log('[HybridVoice] Restarting recognition...');
+              recognition.start();
+            } catch (e) {
+              console.log('[HybridVoice] Restart error:', e);
+            }
+          }
+        }, 100);
       }
     };
 
