@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
@@ -17,13 +17,13 @@ interface MetricDetailSheetProps {
   timeRange: TimeRange;
 }
 
-// Large animated ring for hero display
+// Compact animated ring for hero display
 const HeroRing: React.FC<{ 
   value: number; 
   isNegative: boolean;
 }> = ({ value, isNegative }) => {
-  const size = 140;
-  const strokeWidth = 10;
+  const size = 100;
+  const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
@@ -66,14 +66,14 @@ const HeroRing: React.FC<{
           strokeLinecap="round"
           className="transition-all duration-1000 ease-out"
           style={{
-            filter: `drop-shadow(0 0 12px ${color}60)`
+            filter: `drop-shadow(0 0 10px ${color}50)`
           }}
         />
       </svg>
       {/* Center value */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-bold text-foreground">{value.toFixed(1)}</span>
-        <span className="text-sm text-muted-foreground">/10</span>
+        <span className="text-2xl font-bold text-foreground">{value.toFixed(1)}</span>
+        <span className="text-xs text-muted-foreground">/10</span>
       </div>
     </div>
   );
@@ -85,6 +85,19 @@ const MetricDetailSheet: React.FC<MetricDetailSheetProps> = ({
   onClose, 
   timeRange 
 }) => {
+  // Hide bottom nav when sheet opens
+  useEffect(() => {
+    if (isOpen) {
+      window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
+    } else {
+      window.dispatchEvent(new CustomEvent('show-bottom-nav'));
+    }
+    
+    return () => {
+      window.dispatchEvent(new CustomEvent('show-bottom-nav'));
+    };
+  }, [isOpen]);
+
   const metricConfig = metricKey ? getMetricByKey(metricKey) : null;
   
   const dateRange = useMemo(() => {
