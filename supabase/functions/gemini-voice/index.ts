@@ -11,7 +11,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // Gemini 2.5 Flash Native Audio - optimized for real-time voice
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+const MODEL = "models/gemini-2.5-flash-preview-native-audio-dialog";
 
 serve(async (req) => {
   const { headers } = req;
@@ -478,36 +478,23 @@ Inizia con un saluto caldo e chiedi come sta oggi.`;
         
         geminiSocket.onmessage = (event) => {
           try {
-            // Handle string messages
-            const messageData = typeof event.data === 'string' ? event.data : null;
-            if (!messageData) {
-              console.log("[gemini-voice] Received binary message, forwarding");
+            const data = JSON.parse(event.data);
+            
+            // Check for setup completion
+            if (data.setupComplete) {
+              setupComplete = true;
+              console.log("[gemini-voice] Gemini setup complete!");
               if (clientSocket.readyState === WebSocket.OPEN) {
-                clientSocket.send(event.data);
+                clientSocket.send(JSON.stringify({ type: 'setup_complete', model: MODEL }));
               }
               return;
-            }
-
-            const data = JSON.parse(messageData);
-            console.log("[gemini-voice] Received message type:", Object.keys(data).join(', '));
-            
-            // Check for setup completion - Gemini may use different format
-            if (data.setupComplete || data.setup_complete || (data.serverContent && !setupComplete)) {
-              if (!setupComplete) {
-                setupComplete = true;
-                console.log("[gemini-voice] Gemini setup complete! Keys received:", Object.keys(data).join(', '));
-                if (clientSocket.readyState === WebSocket.OPEN) {
-                  clientSocket.send(JSON.stringify({ type: 'setup_complete', model: MODEL }));
-                }
-              }
             }
             
             // Forward all messages to client
             if (clientSocket.readyState === WebSocket.OPEN) {
-              clientSocket.send(messageData);
+              clientSocket.send(event.data);
             }
-          } catch (err) {
-            console.error("[gemini-voice] Error parsing message:", err);
+          } catch {
             // Non-JSON message, forward as-is
             if (clientSocket.readyState === WebSocket.OPEN) {
               clientSocket.send(event.data);

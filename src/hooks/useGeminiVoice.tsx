@@ -219,134 +219,106 @@ export const useGeminiVoice = (): UseGeminiVoiceReturn => {
         console.log('[GeminiVoice] WebSocket connected, waiting for setup...');
       };
 
-      wsRef.current.onmessage = async (event) => {
+      wsRef.current.onmessage = (event) => {
         try {
-          // Handle binary data (Blob or ArrayBuffer)
-          if (event.data instanceof Blob) {
-            // Convert Blob to text and parse
-            const text = await event.data.text();
-            try {
-              const data = JSON.parse(text);
-              handleGeminiMessage(data);
-            } catch {
-              console.log('[GeminiVoice] Received non-JSON blob, ignoring');
-            }
-            return;
-          }
-
-          if (event.data instanceof ArrayBuffer) {
-            // Convert ArrayBuffer to text
-            const text = new TextDecoder().decode(event.data);
-            try {
-              const data = JSON.parse(text);
-              handleGeminiMessage(data);
-            } catch {
-              console.log('[GeminiVoice] Received non-JSON ArrayBuffer, ignoring');
-            }
-            return;
-          }
-
-          // Handle string data
           const data = JSON.parse(event.data);
-          handleGeminiMessage(data);
-        } catch (err) {
-          console.error('[GeminiVoice] Error processing message:', err);
-        }
-      };
-
-      const handleGeminiMessage = (data: any) => {
-        // Handle setup complete
-        if (data.type === 'setup_complete') {
-          console.log('[GeminiVoice] Setup complete, model:', data.model);
-          setIsActive(true);
-          setIsConnecting(false);
-          setIsListening(true);
-          updateAudioLevel();
-          toast.success('Connesso a Gemini! Inizia a parlare');
           
-          // Start sending audio
-          if (processorRef.current) {
-            processorRef.current.onaudioprocess = (e) => {
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                const inputData = e.inputBuffer.getChannelData(0);
-                const base64Audio = float32ToPCM16Base64(inputData);
-                
-                wsRef.current.send(JSON.stringify({
-                  realtimeInput: {
-                    mediaChunks: [{
-                      mimeType: "audio/pcm;rate=16000",
-                      data: base64Audio
-                    }]
-                  }
-                }));
-              }
-            };
+          // Handle setup complete
+          if (data.type === 'setup_complete') {
+            console.log('[GeminiVoice] Setup complete, model:', data.model);
+            setIsActive(true);
+            setIsConnecting(false);
+            setIsListening(true);
+            updateAudioLevel();
+            toast.success('Connesso a Gemini! Inizia a parlare');
+            
+            // Start sending audio
+            if (processorRef.current) {
+              processorRef.current.onaudioprocess = (e) => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  const inputData = e.inputBuffer.getChannelData(0);
+                  const base64Audio = float32ToPCM16Base64(inputData);
+                  
+                  wsRef.current.send(JSON.stringify({
+                    realtimeInput: {
+                      mediaChunks: [{
+                        mimeType: "audio/pcm;rate=16000",
+                        data: base64Audio
+                      }]
+                    }
+                  }));
+                }
+              };
+            }
+            return;
           }
-          return;
-        }
 
-        // Handle error
-        if (data.type === 'error') {
-          console.error('[GeminiVoice] Error:', data.message);
-          toast.error(data.message || 'Errore nella connessione');
-          return;
-        }
+          // Handle error
+          if (data.type === 'error') {
+            console.error('[GeminiVoice] Error:', data.message);
+            toast.error(data.message || 'Errore nella connessione');
+            return;
+          }
 
-        // Handle server content (audio response)
-        if (data.serverContent) {
-          const serverContent = data.serverContent;
-          
-          // Check if AI is speaking
-          if (serverContent.modelTurn?.parts) {
-            for (const part of serverContent.modelTurn.parts) {
-              // Handle audio data
-              if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
-                setIsSpeaking(true);
-                setIsListening(false);
+          // Handle server content (audio response)
+          if (data.serverContent) {
+            const serverContent = data.serverContent;
+            
+            // Check if AI is speaking
+            if (serverContent.modelTurn?.parts) {
+              for (const part of serverContent.modelTurn.parts) {
+                // Handle audio data
+                if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
+                  setIsSpeaking(true);
+                  setIsListening(false);
+                  
+                  const audioData = pcm16Base64ToFloat32(part.inlineData.data);
+                  if (workletNodeRef.current) {
+                    workletNodeRef.current.port.postMessage({ samples: Array.from(audioData) });
+                  }
+                }
                 
-                const audioData = pcm16Base64ToFloat32(part.inlineData.data);
-                if (workletNodeRef.current) {
-                  workletNodeRef.current.port.postMessage({ samples: Array.from(audioData) });
+                // Handle text (transcript)
+                if (part.text) {
+                  currentAssistantTextRef.current += part.text;
                 }
               }
+            }
+            
+            // Turn complete - save assistant response
+            if (serverContent.turnComplete) {
+              console.log('[GeminiVoice] Turn complete');
+              setIsSpeaking(false);
+              setIsListening(true);
               
-              // Handle text (transcript)
-              if (part.text) {
-                currentAssistantTextRef.current += part.text;
+              if (currentAssistantTextRef.current) {
+                transcriptRef.current.push({
+                  role: 'assistant',
+                  text: currentAssistantTextRef.current
+                });
+                currentAssistantTextRef.current = '';
               }
             }
-          }
-          
-          // Turn complete - save assistant response
-          if (serverContent.turnComplete) {
-            console.log('[GeminiVoice] Turn complete');
-            setIsSpeaking(false);
-            setIsListening(true);
             
-            if (currentAssistantTextRef.current) {
-              transcriptRef.current.push({
-                role: 'assistant',
-                text: currentAssistantTextRef.current
-              });
-              currentAssistantTextRef.current = '';
+            // Check for interruption
+            if (serverContent.interrupted) {
+              console.log('[GeminiVoice] Interrupted by user');
+              setIsSpeaking(false);
+              setIsListening(true);
             }
           }
-          
-          // Check for interruption
-          if (serverContent.interrupted) {
-            console.log('[GeminiVoice] Interrupted by user');
-            setIsSpeaking(false);
-            setIsListening(true);
-          }
-        }
 
-        // Handle input transcription (user speech)
-        if (data.inputTranscription?.text) {
-          console.log('[GeminiVoice] User said:', data.inputTranscription.text);
-          transcriptRef.current.push({
-            role: 'user',
-            text: data.inputTranscription.text
-          });
+          // Handle input transcription (user speech)
+          if (data.inputTranscription?.text) {
+            console.log('[GeminiVoice] User said:', data.inputTranscription.text);
+            transcriptRef.current.push({
+              role: 'user',
+              text: data.inputTranscription.text
+            });
+          }
+
+        } catch (err) {
+          console.error('[GeminiVoice] Error parsing message:', err);
         }
       };
 
