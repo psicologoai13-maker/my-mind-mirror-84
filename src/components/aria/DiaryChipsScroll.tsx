@@ -18,22 +18,22 @@ interface DiaryChipsScrollProps {
 
 const DIARY_CONFIG: Record<string, { icon: React.ReactNode; label: string; gradient: string }> = {
   love: { 
-    icon: <Heart className="w-4 h-4" />, 
+    icon: <Heart className="w-6 h-6" />, 
     label: 'Amore',
     gradient: 'from-rose-500 to-pink-500'
   },
   work: { 
-    icon: <Briefcase className="w-4 h-4" />, 
+    icon: <Briefcase className="w-6 h-6" />, 
     label: 'Lavoro',
     gradient: 'from-amber-500 to-orange-500'
   },
   relationships: { 
-    icon: <Users className="w-4 h-4" />, 
+    icon: <Users className="w-6 h-6" />, 
     label: 'Relazioni',
     gradient: 'from-sky-500 to-blue-500'
   },
   self: { 
-    icon: <User className="w-4 h-4" />, 
+    icon: <User className="w-6 h-6" />, 
     label: 'Me stesso',
     gradient: 'from-emerald-500 to-teal-500'
   },
@@ -46,8 +46,8 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
   onAddDiary,
 }) => {
   return (
-    <section className="px-4">
-      <div className="flex items-center justify-between mb-3">
+    <section>
+      <div className="flex items-center justify-between mb-4">
         <h2 className="font-display font-semibold text-base text-foreground">I tuoi diari</h2>
         {activeDiaryIds.length < 6 && (
           <button
@@ -72,19 +72,22 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
               key={themeId}
               onClick={() => onOpenDiary(themeId)}
               className={cn(
-                "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl",
-                "bg-glass backdrop-blur-sm border border-glass-border/50",
-                "hover:shadow-glass transition-all duration-200",
-                "active:scale-[0.97]"
+                "flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl",
+                "bg-glass/70 backdrop-blur-xl border border-glass-border/50",
+                "hover:shadow-glass-glow hover:border-primary/30",
+                "transition-all duration-300",
+                "active:scale-[0.95]"
               )}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.95 }}
             >
               <div className={cn(
-                "w-11 h-11 rounded-xl flex items-center justify-center",
+                "w-12 h-12 rounded-xl flex items-center justify-center",
                 `bg-gradient-to-br ${config.gradient}`,
-                "text-white shadow-sm"
+                "text-white shadow-lg"
               )}>
                 {config.icon}
               </div>

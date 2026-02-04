@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, ChevronDown, ChevronUp } from 'lucide-react';
+import { History } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 import { useThematicDiaries } from '@/hooks/useThematicDiaries';
@@ -15,7 +15,8 @@ import AriaHeroSection from '@/components/aria/AriaHeroSection';
 import DiaryChipsScroll from '@/components/aria/DiaryChipsScroll';
 import CompactSessionItem from '@/components/aria/CompactSessionItem';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import type { DiaryTheme } from '@/hooks/useThematicDiaries';
 
 const Aria: React.FC = () => {
@@ -23,7 +24,6 @@ const Aria: React.FC = () => {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [pendingAction, setPendingAction] = useState<'chat' | 'voice' | null>(null);
   const [selectedDiaryTheme, setSelectedDiaryTheme] = useState<DiaryTheme | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -37,7 +37,7 @@ const Aria: React.FC = () => {
     return stored ? JSON.parse(stored) : ['love', 'work', 'relationships', 'self'];
   });
 
-  const recentSessions = journalSessions?.slice(0, 5) || [];
+  const recentSessions = journalSessions?.slice(0, 10) || [];
   const lastSession = journalSessions?.[0] || null;
   const shouldAskLocation = permission === 'prompt' && profile?.location_permission_granted !== false;
 
@@ -122,69 +122,68 @@ const Aria: React.FC = () => {
 
   return (
     <MobileLayout>
-      <div className="pb-20 space-y-4 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
-        {/* Hero Section with integrated insight */}
-        <AriaHeroSection
-          userName={profile?.name || undefined}
-          lastSession={lastSession}
-          onStartChat={handleStartChat}
-          onStartVoice={handleStartVoice}
-          onContinue={handleStartChat}
-        />
-
-        {/* Diary Grid - bigger */}
-        <DiaryChipsScroll
-          activeDiaryIds={activeDiaryIds}
-          diaries={diaries}
-          onOpenDiary={handleOpenDiary}
-          onAddDiary={() => setShowDiaryModal(true)}
-        />
-
-        {/* Collapsible History - icon trigger */}
+      {/* Immersive Portal Background */}
+      <div className="aria-portal-bg min-h-[calc(100vh-80px)] pb-20 flex flex-col">
+        {/* Corner History Icon */}
         {recentSessions.length > 0 && (
-          <section className="px-5 mt-auto">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={cn(
-                "w-full flex items-center justify-center gap-2 py-2 rounded-xl",
-                "bg-glass/50 backdrop-blur-sm border border-glass-border/50",
-                "hover:bg-glass transition-all duration-200",
-                "text-muted-foreground"
-              )}
-            >
-              <History className="w-4 h-4" />
-              <span className="text-xs font-medium">Cronologia</span>
-              {showHistory ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-            </button>
-
-            <AnimatePresence>
-              {showHistory && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden mt-2"
+          <div className="absolute top-4 right-4 z-10">
+            <Sheet>
+              <SheetTrigger asChild>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={cn(
+                    "w-11 h-11 rounded-xl flex items-center justify-center",
+                    "bg-glass/60 backdrop-blur-xl border border-glass-border/50",
+                    "shadow-glass hover:shadow-glass-glow transition-all duration-300"
+                  )}
                 >
-                  <div className="space-y-1.5 max-h-[180px] overflow-y-auto scrollbar-hide">
-                    {recentSessions.map((session, index) => (
-                      <CompactSessionItem
-                        key={session.id}
-                        session={session}
-                        index={index}
-                        onClick={() => setSelectedSessionId(session.id)}
-                      />
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </section>
+                  <History className="w-5 h-5 text-muted-foreground" />
+                </motion.button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[85vw] sm:w-[400px]">
+                <SheetHeader>
+                  <SheetTitle className="text-left">Cronologia sessioni</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-2 overflow-y-auto max-h-[80vh]">
+                  {recentSessions.map((session, index) => (
+                    <CompactSessionItem
+                      key={session.id}
+                      session={session}
+                      index={index}
+                      onClick={() => setSelectedSessionId(session.id)}
+                    />
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         )}
+
+        {/* Main Content - Portal Entry Animation */}
+        <motion.div 
+          className="flex-1 flex flex-col justify-center space-y-5 px-5 relative z-[1] animate-portal-enter"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Hero Section with huge buttons */}
+          <AriaHeroSection
+            userName={profile?.name || undefined}
+            lastSession={lastSession}
+            onStartChat={handleStartChat}
+            onStartVoice={handleStartVoice}
+            onContinue={handleStartChat}
+          />
+
+          {/* Diary Grid - bigger */}
+          <DiaryChipsScroll
+            activeDiaryIds={activeDiaryIds}
+            diaries={diaries}
+            onOpenDiary={handleOpenDiary}
+            onAddDiary={() => setShowDiaryModal(true)}
+          />
+        </motion.div>
       </div>
 
       <ZenVoiceModal

@@ -595,6 +595,57 @@ select:focus {
   }
 }
 
+/* Aria Portal Immersive Background */
+@keyframes portal-breathe {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes portal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.aria-portal-bg {
+  position: relative;
+}
+
+.aria-portal-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(155, 111, 208, 0.25), transparent),
+    radial-gradient(ellipse 80% 60% at 30% 100%, rgba(99, 102, 241, 0.2), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 50%, rgba(167, 139, 250, 0.15), transparent);
+  animation: portal-breathe 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .aria-portal-bg::before {
+  background: 
+    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(155, 111, 208, 0.35), transparent),
+    radial-gradient(ellipse 80% 60% at 30% 100%, rgba(99, 102, 241, 0.3), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 50%, rgba(167, 139, 250, 0.25), transparent);
+}
+
+.animate-portal-enter {
+  animation: portal-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Zen Voice Modal - Breathing Gradients */
 @keyframes breathing-1 {
   0%, 100% { 
