@@ -1,192 +1,178 @@
 
-# Piano di Ristrutturazione Grafici Emotivi
 
-## Obiettivo
-Unificare e migliorare tutti i grafici emotivi per mostrare dinamicamente tutte le 14 emozioni tracciate quando hanno valori > 0, con un design coerente e visivamente accattivante.
+# Redesign Completo Sezione Analisi
 
----
+## Problema Attuale
+- Lista verticale di grafici separati - poco attraente
+- Solo i 4 parametri vitali hanno storico cliccabile
+- Emozioni, Psicologia, Aree Vita non mostrano storico individuale
+- Troppo spazio occupato da grafici non interattivi
 
-## 1. Creare Configurazione Centralizzata Emozioni
+## Soluzione Proposta: "Unified Metric Cards"
 
-Creo un nuovo file `src/lib/emotionConfig.ts` che definisce:
+Una nuova architettura dove **ogni singolo valore** è una card compatta e cliccabile che mostra:
+1. Valore attuale con colore semantico
+2. Mini-sparkline incorporato (7 giorni)
+3. Trend indicator (freccia su/giù/stabile)
+4. Click apre sheet con storico completo
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                   EMOTION_CONFIG                         │
-├─────────────────────────────────────────────────────────┤
-│  PRIMARIE (5)                                           │
-│  • joy      → Gioia      → 🌟 Giallo dorato            │
-│  • sadness  → Tristezza  → 💧 Blu                      │
-│  • anger    → Rabbia     → 🔥 Rosso                    │
-│  • fear     → Paura      → 👁️ Viola scuro              │
-│  • apathy   → Apatia     → ☁️ Grigio                   │
-├─────────────────────────────────────────────────────────┤
-│  SECONDARIE (9)                                         │
-│  • shame       → Vergogna     → Rosa scuro             │
-│  • jealousy    → Gelosia      → Verde scuro            │
-│  • hope        → Speranza     → Azzurro cielo          │
-│  • frustration → Frustrazione → Arancione              │
-│  • nostalgia   → Nostalgia    → Lavanda                │
-│  • nervousness → Nervosismo   → Giallo acceso          │
-│  • overwhelm   → Sopraffazione→ Viola intenso          │
-│  • excitement  → Eccitazione  → Magenta                │
-│  • disappointment → Delusione → Grigio-blu             │
-└─────────────────────────────────────────────────────────┘
-```
-
-Questo file esporterà:
-- Mappa completa emozioni con label italiano, colore, icona
-- Funzione helper per filtrare emozioni con valore > 0
-- Categorizzazione (primarie/secondarie)
-
----
-
-## 2. Aggiornare EmotionalMixBar (Home)
-
-**Scopo**: Mostra la proporzione relativa delle emozioni negli ultimi 30 giorni
-
-**Modifiche**:
-- Importare configurazione centralizzata
-- Supportare tutte 14 emozioni dinamicamente
-- Mostrare solo emozioni con valore > 0
-- Migliorare la barra pillola con gradiente glass
-- Aggiungere tooltip al tocco per vedere dettaglio emozione
+### Struttura Visiva
 
 ```text
-┌──────────────────────────────────────────┐
-│  ✨ Mix Emotivo (30 giorni)              │
-├──────────────────────────────────────────┤
-│  ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
-│  Gioia 45% | Speranza 25% | Ansia 15%...│
-│                                          │
-│  • Gioia 45%  • Speranza 25%  • Ansia 15%│
-│  • Frustrazione 10%  • Tristezza 5%      │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  📊 Analisi                             │
+│  Il tuo wellness a 360°                 │
+├─────────────────────────────────────────┤
+│                                         │
+│  [Giorno] [Settimana] [Mese] [Tutto]    │  ← Selettore tempo globale
+│                                         │
+│  ─────── 💫 Parametri Vitali ────────   │
+│  ┌──────────┐ ┌──────────┐              │
+│  │ 😌 Umore │ │ 😰 Ansia │              │
+│  │  7.2 ↑   │ │  4.1 ↓   │              │
+│  │ ▂▃▄▅▆▇█  │ │ █▇▆▅▄▃▂  │              │
+│  └──────────┘ └──────────┘              │
+│  ┌──────────┐ ┌──────────┐              │
+│  │ ⚡ Energ │ │ 💤 Sonno │              │
+│  │  6.8 →   │ │  7.5 ↑   │              │
+│  │ ▃▃▄▄▅▄▄  │ │ ▂▃▅▆▇▇█  │              │
+│  └──────────┘ └──────────┘              │
+│                                         │
+│  ─────── 🎭 Emozioni ────────           │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ 😊 Gioia │ │ 😢 Trist │ │ 😨 Paura │ │
+│  │  6.5 ↑   │ │  2.1 ↓   │ │  3.0 →   │ │
+│  │ ▂▃▄▅▆▇█  │ │ █▆▄▃▂▂▂  │ │ ▃▃▃▃▃▃▃  │ │
+│  └──────────┘ └──────────┘ └──────────┘ │
+│  ← scroll orizzontale per altre →       │
+│                                         │
+│  ─────── 🧠 Psicologia ────────         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ 💫 Autoe │ │ 🧠 Chiar │ │ 🔄 Rumin │ │
+│  │  7.8 ↑   │ │  6.2 →   │ │  3.5 ↓   │ │
+│  │ ▂▃▄▅▆▇█  │ │ ▄▄▅▅▆▆▆  │ │ █▇▆▅▄▃▂  │ │
+│  └──────────┘ └──────────┘ └──────────┘ │
+│  ← scroll orizzontale per altre →       │
+│                                         │
+│  ─────── 🧭 Aree della Vita ────────    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ 💼 Lavor │ │ ❤️ Amore │ │ 👥 Socia │ │
+│  │  6.0 ↑   │ │  7.2 →   │ │  5.5 ↑   │ │
+│  │ ▂▃▄▄▅▆▆  │ │ ▅▅▆▆▇▇▇  │ │ ▂▃▃▄▅▅▆  │ │
+│  └──────────┘ └──────────┘ └──────────┘ │
+│                                         │
+│  ─────── 💪 Corpo ────────              │
+│  (se dati disponibili)                  │
+│                                         │
+└─────────────────────────────────────────┘
 ```
 
----
+### Comportamento Click
 
-## 3. Rifare EmotionalSpectrumCard (Analisi)
-
-**Scopo**: Mostra l'intensita di ogni emozione con barre orizzontali
-
-**Modifiche**:
-- Supportare tutte 14 emozioni
-- Ordinare per valore decrescente
-- Raggruppare visivamente primarie vs secondarie
-- Aggiungere indicatore qualitativo (Alta/Media/Bassa)
-- Nascondere completamente emozioni a 0
+Cliccando su qualsiasi card si apre il `MetricDetailSheet` esistente (già funzionante) ma esteso per supportare TUTTE le metriche:
 
 ```text
-┌──────────────────────────────────────────┐
-│  🎭 Spettro Emotivo                      │
-├──────────────────────────────────────────┤
-│  EMOZIONI PRIMARIE                       │
-│  Gioia      ████████████░░░░  7.2  Buona │
-│  Tristezza  ████░░░░░░░░░░░░  2.1  Bassa │
-│                                          │
-│  EMOZIONI SECONDARIE                     │
-│  Speranza   ██████████░░░░░░  6.5  Media │
-│  Frustrazione ██████░░░░░░░░  4.0  Media │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│                    ─                    │  ← drag handle
+│  ┌────────────────────────────────────┐ │
+│  │ 😊  Gioia                          │ │
+│  │     Storico settimanale            │ │
+│  └────────────────────────────────────┘ │
+│                                         │
+│  ┌─────────────┐  ┌─────────────┐       │
+│  │   Media     │  │   Trend     │       │
+│  │    6.5      │  │     ↑       │       │
+│  │   /10      │  │ In aumento  │       │
+│  └─────────────┘  └─────────────┘       │
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │                                     ││
+│  │        📈 Area Chart Storico        ││
+│  │                                     ││
+│  │   ▂▃▄▅▆▇█                          ││
+│  │  ───────────────────────────        ││
+│  │  Lu Ma Me Gi Ve Sa Do               ││
+│  │                                     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  12 rilevazioni nel periodo             │
+└─────────────────────────────────────────┘
 ```
 
----
+## Vantaggi del Nuovo Design
 
-## 4. Rifare EmotionalSpectrumRadar (Analisi)
+1. **Consistenza**: Ogni metrica ha lo stesso trattamento visivo
+2. **Densità**: Più informazioni in meno spazio (no grafici giganti)
+3. **Storico universale**: Ogni valore è cliccabile per vedere l'andamento
+4. **Interattività**: L'utente esplora attivamente invece di scrollare passivamente
+5. **Mobile-first**: Card compatte perfette per touch
 
-**Scopo**: Visualizzazione radar dello stato emotivo attuale
+## Dettagli Tecnici
 
-**Modifiche**:
-- Mostrare dinamicamente solo emozioni con dati
-- Minimo 3 emozioni per il radar (altrimenti nascondere)
-- Massimo 8 emozioni per leggibilita
-- Prioritizzare emozioni con valori piu alti
-- Aggiungere legenda interattiva
+### Nuovi Componenti
 
-```text
-┌──────────────────────────────────────────┐
-│  🌈 Radar Emotivo                        │
-├──────────────────────────────────────────┤
-│                                          │
-│           Gioia                          │
-│             ●                            │
-│       Speranza   Tristezza               │
-│           ●   ●                          │
-│                                          │
-│    Frustrazione   Rabbia                 │
-│            ●   ●                         │
-│                                          │
-│  Dominante: Gioia (7.2/10)              │
-└──────────────────────────────────────────┘
+1. **UnifiedMetricCard** - Card compatta con:
+   - Icon + label
+   - Valore grande con colore semantico
+   - Mini sparkline (ultimi 7 punti)
+   - Trend arrow
+   - onClick handler
+
+2. **CategorySection** - Sezione con:
+   - Titolo + icon
+   - ScrollArea orizzontale per overflow
+   - Griglia 2 colonne (visibili) + scroll
+
+3. **MetricDetailSheet** (estensione) - Aggiungere supporto per:
+   - Emozioni (joy, sadness, anger, fear, apathy, etc.)
+   - Psicologia (rumination, burnout, self_efficacy, etc.)
+   - Aree vita (work, love, social, health, growth, school)
+
+### Modifiche Database/Backend
+
+Nessuna - tutti i dati sono già tracciati in:
+- `daily_emotions` - 14 emozioni
+- `daily_psychology` - 16 metriche psicologiche
+- `daily_life_areas` - 6 aree
+- `sessions` + `daily_checkins` - 4 vitali
+
+### File da Modificare
+
+1. **Creare**: `src/components/analisi/UnifiedMetricCard.tsx`
+2. **Creare**: `src/components/analisi/CategorySection.tsx`
+3. **Modificare**: `src/components/analisi/MetricDetailSheet.tsx` - estendere per tutte le metriche
+4. **Sostituire**: `src/pages/Analisi.tsx` - nuovo layout
+5. **Rimuovere/Deprecare**:
+   - `DynamicVitalsGrid.tsx` (sostituito da UnifiedMetricCard)
+   - `EmotionalSpectrumRadar.tsx` (radar ridondante)
+   - `EmotionalMixBar.tsx` (bar ridondante)
+   - `DeepPsychologyCard.tsx` (accordion sostituito da cards)
+   - `CorrelationCard.tsx` (può rimanere come feature opzionale)
+
+### Configurazione Metriche
+
+Estendere `src/lib/chartLibrary.ts` con configurazione completa per tutte le ~40 metriche:
+
+```typescript
+// Esempio struttura
+{
+  key: 'joy',
+  label: 'Gioia',
+  icon: '😊',
+  color: 'hsl(50, 90%, 50%)',
+  category: 'emotions',
+  isNegative: false,
+  description: 'Felicità e contentezza'
+}
 ```
 
----
+## Tempistiche Stimate
 
-## 5. Aggiornare EmotionalWeather (Progress)
+- UnifiedMetricCard: 30 min
+- CategorySection: 20 min
+- MetricDetailSheet esteso: 40 min
+- Analisi.tsx nuovo layout: 30 min
+- Testing e polish: 20 min
 
-**Scopo**: Trend settimanale delle emozioni
+**Totale: ~2.5 ore**
 
-**Modifiche**:
-- Supportare tutte 14 emozioni nello stacked bar
-- Colorare dinamicamente solo emozioni presenti
-- Migliorare tooltip con nomi italiani
-- Aggiungere opzione per vedere breakdown per giorno
-
----
-
-## 6. Nuovo Componente: EmotionalTrends
-
-**Scopo**: Mostra come le emozioni cambiano nel tempo
-
-**Caratteristiche**:
-- Line chart con multiple serie
-- Filtro per selezionare quali emozioni vedere
-- Confronto settimana vs settimana precedente
-- Insight AI sulle variazioni significative
-
----
-
-## 7. Hook Unificato per Emozioni
-
-Creo `useEmotionsData.tsx` che:
-- Recupera tutte 14 emozioni dal database
-- Calcola medie ponderate temporali
-- Filtra automaticamente emozioni a 0
-- Fornisce dati formattati per ogni tipo di grafico
-- Gestisce il loading state
-
----
-
-## Sequenza di Implementazione
-
-| Fase | Componente | Priorita |
-|------|------------|----------|
-| 1 | `emotionConfig.ts` (config centralizzata) | Alta |
-| 2 | `useEmotionsData.tsx` (hook unificato) | Alta |
-| 3 | `EmotionalMixBar` (Home) | Alta |
-| 4 | `EmotionalSpectrumCard` (Analisi) | Alta |
-| 5 | `EmotionalSpectrumRadar` (Analisi) | Media |
-| 6 | `EmotionalWeather` (Progress) | Media |
-| 7 | `EmotionalTrends` (nuovo) | Bassa |
-
----
-
-## Design System Applicato
-
-Tutti i grafici seguiranno il design "Liquid Glass 2026":
-- Sfondo `bg-glass` con `backdrop-blur-xl`
-- Bordi `border-glass-border`
-- Ombre `shadow-glass`
-- Animazioni spring con `framer-motion`
-- Palette colori HSL coerente
-- Responsive per mobile
-
----
-
-## Risultato Atteso
-
-- Tutti i grafici mostreranno le emozioni dinamicamente (solo quelle > 0)
-- Design coerente tra tutti i componenti
-- Esperienza utente migliorata con etichette italiane chiare
-- Nessuna confusione tra grafici diversi che mostrano dati diversi
