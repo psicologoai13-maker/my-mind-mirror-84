@@ -1,238 +1,168 @@
 
-# Quiz Personalizzato per Eta e Genere
+# Piano: Architettura Ibrida Aria con ElevenLabs
 
-## Analisi del Gap Attuale
+## Problema Identificato
 
-| Elemento | Stato Attuale | Problema |
-|----------|---------------|----------|
-| Eta | Binary (giovani vs adulti) | Troppo generico, mancano fasce intermedie |
-| Genere | Raccolto ma **mai usato** | Spreco di dato prezioso |
-| Occupazione | Non chiesta | Fondamentale per life areas (scuola/lavoro) |
+Il modello Gemini Native Audio (`gemini-2.5-flash-preview-native-audio-dialog`) non è più disponibile. L'API WebSocket per audio bidirezionale richiede accesso specifico che non è garantito dal Lovable AI Gateway.
 
-## Proposta: Matrice di Personalizzazione 4x3
-
-### Fasce d'Eta Migliorate
-
-| Fascia | Label | Focus Principale |
-|--------|-------|------------------|
-| <18 | Adolescenti | Scuola, identita, famiglia |
-| 18-24 | Giovani Adulti | Transizione, universita/primo lavoro |
-| 25-44 | Adulti | Carriera, famiglia, equilibrio |
-| 45+ | Adulti Maturi | Salute, legacy, riscoperta |
-
-### Personalizzazioni per Genere
-
-**Motivazioni Specifiche per Genere:**
-
-| Genere | Opzioni Esclusive |
-|--------|-------------------|
-| Donna | Sindrome dell'impostora, ciclo mestruale, carico mentale, maternita |
-| Uomo | Esprimere emozioni, pressione del "provider", vulnerabilita |
-| Altro/Non specificato | Identita di genere, accettazione |
-
-**Goals Specifici per Genere:**
-
-| Genere | Goals Esclusivi |
-|--------|-----------------|
-| Donna | Body positivity, self-care, gestire ciclo |
-| Uomo | Emotional intelligence, paternita consapevole |
-
-**Interessi Specifici per Genere:**
-
-| Genere | Interessi Proposti |
-|--------|-------------------|
-| Donna (<25) | Skincare, fashion, drama coreani |
-| Donna (25+) | Wellness, self-help books, pilates |
-| Uomo (<25) | Calcio, gaming, gym |
-| Uomo (25+) | Investimenti, tech, sport |
-
-## Nuovo Flusso Quiz (7 Step)
+## Soluzione: Architettura Ibrida
 
 ```text
-Step 1: Welcome
-   |
-Step 2: Name
-   |
-Step 3: AboutYou (Mood + Genere + Eta)
-   |
-Step 4: Occupation (NUOVO - solo se 18-27)
-   |
-   +--> Studente: mostra school
-   +--> Lavoratore: mostra work  
-   +--> Entrambi: mostra entrambe
-   |
-Step 5: Motivation (personalizzato eta + genere)
-   |
-Step 6: Goals (personalizzato eta + genere)
-   |
-Step 7: Interests (personalizzato eta + genere)
-   |
-Step 8: Ready
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ARCHITETTURA IBRIDA ARIA                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   UTENTE PARLA                                                      │
+│        ↓                                                            │
+│   [Web Speech API - STT]                                            │
+│        ↓                                                            │
+│   Testo trascritto                                                  │
+│        ↓                                                            │
+│   [Edge Function: aria-voice-hybrid]                                │
+│        ↓                                                            │
+│   [Lovable AI Gateway - Gemini 2.5 Flash]                           │
+│   (TUTTE le 2500+ righe di prompt clinico)                          │
+│        ↓                                                            │
+│   Risposta testuale di Aria                                         │
+│        ↓                                                            │
+│   [Edge Function: elevenlabs-tts]                                   │
+│        ↓                                                            │
+│   [ElevenLabs TTS - Voce "Carla"]                                   │
+│        ↓                                                            │
+│   Audio riprodotto                                                  │
+│        ↓                                                            │
+│   UTENTE ASCOLTA                                                    │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Dettaglio Opzioni per Profilo Utente
+## Vantaggi
 
-### ADOLESCENTI (<18)
+| Aspetto | Gemini Native (non funziona) | Ibrido ElevenLabs |
+|---------|------------------------------|-------------------|
+| Disponibilità | Modello ritirato | Sempre disponibile |
+| Prompt completo | 578 righe (condensato) | 2500+ righe (completo) |
+| Voce italiana | Aoede (generica) | Carla (italiana naturale) |
+| Dipendenza | Google API Key specifica | Lovable AI Gateway + ElevenLabs |
 
-**Donna <18:**
-- Motivazioni: Stress scolastico, Pressione social, Body image, Ciclo mestruale, Rapporto genitori
-- Goals: Autostima, Accettare il corpo, Rendimento scolastico, Gestire ansia da verifiche
-- Interessi: TikTok, K-pop, Skincare, Drama, Anime
+## File da Creare/Modificare
 
-**Uomo <18:**
-- Motivazioni: Stress scolastico, Performance sportiva, Bullismo, Rapporto genitori, Identita
-- Goals: Concentrazione, Forma fisica, Rendimento scolastico, Gestire rabbia
-- Interessi: Gaming, Esport, Calcio, YouTube, Anime
+### 1. Nuova Edge Function: `supabase/functions/aria-voice-hybrid/index.ts`
+Utilizzerà:
+- Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`)
+- Sistema di prompt COMPLETO da `ai-chat/index.ts` (2500+ righe)
+- Caricamento profilo utente, memoria, contesto real-time
 
-### GIOVANI ADULTI (18-24)
+### 2. Nuova Edge Function: `supabase/functions/elevenlabs-tts/index.ts`
+Converte testo in audio usando:
+- ElevenLabs API (`https://api.elevenlabs.io/v1/text-to-speech`)
+- Voce "Carla" (Voice ID: `litDcG1avVppv4R90BLu`)
 
-**Donna 18-24:**
-- Motivazioni: Ansia universitaria, Futuro incerto, Relazioni, Confronto social, Indipendenza
-- Goals: Work-life balance, Autostima, Relazioni sane, Finanze personali
-- Interessi: Wellness, Self-care, Travel, Fashion, Podcasts
+### 3. Nuovo Hook: `src/hooks/useHybridVoice.tsx`
+Orchestrazione del flusso:
+- Web Speech API per Speech-to-Text (nativo browser)
+- Chiamata a `aria-voice-hybrid` per risposta AI
+- Chiamata a `elevenlabs-tts` per sintesi vocale
+- Gestione stati (isListening, isSpeaking, etc.)
 
-**Uomo 18-24:**
-- Motivazioni: Carriera, Performance, Relazioni, Indipendenza, Pressione sociale
-- Goals: Produttivita, Fitness, Finanze, Networking
-- Interessi: Gym, Investimenti, Tech, Gaming, Sport
+### 4. Aggiornamento: `src/components/voice/ZenVoiceModal.tsx`
+- Cambio import da `useGeminiVoice` a `useHybridVoice`
+- Nessun cambio UI (già perfetta)
 
-### ADULTI (25-44)
+### 5. Aggiornamento: `supabase/config.toml`
+- Aggiungere configurazione per le nuove edge functions
 
-**Donna 25-44:**
-- Motivazioni: Work-life balance, Carico mentale, Maternita, Relazione di coppia, Self-care trascurato
-- Goals: Equilibrio, Me time, Gestire stress, Relazioni migliori, Forma fisica
-- Interessi: Yoga, Lettura, Cucina, Giardinaggio, Wellness
+## Dettaglio Tecnico
 
-**Uomo 25-44:**
-- Motivazioni: Pressione lavorativa, Provider stress, Paternita, Burnout, Tempo per se
-- Goals: Work-life balance, Presenza in famiglia, Fitness, Gestire stress
-- Interessi: Sport, Investimenti, DIY, Tech, Podcasts
+### Sistema di Prompt Aria (Preservato al 100%)
 
-### ADULTI MATURI (45+)
+La nuova edge function `aria-voice-hybrid` conterrà TUTTO il sistema di prompt esistente:
 
-**Donna 45+:**
-- Motivazioni: Menopausa, Empty nest, Riscoperta personale, Salute, Invecchiare bene
-- Goals: Accettazione, Nuovi hobby, Salute, Relazioni figli adulti
-- Interessi: Giardinaggio, Volontariato, Viaggi, Benessere, Arte
+- EMOTIONAL_RUBRIC (20 emozioni)
+- ADVANCED_CLINICAL_TECHNIQUES (MI, DBT, SFBT)
+- CLINICAL_KNOWLEDGE_BASE (Enciclopedia condizioni)
+- PSYCHOEDUCATION_LIBRARY (Distorsioni cognitive)
+- INTERVENTION_PROTOCOLS (Mindfulness, Anger, Grief)
+- LIFE_AREAS_INVESTIGATION (9 aree della vita)
+- YOUNG_USER_PROTOCOL (per utenti <18)
+- BEST_FRIEND_PERSONA (Identità Aria)
+- RESPONSE_RULES (Regole d'oro)
+- CRISIS_PROTOCOL (Sicurezza)
 
-**Uomo 45+:**
-- Motivazioni: Midlife, Salute, Legacy, Rapporto figli, Pensione
-- Goals: Fitness over 40, Nuovi interessi, Bilanciare vita, Accettazione
-- Interessi: Golf/Sport, Viaggi, Investimenti, Hobby artigianali
-
-## Modifiche Tecniche
-
-### 1. Nuovo Step: OccupationStep.tsx (solo per 18-27)
-
-Chiedere: "Cosa fai principalmente?"
-- Studio
-- Lavoro  
-- Entrambi
-
-Questo imposta `occupation_context` nel profilo per personalizzare le life areas nell'app.
-
-### 2. Aggiornare AboutYouStep.tsx
-
-Spostare la domanda sul genere PRIMA dell'eta per dare piu peso visivo.
-
-### 3. Aggiornare MotivationStep.tsx
+### Web Speech API (Speech-to-Text)
 
 ```typescript
-// Nuova logica di filtering
-const getMotivationOptions = (ageRange: string, gender: string) => {
-  const base = [...baseMotivationOptions];
-  
-  // Age-specific
-  if (isYouth(ageRange)) {
-    base.push(...youthMotivations);
-  } else {
-    base.push(...adultMotivations);
-  }
-  
-  // Gender-specific
-  if (gender === 'female') {
-    base.push(...femaleMotivations);
-    if (isYouth(ageRange)) {
-      base.push(...youngFemaleMotivations);
-    }
-  } else if (gender === 'male') {
-    base.push(...maleMotivations);
-  }
-  
-  return base;
-};
+const recognition = new webkitSpeechRecognition();
+recognition.lang = 'it-IT';
+recognition.continuous = true;
+recognition.interimResults = false;
 ```
 
-### 4. Aggiornare GoalsStep.tsx
+Vantaggi:
+- Nativo nel browser (Chrome, Edge, Safari)
+- Nessuna API key richiesta
+- Bassa latenza
 
-Stessa logica di MotivationStep con goals specifici per combinazione eta+genere.
+### ElevenLabs TTS
 
-### 5. Aggiornare InterestsStep.tsx
+```typescript
+// Voce Carla - italiana, femminile, naturale
+const VOICE_ID = "litDcG1avVppv4R90BLu";
 
-Stessa logica con interessi specifici.
+const response = await fetch(
+  `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+  {
+    method: "POST",
+    headers: {
+      "xi-api-key": ELEVENLABS_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: ariaResponse,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75
+      }
+    }),
+  }
+);
+```
 
-### 6. Aggiornare Onboarding.tsx
+## Flusso Conversazione
 
-- Aggiungere `occupation` allo stato
-- Inserire OccupationStep condizionale (solo se eta 18-27)
-- Passare `gender` a tutti gli step oltre a `ageRange`
-- Salvare `occupation_context` nel profilo
+1. Utente preme "Inizia" → attiva Web Speech API
+2. Utente parla → testo trascritto in italiano
+3. Testo inviato a `aria-voice-hybrid`
+4. Edge function:
+   - Carica profilo utente, memoria, contesto
+   - Costruisce prompt completo (2500+ righe)
+   - Chiama Lovable AI Gateway (Gemini 2.5 Flash)
+   - Restituisce risposta testuale
+5. Risposta inviata a `elevenlabs-tts`
+6. Audio MP3 riprodotto nel browser
+7. Ciclo riparte (utente può parlare di nuovo)
 
-## File da Modificare
+## Gestione Errori
 
-| File | Modifiche |
-|------|-----------|
-| `src/pages/Onboarding.tsx` | Aggiungere occupation state, step condizionale, passare gender agli step |
-| `src/components/onboarding/OccupationStep.tsx` | **NUOVO** - Step occupazione |
-| `src/components/onboarding/AboutYouStep.tsx` | Riordinare genere prima di eta |
-| `src/components/onboarding/MotivationStep.tsx` | Aggiungere prop gender, nuove opzioni |
-| `src/components/onboarding/GoalsStep.tsx` | Aggiungere prop gender, nuove opzioni |
-| `src/components/onboarding/InterestsStep.tsx` | Aggiungere prop gender, nuove opzioni |
+- Timeout Web Speech API → riavvio automatico riconoscimento
+- Errore Lovable AI → messaggio "Riprova tra poco"
+- Errore ElevenLabs → fallback a messaggio testuale
+- Limite rate ElevenLabs → toast informativo
 
-## Nuove Opzioni da Aggiungere
+## Stima Tempi
 
-### Motivazioni per Genere
-
-**Solo Donne:**
-- `imposter_syndrome`: Sindrome dell'impostora
-- `mental_load`: Carico mentale
-- `body_image`: Rapporto col corpo
-- `cycle_management`: Gestire il ciclo
-
-**Solo Uomini:**
-- `express_emotions`: Esprimere emozioni
-- `provider_pressure`: Pressione del "dover mantenere"
-- `show_vulnerability`: Mostrarsi vulnerabile
-
-### Goals per Genere
-
-**Solo Donne:**
-- `body_positivity`: Accettare il corpo
-- `me_time`: Tempo per me
-- `mental_load_balance`: Bilanciare carico mentale
-
-**Solo Uomini:**
-- `emotional_intelligence`: Intelligenza emotiva
-- `present_father`: Paternita presente
-- `open_up`: Aprirsi di piu
-
-### Interessi per Genere/Eta
-
-**Donne Giovani:**
-- `skincare`, `kdramas`, `fashion`, `astrology`
-
-**Donne Adulte:**
-- `pilates`, `self_help`, `wellness_retreats`
-
-**Uomini Giovani:**
-- `football`, `gym`, `crypto`
-
-**Uomini Adulti:**
-- `golf`, `whisky`, `classic_cars`
+| Task | Complessità |
+|------|-------------|
+| Edge function aria-voice-hybrid | Alta (copia prompt 2500 righe) |
+| Edge function elevenlabs-tts | Bassa |
+| Hook useHybridVoice | Media |
+| Aggiornamento ZenVoiceModal | Minima |
+| Test e debug | Media |
 
 ## Risultato Atteso
 
-1. **Esperienza Personalizzata** - Ogni utente vede opzioni rilevanti per la sua situazione
-2. **Engagement Migliore** - Meno scroll, piu rilevanza
-3. **Dati Migliori per Aria** - Contesto piu ricco per conversazioni personalizzate
-4. **Occupation Context** - Imposta automaticamente scuola/lavoro per le life areas
+- **Aria funzionante** con voce italiana naturale
+- **Intelligenza clinica completa** (tutte le 2500+ righe)
+- **Nessuna dipendenza** da modelli Google specifici
+- **Voce "Carla"** professionale e calda
