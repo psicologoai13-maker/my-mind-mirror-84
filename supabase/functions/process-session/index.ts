@@ -603,15 +603,88 @@ Restituisci voice_analysis con tone, speed e confidence (0-1).
       return score === null || score === undefined || score === 0;
     });
     
-    const dataHunterLifeAreas = missingLifeAreas.length > 0
-      ? `
+    const dataHunterLifeAreas = `
 ═══════════════════════════════════════════════
-🎯 DATA HUNTER - AREE MANCANTI DA RIEMPIRE
+🏠 AREE DELLA VITA - REGOLE SEMANTICHE (OBBLIGATORIE!)
 ═══════════════════════════════════════════════
-Il radar dell'utente ha queste aree VUOTE: ${missingLifeAreas.join(', ')}
-PRESTA ATTENZIONE EXTRA a qualsiasi indizio su queste aree nella conversazione.
-Se trovi anche un minimo riferimento, ESTRAI un punteggio.`
-      : '';
+${missingLifeAreas.length > 0 ? `⚠️ AREE MANCANTI: ${missingLifeAreas.join(', ')} - Presta attenzione extra!\n` : ''}
+**⚠️ REGOLA FONDAMENTALE: Se l'utente NON parla di un'area → NULL. MAI inventare!**
+
+**work** (lavoro/carriera):
+- CERCA: lavoro, ufficio, colleghi, capo, deadline, progetto, riunioni, carriera, stipendio
+- NEGATIVO (1-4): "odio il mio lavoro", "colleghi tossici", "capo insopportabile", "voglio licenziarmi", "stress da lavoro"
+- NEUTRO (5-6): "lavoro normale", "routine", "niente di speciale al lavoro"
+- POSITIVO (7-9): "progetto andato bene", "promozione", "riconoscimento", "soddisfatto del lavoro"
+- Se NON menziona lavoro → null
+
+**school** (studio/scuola):
+- CERCA: esame, università, studio, voti, professore, tesi, compiti, scuola, lezioni
+- NEGATIVO (1-4): "bocciato", "non riesco a studiare", "esame andato male", "ansia da esame"
+- NEUTRO (5-6): "studio normale", "lezioni"
+- POSITIVO (7-9): "passato l'esame!", "voto alto", "tesi procede bene"
+- Se NON menziona studio/scuola → null
+
+**love** (relazione sentimentale):
+- CERCA: partner, ragazzo/a, marito/moglie, relazione, appuntamento, litigio di coppia
+- NEGATIVO (1-4): "litigato col partner", "crisi di coppia", "lui/lei non mi capisce", "tradimento", "rottura"
+- NEUTRO (5-6): "relazione stabile", "niente di particolare"
+- POSITIVO (7-9): "bellissima serata insieme", "ci amiamo", "momento romantico", "proposta"
+- Se NON menziona partner/relazione → null
+
+**family** (relazioni familiari):
+- CERCA: genitori, madre, padre, fratelli, sorelle, figli, nonni, zii, cugini, pranzo in famiglia
+- NEGATIVO (1-4): "litigato con mia madre", "mio padre mi critica", "tensioni familiari", "non ci parliamo"
+- NEUTRO (5-6): "famiglia normale", "chiamato i genitori"
+- POSITIVO (7-9): "bella giornata con la famiglia", "mamma mi ha supportato", "riconciliazione"
+- ⚠️ DISTINGUI da love (partner) e social (amici)!
+- Se NON menziona famiglia → null
+
+**social** (amicizie/vita sociale):
+- CERCA: amici, uscita, festa, aperitivo, compagnia, gruppo, conoscenze, social
+- NEGATIVO (1-4): "mi sento solo", "nessuno mi chiama", "amici spariti", "escluso", "isolato"
+- NEUTRO (5-6): "visto gli amici", "uscita tranquilla"
+- POSITIVO (7-9): "serata fantastica", "amici veri", "nuove conoscenze", "mi supportano"
+- Se NON menziona amici/socialità → null
+
+**health** (salute fisica e mentale) ⚠️ REGOLE STRETTE:
+- CERCA: salute, medico, visita, malattia, dolore, sintomi, farmaci, sport, esercizio, dieta, sonno, stanchezza fisica
+- NEGATIVO (1-4): "sto male", "dolore cronico", "malato", "visita andata male", "diagnosi", "non dormo bene", "zero sport"
+- NEUTRO (5-6): "salute normale", "niente di particolare", "routine medica"
+- POSITIVO (7-9): "mi sento in forma", "esami ok", "faccio sport regolarmente", "dieta funziona", "energia fisica alta"
+- ⚠️ ATTENZIONE: 
+  - Energia MENTALE va nei vitals, non qui
+  - "Stanco" SENZA specificare se mentale o fisico → NON assegnare
+  - Se l'utente NON parla ESPLICITAMENTE di salute fisica/corpo → NULL
+  - NON inferire salute da umore o altri fattori!
+- Se NON menziona salute/corpo/medico → null
+
+**growth** (crescita personale):
+- CERCA: obiettivi, miglioramento, corso, libro, apprendimento, sviluppo, terapia, cambiamento
+- NEGATIVO (1-4): "fermo", "non cresco", "stagnazione", "nessun progresso", "perso"
+- NEUTRO (5-6): "sto lavorando su me stesso", "piccoli passi"
+- POSITIVO (7-9): "ho imparato qualcosa", "cresciuto", "terapia utile", "insight importante"
+- Se NON menziona crescita/apprendimento → null
+
+**leisure** (tempo libero/hobby):
+- CERCA: hobby, relax, weekend, vacanze, sport per piacere, film, serie, giochi, svago, passatempo
+- NEGATIVO (1-4): "non ho tempo per me", "solo lavoro, zero svago", "mai un momento libero", "annoiato"
+- NEUTRO (5-6): "un po' di relax", "visto un film"
+- POSITIVO (7-9): "bellissima giornata", "mi sono divertito", "tempo per i miei hobby", "vacanza fantastica"
+- Se NON menziona tempo libero → null
+
+**finances** (situazione economica):
+- CERCA: soldi, spese, risparmio, debiti, stipendio, bollette, mutuo, affitto, costi, investimenti
+- NEGATIVO (1-4): "non arrivo a fine mese", "preoccupato per i soldi", "debiti", "ristrettezze"
+- NEUTRO (5-6): "finanze ok", "bilancio in pari"
+- POSITIVO (7-9): "economicamente tranquillo", "aumento!", "risparmi in crescita", "investimento andato bene"
+- Se NON menziona finanze/soldi → null
+
+⚠️ ANTI-HALLUCINATION LIFE AREAS:
+- OGNI punteggio DEVE avere una frase ESPLICITA che lo giustifica
+- Se l'utente parla solo di emozioni senza menzionare un'area specifica → NULL
+- NON inferire aree da altre aree (es. "è stressato" NON significa work basso)
+- "Giornata buona" generico → NON assegnare a nessuna area specifica
+`;
 
     // NEW: Deep Psychology semantic extraction rules (HARDENED v2.0)
     const deepPsychologyPrompt = `
