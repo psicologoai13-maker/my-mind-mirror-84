@@ -145,84 +145,34 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         <div className="flex-1 divider-gradient" />
       </motion.div>
 
-      {/* Gender Section - NOW FIRST */}
+      {/* Gender Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
         className="mb-6"
       >
-        <p className="text-sm font-medium text-foreground mb-3">Come ti identifichi?</p>
-        <div className="flex flex-wrap gap-2">
-          {genderOptions.map((option) => (
+        <p className="text-sm font-semibold text-foreground mb-3">Come ti identifichi?</p>
+        <div className="flex flex-wrap gap-2.5">
+          {genderOptions.map((option, index) => (
             <motion.button
               key={option.id}
               onClick={() => onGenderChange(option.id)}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.92 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 + index * 0.05 }}
               className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
+                "relative px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-300 overflow-hidden",
+                "backdrop-blur-xl border",
                 gender === option.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+                  ? "bg-gradient-to-br from-aria-violet/20 to-aria-indigo/20 border-aria-violet/50 text-aria-violet shadow-[0_0_20px_rgba(155,111,208,0.3)]"
+                  : "bg-glass border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/30 hover:bg-glass-elevated"
               )}
             >
-              {option.label}
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Age Range Section - NOW SECOND */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
-        <div className="flex flex-wrap gap-2">
-          {ageRanges.map((age) => (
-            <motion.button
-              key={age}
-              onClick={() => onAgeChange(age)}
-              whileTap={{ scale: 0.95 }}
-              className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
-                ageRange === age
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
-              )}
-            >
-              {age}
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Gender Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="mb-6"
-      >
-        <p className="text-sm font-medium text-foreground mb-3">Come ti identifichi?</p>
-        <div className="flex flex-wrap gap-2">
-          {genderOptions.map((option) => (
-            <motion.button
-              key={option.id}
-              onClick={() => onGenderChange(option.id)}
-              whileTap={{ scale: 0.95 }}
-              className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
-                gender === option.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
-              )}
-            >
-              {option.label}
+              {/* Inner highlight */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+              <span className="relative z-10">{option.label}</span>
             </motion.button>
           ))}
         </div>
@@ -232,24 +182,30 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.45 }}
+        className="mb-6"
       >
-        <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
-        <div className="flex flex-wrap gap-2">
-          {ageRanges.map((age) => (
+        <p className="text-sm font-semibold text-foreground mb-3">Fascia d'età</p>
+        <div className="flex flex-wrap gap-2.5">
+          {ageRanges.map((age, index) => (
             <motion.button
               key={age}
               onClick={() => onAgeChange(age)}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.92 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 + index * 0.04 }}
               className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
+                "relative px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-300 overflow-hidden",
+                "backdrop-blur-xl border",
                 ageRange === age
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+                  ? "bg-gradient-to-br from-aria-violet/20 to-aria-indigo/20 border-aria-violet/50 text-aria-violet shadow-[0_0_20px_rgba(155,111,208,0.3)]"
+                  : "bg-glass border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/30 hover:bg-glass-elevated"
               )}
             >
-              {age}
+              {/* Inner highlight */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+              <span className="relative z-10">{age}</span>
             </motion.button>
           ))}
         </div>
@@ -262,7 +218,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-center text-sm text-aria-violet mt-6 font-medium"
+            className="text-center text-sm text-aria-violet mt-4 font-medium"
           >
             Che bello sentirti così! 🌟
           </motion.p>
@@ -272,7 +228,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-center text-sm text-muted-foreground mt-6"
+            className="text-center text-sm text-muted-foreground mt-4"
           >
             Sono qui per aiutarti 💜
           </motion.p>
