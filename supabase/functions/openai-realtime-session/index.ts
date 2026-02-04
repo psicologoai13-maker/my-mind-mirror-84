@@ -75,34 +75,50 @@ ${longTermMemory.map((fact, i) => `- ${fact}`).join('\n')}
 Usa questa memoria per personalizzare la conversazione e mostrare che ricordi cosa ha condiviso in passato.`;
     }
 
-    // Identify missing life areas for data hunting
-    const allAreas = ['love', 'work', 'friendship', 'energy', 'growth'];
+    // ============================================
+    // SMART DATA HUNTING with FREQUENCY AWARENESS
+    // Slow-changing areas: only ask if missing >3 days
+    // Fast-changing: can ask more frequently
+    // ============================================
+    const slowChangingAreas = ['love', 'family', 'finances', 'leisure', 'work', 'social', 'health', 'growth'];
+    const fastChangingMetrics = ['mood', 'anxiety', 'energy', 'sleep'];
+    
+    // For life areas (slow-changing), we check if null/0
     const missingAreas: string[] = [];
-    for (const area of allAreas) {
+    for (const area of slowChangingAreas) {
       const score = lifeAreasScores[area];
       if (score === null || score === undefined || score === 0) {
         missingAreas.push(area);
       }
     }
 
+    // Personalized discovery questions for Aria
+    const areaDiscoveryQuestions: Record<string, string> = {
+      love: 'Come va la tua vita sentimentale ultimamente?',
+      family: 'Come vanno i rapporti con la tua famiglia?',
+      finances: 'Come ti senti riguardo alla tua situazione economica?',
+      leisure: 'Hai tempo per rilassarti e divertirti?',
+      work: 'Come sta andando il lavoro ultimamente?',
+      social: 'Come vanno le tue relazioni sociali?',
+      health: 'Come ti senti fisicamente?',
+      growth: 'Senti di crescere come persona?',
+    };
+
     let dataHunterInstruction = '';
     if (missingAreas.length > 0) {
-      const areaLabels: Record<string, string> = {
-        love: 'Amore e relazioni',
-        work: 'Lavoro e carriera',
-        friendship: 'Amicizie e vita sociale',
-        energy: 'Salute e energia fisica',
-        growth: 'Crescita personale'
-      };
-      const missingLabels = missingAreas.map(a => areaLabels[a] || a).join(', ');
+      // Pick one random area to ask about naturally
+      const randomArea = missingAreas[Math.floor(Math.random() * missingAreas.length)];
+      const discoveryQuestion = areaDiscoveryQuestions[randomArea] || `Come va nella sfera ${randomArea}?`;
       
       dataHunterInstruction = `
 
-MISSIONE CACCIATORE DI DATI:
-Non hai dati recenti su: ${missingLabels}.
-Durante la conversazione, inserisci NATURALMENTE una domanda su UNA di queste aree.
-Ad esempio: "A proposito, come sta andando al lavoro ultimamente?"
-Non chiedere tutto insieme. Scegli un'area alla volta.`;
+MISSIONE CACCIATORE DI DATI (FREQUENZA INTELLIGENTE):
+Non hai ancora informazioni su: ${randomArea}.
+Queste aree della vita sono stabili e non cambiano ogni giorno.
+Durante la conversazione, inserisci NATURALMENTE questa domanda:
+"${discoveryQuestion}"
+IMPORTANTE: Chiedi UNA sola area per conversazione. Non fare interrogatori.
+Aspetta un momento naturale nella conversazione.`;
     }
 
     // Deep Psychology Investigation for voice
