@@ -246,12 +246,9 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
               <div className="mb-2">
                 <CategoryBadge category={objective.category as ObjectiveCategory} />
               </div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <h3 className="font-semibold text-foreground text-base leading-tight">
-                  {objective.title}
-                </h3>
-                <TrackingBadge type={getTrackingType(objective)} />
-              </div>
+              <h3 className="font-semibold text-foreground text-base leading-tight mb-1.5">
+                {objective.title}
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {getSummary()}
               </p>
