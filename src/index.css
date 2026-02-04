@@ -175,10 +175,10 @@
        LIQUID GLASS TOKENS 2026
     ======================================== */
     
-    /* Glass surfaces */
+    /* Glass surfaces - balanced intensity */
     --glass-blur: 24px;
     --glass-saturation: 180%;
-    --glass-bg: 0 0% 100% / 0.75;
+    --glass-bg: 0 0% 100% / 0.65;
     --glass-bg-subtle: 0 0% 100% / 0.5;
     --glass-border: 0 0% 100% / 0.4;
     

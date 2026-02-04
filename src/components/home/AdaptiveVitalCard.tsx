@@ -176,7 +176,7 @@ const AdaptiveVitalCard: React.FC<AdaptiveVitalCardProps> = ({
       onClick={handleClick}
     >
       {/* Inner light reflection */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10 flex flex-col h-full">
         {/* Header with Trend Badge */}

@@ -117,7 +117,7 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
         "shadow-glass"
       )}>
         {/* Inner light */}
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
         
         <div className="relative z-10 flex items-center gap-2 mb-4">
           <span className="text-lg">🧠</span>
@@ -137,7 +137,7 @@ const DeepPsychologyCard: React.FC<DeepPsychologyCardProps> = ({
       "shadow-glass"
     )}>
       {/* Inner light */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10 flex items-center gap-2 mb-5">
         <span className="text-lg">🧠</span>

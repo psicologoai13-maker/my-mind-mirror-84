@@ -24,7 +24,7 @@ const LifeAreasGrid: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden bg-card/80 backdrop-blur-xl rounded-3xl p-5 shadow-soft border border-border/50">
+    <div className="relative overflow-hidden bg-glass backdrop-blur-xl rounded-3xl p-5 shadow-glass border border-glass-border">
       {/* Decorative blur */}
       <div className="absolute -top-16 -left-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
       
