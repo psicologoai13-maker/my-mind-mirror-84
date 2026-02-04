@@ -1,156 +1,162 @@
 
-# Piano: Riorganizzazione Clinica della Sezione Analisi
 
-## Analisi della Situazione Attuale
+# Piano: Check-in Intelligenti e Focus Topics Clinici
 
-### Cosa stiamo raccogliendo ora:
-| Categoria | Metriche | Quantità |
-|-----------|----------|----------|
-| Emozioni | joy, sadness, anger, fear, apathy, shame, jealousy, hope, frustration, nostalgia, nervousness, overwhelm, excitement, disappointment | 14 |
-| Psicologia | rumination, self_efficacy, mental_clarity, burnout_level, coping_ability, loneliness_perceived, somatic_tension, appetite_changes, sunlight_exposure, guilt, gratitude, irritability, concentration, motivation, intrusive_thoughts, self_worth | 16 |
-| Aree di Vita | work, school, love, social, health, growth | 6 |
-| Vitali | mood, anxiety, energy, sleep | 4 |
+## Problema Attuale
 
-**Totale attuale: ~40 metriche**
+### Check-in
+La selezione degli 8 check-in giornalieri è quasi casuale perche:
+- NON considera quali dati mancano da giorni/settimane
+- NON priorizza metriche critiche da monitorare
+- Priorita statica (vitals=70, altri=50) invece che basata su necessita
 
----
+### Focus Topics
+Mostra solo 9 metriche hardcoded su ~66 disponibili:
+- 5 emozioni base (joy, sadness, anger, fear, apathy)
+- 4 psychology (rumination, burnout, gratitude, loneliness)
 
-## Valutazione Clinica: Cosa Manca
-
-### 1. CRITICO - Indicatori di Sicurezza (uno psicologo li cercherebbe SUBITO)
-- **Pensieri suicidari** (suicidal_ideation) - fondamentale per il triage
-- **Disperazione** (hopelessness) - predittore di rischio
-- **Impulsi autolesionistici** (self_harm_urges)
-
-### 2. Emozioni Mancanti (modello Ekman + espansioni cliniche)
-- **Disgusto** (disgust) - emozione base di Ekman
-- **Sorpresa** (surprise) - emozione base di Ekman  
-- **Serenità/Calma** (serenity) - opposto dell'ansia
-- **Orgoglio** (pride) - importante per autostima
-- **Affetto** (affection) - distinto da amore romantico
-- **Curiosità** (curiosity) - indicatore di engagement
-
-### 3. Cognitivo Mancante
-- **Dissociazione** (dissociation) - critico per trauma
-- **Confusione mentale** (confusion)
-- **Pensieri accelerati** (racing_thoughts) - indicatore mania/ansia
-
-### 4. Comportamentale (categoria completamente assente!)
-- **Evitamento** (avoidance) - core dell'ansia
-- **Ritiro sociale** (social_withdrawal)
-- **Compulsioni** (compulsive_urges) - OCD-related
-- **Procrastinazione** (procrastination)
-
-### 5. Psicologico Mancante
-- **Senso di scopo** (sense_of_purpose) - fondamentale
-- **Soddisfazione di vita** (life_satisfaction)
-- **Supporto sociale percepito** (perceived_social_support)
-- **Regolazione emotiva** (emotional_regulation)
-- **Resilienza** (resilience)
-- **Presenza/Mindfulness** (mindfulness)
-
-### 6. Aree di Vita - Analisi Nomenclatura
-
-**Il nome "Aree della Vita" va bene clinicamente** - alternative accettabili:
-- "Domini di Funzionamento" (più clinico)
-- "Qualità della Vita" (QoL domains)
-
-**Aree mancanti:**
-- **Famiglia** (family) - distinto da "amore" che è romantico
-- **Tempo Libero** (leisure) - importante per burnout
-- **Situazione Economica** (finances) - stress finanziario
+Ignora completamente hope (8/10), motivation (9/10), growth (9/10) che sono i veri focus dell'utente!
 
 ---
 
-## Piano di Implementazione
+## Soluzione: Check-in con "Data Hunting"
 
-### Fase 1: Rimuovere VitalsSection
-Eliminare il componente `VitalsSection` dalla pagina Analisi. I parametri vitali (mood, anxiety, energy, sleep) sono già integrati nei domini clinici appropriati.
-
-### Fase 2: Aggiornare Schema Database
-Aggiungere le colonne mancanti alle tabelle esistenti:
+### Nuova Logica di Selezione
 
 ```text
-daily_emotions:
-  + disgust, surprise, serenity, pride, affection, curiosity
+PRIORITA 1 - MONITORAGGIO CRITICO (sempre inclusi)
+  - Safety indicators (hopelessness, suicidal_ideation) se mai rilevati
+  - Ansia se storicamente > 6/10
+  - Mood quotidiano (metrica base)
 
-daily_psychology:
-  + suicidal_ideation, hopelessness, self_harm_urges
-  + dissociation, confusion, racing_thoughts
-  + avoidance, social_withdrawal, compulsive_urges, procrastination
-  + sense_of_purpose, life_satisfaction, perceived_social_support
-  + emotional_regulation, resilience, mindfulness
+PRIORITA 2 - DATA HUNTING (dati mancanti)
+  - Metriche MAI rilevate dal profilo = priorita massima
+  - Metriche mancanti da >7 giorni = priorita alta
+  - Metriche mancanti da >3 giorni = priorita media
 
-daily_life_areas:
-  + family, leisure, finances
+PRIORITA 3 - BILANCIAMENTO CATEGORIE
+  - Almeno 1-2 vitali (mood, anxiety, energy, sleep)
+  - Almeno 1-2 life areas (work/school, social, health, love)
+  - Almeno 1-2 psychology (basati su bisogni)
+  - Habits attive dell'utente
 ```
 
-### Fase 3: Riorganizzare Domini Clinici
-Nuova struttura con 7 domini:
+### Implementazione Edge Function
 
-```text
-1. STATO EMOTIVO (20 emozioni)
-   - Base: joy, sadness, anger, fear, disgust, surprise
-   - Espanse: hope, shame, guilt, pride, serenity, curiosity...
+Modificare `supabase/functions/ai-checkins/index.ts`:
 
-2. ATTIVAZIONE & AROUSAL (8 metriche)
-   - anxiety, energy, nervousness, overwhelm, burnout, irritability
-   - racing_thoughts, emotional_regulation
+1. **Nuova query storica** - Fetchare dati ultimi 14 giorni per calcolare:
+   - Quali metriche non sono MAI state rilevate
+   - Quali metriche mancano da X giorni
+   - Quali metriche hanno valori critici da monitorare
 
-3. COGNITIVO (6 metriche)
-   - mental_clarity, concentration, rumination, intrusive_thoughts
-   - dissociation, confusion
+2. **Scoring dinamico** per ogni metrica:
+   - `+100` se mai rilevata
+   - `+50` se mancante da >7 giorni
+   - `+30` se mancante da >3 giorni  
+   - `+40` se valore storico critico (ansia >6, hopelessness >4)
+   - `+20` se vital base (mood)
 
-4. COMPORTAMENTALE (4 metriche) [NUOVO]
-   - avoidance, social_withdrawal, compulsive_urges, procrastination
-
-5. SOMATICO (4 metriche)
-   - sleep, somatic_tension, appetite_changes, sunlight_exposure
-
-6. RISORSE PERSONALI (10 metriche)
-   - self_efficacy, self_worth, gratitude, motivation, coping_ability
-   - sense_of_purpose, life_satisfaction, perceived_social_support
-   - resilience, mindfulness
-
-7. AREE DI VITA (9 aree)
-   - work, school, love, family, social, health, growth, leisure, finances
-
-8. SICUREZZA (ALERT) [Speciale]
-   - suicidal_ideation, hopelessness, self_harm_urges
-   - Visualizzazione separata con indicatori di crisi
-```
-
-### Fase 4: Aggiornare clinicalDomains.ts
-Riorganizzare completamente con le nuove metriche e domini.
-
-### Fase 5: Aggiornare Edge Functions
-Modificare `process-session` per estrarre le nuove metriche dalle conversazioni con Aria.
+3. **AI refinement** con contesto arricchito:
+   - Passa all'AI quali metriche mancano e da quanto
+   - L'AI sceglie bilanciando importanza clinica e necessita dati
 
 ---
 
-## Riepilogo Metriche Finali
+## Soluzione: Focus Topics Clinici
 
-| Dominio | Metriche Attuali | Nuove | Totale |
-|---------|------------------|-------|--------|
-| Emozioni | 14 | +6 | 20 |
-| Attivazione | 6 | +2 | 8 |
-| Cognitivo | 4 | +2 | 6 |
-| Comportamentale | 0 | +4 | 4 |
-| Somatico | 4 | 0 | 4 |
-| Risorse | 7 | +5 | 12 |
-| Aree di Vita | 6 | +3 | 9 |
-| Sicurezza | 0 | +3 | 3 |
-| **TOTALE** | **~40** | **+25** | **~66** |
+### Nuova Logica
+
+```text
+FONTI DATI (tutte considerate):
+  - 20 Emozioni (joy, hope, fear, curiosity, serenity, etc.)
+  - 9 Life Areas (work, love, social, growth, etc.)
+  - 12 Resources (motivation, self_efficacy, gratitude, etc.)
+  - 8 Attention Signals (anxiety, rumination, burnout, etc.)
+
+SELEZIONE TOP 4:
+  1. Ordina TUTTE le metriche per intensita (valore piu alto)
+  2. Prendi le top 4 con valore >= 5
+  3. Etichetta ogni focus con categoria (emozione/area/risorsa/attenzione)
+```
+
+### Implementazione Component
+
+Modificare `src/components/home/FocusTopics.tsx`:
+
+1. **Espandere useTimeWeightedMetrics** per includere:
+   - Nuove 6 emozioni (disgust, surprise, serenity, pride, affection, curiosity)
+   - Nuove 3 life areas (family, leisure, finances)
+   - Risorse positive (motivation, sense_of_purpose, resilience, etc.)
+
+2. **Nuovo algoritmo di selezione**:
+   - Raccoglie TUTTE le metriche con valore > 0
+   - Le ordina per intensita
+   - Mostra le top 4 con etichette colorate per tipo
+
+3. **Visualizzazione migliorata**:
+   - Emozioni positive = verde
+   - Emozioni negative/attenzione = arancione/rosso
+   - Life areas = blu
+   - Risorse = viola
+
+---
+
+## File da Modificare
+
+### 1. `supabase/functions/ai-checkins/index.ts`
+- Aggiungere query storica per "data hunting"
+- Implementare scoring dinamico
+- Migliorare prompt AI con contesto dati mancanti
+- Bilanciare categorie nella selezione finale
+
+### 2. `src/components/home/FocusTopics.tsx`
+- Espandere pool metriche considerate (da 9 a ~50)
+- Includere life areas e risorse positive
+- Aggiungere etichette categoria
+- Migliorare visualizzazione con colori per tipo
+
+### 3. `src/hooks/useTimeWeightedMetrics.tsx`
+- Aggiungere le 6 nuove emozioni
+- Aggiungere le 3 nuove life areas
+- Aggiungere parametri risorse (motivation, sense_of_purpose, etc.)
+
+---
+
+## Esempio Risultato Atteso
+
+### Check-in per l'utente attuale
+
+Prima (casuale):
+```
+rumination, joy, burnout, social, sadness, anxiety, work, gratitude
+```
+
+Dopo (data-driven):
+```
+mood (vital base), anxiety (storico), love (mancante 5gg), 
+health (mai rilevato), sleep (vital), family (mai rilevato),
+motivation (conferma valore alto), finances (nuovo + obiettivo)
+```
+
+### Focus Topics per l'utente attuale
+
+Prima (limitato):
+```
+gioia 5/10, gratitudine 6/10
+```
+
+Dopo (completo):
+```
+motivazione 9/10 (risorsa), speranza 8/10 (emozione), 
+crescita 9/10 (area vita), curiosita 7/10 (emozione)
+```
 
 ---
 
 ## Note Tecniche
 
-1. **VitalsSection**: Da rimuovere - i suoi valori (mood, anxiety, energy, sleep) sono già distribuiti nei domini appropriati
-
-2. **Indicatori di Sicurezza**: Richiedono gestione speciale - quando `suicidal_ideation > 5` o `hopelessness > 7`, attivare alert e protocollo crisi esistente
-
-3. **Retrocompatibilità**: Le nuove colonne saranno nullable, quindi i dati esistenti non saranno impattati
-
-4. **AI Extraction**: L'edge function `process-session` dovrà essere aggiornata per riconoscere i nuovi segnali nelle conversazioni
+- Le nuove colonne database (emotions, life areas, psychology) sono gia state aggiunte nelle migrazioni precedenti
+- L'edge function `process-session` gia estrae tutte le 66 metriche
+- Il hook `useTimeWeightedMetrics` va solo esteso per esporre le nuove metriche
 
