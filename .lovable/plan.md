@@ -1,208 +1,118 @@
 
-# Redesign Aria: Portale Immersivo con Aria
+# Piano: Sistema Focus AI Basato su Importanza (Non Valori)
 
-## Concept: "Entrare nel Portale di Aria"
+## Problema Identificato
 
-Quando entri nella pagina, devi sentire di essere entrato in uno spazio speciale - il "mondo" di Aria. Lo sfondo si colora con i gradienti Aurora, l'atmosfera diventa immersiva, e i pulsanti di interazione diventano i protagonisti assoluti.
+Il componente "I Tuoi Focus" nella Home mostra solo 2 metriche invece di 4 perche:
 
----
+1. **L'AI non ha memoria dei focus precedenti**: ogni refresh giornaliero l'AI genera focus da zero senza sapere cosa c'era prima
+2. **Il sistema non passa il contesto di stabilita**: il prompt dice "mantieni stabili" ma l'AI non sa quali ERANO i focus ieri
+3. **Manca la logica di "importanza" vs "valore"**: l'AI tende a scegliere basandosi sui valori numerici invece che sull'importanza per l'utente
 
-## Nuovo Layout (Single Viewport)
+## Architettura Attuale (Corretta ma Incompleta)
 
 ```text
-+------------------------------------------+
-|                              [📜] corner  |
-|                                           |
-|            ◉ Orb (compatto)               |
-|           "Sono Aria"                     |
-|     "Come posso aiutarti oggi?"           |
-|                                           |
-|  +======================================+ |
-|  ||     ✏️  Scrivi con Aria            || |  <-- PULSANTE ENORME
-|  +======================================+ |
-|                                           |
-|  +======================================+ |
-|  ||     🎙️  Parla con Aria             || |  <-- PULSANTE ENORME
-|  +======================================+ |
-|                                           |
-|   💜 Ieri: "Abbiamo parlato di..."  →     |  <-- linea sottile
-|                                           |
-|   I TUOI DIARI                            |
-|   [❤️ Amore] [💼 Lavoro] [👥 Rel] [🧘 Me] |
-+------------------------------------------+
+[Onboarding Goals] --> [ai-dashboard Edge Function] --> [primary_metrics]
+                                    |
+                       [AI Gemini genera 4 focus]
+                                    |
+                       [Cache in user_profiles.ai_dashboard_cache]
+                                    |
+              [AdaptiveVitalsSection mostra i 4 focus]
 ```
 
----
+## Soluzione Proposta
 
-## Modifiche Tecniche
+### 1. Modificare Edge Function `ai-dashboard/index.ts`
 
-### 1. Sfondo Portale Immersivo (Aria.tsx)
+**A) Passare i focus precedenti all'AI:**
+- Leggere `ai_dashboard_cache.primary_metrics` dalla cache esistente
+- Includere nel prompt: "FOCUS PRECEDENTI: mood, anxiety, love, growth"
+- Istruire l'AI: "Mantieni questi focus a meno di cambiamento significativo (>20% variazione o nuovo evento critico)"
 
-Aggiungere uno sfondo dinamico Aurora che avvolge l'intera pagina:
+**B) Aggiungere contesto di "importanza":**
+- Calcolare score di importanza per ogni metrica basato su:
+  - Collegamento agli obiettivi onboarding (peso alto)
+  - Frequenza di menzione nelle sessioni recenti (peso medio)
+  - Valori critici (<4 o >8) che richiedono attenzione (peso medio)
+  - Trend negativo negli ultimi 7 giorni (peso basso)
 
-- Gradient radiale animato viola/indigo
-- Particelle o mesh sottili animate
-- Transizione fade-in al mount
-- Effetto "entering portal" con scale animation
+**C) Validazione post-AI:**
+- Se l'AI cambia >2 focus rispetto a ieri, loggare il motivo
+- Se non c'e un "evento significativo" rilevato, forzare mantenimento
 
-```css
-/* Nuovo background portal */
-.aria-portal-bg {
-  background: 
-    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(155, 111, 208, 0.25), transparent),
-    radial-gradient(ellipse 80% 60% at 30% 100%, rgba(99, 102, 241, 0.2), transparent),
-    radial-gradient(ellipse 60% 50% at 80% 50%, rgba(167, 139, 250, 0.15), transparent);
-  animation: portal-breathe 8s ease-in-out infinite;
-}
+### 2. Migliorare il System Prompt
+
+Aggiungere sezione esplicita:
+```
+FOCUS PRECEDENTI (da mantenere se possibile):
+${previousFocusKeys.join(', ')}
+
+REGOLA CRITICA: Cambia i focus SOLO se:
+1. C'e un nuovo evento traumatico/significativo nelle sessioni
+2. Un obiettivo e stato raggiunto o abbandonato
+3. Una metrica e passata da critica a normale (o viceversa)
+4. L'utente ha esplicitamente chiesto di monitorare qualcosa di nuovo
 ```
 
-### 2. AriaHeroSection.tsx - Redesign Completo
+### 3. Logica di Selezione Focus
 
-**Struttura nuova:**
-- Orb compatto (w-12) centrato
-- "Sono Aria" come titolo principale
-- "Come posso aiutarti oggi?" come sottotitolo
-- DUE pulsanti ENORMI (py-6, text-lg) come protagonisti
-- Insight come linea sottile in basso (non card)
+**Priorita (dalla piu alta alla piu bassa):**
 
-**Rimosso:**
-- "Ciao [nome], come stai?" generico
-- Card container - tutto integrato nel flusso
+| Priorita | Criterio | Esempio |
+|----------|----------|---------|
+| 1 | Obiettivi onboarding attivi | Se goal="reduce_anxiety" -> ansia e sempre focus |
+| 2 | Metriche con valori critici | rumination=8 -> rimuginazione diventa focus |
+| 3 | Aree menzionate in sessioni recenti | "problemi al lavoro" -> work diventa focus |
+| 4 | Trend negativi significativi | mood -3 in 7 giorni -> umore diventa focus |
+| 5 | Metriche correlate agli obiettivi | goal="sleep" -> energy (correlato) |
 
-### 3. Cronologia - Icona in Angolo
+### 4. Esempio di Output Atteso
 
-Spostare cronologia in alto a destra come semplice icona:
-- Solo icona History (no testo "Cronologia")
-- Click apre Sheet/Drawer con lista sessioni
-- Posizione: absolute top-right
-- Stile: glass subtle, 40x40px
+**Utente con obiettivi: "anxiety", "relationships"**
+**Sessioni recenti: "stress lavorativo", "litigio con partner"**
 
-### 4. Insight Semplificato
+Focus selezionati (stabili):
+1. **Ansia** (obiettivo primario)
+2. **Amore** (obiettivo relationships + litigio menzionato)
+3. **Lavoro** (stress lavorativo nelle sessioni)
+4. **Umore** (metrica fondamentale sempre presente)
 
-Da card a linea sottile:
-- Una riga sola con emoji + preview + freccia
-- Nessun bordo visibile
-- Colore text-muted con accent viola
-- Click navigates to chat
-
-### 5. Diari Più Grandi
-
-Aumentare dimensioni chips:
-- Grid 4 colonne su mobile
-- Icone 48x48px
-- Label sempre visibile
-- Gradients più saturati
-
----
+Questi focus rimangono FISSI finche:
+- L'utente non raggiunge l'obiettivo "anxiety"
+- Non emerge un nuovo problema critico
+- L'utente non chiede esplicitamente di cambiare
 
 ## File da Modificare
 
-### `src/pages/Aria.tsx`
-- Aggiungere sfondo portal animato
-- Spostare icona cronologia in alto a destra
-- Rimuovere sezione history da bottom
-- Usare Sheet per cronologia invece di collapse
+| File | Modifica |
+|------|----------|
+| `supabase/functions/ai-dashboard/index.ts` | Passare cache precedente, migliorare prompt, aggiungere validazione |
 
-### `src/components/aria/AriaHeroSection.tsx`
-- Rimuovere card wrapper
-- Orb più piccolo e centrato
-- "Sono Aria" come intro
-- Pulsanti ENORMI (py-6, text-lg, gap-4)
-- Insight come linea sottile sotto pulsanti
+## Implementazione Tecnica
 
-### `src/components/aria/DiaryChipsScroll.tsx`
-- Aumentare dimensioni chips
-- Padding più generoso
-- Icone più grandi (w-12 h-12)
+```typescript
+// Nella edge function, prima della chiamata AI:
+const { data: profile } = await supabase
+  .from('user_profiles')
+  .select('ai_dashboard_cache, selected_goals')
+  .eq('user_id', user.id)
+  .single();
 
-### `src/index.css`
-- Aggiungere animazione `portal-breathe`
-- Classe `.aria-portal-bg` per gradiente immersivo
+// Estrarre focus precedenti dalla cache
+const previousCache = profile?.ai_dashboard_cache as DashboardLayout | null;
+const previousFocusKeys = previousCache?.primary_metrics?.map(m => m.key) || [];
 
----
-
-## Dettagli Pulsanti Protagonisti
-
-```tsx
-// Pulsante SCRIVI - Enorme
-<motion.button className={cn(
-  "w-full flex items-center justify-center gap-4",
-  "py-6 px-8 rounded-3xl",
-  "bg-gradient-to-br from-white/90 to-white/70",
-  "backdrop-blur-xl border border-white/50",
-  "text-foreground font-bold text-lg",
-  "shadow-glass-elevated",
-)}>
-  <PenLine className="w-7 h-7" />
-  <span>Scrivi con Aria</span>
-</motion.button>
-
-// Pulsante PARLA - Enorme con gradiente Aria
-<motion.button className={cn(
-  "w-full flex items-center justify-center gap-4",
-  "py-6 px-8 rounded-3xl",
-  "bg-gradient-aria",
-  "text-white font-bold text-lg",
-  "shadow-aria-glow",
-)}>
-  <AudioLines className="w-7 h-7" />
-  <span>Parla con Aria</span>
-</motion.button>
+// Aggiungere al prompt utente:
+const previousFocusSection = previousFocusKeys.length > 0
+  ? `\nFOCUS ATTUALI DA MANTENERE: ${previousFocusKeys.join(', ')}\nCambia SOLO se c'e un motivo critico.`
+  : '';
 ```
 
----
+## Risultato Atteso
 
-## Animazione Portale
-
-```css
-@keyframes portal-breathe {
-  0%, 100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes portal-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-```
-
----
-
-## Stima Layout Verticale
-
-| Elemento | Altezza |
-|----------|---------|
-| Padding top | 16px |
-| Orb + intro | 80px |
-| Pulsante Scrivi | 72px |
-| Gap | 12px |
-| Pulsante Parla | 72px |
-| Insight line | 32px |
-| Gap | 16px |
-| Diari header + grid | 100px |
-| Bottom nav padding | 80px |
-| **Totale** | ~480px |
-
-Tutto visibile in viewport senza scroll su iPhone standard (667px).
-
----
-
-## Vantaggi UX
-
-1. **Immersione totale** - Sfondo colorato = "sei nel mondo di Aria"
-2. **Azione chiara** - Due pulsanti enormi, impossibile non vederli
-3. **Zero distrazione** - Cronologia nascosta, insight minimalista
-4. **Brand forte** - Aurora gradient ovunque rafforza identità Aria
-5. **Single viewport** - Tutto a portata di pollice
+- I 4 focus vengono mostrati correttamente
+- I focus sono basati su IMPORTANZA per l'utente, non sui valori numerici
+- I focus rimangono stabili nel tempo (cambiano solo con eventi significativi)
+- Le cose recenti (sessioni, diari) hanno piu peso di quelle vecchie
+- Il sistema rispetta gli obiettivi onboarding come priorita massima
