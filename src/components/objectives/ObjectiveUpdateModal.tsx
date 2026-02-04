@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, TrendingUp, Loader2, X, CheckCircle2 } from 'lucide-react';
+import { Send, TrendingUp, Loader2, X, Target, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,17 +11,77 @@ import { useObjectives, type Objective, CATEGORY_CONFIG } from '@/hooks/useObjec
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
   role: 'assistant' | 'user';
   content: string;
+  showQuickActions?: boolean; // Flag to show quick action buttons
 }
 
 interface ObjectiveUpdateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// Generate a contextual example based on objective category and title
+const generateContextualExample = (objective: Objective): string => {
+  const { category, title, unit, target_value, current_value } = objective;
+  
+  switch (category) {
+    case 'body':
+      if (title.toLowerCase().includes('peso') || title.toLowerCase().includes('dimagr')) {
+        return `"Questa settimana peso ${current_value ? current_value - 0.5 : '...'} kg"`;
+      }
+      if (title.toLowerCase().includes('palestra') || title.toLowerCase().includes('allenament')) {
+        return `"Sono andato in palestra 3 volte questa settimana"`;
+      }
+      return `"Ho fatto progressi con ${title}"`;
+      
+    case 'finance':
+      if (title.toLowerCase().includes('risparm')) {
+        return `"Ho messo da parte 100€ questo mese"`;
+      }
+      if (title.toLowerCase().includes('spesa') || title.toLowerCase().includes('budget')) {
+        return `"Questa settimana ho speso solo 50€"`;
+      }
+      return `"Ho fatto progressi con ${title}"`;
+      
+    case 'study':
+      if (title.toLowerCase().includes('voto') || title.toLowerCase().includes('esame')) {
+        return `"Ho preso 28 all'esame di oggi"`;
+      }
+      return `"Ho studiato 2 ore per ${title}"`;
+      
+    case 'work':
+      if (title.toLowerCase().includes('app') || title.toLowerCase().includes('progetto') || title.toLowerCase().includes('lanc')) {
+        return `"Ho completato il design della landing page"`;
+      }
+      if (title.toLowerCase().includes('client') || title.toLowerCase().includes('vendita')) {
+        return `"Ho acquisito 2 nuovi clienti"`;
+      }
+      return `"Ho fatto un passo avanti con ${title}"`;
+      
+    case 'mind':
+      if (title.toLowerCase().includes('meditaz')) {
+        return `"Ho meditato ogni giorno questa settimana"`;
+      }
+      return `"Mi sento più ${title.toLowerCase().includes('ansia') ? 'tranquillo' : 'concentrato'}"`;
+      
+    case 'relationships':
+      return `"Ho passato più tempo di qualità con ${title.toLowerCase().includes('famiglia') ? 'la famiglia' : 'le persone care'}"`;
+      
+    case 'growth':
+      if (title.toLowerCase().includes('libr') || title.toLowerCase().includes('lettur')) {
+        return `"Ho finito un altro capitolo del libro"`;
+      }
+      return `"Ho imparato qualcosa di nuovo per ${title}"`;
+      
+    default:
+      return `"Ho fatto progressi con ${title}"`;
+  }
+};
 
 export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
   open,
@@ -38,16 +98,30 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Generate initial message based on active objectives
-  const getInitialMessage = () => {
+  const getInitialMessage = (): { content: string; showQuickActions: boolean } => {
     if (activeObjectives.length === 0) {
-      return "Non hai ancora obiettivi attivi. Vuoi crearne uno nuovo?";
+      return { 
+        content: "Non hai ancora obiettivi attivi. Vuoi crearne uno nuovo?",
+        showQuickActions: false 
+      };
     }
     
+    // List only the objectives (max 5)
     const objectivesList = activeObjectives
-      .map((obj, i) => `${i + 1}. **${obj.title}** (${CATEGORY_CONFIG[obj.category].label})`)
+      .slice(0, 5)
+      .map((obj, i) => `${i + 1}. **${obj.title}**`)
       .join('\n');
     
-    return `Ciao! 📊 Vedo che hai ${activeObjectives.length} obiettiv${activeObjectives.length === 1 ? 'o' : 'i'} attiv${activeObjectives.length === 1 ? 'o' : 'i'}:\n\n${objectivesList}\n\nRaccontami i tuoi progressi! Ad esempio:\n- "Ho perso 2kg questa settimana"\n- "Ho risparmiato 150€ questo mese"\n- "Oggi ho studiato 3 ore"`;
+    // Generate contextual examples based on actual objectives
+    const examples = activeObjectives
+      .slice(0, 2)
+      .map(obj => `- ${generateContextualExample(obj)}`)
+      .join('\n');
+    
+    return { 
+      content: `Ciao! 📊 Hai **${activeObjectives.length} obiettiv${activeObjectives.length === 1 ? 'o' : 'i'}** attiv${activeObjectives.length === 1 ? 'o' : 'i'}.\n\nSeleziona quale vuoi aggiornare, oppure raccontami i tuoi progressi. Ad esempio:\n${examples}`,
+      showQuickActions: true 
+    };
   };
 
   // Track if modal was just opened
@@ -58,10 +132,12 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
     if (open && !wasOpenRef.current) {
       // Only reset on first open
       window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
+      const initialMsg = getInitialMessage();
       setMessages([{
         id: '1',
         role: 'assistant',
-        content: getInitialMessage(),
+        content: initialMsg.content,
+        showQuickActions: initialMsg.showQuickActions,
       }]);
       setInputValue('');
       setTimeout(() => inputRef.current?.focus(), 300);
@@ -70,7 +146,7 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
       window.dispatchEvent(new CustomEvent('show-bottom-nav'));
       wasOpenRef.current = false;
     }
-  }, [open]);
+  }, [open, activeObjectives]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -79,20 +155,27 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
     }
   }, [messages]);
 
-  const addMessage = (role: 'assistant' | 'user', content: string) => {
+  const addMessage = (role: 'assistant' | 'user', content: string, showQuickActions = false) => {
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role,
       content,
+      showQuickActions,
     }]);
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage = inputValue.trim();
+  // Handle quick action button click - sends message about specific objective
+  const handleQuickAction = (objective: Objective) => {
+    const prompt = `Voglio aggiornare i progressi di "${objective.title}"`;
     setInputValue('');
-    addMessage('user', userMessage);
+    addMessage('user', prompt);
+    
+    // Trigger the send with this specific context
+    handleSendMessageWithContent(prompt);
+  };
+
+  const handleSendMessageWithContent = async (content: string) => {
+    if (!content.trim() || isLoading) return;
     setIsLoading(true);
 
     try {
@@ -101,7 +184,7 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       }));
-      chatHistory.push({ role: 'user', content: userMessage });
+      chatHistory.push({ role: 'user', content });
 
       // Call the edge function for objective updates
       const { data, error } = await supabase.functions.invoke('update-objective-chat', {
@@ -146,11 +229,70 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
+
+    const userMessage = inputValue.trim();
+    setInputValue('');
+    addMessage('user', userMessage);
+    
+    await handleSendMessageWithContent(userMessage);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // Render quick action buttons for objectives
+  const renderQuickActions = () => {
+    if (activeObjectives.length === 0) return null;
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-3 space-y-2"
+      >
+        {activeObjectives.slice(0, 5).map((obj) => (
+          <Button
+            key={obj.id}
+            variant="outline"
+            size="sm"
+            onClick={() => handleQuickAction(obj)}
+            disabled={isLoading}
+            className={cn(
+              "w-full justify-between text-left h-auto py-3 px-4",
+              "rounded-xl border-glass-border bg-glass/50 hover:bg-glass",
+              "transition-all duration-200"
+            )}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${CATEGORY_CONFIG[obj.category].color}20` }}
+              >
+                <span className="text-base">{CATEGORY_CONFIG[obj.category].emoji}</span>
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground text-sm truncate">
+                  {obj.title}
+                </p>
+                {obj.ai_progress_estimate !== null && (
+                  <p className="text-xs text-muted-foreground">
+                    Progresso: {obj.ai_progress_estimate}%
+                  </p>
+                )}
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          </Button>
+        ))}
+      </motion.div>
+    );
   };
 
   return (
@@ -183,31 +325,11 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
             </Button>
           </div>
           
-          {/* Active objectives pills */}
-          {activeObjectives.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {activeObjectives.slice(0, 4).map(obj => (
-                <div 
-                  key={obj.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-glass border border-glass-border text-xs"
-                >
-                  <span>{CATEGORY_CONFIG[obj.category].emoji}</span>
-                  <span className="text-foreground font-medium truncate max-w-[120px]">
-                    {obj.title}
-                  </span>
-                </div>
-              ))}
-              {activeObjectives.length > 4 && (
-                <div className="px-3 py-1.5 rounded-full bg-muted text-xs text-muted-foreground">
-                  +{activeObjectives.length - 4} altri
-                </div>
-              )}
-            </div>
-          )}
+          {/* Active objectives pills - REMOVED from header since we show buttons in chat */}
         </SheetHeader>
 
         {/* Chat Area */}
-        <ScrollArea className="flex-1 h-[calc(85vh-220px)]" ref={scrollRef}>
+        <ScrollArea className="flex-1 h-[calc(85vh-180px)]" ref={scrollRef}>
           <div className="p-4 space-y-4">
             <AnimatePresence mode="popLayout">
               {messages.map((message) => (
@@ -217,8 +339,8 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   className={cn(
-                    "flex",
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    "flex flex-col",
+                    message.role === 'user' ? 'items-end' : 'items-start'
                   )}
                 >
                   <div className={cn(
@@ -227,8 +349,15 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
                       ? "bg-primary text-primary-foreground rounded-br-md" 
                       : "bg-glass border border-glass-border rounded-bl-md"
                   )}>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
                   </div>
+                  
+                  {/* Quick action buttons after initial assistant message */}
+                  {message.role === 'assistant' && message.showQuickActions && !isLoading && (
+                    renderQuickActions()
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>
