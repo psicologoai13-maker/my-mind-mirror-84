@@ -17,13 +17,13 @@ const DomainCard: React.FC<DomainCardProps> = ({
     <div
       className={cn(
         "rounded-3xl overflow-hidden",
-        "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
+        "bg-glass backdrop-blur-xl border border-glass-border",
         "shadow-glass",
         className
       )}
     >
       {/* Domain Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-glass-border/30">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-glass-border/50">
         <span className="text-xl">{domain.icon}</span>
         <div className="flex-1 min-w-0">
           <h3 className="font-display font-semibold text-sm text-foreground">

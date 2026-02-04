@@ -77,7 +77,7 @@ const UnifiedMetricCard: React.FC<UnifiedMetricCardProps> = ({
       onClick={handleClick}
       className={cn(
         "flex items-center gap-2.5 p-2.5 rounded-xl w-full",
-        "bg-glass/50 backdrop-blur-sm border border-glass-border/50",
+        "bg-glass/80 backdrop-blur-sm border border-glass-border/80",
         "hover:bg-glass hover:border-glass-border",
         "transition-all duration-150 active:scale-[0.98]",
         "text-left focus:outline-none focus:ring-1 focus:ring-primary/20"

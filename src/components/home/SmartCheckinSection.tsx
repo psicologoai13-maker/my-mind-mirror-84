@@ -786,7 +786,7 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
           "shadow-glass-elevated"
         )}>
           {/* Inner glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none rounded-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none rounded-3xl" />
           
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">

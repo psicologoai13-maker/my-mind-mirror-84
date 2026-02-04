@@ -33,7 +33,7 @@ const EmotionalMixBar: React.FC = () => {
       "shadow-glass"
     )}>
       {/* Inner light */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10 flex items-center gap-2.5 mb-4">
         <span className="text-xl">🎨</span>

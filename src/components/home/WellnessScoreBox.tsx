@@ -80,7 +80,7 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({
         <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
         
         {/* Inner light reflection */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none rounded-[32px]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none rounded-[32px]" />
         
         {/* Main Content */}
         <div className="relative z-10 p-6">
@@ -139,7 +139,7 @@ const WellnessScoreBox: React.FC<WellnessScoreBoxProps> = ({
       <div className="absolute inset-0 bg-gradient-mesh opacity-50 pointer-events-none" />
       
       {/* Inner light reflection */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none rounded-[32px]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none rounded-[32px]" />
       
       {/* Main Content */}
       <div className="relative z-10 p-6">

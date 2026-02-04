@@ -399,7 +399,7 @@ const PointsProgressCard: React.FC<PointsProgressCardProps> = ({ compact = false
       "bg-glass backdrop-blur-xl border border-glass-border",
       "shadow-glass"
     )}>
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10 p-5">
         <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">

@@ -30,7 +30,7 @@ const DiaryNotebookCard: React.FC<DiaryNotebookCardProps> = ({ theme, diary, onC
       )}
     >
       {/* Inner light */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       {/* Icon circle */}
       <div className="relative z-10 w-10 h-10 rounded-2xl bg-muted/50 backdrop-blur-sm flex items-center justify-center text-lg mb-3">

@@ -541,7 +541,7 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, onLog, isLogging }) => {
       )}
       
       {/* Inner light reflection */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative z-10">
         {/* Header */}

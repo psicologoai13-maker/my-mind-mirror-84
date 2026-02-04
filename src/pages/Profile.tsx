@@ -95,11 +95,11 @@ const Profile: React.FC = () => {
         {/* Profile Header - Glass Card with Earn Points */}
         <div className={cn(
           "relative overflow-hidden rounded-3xl p-5",
-          "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
+          "bg-glass backdrop-blur-xl border border-glass-border",
           "shadow-glass"
         )}>
           {/* Inner light reflection */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
           
           <div className="relative z-10 flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">
@@ -148,11 +148,11 @@ const Profile: React.FC = () => {
         {/* Settings Menu - Glass Card */}
         <div className={cn(
           "relative overflow-hidden rounded-3xl",
-          "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
+          "bg-glass backdrop-blur-xl border border-glass-border",
           "shadow-glass"
         )}>
           {/* Inner light */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
           
           <div className="relative z-10 flex items-center gap-2.5 px-4 py-3 border-b border-glass-border/30">
             <span className="text-xl">⚙️</span>
@@ -199,7 +199,7 @@ const Profile: React.FC = () => {
           variant="outline" 
           className={cn(
             "w-full rounded-2xl",
-            "bg-glass/30 backdrop-blur-xl border-glass-border/60",
+            "bg-glass backdrop-blur-xl border-glass-border",
             "text-destructive hover:bg-destructive/10 hover:border-destructive/30"
           )}
           onClick={handleLogout}
