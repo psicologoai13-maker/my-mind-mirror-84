@@ -132,20 +132,22 @@ export function useAIDashboard() {
         setIsLoading(false); // Stop loading immediately
         
         // 🎯 CRITICAL FIX: Force refresh if wellness_score is null BUT user has completed sessions
-        // This handles the case where cache was generated before the first session
         const needsScoreRefresh = cachedLayout.wellness_score === null && hasCompletedSessions;
+        
+        // 🎯 CRITICAL FIX: Force refresh if fewer than 4 focus metrics (incomplete cache)
+        const needsMetricsRefresh = cachedLayout.primary_metrics.length < 4;
         
         // 🎯 DAILY REFRESH LOGIC: Only refresh layout once per day at 6:00 AM Rome
         const needsLayoutRefresh = shouldRefreshLayout(cacheUpdatedAt);
         
-        if (!forceRefresh && !needsLayoutRefresh && !needsScoreRefresh) {
+        if (!forceRefresh && !needsLayoutRefresh && !needsScoreRefresh && !needsMetricsRefresh) {
           console.log('[useAIDashboard] Layout is fresh (updated after today 6AM), no refresh needed');
           return;
         }
 
         // Refresh in background (don't show loading)
         if (!forceRefresh) {
-          console.log('[useAIDashboard] Refresh needed:', { needsLayoutRefresh, needsScoreRefresh });
+          console.log('[useAIDashboard] Refresh needed:', { needsLayoutRefresh, needsScoreRefresh, needsMetricsRefresh });
           setIsRefreshingInBackground(true);
         }
       } else {
@@ -153,9 +155,10 @@ export function useAIDashboard() {
         setIsLoading(true);
       }
 
-      // Skip if recently fetched (within 30 seconds) and not forcing AND no score refresh needed
-      const needsScoreRefresh = cachedLayout?.wellness_score === null && hasCompletedSessions;
-      if (!forceRefresh && !needsScoreRefresh && Date.now() - globalLastFetchTime < 30000 && globalCachedLayout) {
+      // Skip if recently fetched (within 30 seconds) and not forcing AND no refresh needed
+      const needsScoreRefreshCheck = cachedLayout?.wellness_score === null && hasCompletedSessions;
+      const needsMetricsRefreshCheck = (cachedLayout?.primary_metrics?.length ?? 0) < 4;
+      if (!forceRefresh && !needsScoreRefreshCheck && !needsMetricsRefreshCheck && Date.now() - globalLastFetchTime < 30000 && globalCachedLayout) {
         console.log('[useAIDashboard] Skipping fetch - recently updated');
         setIsLoading(false);
         setIsRefreshingInBackground(false);
