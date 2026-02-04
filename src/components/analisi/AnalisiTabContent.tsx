@@ -20,6 +20,7 @@ interface MenteTabProps {
   timeRange: TimeRange;
   onTimeRangeChange?: (range: TimeRange) => void;
   onMetricClick: (key: string) => void;
+  hasTodayData?: boolean;
 }
 
 // Calculate trend for metrics
@@ -73,6 +74,7 @@ export const MenteTab: React.FC<MenteTabProps> = ({
   timeRange,
   onTimeRangeChange,
   onMetricClick,
+  hasTodayData = true,
 }) => {
   // Filter days with data
   const daysWithData = metricsRange.filter(m => 
@@ -157,6 +159,7 @@ export const MenteTab: React.FC<MenteTabProps> = ({
           timeRange={timeRange}
           onTimeRangeChange={onTimeRangeChange}
           onMetricClick={onMetricClick}
+          hasTodayData={hasTodayData}
         />
       )}
 

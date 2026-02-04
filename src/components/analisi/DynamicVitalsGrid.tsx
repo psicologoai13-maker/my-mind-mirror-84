@@ -17,6 +17,7 @@ interface DynamicVitalsGridProps {
   timeRange?: TimeRange;
   onTimeRangeChange?: (range: TimeRange) => void;
   onMetricClick?: (key: string) => void;
+  hasTodayData?: boolean;
 }
 
 const DynamicVitalCard: React.FC<{
@@ -123,6 +124,7 @@ const DynamicVitalsGrid: React.FC<DynamicVitalsGridProps> = ({
   timeRange,
   onTimeRangeChange,
   onMetricClick,
+  hasTodayData = true,
 }) => {
   if (metrics.length === 0) {
     return (
@@ -139,7 +141,7 @@ const DynamicVitalsGrid: React.FC<DynamicVitalsGridProps> = ({
           <span>💫</span> Parametri Vitali
         </h2>
         {timeRange && onTimeRangeChange && (
-          <CompactTimeSelector value={timeRange} onChange={onTimeRangeChange} />
+          <CompactTimeSelector value={timeRange} onChange={onTimeRangeChange} hasTodayData={hasTodayData} />
         )}
       </div>
       
