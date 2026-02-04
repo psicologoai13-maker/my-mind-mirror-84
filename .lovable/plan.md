@@ -1,148 +1,163 @@
 
+# Piano: Ripristino Completo del Contesto di Aria per ElevenLabs
 
-# Migliorare la Voce di Aria con ElevenLabs
+## Diagnosi del Problema
 
-## Analisi del Sistema Attuale
+### Problema 1: Contesto Perso
+L'agente ElevenLabs utilizza il suo LLM interno con il prompt base configurato nella dashboard. **Non ha accesso a:**
+- Memoria a lungo termine dell'utente
+- Contesto in tempo reale (meteo, data, notizie)
+- Knowledge base clinica completa (~2500 righe di istruzioni)
+- Profilo utente (obiettivi, sfide, risposte onboarding)
+- Sessioni precedenti
+- Abitudini del giorno
+- Metriche corporee e giornaliere
+- Obiettivi attivi
 
-| Componente | Tecnologia | Problema |
-|------------|-----------|----------|
-| `useRealtimeVoice.tsx` | OpenAI Realtime GPT-4o | Voce "shimmer" robotica |
-| `openai-realtime-session/index.ts` | WebRTC + OpenAI | Latenza ok, ma voce innaturale |
-| `useVoiceSession.tsx` | Web Speech API browser | TTS molto robotico (fallback) |
+### Problema 2: Connessione Bloccata su "Connessione..."
+I log mostrano che il token viene generato correttamente. Il problema probabilmente sta nella gestione del flusso nel hook client-side.
 
-## Soluzione: ElevenLabs Conversational AI
+---
 
-ElevenLabs offre voci **indistinguibili da quelle umane** con supporto completo per l'italiano. L'integrazione usa WebRTC per latenza minima.
+## Soluzione Tecnica
 
-### Architettura Proposta
+### Fase 1: Aggiornare Edge Function per Costruire il System Prompt Completo
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENT                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │            ZenVoiceModal.tsx                             │  │
-│  │                    │                                     │  │
-│  │                    ▼                                     │  │
-│  │         useElevenLabsVoice.tsx (NUOVO)                   │  │
-│  │           │                                              │  │
-│  │           │  @elevenlabs/react                           │  │
-│  │           │  useConversation()                           │  │
-│  │           │                                              │  │
-│  └───────────┼──────────────────────────────────────────────┘  │
-│              │                                                  │
-└──────────────┼──────────────────────────────────────────────────┘
-               │ WebRTC (bassa latenza)
-               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    EDGE FUNCTION                                 │
-│  elevenlabs-conversation-token/index.ts (NUOVO)                  │
-│    - Genera token sicuro                                         │
-│    - Inietta system prompt con memoria Aria                      │
-│    - Real-time context                                           │
-└──────────────────────────────────────────────────────────────────┘
-               │
-               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    ELEVENLABS                                    │
-│  Agent configurato con:                                          │
-│    - Voce italiana naturale (es. "Laura" o custom)               │
-│    - Persona Aria iniettata                                      │
-│    - Bassa latenza via WebRTC                                    │
-└──────────────────────────────────────────────────────────────────┘
-```
+**File:** `supabase/functions/elevenlabs-conversation-token/index.ts`
 
-## File da Creare/Modificare
+L'edge function deve:
+1. Recuperare TUTTI i dati dell'utente da Supabase (come fa `gemini-voice`):
+   - `user_profiles` (memoria, nome, obiettivi, wellness_score, onboarding_answers, dashboard_config)
+   - `daily_life_areas` (aree vita del giorno)
+   - `user_objectives` (obiettivi attivi)
+   - `sessions` (ultime 3 sessioni)
+   - `daily_habits` (abitudini del giorno)
+   - `body_metrics` (metriche corporee)
+   - `user_interests` (interessi per personalizzazione)
 
-### 1. Nuovo Hook: `useElevenLabsVoice.tsx`
+2. Costruire il system prompt completo con:
+   - Persona "Best Friend + Expert" (da `BEST_FRIEND_VOICE`)
+   - Contesto in tempo reale (weather, date, location, news)
+   - Memoria delle sessioni precedenti
+   - Knowledge base clinica (CBT, ACT, DBT, MI, SFBT)
+   - Stile personalizzato basato su preferenze utente
+   - Istruzioni Data Hunter per metriche mancanti
+   - Obiettivi attivi e tracking
+   - Regole vocali (brevita, naturale)
 
-```typescript
-// Usa @elevenlabs/react useConversation
-// - Richiede token da edge function
-// - Gestisce microfono con permessi
-// - Stato: isActive, isSpeaking, isListening
-// - Passa memoria e contesto utente
-```
+3. Restituire sia `signedUrl` che `systemPrompt` al client
 
-### 2. Nuova Edge Function: `elevenlabs-conversation-token/index.ts`
+### Fase 2: Aggiornare Hook per Usare Dynamic Overrides
+
+**File:** `src/hooks/useElevenLabsVoice.tsx`
+
+Modifiche:
+1. Ricevere `systemPrompt` dall'edge function
+2. Usare il parametro `overrides` in `conversation.startSession()`:
 
 ```typescript
-// Genera token WebRTC per ElevenLabs
-// - Carica profilo utente e memoria
-// - Costruisce system prompt Aria
-// - Ritorna conversationToken
+await conversation.startSession({
+  signedUrl: data.signedUrl,
+  overrides: {
+    agent: {
+      prompt: {
+        prompt: data.systemPrompt, // Full context injected here
+      },
+      language: "it",
+    },
+  },
+});
 ```
 
-### 3. Aggiornare: `ZenVoiceModal.tsx`
+3. Aggiungere logging migliorato per debug connessione
+4. Gestire meglio gli errori con toast informativi
 
-- Switch da `useRealtimeVoice` a `useElevenLabsVoice`
-- Mantenere stessa UI/UX
+### Fase 3: Fix Connessione
 
-### 4. Configurare Agent ElevenLabs (Dashboard)
+Verifiche e correzioni:
+1. Assicurarsi che `conversation.startSession()` sia chiamato correttamente
+2. Verificare che lo stato `status` del hook ElevenLabs venga aggiornato
+3. Aggiungere timeout per gestire connessioni bloccate
+4. Logging dettagliato per tracciare il flusso
 
-- Creare Agent con voce italiana
-- Settare parametri voce naturale
+### Fase 4: Configurazione Dashboard ElevenLabs (Richiesta Utente)
 
-## Configurazione Voce Naturale
+L'utente deve abilitare "Client Overrides" nella dashboard ElevenLabs:
+1. Aprire l'agente su ElevenLabs
+2. Andare in Settings/Advanced
+3. Abilitare "Allow client overrides" per:
+   - System Prompt
+   - First Message
+   - Language
 
-### Parametri ElevenLabs Consigliati
+---
 
-| Parametro | Valore | Effetto |
-|-----------|--------|---------|
-| `stability` | 0.4-0.5 | Piu espressiva e variata |
-| `similarity_boost` | 0.7 | Mantiene carattere voce |
-| `style` | 0.3-0.5 | Aggiunge personalita |
-| `speed` | 0.95 | Leggermente piu lento, naturale |
+## Struttura del System Prompt Iniettato
 
-### Voci Italiane Consigliate
-
-| Voce | ID | Carattere |
-|------|-----|-----------|
-| Laura | FGY2WhTYpPnrIDTdsKH5 | Femminile, calda, professionale |
-| Alice | Xb7hH8MSUJpSbSDYk0k2 | Femminile, giovane, amichevole |
-| Matilda | XrExE9yKIg1WjnnlVkGX | Femminile, matura, rassicurante |
-
-## Miglioramenti al Prompt Vocale
-
-Oltre a cambiare TTS, ottimizziamo le istruzioni per renderle piu naturali:
-
-### Da Aggiungere al System Prompt
+Il prompt completo includera le seguenti sezioni (adattate per voce):
 
 ```text
-STILE VOCALE NATURALE:
-- Usa esclamazioni genuine: "Ah!", "Mamma mia!", "Dai!", "Oddio!"
-- Pause pensierose: "Mmm... sai cosa penso?"
-- Risate brevi quando appropriato: "Ahah", "Eh eh"
-- Variazioni di tono: sussurato per momenti intimi, energico per incoraggiare
-- Interiezioni italiane: "Insomma...", "Cioe...", "Ecco..."
-- Mai elenchi puntati - parla in modo discorsivo
-- Respiri naturali tra le frasi
+[IDENTITA: Migliore Amica + Psicologa Esperta]
+
+[CONTESTO TEMPO REALE]
+- Data/Ora corrente
+- Posizione utente (se condivisa)
+- Meteo attuale
+- Notizie rilevanti
+
+[PROFILO UTENTE]
+- Nome: {userName}
+- Obiettivi: {selectedGoals}
+- Sfida principale: {mainChallenge}
+- Stile supporto preferito: {supportType}
+- Metriche prioritarie: {priorityMetrics}
+
+[MEMORIA SESSIONI PRECEDENTI]
+- {longTermMemory entries}
+
+[OBIETTIVI ATTIVI]
+- {activeObjectives with progress}
+
+[DATA HUNTER - METRICHE MANCANTI]
+- Aree vita senza dati: {missingAreas}
+
+[CONOSCENZE CLINICHE - Compact]
+- CBT, ACT, DBT, MI, SFBT
+- Riconoscimento pattern: GAD, Panico, Depressione, PTSD
+- Tecniche: Grounding, TIPP, Respirazione
+
+[REGOLE VOCALI]
+- 2-3 frasi max
+- Tono naturale da amica
+- Risate e reazioni genuine
+- No meta-commenti
+- Protocollo sicurezza per crisi
 ```
 
-## Dipendenze da Installare
+---
 
-```bash
-npm install @elevenlabs/react
-```
+## File da Modificare
 
-## Secrets Necessari
+| File | Modifiche |
+|------|-----------|
+| `supabase/functions/elevenlabs-conversation-token/index.ts` | Rebuild completo con fetch dati + costruzione system prompt |
+| `src/hooks/useElevenLabsVoice.tsx` | Aggiunta overrides + fix connessione + logging |
+| `src/components/voice/ZenVoiceModal.tsx` | Eventuale integrazione hook real-time context |
 
-| Secret | Descrizione |
-|--------|-------------|
-| `ELEVENLABS_API_KEY` | API key da ElevenLabs dashboard |
+---
 
-## Riepilogo Modifiche
+## Prerequisito Utente
 
-| File | Azione | Descrizione |
-|------|--------|-------------|
-| `src/hooks/useElevenLabsVoice.tsx` | NUOVO | Hook per ElevenLabs Conversational AI |
-| `supabase/functions/elevenlabs-conversation-token/index.ts` | NUOVO | Edge function per token generation |
-| `src/components/voice/ZenVoiceModal.tsx` | MODIFICA | Usa nuovo hook ElevenLabs |
-| `supabase/config.toml` | MODIFICA | Aggiunge nuova function |
+Prima di implementare, l'utente deve abilitare "Client Overrides" nella dashboard ElevenLabs per l'agente Aria. Senza questo, il prompt iniettato verra ignorato.
+
+---
 
 ## Risultato Atteso
 
-1. **Voce umana** - ElevenLabs produce voci indistinguibili da persone reali
-2. **Bassa latenza** - WebRTC mantiene conversazione fluida
-3. **Personalita Aria** - Stesso prompt, voce molto migliore
-4. **Italiano nativo** - Voci italiane di alta qualita
-
+Dopo l'implementazione:
+1. Aria avra accesso a TUTTE le informazioni precedenti
+2. Ricordera le sessioni passate
+3. Conoscera gli obiettivi dell'utente
+4. Usera tecniche cliniche appropriate
+5. Sara personalizzata in base a preferenze e contesto
+6. La connessione funzionera correttamente
