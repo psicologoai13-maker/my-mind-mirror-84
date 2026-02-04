@@ -1,59 +1,58 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { subDays, format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Cloud } from 'lucide-react';
-
-const EMOTION_CONFIG = {
-  // Primary emotions
-  joy: { label: 'Gioia', color: 'hsl(45, 90%, 55%)' },
-  sadness: { label: 'Tristezza', color: 'hsl(220, 70%, 55%)' },
-  anger: { label: 'Rabbia', color: 'hsl(0, 70%, 55%)' },
-  fear: { label: 'Paura', color: 'hsl(280, 60%, 55%)' },
-  apathy: { label: 'Apatia', color: 'hsl(220, 10%, 60%)' },
-  // Secondary emotions
-  shame: { label: 'Vergogna', color: 'hsl(320, 60%, 50%)' },
-  jealousy: { label: 'Gelosia', color: 'hsl(150, 60%, 40%)' },
-  hope: { label: 'Speranza', color: 'hsl(200, 80%, 55%)' },
-  frustration: { label: 'Frustrazione', color: 'hsl(30, 80%, 50%)' },
-  nostalgia: { label: 'Nostalgia', color: 'hsl(260, 50%, 55%)' },
-};
-
-interface DayEmotions {
-  day: string;
-  fullDate: string;
-  joy: number;
-  sadness: number;
-  anger: number;
-  fear: number;
-  apathy: number;
-}
+import { useEmotionsRange } from '@/hooks/useEmotionsData';
+import { EMOTION_CONFIG, EmotionKey, ALL_EMOTION_KEYS } from '@/lib/emotionConfig';
 
 const EmotionalWeather: React.FC = () => {
-  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
   const startDate = subDays(new Date(), 6);
   const endDate = new Date();
-  const { metricsRange } = useDailyMetricsRange(startDate, endDate);
+  const { dailyData, hasData, isLoading } = useEmotionsRange(startDate, endDate);
 
+  // Format data for the chart
   const weeklyData = useMemo(() => {
-    return metricsRange.map(dayMetrics => {
-      const day = new Date(dayMetrics.date);
+    // Create array of last 7 days
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const dayData = dailyData.find(d => d.date === dateStr);
       
-      // Emotions are already aggregated in the RPC (1-10 scale, displayed as %)
-      return {
-        day: format(day, 'EEE', { locale: it }).slice(0, 3),
-        fullDate: format(day, 'd MMM', { locale: it }),
-        joy: dayMetrics.emotions.joy * 10,
-        sadness: dayMetrics.emotions.sadness * 10,
-        anger: dayMetrics.emotions.anger * 10,
-        fear: dayMetrics.emotions.fear * 10,
-        apathy: dayMetrics.emotions.apathy * 10,
-      } as DayEmotions;
-    });
-  }, [metricsRange]);
+      const formattedDay: Record<string, any> = {
+        day: format(date, 'EEE', { locale: it }).slice(0, 3),
+        fullDate: format(date, 'd MMM', { locale: it }),
+      };
+      
+      // Add all emotions (convert to percentage for display)
+      ALL_EMOTION_KEYS.forEach(key => {
+        formattedDay[key] = dayData ? ((dayData as any)[key] ?? 0) * 10 : 0;
+      });
+      
+      days.push(formattedDay);
+    }
+    return days;
+  }, [dailyData]);
 
-  const hasData = weeklyData.some(d => d.joy + d.sadness + d.anger + d.fear + d.apathy > 0);
+  // Get which emotions have data to show
+  const activeEmotionKeys = useMemo(() => {
+    const emotionTotals: Record<EmotionKey, number> = {} as Record<EmotionKey, number>;
+    
+    ALL_EMOTION_KEYS.forEach(key => {
+      emotionTotals[key] = weeklyData.reduce((sum, day) => sum + ((day as any)[key] || 0), 0);
+    });
+    
+    return ALL_EMOTION_KEYS.filter(key => emotionTotals[key] > 0);
+  }, [weeklyData]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/20 animate-pulse">
+        <div className="h-40 bg-muted/20 rounded-lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/20">
@@ -96,28 +95,47 @@ const EmotionalWeather: React.FC = () => {
                     padding: '8px 12px'
                   }}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate || ''}
-                  formatter={(value: number, name: string) => [
-                    `${Math.round(value)}%`,
-                    EMOTION_CONFIG[name as keyof typeof EMOTION_CONFIG]?.label || name
-                  ]}
+                  formatter={(value: number, name: string) => {
+                    const config = EMOTION_CONFIG[name as EmotionKey];
+                    return [
+                      `${Math.round(value)}%`,
+                      config?.label || name
+                    ];
+                  }}
                 />
-                <Bar dataKey="joy" stackId="a" fill={EMOTION_CONFIG.joy.color} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="sadness" stackId="a" fill={EMOTION_CONFIG.sadness.color} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="anger" stackId="a" fill={EMOTION_CONFIG.anger.color} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="fear" stackId="a" fill={EMOTION_CONFIG.fear.color} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="apathy" stackId="a" fill={EMOTION_CONFIG.apathy.color} radius={[4, 4, 0, 0]} />
+                {/* Render bars for each active emotion */}
+                {activeEmotionKeys.map((key, index) => {
+                  const config = EMOTION_CONFIG[key];
+                  return (
+                    <Bar 
+                      key={key}
+                      dataKey={key} 
+                      stackId="a" 
+                      fill={config.color}
+                      radius={index === activeEmotionKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  );
+                })}
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Legend */}
+          {/* Legend - only show active emotions */}
           <div className="flex flex-wrap gap-3 mt-3 justify-center">
-            {Object.entries(EMOTION_CONFIG).map(([key, config]) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: config.color }} />
-                <span className="text-[10px] text-muted-foreground">{config.label}</span>
-              </div>
-            ))}
+            {activeEmotionKeys.slice(0, 8).map(key => {
+              const config = EMOTION_CONFIG[key];
+              return (
+                <div key={key} className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: config.color }} />
+                  <span className="text-[10px] text-muted-foreground">{config.label}</span>
+                </div>
+              );
+            })}
+            {activeEmotionKeys.length > 8 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{activeEmotionKeys.length - 8}
+              </span>
+            )}
           </div>
         </>
       )}
