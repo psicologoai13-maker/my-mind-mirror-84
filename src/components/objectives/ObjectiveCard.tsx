@@ -247,7 +247,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                   {objective.title}
                 </h3>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 pr-1">
+              <p className="text-xs text-muted-foreground leading-[1.4] h-[3.15rem] overflow-hidden pr-1">
                 {getSummary()}
               </p>
             </div>
@@ -391,34 +391,34 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
     if (hasTarget) {
       const current = objective.current_value ?? 0;
       const target = objective.target_value!;
-      const starting = objective.starting_value ?? 0;
+      const unit = objective.unit ? ' ' + objective.unit : '';
       
       if (progress >= 100) {
-        return `Complimenti! Hai raggiunto il tuo obiettivo di ${target}${objective.unit ? ' ' + objective.unit : ''}. Un traguardo importante! 🎉`;
+        return `Complimenti! Hai raggiunto il tuo obiettivo di ${target}${unit}. Un traguardo importante che dimostra il tuo impegno! 🎉`;
       }
       if (progress >= 75) {
-        return `Sei al ${Math.round(progress)}%, manca poco! Continua così per raggiungere ${target}${objective.unit ? ' ' + objective.unit : ''}.`;
+        return `Manca poco al traguardo! Continua con questa determinazione per raggiungere ${target}${unit}. Sei sulla strada giusta.`;
       }
       if (progress >= 50) {
-        return `Ottimo progresso! Sei oltre la metà del percorso. Attualmente a ${current}${objective.unit ? ' ' + objective.unit : ''} su ${target}.`;
+        return `Ottimo progresso, sei oltre la metà del percorso! Attualmente a ${current}${unit} su ${target}. Continua così!`;
       }
       if (progress > 0) {
-        return `Hai iniziato bene! Sei a ${current}${objective.unit ? ' ' + objective.unit : ''}, continua a lavorare verso ${target}.`;
+        return `Hai iniziato bene il tuo percorso! Sei a ${current}${unit}, continua a lavorare verso il tuo obiettivo di ${target}.`;
       }
-      return `Inizia a tracciare i tuoi progressi verso ${target}${objective.unit ? ' ' + objective.unit : ''}. Raccontami come sta andando!`;
+      return `Inizia a tracciare i tuoi progressi verso ${target}${unit}. Raccontami come sta andando per ricevere supporto.`;
     }
     
     // Qualitative
     if (progress >= 75) {
-      return "Stai facendo progressi eccellenti verso questo obiettivo!";
+      return "Stai facendo progressi eccellenti verso questo obiettivo! La tua costanza sta dando i suoi frutti.";
     }
     if (progress >= 50) {
-      return "Buoni progressi! Continua così, sei sulla strada giusta.";
+      return "Buoni progressi! Continua così, sei sulla strada giusta verso il raggiungimento del tuo obiettivo.";
     }
     if (progress > 0) {
-      return "Hai iniziato il tuo percorso. Raccontami i tuoi progressi per aggiornare la valutazione.";
+      return "Hai iniziato il tuo percorso verso questo obiettivo. Raccontami i tuoi progressi per aggiornare la valutazione.";
     }
-    return "Parla con me per iniziare a tracciare questo obiettivo e ricevere feedback personalizzato.";
+    return "Parla con me per iniziare a tracciare questo obiettivo. Ti aiuterò con feedback e supporto personalizzato.";
   }
 };
 
