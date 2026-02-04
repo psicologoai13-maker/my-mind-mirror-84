@@ -217,7 +217,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                 </h3>
                 <TrackingBadge type={getTrackingType(objective)} />
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 {getSummary()}
               </p>
             </div>
