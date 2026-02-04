@@ -18,11 +18,11 @@ interface UnifiedMetricCardProps {
 
 // Mini SVG Sparkline component
 const MiniSparkline: React.FC<{ data: number[]; color: string }> = ({ data, color }) => {
-  if (data.length === 0) return null;
+  if (data.length < 2) return null;
   
-  const width = 60;
-  const height = 20;
-  const padding = 2;
+  const width = 50;
+  const height = 16;
+  const padding = 1;
   
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -35,7 +35,7 @@ const MiniSparkline: React.FC<{ data: number[]; color: string }> = ({ data, colo
   }).join(' ');
   
   return (
-    <svg width={width} height={height} className="opacity-60">
+    <svg width={width} height={height} className="opacity-50">
       <polyline
         points={points}
         fill="none"
@@ -76,39 +76,30 @@ const UnifiedMetricCard: React.FC<UnifiedMetricCardProps> = ({
     <button
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-start p-3 rounded-2xl",
-        "bg-glass backdrop-blur-sm border border-glass-border",
-        "shadow-soft hover:shadow-glass-elevated",
-        "transition-all duration-200 active:scale-95",
-        "min-w-[100px] w-full text-left",
-        "focus:outline-none focus:ring-2 focus:ring-primary/20"
+        "flex items-center gap-2.5 p-2.5 rounded-xl w-full",
+        "bg-glass/50 backdrop-blur-sm border border-glass-border/50",
+        "hover:bg-glass hover:border-glass-border",
+        "transition-all duration-150 active:scale-[0.98]",
+        "text-left focus:outline-none focus:ring-1 focus:ring-primary/20"
       )}
     >
-      {/* Header: Icon + Trend */}
-      <div className="flex items-center justify-between w-full mb-1">
-        <span className="text-lg">{icon}</span>
-        <TrendIcon className={cn("w-3.5 h-3.5", trendColor)} />
-      </div>
+      {/* Icon */}
+      <span className="text-base flex-shrink-0">{icon}</span>
       
-      {/* Value */}
-      <div className={cn("text-xl font-bold tabular-nums", valueColor)}>
-        {displayValue}
-      </div>
-      
-      {/* Label */}
-      <div className="text-[11px] text-muted-foreground truncate w-full mb-1">
-        {label}
-      </div>
-      
-      {/* Sparkline */}
-      <div className="w-full h-5 flex items-end">
-        {sparklineData.length > 1 ? (
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-1">
+          <span className="text-[11px] text-muted-foreground truncate">
+            {label}
+          </span>
+          <TrendIcon className={cn("w-3 h-3 flex-shrink-0", trendColor)} />
+        </div>
+        <div className="flex items-center justify-between gap-1">
+          <span className={cn("text-sm font-semibold tabular-nums", valueColor)}>
+            {displayValue}
+          </span>
           <MiniSparkline data={sparklineData} color={color} />
-        ) : (
-          <div className="text-[10px] text-muted-foreground/50">
-            Dati insufficienti
-          </div>
-        )}
+        </div>
       </div>
     </button>
   );

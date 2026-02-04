@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import UnifiedMetricCard from './UnifiedMetricCard';
 import { ClinicalMetric, ClinicalDomain } from '@/lib/clinicalDomains';
 
@@ -34,49 +33,43 @@ const ClinicalDomainSection: React.FC<ClinicalDomainSectionProps> = ({
   if (metricsWithData.length === 0) return null;
   
   return (
-    <div className="space-y-3">
-      {/* Domain Header */}
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-xl">{domain.icon}</span>
-        <div>
-          <h3 className="font-display font-semibold text-base text-foreground">
-            {domain.label}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {domain.description}
-          </p>
-        </div>
+    <div className="space-y-2">
+      {/* Domain Header - Compact */}
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{domain.icon}</span>
+        <h3 className="font-display font-semibold text-sm text-foreground">
+          {domain.label}
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          ({metricsWithData.length})
+        </span>
       </div>
       
-      {/* Metrics Grid with Horizontal Scroll */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-2 pb-2">
-          {metricsWithData.map((metric) => {
-            const data = metricsData[metric.key] || {
-              value: null,
-              trend: 'stable' as const,
-              sparklineData: []
-            };
-            
-            return (
-              <div key={metric.key} className="flex-shrink-0 w-[100px]">
-                <UnifiedMetricCard
-                  metricKey={metric.key}
-                  label={metric.label}
-                  icon={metric.icon}
-                  color={metric.color}
-                  value={data.value}
-                  trend={data.trend}
-                  sparklineData={data.sparklineData}
-                  isNegative={metric.isNegative}
-                  onClick={() => onMetricClick(metric.key)}
-                />
-              </div>
-            );
-          })}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      {/* Metrics Grid - Responsive 2 columns */}
+      <div className="grid grid-cols-2 gap-1.5">
+        {metricsWithData.map((metric) => {
+          const data = metricsData[metric.key] || {
+            value: null,
+            trend: 'stable' as const,
+            sparklineData: []
+          };
+          
+          return (
+            <UnifiedMetricCard
+              key={metric.key}
+              metricKey={metric.key}
+              label={metric.label}
+              icon={metric.icon}
+              color={metric.color}
+              value={data.value}
+              trend={data.trend}
+              sparklineData={data.sparklineData}
+              isNegative={metric.isNegative}
+              onClick={() => onMetricClick(metric.key)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 };
