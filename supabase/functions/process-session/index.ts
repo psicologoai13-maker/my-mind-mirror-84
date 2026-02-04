@@ -643,8 +643,10 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
   - Qualsiasi sintomo fisico correlato a stress emotivo
 - appetite_changes: "non mangio", "mangio troppo per il nervoso", "fame nervosa" → 7-10
   - Sia troppo che troppo poco indicano cambiamenti significativi
-- sunlight_exposure: "sempre in casa", "non esco mai", "lavoro al buio" → 1-4 | "esco, cammino" → 7-10
-  - Inferisci anche da abitudini descritte (es. "lavoro da remoto tutto il giorno")
+- sunlight_exposure: SOLO SE ESPLICITAMENTE MENZIONATO!
+  - "sempre in casa", "non esco mai", "lavoro al buio", "non vedo la luce" → 1-4
+  - "sono uscito", "ho fatto una passeggiata", "sono stato al sole", "ho preso aria" → 7-10
+  - ⚠️ NON INFERIRE da altre abitudini! Se l'utente non parla di uscire/sole → NULL
 
 **EMOTIVI COMPLESSI:**
 - guilt (senso di colpa): "è colpa mia", "avrei dovuto", "mi sento in colpa", "ho deluso" → 7-10
