@@ -1,7 +1,7 @@
-// Clinical Domains Configuration
-// Organizzazione psicologicamente corretta delle metriche di benessere
+// Clinical Domains Configuration v2.0
+// Riorganizzazione clinica completa con ~66 metriche
 
-export type DomainId = 'emotional' | 'activation' | 'cognitive' | 'somatic' | 'functioning' | 'resources';
+export type DomainId = 'emotional' | 'activation' | 'cognitive' | 'behavioral' | 'somatic' | 'resources' | 'functioning' | 'safety';
 export type MetricSource = 'vitals' | 'emotions' | 'psychology' | 'life_areas';
 
 export interface ClinicalMetric {
@@ -23,13 +23,13 @@ export interface ClinicalDomain {
   color: string;
 }
 
-// 6 Domini Clinici
+// 8 Domini Clinici
 export const CLINICAL_DOMAINS: ClinicalDomain[] = [
   {
     id: 'emotional',
     label: 'Stato Emotivo',
     icon: '💜',
-    description: 'Come ti senti emotivamente',
+    description: 'Il tuo spettro emotivo completo',
     color: 'hsl(280, 60%, 55%)'
   },
   {
@@ -47,6 +47,13 @@ export const CLINICAL_DOMAINS: ClinicalDomain[] = [
     color: 'hsl(200, 70%, 50%)'
   },
   {
+    id: 'behavioral',
+    label: 'Comportamentale',
+    icon: '🎭',
+    description: 'Pattern di azione e evitamento',
+    color: 'hsl(170, 60%, 45%)'
+  },
+  {
     id: 'somatic',
     label: 'Somatico',
     icon: '💤',
@@ -54,25 +61,35 @@ export const CLINICAL_DOMAINS: ClinicalDomain[] = [
     color: 'hsl(260, 60%, 55%)'
   },
   {
-    id: 'functioning',
-    label: 'Funzionamento',
-    icon: '🧭',
-    description: 'Aree della vita quotidiana',
-    color: 'hsl(150, 60%, 45%)'
-  },
-  {
     id: 'resources',
     label: 'Risorse Personali',
     icon: '💪',
     description: 'Forze e capacità interiori',
     color: 'hsl(25, 80%, 55%)'
+  },
+  {
+    id: 'functioning',
+    label: 'Aree della Vita',
+    icon: '🧭',
+    description: 'Qualità della vita quotidiana',
+    color: 'hsl(150, 60%, 45%)'
+  },
+  {
+    id: 'safety',
+    label: 'Sicurezza',
+    icon: '🚨',
+    description: 'Indicatori critici di rischio',
+    color: 'hsl(0, 70%, 55%)'
   }
 ];
 
-// Tutte le ~40 metriche organizzate per dominio
+// ═══════════════════════════════════════════════════════════════
+// TUTTE LE ~66 METRICHE ORGANIZZATE PER DOMINIO
+// ═══════════════════════════════════════════════════════════════
+
 export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
   // ═══════════════════════════════════════════════════════════════
-  // STATO EMOTIVO (13 metriche)
+  // STATO EMOTIVO (20 emozioni)
   // ═══════════════════════════════════════════════════════════════
   {
     key: 'mood',
@@ -123,6 +140,26 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
     source: 'emotions',
     isNegative: true,
     description: 'Preoccupazione e timore'
+  },
+  {
+    key: 'disgust',
+    label: 'Disgusto',
+    icon: '🤢',
+    color: 'hsl(80, 50%, 40%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: true,
+    description: 'Avversione e repulsione'
+  },
+  {
+    key: 'surprise',
+    label: 'Sorpresa',
+    icon: '😲',
+    color: 'hsl(190, 70%, 50%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: false,
+    description: 'Reazione all\'inaspettato'
   },
   {
     key: 'apathy',
@@ -204,14 +241,64 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
     isNegative: true,
     description: 'Aspettative non soddisfatte'
   },
+  {
+    key: 'serenity',
+    label: 'Serenità',
+    icon: '😌',
+    color: 'hsl(180, 50%, 50%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: false,
+    description: 'Calma interiore e pace'
+  },
+  {
+    key: 'pride',
+    label: 'Orgoglio',
+    icon: '🦁',
+    color: 'hsl(40, 70%, 50%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: false,
+    description: 'Soddisfazione per i risultati'
+  },
+  {
+    key: 'affection',
+    label: 'Affetto',
+    icon: '🤗',
+    color: 'hsl(350, 60%, 60%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: false,
+    description: 'Calore e tenerezza verso gli altri'
+  },
+  {
+    key: 'curiosity',
+    label: 'Curiosità',
+    icon: '🔍',
+    color: 'hsl(200, 60%, 55%)',
+    domain: 'emotional',
+    source: 'emotions',
+    isNegative: false,
+    description: 'Interesse e voglia di esplorare'
+  },
+  {
+    key: 'guilt',
+    label: 'Senso di Colpa',
+    icon: '😔',
+    color: 'hsl(240, 35%, 50%)',
+    domain: 'emotional',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Rimpianti e colpe'
+  },
 
   // ═══════════════════════════════════════════════════════════════
-  // ATTIVAZIONE (6 metriche)
+  // ATTIVAZIONE & AROUSAL (8 metriche)
   // ═══════════════════════════════════════════════════════════════
   {
     key: 'anxiety',
     label: 'Ansia',
-    icon: '🧠',
+    icon: '😰',
     color: 'hsl(0, 70%, 55%)',
     domain: 'activation',
     source: 'vitals',
@@ -268,9 +355,29 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
     isNegative: true,
     description: 'Facilità ad irritarsi'
   },
+  {
+    key: 'racing_thoughts',
+    label: 'Pensieri Accelerati',
+    icon: '💨',
+    color: 'hsl(180, 50%, 50%)',
+    domain: 'activation',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Mente che corre veloce'
+  },
+  {
+    key: 'emotional_regulation',
+    label: 'Regolazione Emotiva',
+    icon: '🎚️',
+    color: 'hsl(160, 55%, 50%)',
+    domain: 'activation',
+    source: 'psychology',
+    isNegative: false,
+    description: 'Capacità di gestire le emozioni'
+  },
 
   // ═══════════════════════════════════════════════════════════════
-  // COGNITIVO (4 metriche)
+  // COGNITIVO (6 metriche)
   // ═══════════════════════════════════════════════════════════════
   {
     key: 'mental_clarity',
@@ -311,6 +418,70 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
     source: 'psychology',
     isNegative: true,
     description: 'Pensieri indesiderati'
+  },
+  {
+    key: 'dissociation',
+    label: 'Dissociazione',
+    icon: '🌫️',
+    color: 'hsl(220, 30%, 50%)',
+    domain: 'cognitive',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Distacco dalla realtà'
+  },
+  {
+    key: 'confusion',
+    label: 'Confusione',
+    icon: '❓',
+    color: 'hsl(240, 40%, 55%)',
+    domain: 'cognitive',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Difficoltà a pensare chiaramente'
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // COMPORTAMENTALE (4 metriche) - NUOVO DOMINIO
+  // ═══════════════════════════════════════════════════════════════
+  {
+    key: 'avoidance',
+    label: 'Evitamento',
+    icon: '🏃',
+    color: 'hsl(170, 50%, 45%)',
+    domain: 'behavioral',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Tendenza ad evitare situazioni'
+  },
+  {
+    key: 'social_withdrawal',
+    label: 'Ritiro Sociale',
+    icon: '🚪',
+    color: 'hsl(190, 45%, 50%)',
+    domain: 'behavioral',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Isolarsi dagli altri'
+  },
+  {
+    key: 'compulsive_urges',
+    label: 'Impulsi Compulsivi',
+    icon: '🔁',
+    color: 'hsl(160, 55%, 45%)',
+    domain: 'behavioral',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Bisogno di ripetere azioni'
+  },
+  {
+    key: 'procrastination',
+    label: 'Procrastinazione',
+    icon: '⏰',
+    color: 'hsl(180, 40%, 50%)',
+    domain: 'behavioral',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Rimandare compiti importanti'
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -358,71 +529,7 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // FUNZIONAMENTO - Aree Vita (6 metriche)
-  // ═══════════════════════════════════════════════════════════════
-  {
-    key: 'work',
-    label: 'Lavoro',
-    icon: '💼',
-    color: 'hsl(200, 60%, 50%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Soddisfazione professionale'
-  },
-  {
-    key: 'school',
-    label: 'Studio',
-    icon: '📚',
-    color: 'hsl(220, 60%, 55%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Rendimento scolastico'
-  },
-  {
-    key: 'love',
-    label: 'Amore',
-    icon: '❤️',
-    color: 'hsl(350, 70%, 55%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Relazioni sentimentali'
-  },
-  {
-    key: 'social',
-    label: 'Sociale',
-    icon: '👥',
-    color: 'hsl(180, 55%, 45%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Relazioni sociali'
-  },
-  {
-    key: 'health',
-    label: 'Salute',
-    icon: '🏃',
-    color: 'hsl(150, 60%, 45%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Benessere fisico'
-  },
-  {
-    key: 'growth',
-    label: 'Crescita',
-    icon: '🌱',
-    color: 'hsl(120, 50%, 45%)',
-    domain: 'functioning',
-    source: 'life_areas',
-    isNegative: false,
-    description: 'Sviluppo personale'
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // RISORSE PERSONALI (6 metriche)
+  // RISORSE PERSONALI (12 metriche)
   // ═══════════════════════════════════════════════════════════════
   {
     key: 'self_efficacy',
@@ -485,14 +592,182 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
     description: 'Senso di isolamento'
   },
   {
-    key: 'guilt',
-    label: 'Senso di Colpa',
-    icon: '😔',
-    color: 'hsl(240, 35%, 50%)',
+    key: 'sense_of_purpose',
+    label: 'Senso di Scopo',
+    icon: '🎯',
+    color: 'hsl(35, 75%, 50%)',
     domain: 'resources',
     source: 'psychology',
+    isNegative: false,
+    description: 'Direzione e significato nella vita'
+  },
+  {
+    key: 'life_satisfaction',
+    label: 'Soddisfazione di Vita',
+    icon: '⭐',
+    color: 'hsl(50, 80%, 55%)',
+    domain: 'resources',
+    source: 'psychology',
+    isNegative: false,
+    description: 'Appagamento generale'
+  },
+  {
+    key: 'perceived_social_support',
+    label: 'Supporto Sociale',
+    icon: '🤝',
+    color: 'hsl(180, 50%, 50%)',
+    domain: 'resources',
+    source: 'psychology',
+    isNegative: false,
+    description: 'Sentirsi sostenuti dagli altri'
+  },
+  {
+    key: 'resilience',
+    label: 'Resilienza',
+    icon: '🌱',
+    color: 'hsl(120, 55%, 45%)',
+    domain: 'resources',
+    source: 'psychology',
+    isNegative: false,
+    description: 'Capacità di riprendersi'
+  },
+  {
+    key: 'mindfulness',
+    label: 'Mindfulness',
+    icon: '🧘',
+    color: 'hsl(160, 50%, 50%)',
+    domain: 'resources',
+    source: 'psychology',
+    isNegative: false,
+    description: 'Presenza nel momento'
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // AREE DELLA VITA (9 aree)
+  // ═══════════════════════════════════════════════════════════════
+  {
+    key: 'work',
+    label: 'Lavoro',
+    icon: '💼',
+    color: 'hsl(200, 60%, 50%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Soddisfazione professionale'
+  },
+  {
+    key: 'school',
+    label: 'Studio',
+    icon: '📚',
+    color: 'hsl(220, 60%, 55%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Rendimento scolastico'
+  },
+  {
+    key: 'love',
+    label: 'Amore',
+    icon: '❤️',
+    color: 'hsl(350, 70%, 55%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Relazioni sentimentali'
+  },
+  {
+    key: 'family',
+    label: 'Famiglia',
+    icon: '👨‍👩‍👧',
+    color: 'hsl(30, 65%, 50%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Relazioni familiari'
+  },
+  {
+    key: 'social',
+    label: 'Sociale',
+    icon: '👥',
+    color: 'hsl(180, 55%, 45%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Relazioni sociali'
+  },
+  {
+    key: 'health',
+    label: 'Salute',
+    icon: '🏃',
+    color: 'hsl(150, 60%, 45%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Benessere fisico'
+  },
+  {
+    key: 'growth',
+    label: 'Crescita',
+    icon: '🌱',
+    color: 'hsl(120, 50%, 45%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Sviluppo personale'
+  },
+  {
+    key: 'leisure',
+    label: 'Tempo Libero',
+    icon: '🎮',
+    color: 'hsl(280, 55%, 55%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Hobby e relax'
+  },
+  {
+    key: 'finances',
+    label: 'Finanze',
+    icon: '💰',
+    color: 'hsl(140, 60%, 40%)',
+    domain: 'functioning',
+    source: 'life_areas',
+    isNegative: false,
+    description: 'Situazione economica'
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // SICUREZZA - Indicatori Critici (3 metriche)
+  // ═══════════════════════════════════════════════════════════════
+  {
+    key: 'suicidal_ideation',
+    label: 'Ideazione Suicidaria',
+    icon: '⚠️',
+    color: 'hsl(0, 80%, 50%)',
+    domain: 'safety',
+    source: 'psychology',
     isNegative: true,
-    description: 'Rimpianti e colpe'
+    description: 'Pensieri di farsi del male - CRITICO'
+  },
+  {
+    key: 'hopelessness',
+    label: 'Disperazione',
+    icon: '🌑',
+    color: 'hsl(0, 60%, 40%)',
+    domain: 'safety',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Perdita di speranza - CRITICO'
+  },
+  {
+    key: 'self_harm_urges',
+    label: 'Impulsi Autolesionistici',
+    icon: '🩹',
+    color: 'hsl(0, 70%, 45%)',
+    domain: 'safety',
+    source: 'psychology',
+    isNegative: true,
+    description: 'Desiderio di farsi del male - CRITICO'
   }
 ];
 
@@ -546,4 +821,30 @@ export const getSemanticTrend = (trend: 'up' | 'down' | 'stable', isNegative: bo
       ? { color: 'text-emerald-500', isPositive: true }
       : { color: 'text-orange-500', isPositive: false };
   }
+};
+
+// Check for safety alerts
+export const checkSafetyAlerts = (metricsData: Record<string, { value: number | null }>): {
+  hasCriticalAlert: boolean;
+  criticalMetrics: string[];
+} => {
+  const criticalMetrics: string[] = [];
+  
+  const safetyMetrics = [
+    { key: 'suicidal_ideation', threshold: 5 },
+    { key: 'hopelessness', threshold: 7 },
+    { key: 'self_harm_urges', threshold: 5 }
+  ];
+  
+  for (const metric of safetyMetrics) {
+    const value = metricsData[metric.key]?.value;
+    if (value !== null && value > metric.threshold) {
+      criticalMetrics.push(metric.key);
+    }
+  }
+  
+  return {
+    hasCriticalAlert: criticalMetrics.length > 0,
+    criticalMetrics
+  };
 };

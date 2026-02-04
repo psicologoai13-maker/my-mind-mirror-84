@@ -1,0 +1,288 @@
+-- Aggiorna la funzione get_daily_metrics per includere le nuove metriche
+CREATE OR REPLACE FUNCTION public.get_daily_metrics(p_user_id uuid, p_date date DEFAULT CURRENT_DATE)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  result json;
+  v_checkin record;
+  v_session_count integer;
+  v_session_mood numeric;
+  v_session_anxiety numeric;
+  v_session_sleep numeric;
+  v_session_energy numeric;
+  v_emotions record;
+  v_life_areas record;
+  v_psychology record;
+  v_mood numeric := 0;
+  v_anxiety numeric := 0;
+  v_energy numeric := 0;
+  v_sleep numeric := 0;
+  v_has_checkin boolean := false;
+  v_has_sessions boolean := false;
+  v_has_emotions boolean := false;
+  v_has_life_areas boolean := false;
+  v_has_psychology boolean := false;
+  v_checkin_priority boolean := false;
+  -- Life areas aggregated
+  v_la_work integer;
+  v_la_school integer;
+  v_la_love integer;
+  v_la_family integer;
+  v_la_social integer;
+  v_la_health integer;
+  v_la_growth integer;
+  v_la_leisure integer;
+  v_la_finances integer;
+BEGIN
+  -- Get today's checkin (most recent)
+  SELECT * INTO v_checkin FROM daily_checkins
+  WHERE user_id = p_user_id
+    AND DATE(created_at AT TIME ZONE 'Europe/Rome') = p_date
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  -- Get today's completed sessions (including energy)
+  SELECT 
+    COUNT(*),
+    AVG(mood_score_detected) FILTER (WHERE mood_score_detected > 0),
+    AVG(anxiety_score_detected) FILTER (WHERE anxiety_score_detected > 0),
+    AVG(sleep_quality) FILTER (WHERE sleep_quality > 0),
+    AVG(energy_score_detected) FILTER (WHERE energy_score_detected > 0)
+  INTO v_session_count, v_session_mood, v_session_anxiety, v_session_sleep, v_session_energy
+  FROM sessions
+  WHERE user_id = p_user_id
+    AND DATE(start_time AT TIME ZONE 'Europe/Rome') = p_date
+    AND status = 'completed';
+
+  -- Check if we have checkin data
+  IF v_checkin IS NOT NULL THEN
+    v_has_checkin := true;
+    IF v_checkin.mood_value > 0 THEN
+      v_mood := v_checkin.mood_value * 2;
+      v_checkin_priority := true;
+    END IF;
+    
+    IF v_checkin.notes IS NOT NULL THEN
+      BEGIN
+        v_anxiety := COALESCE((v_checkin.notes::json->>'anxiety')::numeric, 0);
+        v_energy := COALESCE((v_checkin.notes::json->>'energy')::numeric, 0);
+        v_sleep := COALESCE((v_checkin.notes::json->>'sleep')::numeric, 0);
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END;
+    END IF;
+  END IF;
+
+  -- Session data processing
+  IF v_session_count > 0 THEN
+    v_has_sessions := true;
+    IF v_mood = 0 AND v_session_mood IS NOT NULL THEN
+      v_mood := v_session_mood;
+    END IF;
+    IF v_anxiety = 0 AND v_session_anxiety IS NOT NULL THEN
+      v_anxiety := v_session_anxiety;
+    END IF;
+    IF v_sleep = 0 AND v_session_sleep IS NOT NULL THEN
+      v_sleep := v_session_sleep;
+    END IF;
+    IF v_energy = 0 AND v_session_energy IS NOT NULL THEN
+      v_energy := v_session_energy;
+    END IF;
+  END IF;
+
+  -- Get today's emotions (merge all records for the day) - EXTENDED with 6 new emotions
+  SELECT 
+    MAX(joy) as joy,
+    MAX(sadness) as sadness,
+    MAX(anger) as anger,
+    MAX(fear) as fear,
+    MAX(apathy) as apathy,
+    MAX(shame) as shame,
+    MAX(jealousy) as jealousy,
+    MAX(hope) as hope,
+    MAX(frustration) as frustration,
+    MAX(nostalgia) as nostalgia,
+    MAX(nervousness) as nervousness,
+    MAX(overwhelm) as overwhelm,
+    MAX(excitement) as excitement,
+    MAX(disappointment) as disappointment,
+    -- NEW emotions
+    MAX(disgust) as disgust,
+    MAX(surprise) as surprise,
+    MAX(serenity) as serenity,
+    MAX(pride) as pride,
+    MAX(affection) as affection,
+    MAX(curiosity) as curiosity
+  INTO v_emotions
+  FROM daily_emotions
+  WHERE user_id = p_user_id AND date = p_date;
+  
+  IF v_emotions.joy IS NOT NULL OR v_emotions.sadness IS NOT NULL OR 
+     v_emotions.anger IS NOT NULL OR v_emotions.fear IS NOT NULL OR 
+     v_emotions.apathy IS NOT NULL THEN
+    v_has_emotions := true;
+  END IF;
+
+  -- Get today's life areas (MERGE ALL records) - EXTENDED with 3 new areas
+  SELECT 
+    MAX(work) as work,
+    MAX(school) as school,
+    MAX(love) as love,
+    MAX(family) as family,
+    MAX(social) as social,
+    MAX(health) as health,
+    MAX(growth) as growth,
+    MAX(leisure) as leisure,
+    MAX(finances) as finances
+  INTO v_la_work, v_la_school, v_la_love, v_la_family, v_la_social, v_la_health, v_la_growth, v_la_leisure, v_la_finances
+  FROM daily_life_areas
+  WHERE user_id = p_user_id AND date = p_date;
+  
+  IF v_la_work IS NOT NULL OR v_la_school IS NOT NULL OR v_la_love IS NOT NULL OR 
+     v_la_social IS NOT NULL OR v_la_health IS NOT NULL OR v_la_growth IS NOT NULL OR
+     v_la_family IS NOT NULL OR v_la_leisure IS NOT NULL OR v_la_finances IS NOT NULL THEN
+    v_has_life_areas := true;
+  END IF;
+
+  -- Get today's psychology (merge all records) - EXTENDED with ~18 new metrics
+  SELECT 
+    MAX(rumination) as rumination,
+    MAX(self_efficacy) as self_efficacy,
+    MAX(mental_clarity) as mental_clarity,
+    MAX(concentration) as concentration,
+    MAX(burnout_level) as burnout_level,
+    MAX(coping_ability) as coping_ability,
+    MAX(loneliness_perceived) as loneliness_perceived,
+    MAX(somatic_tension) as somatic_tension,
+    MAX(appetite_changes) as appetite_changes,
+    MAX(sunlight_exposure) as sunlight_exposure,
+    MAX(guilt) as guilt,
+    MAX(gratitude) as gratitude,
+    MAX(irritability) as irritability,
+    MAX(motivation) as motivation,
+    MAX(intrusive_thoughts) as intrusive_thoughts,
+    MAX(self_worth) as self_worth,
+    -- NEW: Safety indicators
+    MAX(suicidal_ideation) as suicidal_ideation,
+    MAX(hopelessness) as hopelessness,
+    MAX(self_harm_urges) as self_harm_urges,
+    -- NEW: Cognitive
+    MAX(dissociation) as dissociation,
+    MAX(confusion) as confusion,
+    MAX(racing_thoughts) as racing_thoughts,
+    -- NEW: Behavioral
+    MAX(avoidance) as avoidance,
+    MAX(social_withdrawal) as social_withdrawal,
+    MAX(compulsive_urges) as compulsive_urges,
+    MAX(procrastination) as procrastination,
+    -- NEW: Resources
+    MAX(sense_of_purpose) as sense_of_purpose,
+    MAX(life_satisfaction) as life_satisfaction,
+    MAX(perceived_social_support) as perceived_social_support,
+    MAX(emotional_regulation) as emotional_regulation,
+    MAX(resilience) as resilience,
+    MAX(mindfulness) as mindfulness
+  INTO v_psychology
+  FROM daily_psychology
+  WHERE user_id = p_user_id AND date = p_date;
+  
+  IF v_psychology.rumination IS NOT NULL OR v_psychology.burnout_level IS NOT NULL OR
+     v_psychology.mental_clarity IS NOT NULL THEN
+    v_has_psychology := true;
+  END IF;
+
+  -- Build result JSON with all extended metrics
+  result := json_build_object(
+    'date', p_date,
+    'vitals', json_build_object(
+      'mood', COALESCE(v_mood, 0),
+      'anxiety', COALESCE(v_anxiety, 0),
+      'energy', COALESCE(v_energy, 0),
+      'sleep', COALESCE(v_sleep, 0)
+    ),
+    'emotions', json_build_object(
+      'joy', COALESCE(v_emotions.joy, 0),
+      'sadness', COALESCE(v_emotions.sadness, 0),
+      'anger', COALESCE(v_emotions.anger, 0),
+      'fear', COALESCE(v_emotions.fear, 0),
+      'apathy', COALESCE(v_emotions.apathy, 0),
+      'shame', v_emotions.shame,
+      'jealousy', v_emotions.jealousy,
+      'hope', v_emotions.hope,
+      'frustration', v_emotions.frustration,
+      'nostalgia', v_emotions.nostalgia,
+      'nervousness', v_emotions.nervousness,
+      'overwhelm', v_emotions.overwhelm,
+      'excitement', v_emotions.excitement,
+      'disappointment', v_emotions.disappointment,
+      -- NEW emotions
+      'disgust', v_emotions.disgust,
+      'surprise', v_emotions.surprise,
+      'serenity', v_emotions.serenity,
+      'pride', v_emotions.pride,
+      'affection', v_emotions.affection,
+      'curiosity', v_emotions.curiosity
+    ),
+    'life_areas', json_build_object(
+      'love', v_la_love,
+      'work', v_la_work,
+      'school', v_la_school,
+      'family', v_la_family,
+      'health', v_la_health,
+      'social', v_la_social,
+      'growth', v_la_growth,
+      'leisure', v_la_leisure,
+      'finances', v_la_finances
+    ),
+    'deep_psychology', json_build_object(
+      'rumination', v_psychology.rumination,
+      'self_efficacy', v_psychology.self_efficacy,
+      'mental_clarity', v_psychology.mental_clarity,
+      'concentration', v_psychology.concentration,
+      'burnout_level', v_psychology.burnout_level,
+      'coping_ability', v_psychology.coping_ability,
+      'loneliness_perceived', v_psychology.loneliness_perceived,
+      'somatic_tension', v_psychology.somatic_tension,
+      'appetite_changes', v_psychology.appetite_changes,
+      'sunlight_exposure', v_psychology.sunlight_exposure,
+      'guilt', v_psychology.guilt,
+      'gratitude', v_psychology.gratitude,
+      'irritability', v_psychology.irritability,
+      'motivation', v_psychology.motivation,
+      'intrusive_thoughts', v_psychology.intrusive_thoughts,
+      'self_worth', v_psychology.self_worth,
+      -- NEW: Safety
+      'suicidal_ideation', v_psychology.suicidal_ideation,
+      'hopelessness', v_psychology.hopelessness,
+      'self_harm_urges', v_psychology.self_harm_urges,
+      -- NEW: Cognitive
+      'dissociation', v_psychology.dissociation,
+      'confusion', v_psychology.confusion,
+      'racing_thoughts', v_psychology.racing_thoughts,
+      -- NEW: Behavioral
+      'avoidance', v_psychology.avoidance,
+      'social_withdrawal', v_psychology.social_withdrawal,
+      'compulsive_urges', v_psychology.compulsive_urges,
+      'procrastination', v_psychology.procrastination,
+      -- NEW: Resources
+      'sense_of_purpose', v_psychology.sense_of_purpose,
+      'life_satisfaction', v_psychology.life_satisfaction,
+      'perceived_social_support', v_psychology.perceived_social_support,
+      'emotional_regulation', v_psychology.emotional_regulation,
+      'resilience', v_psychology.resilience,
+      'mindfulness', v_psychology.mindfulness
+    ),
+    'has_checkin', v_has_checkin,
+    'has_sessions', v_has_sessions,
+    'has_emotions', v_has_emotions,
+    'has_life_areas', v_has_life_areas,
+    'has_psychology', v_has_psychology,
+    'checkin_priority', v_checkin_priority
+  );
+
+  RETURN result;
+END;
+$function$;

@@ -21,9 +21,12 @@ const LIFE_AREAS_CONFIG = [
   { key: 'work', label: 'Lavoro', icon: '💼', color: 'hsl(200, 60%, 50%)' },
   { key: 'school', label: 'Studio', icon: '📚', color: 'hsl(220, 60%, 55%)' },
   { key: 'love', label: 'Amore', icon: '❤️', color: 'hsl(350, 70%, 55%)' },
+  { key: 'family', label: 'Famiglia', icon: '👨‍👩‍👧', color: 'hsl(30, 65%, 50%)' },
   { key: 'social', label: 'Sociale', icon: '👥', color: 'hsl(180, 55%, 45%)' },
   { key: 'health', label: 'Salute', icon: '🏃', color: 'hsl(150, 60%, 45%)' },
   { key: 'growth', label: 'Crescita', icon: '🌱', color: 'hsl(120, 50%, 45%)' },
+  { key: 'leisure', label: 'Tempo Libero', icon: '🎮', color: 'hsl(280, 55%, 55%)' },
+  { key: 'finances', label: 'Finanze', icon: '💰', color: 'hsl(140, 60%, 40%)' },
 ];
 
 const LifeAreasSection: React.FC<LifeAreasSectionProps> = ({

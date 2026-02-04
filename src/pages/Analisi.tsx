@@ -15,7 +15,7 @@ import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
 import EmotionalSpectrumSection from '@/components/analisi/EmotionalSpectrumSection';
 import LifeAreasSection from '@/components/analisi/LifeAreasSection';
-import VitalsSection from '@/components/analisi/VitalsSection';
+// VitalsSection removed - integrated into clinical domains
 import { 
   CLINICAL_DOMAINS, 
   getMetricsByDomain, 
@@ -139,29 +139,41 @@ const Analisi: React.FC = () => {
     });
 
     // ══════════════════════════════════════════════════════════
-    // EMOTIONS
+    // EMOTIONS (20 emotions including new ones)
     // ══════════════════════════════════════════════════════════
     const emotionKeys = [
       'joy', 'sadness', 'anger', 'fear', 'apathy', 
       'shame', 'jealousy', 'hope', 'frustration', 
       'nostalgia', 'nervousness', 'overwhelm', 
-      'excitement', 'disappointment'
+      'excitement', 'disappointment',
+      // New emotions
+      'disgust', 'surprise', 'serenity', 'pride', 'affection', 'curiosity'
     ] as const;
     
     emotionKeys.forEach(key => {
-      const values = daysWithData.map(m => m.emotions[key as keyof typeof m.emotions] as number | null);
+      const values = daysWithData.map(m => m.emotions?.[key as keyof typeof m.emotions] as number | null);
       result[key] = calculateMetricData(values);
     });
 
     // ══════════════════════════════════════════════════════════
-    // PSYCHOLOGY (deep_psychology)
+    // PSYCHOLOGY (deep_psychology) - Extended with ~25 new metrics
     // ══════════════════════════════════════════════════════════
     const psychKeys = [
+      // Original 16
       'rumination', 'burnout_level', 'somatic_tension', 'self_efficacy',
       'mental_clarity', 'gratitude', 'guilt', 'irritability',
       'loneliness_perceived', 'coping_ability', 'concentration',
       'motivation', 'self_worth', 'intrusive_thoughts',
-      'appetite_changes', 'sunlight_exposure'
+      'appetite_changes', 'sunlight_exposure',
+      // Safety indicators (CRITICAL)
+      'suicidal_ideation', 'hopelessness', 'self_harm_urges',
+      // Cognitive
+      'dissociation', 'confusion', 'racing_thoughts',
+      // Behavioral
+      'avoidance', 'social_withdrawal', 'compulsive_urges', 'procrastination',
+      // Resources
+      'sense_of_purpose', 'life_satisfaction', 'perceived_social_support',
+      'emotional_regulation', 'resilience', 'mindfulness'
     ] as const;
     
     psychKeys.forEach(key => {
@@ -170,11 +182,11 @@ const Analisi: React.FC = () => {
     });
 
     // ══════════════════════════════════════════════════════════
-    // LIFE AREAS
+    // LIFE AREAS (9 areas including new ones)
     // ══════════════════════════════════════════════════════════
-    const lifeAreaKeys = ['work', 'school', 'love', 'social', 'health', 'growth'] as const;
+    const lifeAreaKeys = ['work', 'school', 'love', 'family', 'social', 'health', 'growth', 'leisure', 'finances'] as const;
     lifeAreaKeys.forEach(key => {
-      const values = daysWithData.map(m => m.life_areas[key as keyof typeof m.life_areas] as number | null);
+      const values = daysWithData.map(m => m.life_areas?.[key as keyof typeof m.life_areas] as number | null);
       result[key] = calculateMetricData(values);
     });
 
@@ -227,12 +239,6 @@ const Analisi: React.FC = () => {
 
       {/* Clinical Domains */}
       <div className="px-4 pb-8 space-y-6">
-        {/* Vitals Section - Umore, Ansia, Energia, Sonno */}
-        <VitalsSection
-          allMetricsData={allMetricsData}
-          onMetricClick={(key) => setSelectedMetric(key)}
-        />
-        
         {/* Emotional Spectrum - Full emotions breakdown */}
         <EmotionalSpectrumSection
           emotionsData={emotionsData || []}
@@ -245,9 +251,9 @@ const Analisi: React.FC = () => {
           onMetricClick={(key) => setSelectedMetric(key)}
         />
         
-        {/* Render clinical domains (excluding emotional, functioning, activation since we show them above) */}
+        {/* Render all clinical domains (excluding emotional and functioning which are shown above) */}
         {CLINICAL_DOMAINS
-          .filter(domain => domain.id !== 'emotional' && domain.id !== 'functioning' && domain.id !== 'activation')
+          .filter(domain => domain.id !== 'emotional' && domain.id !== 'functioning')
           .map(domain => {
             const domainMetrics = getMetricsByDomain(domain.id);
             
