@@ -1,8 +1,9 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 interface Session {
   id: string;
@@ -24,32 +25,41 @@ const QuickInsightCard: React.FC<QuickInsightCardProps> = ({
   onStartNew,
 }) => {
   if (!lastSession) {
-    // Empty state - minimal
+    // Empty state - encourage first session
     return (
       <motion.section
         className="px-5"
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.2 }}
       >
         <button
           onClick={onStartNew}
           className={cn(
-            "w-full flex items-center gap-3 rounded-2xl p-3.5",
-            "bg-glass/60 backdrop-blur-sm border border-glass-border/50",
-            "hover:bg-glass hover:shadow-glass transition-all duration-200 text-left"
+            "w-full relative overflow-hidden rounded-2xl p-4",
+            "bg-glass backdrop-blur-xl border border-glass-border",
+            "shadow-glass hover:shadow-glass-glow",
+            "transition-all duration-300 text-left"
           )}
         >
-          <span className="text-lg">💡</span>
-          <div className="flex-1">
-            <p className="text-sm text-foreground font-medium">
-              Condividi i tuoi pensieri con Aria
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Riceverai insight personalizzati
-            </p>
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40 rounded-2xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent rounded-2xl" />
+          
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-aria flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-sm text-foreground">
+                Inizia a parlare con Aria
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Condividi i tuoi pensieri, riceverai insight personalizzati
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
           </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
       </motion.section>
     );
@@ -63,39 +73,52 @@ const QuickInsightCard: React.FC<QuickInsightCardProps> = ({
   } else if (isYesterday(sessionDate)) {
     dateContext = 'Ieri';
   } else {
-    dateContext = 'Di recente';
+    dateContext = format(sessionDate, "d MMM", { locale: it });
   }
 
   // Get preview text
   const previewText = lastSession.ai_summary 
-    ? lastSession.ai_summary.slice(0, 100) + (lastSession.ai_summary.length > 100 ? '...' : '')
+    ? lastSession.ai_summary.slice(0, 80) + (lastSession.ai_summary.length > 80 ? '...' : '')
     : `Hai parlato ${lastSession.type === 'voice' ? 'vocalmente' : 'in chat'} con Aria`;
 
   return (
     <motion.section
       className="px-5"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
+      transition={{ delay: 0.2 }}
     >
       <button
         onClick={onContinue}
         className={cn(
-          "w-full flex items-start gap-3 rounded-2xl p-3.5",
-          "bg-gradient-aria-subtle border border-glass-border/50",
-          "hover:shadow-glass-glow transition-all duration-200 text-left"
+          "w-full relative overflow-hidden rounded-2xl p-4",
+          "bg-glass backdrop-blur-xl border border-glass-border",
+          "shadow-glass hover:shadow-glass-glow",
+          "transition-all duration-300 text-left"
         )}
       >
-        <span className="text-lg">💜</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-foreground font-medium">
-            {dateContext} hai parlato di...
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-            {previewText}
-          </p>
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 rounded-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-2xl" />
+        
+        <div className="relative z-10 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-aria flex items-center justify-center flex-shrink-0 shadow-aria-glow">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-sm text-foreground">
+                {dateContext} hai parlato di...
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+              {previewText}
+            </p>
+            <p className="text-xs text-primary font-medium mt-1.5">
+              Tocca per continuare →
+            </p>
+          </div>
         </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
       </button>
     </motion.section>
   );
