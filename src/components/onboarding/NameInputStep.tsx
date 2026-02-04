@@ -109,7 +109,7 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
               onKeyDown={handleKeyDown}
               placeholder="Il tuo nome"
               enterKeyHint="done"
-              className="relative h-16 text-xl text-center rounded-2xl border-2 bg-glass backdrop-blur-xl transition-all duration-300 focus:border-aria-violet focus:ring-0 focus:outline-none border-glass-border"
+              className="relative h-16 text-xl text-center rounded-2xl border border-glass-border bg-glass backdrop-blur-xl transition-all duration-300 focus:border-aria-violet focus:ring-0 focus:outline-none"
               autoFocus
             />
           </motion.div>
