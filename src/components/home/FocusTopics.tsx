@@ -138,10 +138,10 @@ const FocusTopics: React.FC = () => {
     
     const items: FocusItem[] = [];
 
-    // Add emotions (all 20)
+    // Add emotions (all 20) - include any with data
     (Object.keys(EMOTION_CONFIG) as (keyof ExtendedEmotions)[]).forEach(key => {
       const value = emotions[key];
-      if (value !== null && value >= 5) {
+      if (value !== null && value > 0) {
         items.push({
           key,
           label: EMOTION_CONFIG[key].label,
@@ -151,10 +151,10 @@ const FocusTopics: React.FC = () => {
       }
     });
 
-    // Add life areas (all 9)
+    // Add life areas (all 9) - include any with data
     (Object.keys(LIFE_AREA_CONFIG) as (keyof ExtendedLifeAreas)[]).forEach(key => {
       const value = lifeAreas[key];
-      if (value !== null && value >= 5) {
+      if (value !== null && value > 0) {
         items.push({
           key,
           label: LIFE_AREA_CONFIG[key].label,
@@ -164,10 +164,10 @@ const FocusTopics: React.FC = () => {
       }
     });
 
-    // Add psychology resources (positive)
+    // Add psychology resources (positive) - include any with data
     RESOURCE_KEYS.forEach(key => {
       const value = deepPsychology[key];
-      if (value !== null && value >= 5) {
+      if (value !== null && value > 0) {
         items.push({
           key,
           label: PSYCHOLOGY_LABELS[key] || key,
@@ -177,10 +177,10 @@ const FocusTopics: React.FC = () => {
       }
     });
 
-    // Add attention signals (negative) - only if >= 5 (concerning)
+    // Add attention signals (negative) - include any with data (these are concerning when present)
     ATTENTION_KEYS.forEach(key => {
       const value = deepPsychology[key];
-      if (value !== null && value >= 5) {
+      if (value !== null && value > 0) {
         items.push({
           key,
           label: PSYCHOLOGY_LABELS[key] || key,
@@ -190,7 +190,7 @@ const FocusTopics: React.FC = () => {
       }
     });
 
-    // Sort by value descending and take top 4
+    // Sort by value descending and take top 4 most important
     return items
       .sort((a, b) => b.value - a.value)
       .slice(0, 4);
