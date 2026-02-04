@@ -174,6 +174,8 @@ export function selectVisibleCharts(
 }
 
 // Select dynamic vital metrics based on user data and goals
+// For Home: limited selection based on goals (max 6)
+// For Analisi Parametri Vitali: ONLY the 4 core vitals
 export function selectDynamicVitals(
   availability: UserDataAvailability,
   maxMetrics: number = 6
@@ -232,14 +234,13 @@ export function selectDynamicVitals(
   return selectedMetrics.slice(0, maxMetrics);
 }
 
-// Select ALL available vital metrics (no limit) - for Analisi page
-export function selectAllAvailableVitals(
+// Select ONLY the 4 core vitals for Analisi page (no psychology/emotions)
+export function selectCoreVitalsOnly(
   availability: UserDataAvailability
 ): VitalMetricConfig[] {
   const selectedMetrics: VitalMetricConfig[] = [];
-  const { psychologyMetrics } = availability;
   
-  // Add ALL core vitals that have data
+  // ONLY the 4 core vitals - psychology and emotions have their own sections
   const coreVitals = ['mood', 'anxiety', 'energy', 'sleep'];
   coreVitals.forEach(key => {
     const metric = ALL_VITAL_METRICS.find(m => m.key === key);
@@ -248,22 +249,6 @@ export function selectAllAvailableVitals(
       selectedMetrics.push(metric);
     }
   });
-  
-  // Add ALL psychology metrics that have data
-  const psychologyVitals = ALL_VITAL_METRICS.filter(m => m.source === 'psychology');
-  psychologyVitals.forEach(metric => {
-    if (psychologyMetrics.includes(metric.key)) {
-      selectedMetrics.push(metric);
-    }
-  });
-  
-  // Add emotion metrics if we have emotion data
-  if (availability.hasEmotions) {
-    const emotionVitals = ALL_VITAL_METRICS.filter(m => m.source === 'emotions');
-    emotionVitals.forEach(metric => {
-      selectedMetrics.push(metric);
-    });
-  }
   
   return selectedMetrics;
 }
@@ -294,9 +279,9 @@ export function useChartVisibility(
     [availability]
   );
   
-  // For Analisi: ALL available metrics (no limit)
-  const allAvailableVitals = useMemo(() => 
-    selectAllAvailableVitals(availability),
+  // For Analisi Parametri Vitali: ONLY the 4 core vitals
+  const coreVitalsOnly = useMemo(() => 
+    selectCoreVitalsOnly(availability),
     [availability]
   );
   
@@ -304,6 +289,6 @@ export function useChartVisibility(
     availability,
     visibleCharts,
     dynamicVitals,
-    allAvailableVitals,
+    coreVitalsOnly,
   };
 }
