@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
 import DomainCard from './DomainCard';
 import { ClinicalDomain } from '@/lib/clinicalDomains';
@@ -75,6 +75,12 @@ const LifeAreasSection: React.FC<LifeAreasSectionProps> = ({
                   fontWeight: 500,
                 }}
                 tickLine={false}
+              />
+              <PolarRadiusAxis 
+                angle={90} 
+                domain={[0, 10]} 
+                tick={false} 
+                axisLine={false}
               />
               <Radar
                 name="Aree"
