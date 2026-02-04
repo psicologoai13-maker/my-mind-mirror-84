@@ -8,7 +8,11 @@ export type MetricKey =
   | 'mood' | 'anxiety' | 'energy' | 'sleep' 
   | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy'
   | 'love' | 'work' | 'school' | 'friendship' | 'growth' | 'health'
-  | 'stress' | 'calmness' | 'social' | 'loneliness' | 'emotional_clarity';
+  | 'stress' | 'calmness' | 'social' | 'loneliness' | 'emotional_clarity'
+  // Psychology metrics
+  | 'self_efficacy' | 'mental_clarity' | 'motivation' | 'rumination' 
+  | 'burnout_level' | 'self_worth' | 'gratitude' | 'concentration'
+  | 'resilience' | 'mindfulness' | 'life_satisfaction' | 'sense_of_purpose';
 
 interface AdaptiveVitalCardProps {
   metricKey: MetricKey;
@@ -19,7 +23,7 @@ interface AdaptiveVitalCardProps {
 }
 
 // Negative metrics: lower is BETTER
-const NEGATIVE_METRICS = ['anxiety', 'sadness', 'anger', 'fear', 'apathy', 'stress', 'loneliness'];
+const NEGATIVE_METRICS = ['anxiety', 'sadness', 'anger', 'fear', 'apathy', 'stress', 'loneliness', 'rumination', 'burnout_level'];
 
 // Color logic for DISPLAY value (after inversion for negative metrics)
 const getDisplayColor = (displayValue: number): string => {
@@ -54,6 +58,19 @@ const getStatusLabel = (key: MetricKey, displayValue: number): string => {
     anger: ['Intensa', 'Presente', 'Calmo'],
     fear: ['Elevata', 'Presente', 'Sicuro'],
     apathy: ['Elevata', 'Neutro', 'Motivato'],
+    // Psychology metrics
+    self_efficacy: ['Bassa', 'Presente', 'Forte'],
+    mental_clarity: ['Confuso', 'Neutro', 'Lucido'],
+    motivation: ['Assente', 'Neutro', 'Alta'],
+    rumination: ['Intensa', 'Gestibile', 'Libero'],
+    burnout_level: ['Alto', 'Gestibile', 'Assente'],
+    self_worth: ['Bassa', 'Neutro', 'Alta'],
+    gratitude: ['Assente', 'Presente', 'Profonda'],
+    concentration: ['Scarsa', 'Neutro', 'Focalizzato'],
+    resilience: ['Fragile', 'Neutro', 'Forte'],
+    mindfulness: ['Distratto', 'Neutro', 'Presente'],
+    life_satisfaction: ['Bassa', 'Neutro', 'Alta'],
+    sense_of_purpose: ['Assente', 'Presente', 'Forte'],
   };
 
   const labels = labelsByMetric[key] || ['Basso', 'Medio', 'Buono'];
@@ -85,6 +102,19 @@ const METRIC_DESCRIPTIONS: Record<MetricKey, string> = {
   social: 'Le connessioni sociali sono vitali. Anche brevi interazioni positive fanno bene.',
   loneliness: 'La solitudine può essere trasformata. Cerca attività che ti connettano con altri.',
   emotional_clarity: 'Capire le proprie emozioni aiuta a gestirle. L\'autoconsapevolezza è una skill che si allena.',
+  // Psychology metrics
+  self_efficacy: 'La fiducia nelle tue capacità di raggiungere obiettivi. Costruiscila con piccoli successi quotidiani.',
+  mental_clarity: 'La lucidità mentale ti aiuta a prendere decisioni migliori. Riposo e routine la favoriscono.',
+  motivation: 'La spinta interiore che ti muove verso i tuoi obiettivi. Trova il tuo "perché".',
+  rumination: 'I pensieri ripetitivi possono bloccarti. Riconoscili e reindirizza l\'attenzione.',
+  burnout_level: 'L\'esaurimento emotivo segnala bisogno di pause. Ascolta il tuo corpo.',
+  self_worth: 'Il valore che dai a te stesso. Indipendente dai risultati esterni.',
+  gratitude: 'Riconoscere ciò che hai di buono migliora il benessere. Praticala quotidianamente.',
+  concentration: 'La capacità di focalizzarti su ciò che conta. Riduci le distrazioni.',
+  resilience: 'La capacità di riprenderti dalle difficoltà. Si costruisce affrontando le sfide.',
+  mindfulness: 'Essere presenti nel momento. Riduce stress e aumenta la consapevolezza.',
+  life_satisfaction: 'Quanto sei soddisfatto della tua vita nel complesso. Rifletti su ciò che conta davvero.',
+  sense_of_purpose: 'Avere uno scopo dà direzione e significato alle tue giornate.',
 };
 
 // Configuration for ALL possible metrics
@@ -112,6 +142,19 @@ const METRIC_CONFIG: Record<MetricKey, {
   social: { icon: '🤝', label: 'Socialità' },
   loneliness: { icon: '🏝️', label: 'Solitudine' },
   emotional_clarity: { icon: '🔮', label: 'Chiarezza' },
+  // Psychology metrics
+  self_efficacy: { icon: '💎', label: 'Autoefficacia' },
+  mental_clarity: { icon: '✨', label: 'Chiarezza' },
+  motivation: { icon: '🚀', label: 'Motivazione' },
+  rumination: { icon: '🔄', label: 'Rimuginazione' },
+  burnout_level: { icon: '🔥', label: 'Burnout' },
+  self_worth: { icon: '👑', label: 'Autostima' },
+  gratitude: { icon: '🙏', label: 'Gratitudine' },
+  concentration: { icon: '🎯', label: 'Concentrazione' },
+  resilience: { icon: '🛡️', label: 'Resilienza' },
+  mindfulness: { icon: '🧘‍♂️', label: 'Mindfulness' },
+  life_satisfaction: { icon: '⭐', label: 'Soddisfazione' },
+  sense_of_purpose: { icon: '🧭', label: 'Scopo' },
 };
 
 // Trend badge color mapping
