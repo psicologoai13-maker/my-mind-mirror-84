@@ -8,12 +8,20 @@ import { cn } from '@/lib/utils';
 // Maps all metrics to Italian labels and categories
 // ===========================================
 
-type MetricCategory = 'emotion_positive' | 'emotion_negative' | 'life_area' | 'resource' | 'attention';
+type MetricCategory = 'vital' | 'emotion_positive' | 'emotion_negative' | 'life_area' | 'resource' | 'attention';
 
 interface MetricConfig {
   label: string;
   category: MetricCategory;
 }
+
+// Vitals (mood, anxiety, energy, sleep)
+const VITAL_CONFIG: Record<string, MetricConfig> = {
+  mood: { label: 'Umore', category: 'vital' },
+  anxiety: { label: 'Ansia', category: 'attention' }, // Anxiety is attention signal
+  energy: { label: 'Energia', category: 'vital' },
+  sleep: { label: 'Sonno', category: 'vital' },
+};
 
 // All 20 emotions
 const EMOTION_CONFIG: Record<keyof ExtendedEmotions, MetricConfig> = {
@@ -106,6 +114,7 @@ const PSYCHOLOGY_LABELS: Record<string, string> = {
 
 // Category styling
 const CATEGORY_STYLES: Record<MetricCategory, string> = {
+  vital: 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30',
   emotion_positive: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50',
   emotion_negative: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700/50',
   life_area: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50',
@@ -114,6 +123,7 @@ const CATEGORY_STYLES: Record<MetricCategory, string> = {
 };
 
 const CATEGORY_LABELS: Record<MetricCategory, string> = {
+  vital: 'vitale',
   emotion_positive: 'emozione',
   emotion_negative: 'emozione',
   life_area: 'area vita',
@@ -130,13 +140,47 @@ interface FocusItem {
 
 const FocusTopics: React.FC = () => {
   // Use 30-day lookback with 10-day half-life
-  const { emotions, lifeAreas, deepPsychology, hasData } = useTimeWeightedMetrics(30, 10);
+  const { vitals, emotions, lifeAreas, deepPsychology, hasData } = useTimeWeightedMetrics(30, 10);
 
-  // Collect ALL metrics with value >= 5 and sort by intensity
+  // Collect ALL metrics (including vitals) and sort by intensity
   const focusItems = React.useMemo<FocusItem[]>(() => {
     if (!hasData) return [];
     
     const items: FocusItem[] = [];
+
+    // Add VITALS (mood, anxiety, energy, sleep)
+    if (vitals.mood !== null && vitals.mood > 0) {
+      items.push({
+        key: 'mood',
+        label: VITAL_CONFIG.mood.label,
+        value: vitals.mood,
+        category: VITAL_CONFIG.mood.category,
+      });
+    }
+    if (vitals.anxiety !== null && vitals.anxiety > 0) {
+      items.push({
+        key: 'anxiety',
+        label: VITAL_CONFIG.anxiety.label,
+        value: vitals.anxiety,
+        category: VITAL_CONFIG.anxiety.category, // attention signal
+      });
+    }
+    if (vitals.energy !== null && vitals.energy > 0) {
+      items.push({
+        key: 'energy',
+        label: VITAL_CONFIG.energy.label,
+        value: vitals.energy,
+        category: VITAL_CONFIG.energy.category,
+      });
+    }
+    if (vitals.sleep !== null && vitals.sleep > 0) {
+      items.push({
+        key: 'sleep',
+        label: VITAL_CONFIG.sleep.label,
+        value: vitals.sleep,
+        category: VITAL_CONFIG.sleep.category,
+      });
+    }
 
     // Add emotions (all 20) - include any with data
     (Object.keys(EMOTION_CONFIG) as (keyof ExtendedEmotions)[]).forEach(key => {
@@ -194,7 +238,7 @@ const FocusTopics: React.FC = () => {
     return items
       .sort((a, b) => b.value - a.value)
       .slice(0, 4);
-  }, [emotions, lifeAreas, deepPsychology, hasData]);
+  }, [vitals, emotions, lifeAreas, deepPsychology, hasData]);
 
   return (
     <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-5 shadow-soft border border-border/50 h-full">
