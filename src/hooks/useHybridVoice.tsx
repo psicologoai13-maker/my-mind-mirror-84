@@ -246,8 +246,29 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     recognition.interimResults = true;
 
     let finalTranscript = '';
+    let interimTranscript = '';
+    let silenceTimeoutId: NodeJS.Timeout | null = null;
+
+    // Process interim transcript after silence
+    const processAfterSilence = () => {
+      if (interimTranscript.trim() && !isProcessingRef.current) {
+        const toProcess = interimTranscript.trim();
+        console.log('[HybridVoice] Processing after silence:', toProcess);
+        interimTranscript = '';
+        finalTranscript = '';
+        setCurrentTranscript('');
+        recognition.stop();
+        processUserInput(toProcess);
+      }
+    };
 
     recognition.onresult = (event) => {
+      // Clear previous silence timeout
+      if (silenceTimeoutId) {
+        clearTimeout(silenceTimeoutId);
+        silenceTimeoutId = null;
+      }
+
       let interim = '';
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -259,17 +280,21 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         }
       }
 
-      setCurrentTranscript(interim || finalTranscript);
+      interimTranscript = interim || finalTranscript;
+      setCurrentTranscript(interimTranscript);
+      console.log('[HybridVoice] Transcript:', { interim, final: finalTranscript, combined: interimTranscript });
 
-      // Process when we have a final result
+      // Process immediately if we have a final result
       if (finalTranscript.trim()) {
         const toProcess = finalTranscript.trim();
         finalTranscript = '';
+        interimTranscript = '';
         setCurrentTranscript('');
-        
-        // Stop recognition while processing
         recognition.stop();
         processUserInput(toProcess);
+      } else if (interim.trim()) {
+        // Set timeout to process interim transcript after 1.5s of silence
+        silenceTimeoutId = setTimeout(processAfterSilence, 1500);
       }
     };
 
