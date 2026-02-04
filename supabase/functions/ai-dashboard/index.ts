@@ -162,12 +162,16 @@ serve(async (req) => {
       });
     }
 
-    // Fetch user profile with goals
+    // Fetch user profile with goals AND previous cache for focus stability
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('selected_goals, onboarding_answers, dashboard_config')
+      .select('selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache')
       .eq('user_id', user.id)
       .single();
+
+    // Extract previous focus keys for stability (from cached dashboard)
+    const previousCache = profile?.ai_dashboard_cache as DashboardLayout | null;
+    const previousFocusKeys = previousCache?.primary_metrics?.map(m => m.key) || [];
 
     // Fetch last 7 days of daily metrics
     const today = new Date().toISOString().split('T')[0];
@@ -274,41 +278,63 @@ La Dashboard è una vista ESSENZIALE che mostra solo ciò che è più importante
 ═══════════════════════════════════════════════
 ⚠️ REGOLA CRITICA: STABILITÀ DEI FOCUS
 ═══════════════════════════════════════════════
-I FOCUS (primary_metrics) devono essere STABILI nel tempo:
-- NON cambiarli ogni volta che viene richiesta la dashboard
-- Cambiali SOLO se c'è un CAMBIAMENTO SIGNIFICATIVO nei dati (>20% variazione)
-- I focus rappresentano le 4-6 metriche PIÙ IMPORTANTI per l'utente basate su:
-  1. Obiettivi selezionati dall'utente (MASSIMA PRIORITÀ)
-  2. Aree della vita con punteggi critici (<5 o >8)
-  3. Metriche con variazioni significative recenti
-  4. Problemi psicologici rilevati (burnout, ruminazione, ansia alta)
+I FOCUS devono essere STABILI - cambiali SOLO se c'è un motivo CRITICO:
+1. Nuovo evento traumatico/significativo nelle sessioni (rottura, lutto, licenziamento)
+2. Un obiettivo è stato raggiunto o abbandonato
+3. Una metrica è passata da critica a normale (o viceversa)
+4. L'utente ha esplicitamente chiesto di monitorare qualcosa di nuovo
+
+NON CAMBIARE i focus basandoti solo sui VALORI NUMERICI!
+I focus devono riflettere ciò che è IMPORTANTE per l'utente, non ciò che ha valore più alto.
 
 ═══════════════════════════════════════════════
-🎯 FOCUS METRICS (4-6 metriche stabili)
+🎯 CRITERI DI IMPORTANZA (in ordine di priorità)
 ═══════════════════════════════════════════════
-CATEGORIE DI METRICHE DISPONIBILI:
+PRIORITÀ 1 - Obiettivi onboarding ATTIVI:
+  Se l'utente ha goal="reduce_anxiety" → ANSIA è SEMPRE un focus
+  Se l'utente ha goal="find_love" → AMORE è SEMPRE un focus
+  Se l'utente ha goal="personal_growth" → CRESCITA è SEMPRE un focus
+  
+PRIORITÀ 2 - Valori CRITICI che richiedono attenzione:
+  Metriche con valore ≤3 o ≥8 (soglie di allarme)
+  Es: rumination=8 → rimuginazione diventa focus
+  
+PRIORITÀ 3 - Temi menzionati nelle sessioni recenti:
+  Se parla di "problemi al lavoro" → work diventa focus
+  Se parla di "litigio con partner" → love diventa focus
+  
+PRIORITÀ 4 - Trend negativi significativi (>20% in 7 giorni):
+  Se mood è sceso da 7 a 4 → umore diventa focus
+  
+PRIORITÀ 5 - Metriche correlate agli obiettivi:
+  Se goal="sleep" → energy (correlato) può essere focus
+
+═══════════════════════════════════════════════
+🎯 FOCUS METRICS (esattamente 4 metriche)
+═══════════════════════════════════════════════
+CATEGORIE DISPONIBILI:
 - VITALI: mood, anxiety, energy, sleep
-- EMOZIONI: joy, sadness, anger, fear, apathy
-- AREE VITA: love, work, health, social, growth
-- PSICOLOGIA: rumination, burnout_level, self_efficacy, mental_clarity
+- EMOZIONI: joy, sadness, anger, fear, apathy, hope, frustration
+- AREE VITA: love, work, health, social, growth, family, school, leisure, finances
+- PSICOLOGIA: rumination, burnout_level, self_efficacy, mental_clarity, motivation, self_worth, loneliness_perceived
 
 REGOLE SELEZIONE:
-1. Includi SEMPRE mood o anxiety (sono fondamentali)
-2. Includi ALMENO 1 area vita se i dati sono disponibili
-3. Includi metriche legate agli OBIETTIVI dell'utente
-4. Includi metriche CRITICHE (valori <4 o >8)
+1. SE ci sono FOCUS PRECEDENTI → MANTIENILI a meno di motivo critico
+2. Includi SEMPRE metriche legate agli OBIETTIVI dell'utente
+3. Includi metriche CRITICHE (valori ≤3 o ≥8)
+4. Includi aree menzionate nelle sessioni recenti
+5. "mood" è spesso importante come indicatore generale
 
 ESEMPI DI FOCUS STABILI:
-- Utente con obiettivo "reduce_anxiety": [mood, anxiety, sleep, rumination] - FISSO finché obiettivo attivo
-- Utente con obiettivo "find_love": [mood, love, social, loneliness] - FISSO finché obiettivo attivo
-- Utente con burnout alto: [mood, energy, burnout_level, work] - FISSO finché burnout non scende
+- Utente con obiettivo "reduce_anxiety": [mood, anxiety, sleep, energy] - FISSO
+- Utente con obiettivo "find_love": [mood, love, social, growth] - FISSO
+- Utente con burnout=8: [mood, energy, burnout_level, work] - FISSO finché burnout non scende
 
 ═══════════════════════════════════════════════
 🏆 WELLNESS SCORE (1-10)
 ═══════════════════════════════════════════════
-REGOLE:
 - Valuta lo stato ATTUALE dell'utente, non la media storica
-- Se evento negativo grave (rottura, lutto, licenziamento): 1-3
+- Se evento negativo grave: 1-3
 - Se difficoltà moderate ma gestibili: 4-6
 - Se stato positivo: 7-10
 - Il messaggio deve essere empatico e breve (max 15 parole)
@@ -320,14 +346,6 @@ Per ogni obiettivo:
 - progress (0-100): Quanto l'utente sta progredendo
 - status: "in_progress" | "achieved" | "struggling"
 - ai_feedback: Breve frase (max 10 parole)
-
-CRITERI:
-- reduce_anxiety: Progress = max(0, (10 - ansia) * 10)
-- improve_sleep: Progress = sonno * 10
-- find_love: Progress basato su love + social area
-- boost_energy: Progress = energy * 10
-- emotional_balance: Progress basato su stabilità emotiva
-- personal_growth: Progress basato su growth + self_efficacy
 
 ═══════════════════════════════════════════════
 📦 WIDGET (MAX 3 oltre vitals_grid)
@@ -364,8 +382,19 @@ Rispondi SOLO in JSON valido:
   ]
 }`;
 
-    const userMessage = `Dati utente (valori PIÙ RECENTI disponibili):
+    // Build previous focus section for AI
+    const previousFocusSection = previousFocusKeys.length > 0
+      ? `\n═══════════════════════════════════════════════
+⚠️ FOCUS ATTUALI DA MANTENERE (se possibile):
+${previousFocusKeys.join(', ')}
 
+REGOLA: Cambia questi focus SOLO se c'è un motivo critico!
+Spiega nella "reason" perché mantieni o cambi ogni focus.
+═══════════════════════════════════════════════\n`
+      : '';
+
+    const userMessage = `Dati utente (valori PIÙ RECENTI disponibili):
+${previousFocusSection}
 OBIETTIVI SELEZIONATI: ${userGoals.length > 0 ? userGoals.join(', ') : 'Nessuno'}
 
 VITALI (1-10, più recente):
@@ -399,7 +428,7 @@ ${recentSummaries.length > 0 ? recentSummaries.join('\n---\n') : 'Nessuna sessio
 
 GIORNI CON DATI: Emozioni: ${emotions.length}, Aree: ${lifeAreas.length}, Sessioni: ${sessions.length}
 
-Genera la configurazione dashboard personalizzata.`;
+Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'utente, non sui valori più alti.`;
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -493,6 +522,16 @@ Genera la configurazione dashboard personalizzata.`;
       ...m,
       value: metricValues[m.key] || 0,
     }));
+
+    // 🔍 LOG: Track focus changes for debugging stability
+    const newFocusKeys = dashboardLayout.primary_metrics.map(m => m.key);
+    const focusChanges = newFocusKeys.filter(k => !previousFocusKeys.includes(k));
+    if (previousFocusKeys.length > 0 && focusChanges.length > 2) {
+      console.log(`[ai-dashboard] ⚠️ SIGNIFICANT FOCUS CHANGE for user ${user.id}:`);
+      console.log(`  Previous: ${previousFocusKeys.join(', ')}`);
+      console.log(`  New: ${newFocusKeys.join(', ')}`);
+      console.log(`  Changed: ${focusChanges.join(', ')}`);
+    }
 
     // CRITICAL: Ensure we ALWAYS have exactly 4 metrics for proper grid layout
     if (dashboardLayout.primary_metrics.length < 4) {
