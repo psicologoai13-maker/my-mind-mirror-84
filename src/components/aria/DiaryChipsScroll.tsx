@@ -46,8 +46,12 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.7, duration: 0.4 }}
-      className="w-full"
+      className="w-full space-y-3"
     >
+      {/* Subtle label */}
+      <p className="text-center text-xs text-muted-foreground/40 tracking-widest uppercase">
+        I tuoi diari
+      </p>
       {/* Larger horizontal row */}
       <div className="flex items-center justify-center gap-5">
         {activeDiaryIds.slice(0, 4).map((themeId, index) => {
