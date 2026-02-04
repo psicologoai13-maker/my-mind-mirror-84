@@ -1,118 +1,59 @@
-
 # Piano: Sistema Focus AI Basato su Importanza (Non Valori)
 
-## Problema Identificato
+## ✅ IMPLEMENTATO
 
-Il componente "I Tuoi Focus" nella Home mostra solo 2 metriche invece di 4 perche:
+### Modifiche Effettuate
 
-1. **L'AI non ha memoria dei focus precedenti**: ogni refresh giornaliero l'AI genera focus da zero senza sapere cosa c'era prima
-2. **Il sistema non passa il contesto di stabilita**: il prompt dice "mantieni stabili" ma l'AI non sa quali ERANO i focus ieri
-3. **Manca la logica di "importanza" vs "valore"**: l'AI tende a scegliere basandosi sui valori numerici invece che sull'importanza per l'utente
+#### 1. Edge Function `ai-dashboard/index.ts`
 
-## Architettura Attuale (Corretta ma Incompleta)
+**A) Memoria dei Focus Precedenti:**
+- Aggiunto fetch di `ai_dashboard_cache` nel profilo utente
+- Estratti `previousFocusKeys` dalla cache esistente
+- Passati al prompt AI come "FOCUS ATTUALI DA MANTENERE"
+
+**B) Criteri di Importanza nel Prompt AI:**
+- PRIORITÀ 1: Obiettivi onboarding attivi
+- PRIORITÀ 2: Valori critici (≤3 o ≥8)
+- PRIORITÀ 3: Temi menzionati nelle sessioni recenti
+- PRIORITÀ 4: Trend negativi significativi (>20%)
+- PRIORITÀ 5: Metriche correlate agli obiettivi
+
+**C) Regole di Stabilità:**
+- L'AI mantiene i focus SOLO se cambia un motivo critico:
+  - Nuovo evento traumatico/significativo
+  - Obiettivo raggiunto/abbandonato
+  - Metrica passata da critica a normale (o viceversa)
+  - Utente richiede esplicitamente nuovo monitoraggio
+
+**D) Logging per Debug:**
+- Aggiunto logging quando l'AI cambia >2 focus vs precedenti
+
+#### 2. Componente Frontend
+
+- `AdaptiveVitalsSection` già usa correttamente `useAIDashboard()`
+- Visualizza i 4 focus decisi dall'AI in ordine di priorità
+- `FocusTopics.tsx` (componente duplicato non usato) può essere rimosso
+
+### Architettura Finale
 
 ```text
-[Onboarding Goals] --> [ai-dashboard Edge Function] --> [primary_metrics]
-                                    |
-                       [AI Gemini genera 4 focus]
-                                    |
-                       [Cache in user_profiles.ai_dashboard_cache]
-                                    |
-              [AdaptiveVitalsSection mostra i 4 focus]
+[Onboarding Goals] ─┐
+[Previous Focus]   ─┼─> [ai-dashboard Edge Function] ─> [primary_metrics]
+[Session Data]     ─┘             │
+                                  ▼
+                      [Gemini AI con regole stabilità]
+                                  │
+                                  ▼
+                      [Cache in user_profiles.ai_dashboard_cache]
+                                  │
+                                  ▼
+                      [AdaptiveVitalsSection mostra 4 focus]
 ```
 
-## Soluzione Proposta
+### Risultati Attesi
 
-### 1. Modificare Edge Function `ai-dashboard/index.ts`
-
-**A) Passare i focus precedenti all'AI:**
-- Leggere `ai_dashboard_cache.primary_metrics` dalla cache esistente
-- Includere nel prompt: "FOCUS PRECEDENTI: mood, anxiety, love, growth"
-- Istruire l'AI: "Mantieni questi focus a meno di cambiamento significativo (>20% variazione o nuovo evento critico)"
-
-**B) Aggiungere contesto di "importanza":**
-- Calcolare score di importanza per ogni metrica basato su:
-  - Collegamento agli obiettivi onboarding (peso alto)
-  - Frequenza di menzione nelle sessioni recenti (peso medio)
-  - Valori critici (<4 o >8) che richiedono attenzione (peso medio)
-  - Trend negativo negli ultimi 7 giorni (peso basso)
-
-**C) Validazione post-AI:**
-- Se l'AI cambia >2 focus rispetto a ieri, loggare il motivo
-- Se non c'e un "evento significativo" rilevato, forzare mantenimento
-
-### 2. Migliorare il System Prompt
-
-Aggiungere sezione esplicita:
-```
-FOCUS PRECEDENTI (da mantenere se possibile):
-${previousFocusKeys.join(', ')}
-
-REGOLA CRITICA: Cambia i focus SOLO se:
-1. C'e un nuovo evento traumatico/significativo nelle sessioni
-2. Un obiettivo e stato raggiunto o abbandonato
-3. Una metrica e passata da critica a normale (o viceversa)
-4. L'utente ha esplicitamente chiesto di monitorare qualcosa di nuovo
-```
-
-### 3. Logica di Selezione Focus
-
-**Priorita (dalla piu alta alla piu bassa):**
-
-| Priorita | Criterio | Esempio |
-|----------|----------|---------|
-| 1 | Obiettivi onboarding attivi | Se goal="reduce_anxiety" -> ansia e sempre focus |
-| 2 | Metriche con valori critici | rumination=8 -> rimuginazione diventa focus |
-| 3 | Aree menzionate in sessioni recenti | "problemi al lavoro" -> work diventa focus |
-| 4 | Trend negativi significativi | mood -3 in 7 giorni -> umore diventa focus |
-| 5 | Metriche correlate agli obiettivi | goal="sleep" -> energy (correlato) |
-
-### 4. Esempio di Output Atteso
-
-**Utente con obiettivi: "anxiety", "relationships"**
-**Sessioni recenti: "stress lavorativo", "litigio con partner"**
-
-Focus selezionati (stabili):
-1. **Ansia** (obiettivo primario)
-2. **Amore** (obiettivo relationships + litigio menzionato)
-3. **Lavoro** (stress lavorativo nelle sessioni)
-4. **Umore** (metrica fondamentale sempre presente)
-
-Questi focus rimangono FISSI finche:
-- L'utente non raggiunge l'obiettivo "anxiety"
-- Non emerge un nuovo problema critico
-- L'utente non chiede esplicitamente di cambiare
-
-## File da Modificare
-
-| File | Modifica |
-|------|----------|
-| `supabase/functions/ai-dashboard/index.ts` | Passare cache precedente, migliorare prompt, aggiungere validazione |
-
-## Implementazione Tecnica
-
-```typescript
-// Nella edge function, prima della chiamata AI:
-const { data: profile } = await supabase
-  .from('user_profiles')
-  .select('ai_dashboard_cache, selected_goals')
-  .eq('user_id', user.id)
-  .single();
-
-// Estrarre focus precedenti dalla cache
-const previousCache = profile?.ai_dashboard_cache as DashboardLayout | null;
-const previousFocusKeys = previousCache?.primary_metrics?.map(m => m.key) || [];
-
-// Aggiungere al prompt utente:
-const previousFocusSection = previousFocusKeys.length > 0
-  ? `\nFOCUS ATTUALI DA MANTENERE: ${previousFocusKeys.join(', ')}\nCambia SOLO se c'e un motivo critico.`
-  : '';
-```
-
-## Risultato Atteso
-
-- I 4 focus vengono mostrati correttamente
-- I focus sono basati su IMPORTANZA per l'utente, non sui valori numerici
-- I focus rimangono stabili nel tempo (cambiano solo con eventi significativi)
-- Le cose recenti (sessioni, diari) hanno piu peso di quelle vecchie
-- Il sistema rispetta gli obiettivi onboarding come priorita massima
+- ✅ I 4 focus vengono mostrati correttamente
+- ✅ I focus sono basati su IMPORTANZA per l'utente, non sui valori numerici
+- ✅ I focus rimangono stabili nel tempo (cambiano solo con eventi significativi)
+- ✅ Le cose recenti (sessioni, diari) hanno più peso rispetto a cose vecchie
+- ✅ Il sistema rispetta gli obiettivi onboarding come priorità massima
