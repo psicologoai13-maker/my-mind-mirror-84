@@ -3,13 +3,14 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, Target, Heart, Briefcase, GraduationCap, Wallet, Dumbbell, Brain, Loader2, Check, X } from 'lucide-react';
+import { Send, Target, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useObjectives, type ObjectiveCategory, type CreateObjectiveInput } from '@/hooks/useObjectives';
+import { useObjectives, type CreateObjectiveInput } from '@/hooks/useObjectives';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -22,15 +23,6 @@ interface ObjectiveCreationModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const CATEGORY_OPTIONS = [
-  { id: 'body' as ObjectiveCategory, label: 'Corpo & Salute', icon: Dumbbell, emoji: '💪', color: 'text-emerald-500' },
-  { id: 'finance' as ObjectiveCategory, label: 'Finanze', icon: Wallet, emoji: '💰', color: 'text-amber-500' },
-  { id: 'study' as ObjectiveCategory, label: 'Studio', icon: GraduationCap, emoji: '📚', color: 'text-blue-500' },
-  { id: 'work' as ObjectiveCategory, label: 'Lavoro', icon: Briefcase, emoji: '💼', color: 'text-purple-500' },
-  { id: 'relationships' as ObjectiveCategory, label: 'Relazioni', icon: Heart, emoji: '❤️', color: 'text-pink-500' },
-  { id: 'growth' as ObjectiveCategory, label: 'Crescita', icon: Brain, emoji: '🧠', color: 'text-indigo-500' },
-];
-
 export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
   open,
   onOpenChange,
@@ -41,8 +33,6 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'category' | 'chat'>('category');
-  const [selectedCategory, setSelectedCategory] = useState<ObjectiveCategory | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -53,11 +43,11 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
       setMessages([{
         id: '1',
         role: 'assistant',
-        content: 'Ciao! 🎯 Sono qui per aiutarti a definire un nuovo obiettivo. In quale area vuoi migliorare?',
+        content: 'Ciao! 🎯 Qual è il tuo prossimo obiettivo? Dimmi cosa vuoi raggiungere e ti aiuterò a definirlo nel dettaglio.',
       }]);
-      setStep('category');
-      setSelectedCategory(null);
       setInputValue('');
+      // Focus input after short delay
+      setTimeout(() => inputRef.current?.focus(), 300);
     } else {
       window.dispatchEvent(new CustomEvent('show-bottom-nav'));
     }
@@ -78,20 +68,8 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
     }]);
   };
 
-  const handleCategorySelect = (category: ObjectiveCategory) => {
-    setSelectedCategory(category);
-    const categoryInfo = CATEGORY_OPTIONS.find(c => c.id === category);
-    addMessage('user', categoryInfo?.label || category);
-    
-    setTimeout(() => {
-      addMessage('assistant', `Ottimo! ${categoryInfo?.emoji} Raccontami qual è il tuo obiettivo. Sii specifico se hai un numero in mente (es. "perdere 5kg", "risparmiare 1000€")`);
-      setStep('chat');
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }, 300);
-  };
-
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !selectedCategory) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue.trim();
     setInputValue('');
@@ -120,7 +98,7 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
       // If ready to create the objective
       if (createNow && objective) {
         const objectivePayload: CreateObjectiveInput = {
-          category: objective.category || selectedCategory,
+          category: objective.category, // AI determines category automatically
           title: objective.title,
           description: objective.description,
           target_value: objective.target_value,
@@ -162,51 +140,23 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         side="bottom" 
-        className="h-[85vh] rounded-t-3xl p-0 bg-background border-t border-glass-border"
+        className="h-[85vh] rounded-t-3xl p-0 bg-background border-t border-glass-border [&>button]:hidden"
       >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-glass-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-                <Target className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <SheetTitle className="text-left text-lg">Nuovo Obiettivo</SheetTitle>
-                <p className="text-sm text-muted-foreground">Aria ti guiderà nella creazione</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+              <Target className="w-6 h-6 text-primary-foreground" />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-xl"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-          
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2 mt-4">
-            <div className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-              step === 'category' ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
-            )}>
-              <Check className={cn("w-3 h-3", step === 'category' && "hidden")} />
-              1. Categoria
-            </div>
-            <div className="w-4 h-0.5 rounded-full bg-muted" />
-            <div className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-              step === 'chat' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            )}>
-              2. Dettagli
+            <div>
+              <SheetTitle className="text-left text-lg">Nuovo Obiettivo</SheetTitle>
+              <p className="text-sm text-muted-foreground">Descrivi il tuo obiettivo ad Aria</p>
             </div>
           </div>
         </SheetHeader>
 
         {/* Chat Area */}
-        <ScrollArea className="flex-1 h-[calc(85vh-200px)]" ref={scrollRef}>
+        <ScrollArea className="flex-1 h-[calc(85vh-180px)]" ref={scrollRef}>
           <div className="p-4 space-y-4">
             <AnimatePresence mode="popLayout">
               {messages.map((message) => (
@@ -226,37 +176,17 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
                       ? "bg-primary text-primary-foreground rounded-br-md" 
                       : "bg-glass border border-glass-border rounded-bl-md"
                   )}>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    {message.role === 'assistant' ? (
+                      <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
-
-            {/* Category Selection Grid */}
-            {step === 'category' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 gap-3 mt-4"
-              >
-                {CATEGORY_OPTIONS.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategorySelect(category.id)}
-                    className={cn(
-                      "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
-                      "bg-glass hover:bg-card/80 hover:border-primary/50",
-                      "border-glass-border active:scale-95"
-                    )}
-                  >
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl bg-gradient-to-br from-card to-muted">
-                      {category.emoji}
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{category.label}</span>
-                  </button>
-                ))}
-              </motion.div>
-            )}
 
             {/* Loading indicator */}
             {isLoading && (
@@ -276,34 +206,32 @@ export const ObjectiveCreationModal: React.FC<ObjectiveCreationModalProps> = ({
           </div>
         </ScrollArea>
 
-        {/* Input Area */}
-        {step === 'chat' && (
-          <div className="p-4 border-t border-glass-border bg-background">
-            <div className="flex items-end gap-2">
-              <Textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Descrivi il tuo obiettivo..."
-                className="min-h-[44px] max-h-[120px] resize-none rounded-2xl bg-glass border-glass-border"
-                rows={1}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                size="icon"
-                className="h-11 w-11 rounded-xl shrink-0"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
+        {/* Input Area - Always visible */}
+        <div className="p-4 border-t border-glass-border bg-background">
+          <div className="flex items-end gap-2">
+            <Textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Es. Voglio perdere 5kg, risparmiare 1000€..."
+              className="min-h-[44px] max-h-[120px] resize-none rounded-2xl bg-glass border-glass-border"
+              rows={1}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!inputValue.trim() || isLoading}
+              size="icon"
+              className="h-11 w-11 rounded-xl shrink-0"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </Button>
           </div>
-        )}
+        </div>
       </SheetContent>
     </Sheet>
   );

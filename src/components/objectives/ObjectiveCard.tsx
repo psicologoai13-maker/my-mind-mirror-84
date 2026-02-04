@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Target, Sparkles, Trash2, ChevronDown, RefreshCw, Bot } from 'lucide-react';
-import { Objective, CATEGORY_CONFIG, calculateProgress } from '@/hooks/useObjectives';
+import { Objective, CATEGORY_CONFIG, calculateProgress, ObjectiveCategory } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
@@ -29,12 +29,40 @@ interface ObjectiveCardProps {
   onDelete?: (id: string) => void;
 }
 
+// Category border colors for the card
+const CATEGORY_BORDER_COLORS: Record<ObjectiveCategory, string> = {
+  mind: 'border-l-purple-500',
+  body: 'border-l-orange-500',
+  study: 'border-l-blue-500',
+  work: 'border-l-slate-500',
+  relationships: 'border-l-pink-500',
+  growth: 'border-l-emerald-500',
+  finance: 'border-l-yellow-500',
+};
+
 // Helper to determine tracking type
 const getTrackingType = (objective: Objective): 'auto' | 'aria' => {
   if (objective.auto_sync_enabled || objective.linked_habit || objective.linked_body_metric) {
     return 'auto';
   }
   return 'aria';
+};
+
+// Category badge component
+const CategoryBadge: React.FC<{ category: ObjectiveCategory }> = ({ category }) => {
+  const config = CATEGORY_CONFIG[category];
+  return (
+    <Badge 
+      variant="secondary" 
+      className={cn(
+        "text-[10px] px-1.5 py-0 h-5 gap-1 font-medium",
+        config.color
+      )}
+    >
+      <span>{config.emoji}</span>
+      <span>{config.label}</span>
+    </Badge>
+  );
 };
 
 // Tracking badge component
@@ -190,7 +218,10 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           "bg-glass backdrop-blur-xl border border-glass-border",
           "shadow-glass hover:shadow-glass-elevated",
           "transition-all duration-300 ease-out",
-          "cursor-pointer"
+          "cursor-pointer",
+          // Category color border on left
+          "border-l-4",
+          CATEGORY_BORDER_COLORS[objective.category as ObjectiveCategory] || 'border-l-primary'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.98 }}
@@ -211,6 +242,10 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           <div className="flex items-start gap-4">
             {/* Title and summary */}
             <div className="flex-1 min-w-0">
+              {/* Category badge */}
+              <div className="mb-2">
+                <CategoryBadge category={objective.category as ObjectiveCategory} />
+              </div>
               <div className="flex items-center gap-2 mb-1.5">
                 <h3 className="font-semibold text-foreground text-base leading-tight">
                   {objective.title}
