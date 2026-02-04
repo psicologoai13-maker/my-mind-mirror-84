@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, TrendingUp, Loader2, X, Target, ChevronRight } from 'lucide-react';
+import { Send, TrendingUp, Loader2, Target, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -303,29 +303,17 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
       >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-glass-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <SheetTitle className="text-left text-lg">Aggiorna Progressi</SheetTitle>
-                <p className="text-sm text-muted-foreground">
-                  {activeObjectives.length} obiettiv{activeObjectives.length === 1 ? 'o' : 'i'} attiv{activeObjectives.length === 1 ? 'o' : 'i'}
-                </p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-xl"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="w-5 h-5" />
-            </Button>
+            <div>
+              <SheetTitle className="text-left text-lg">Aggiorna Progressi</SheetTitle>
+              <p className="text-sm text-muted-foreground">
+                {activeObjectives.length} obiettiv{activeObjectives.length === 1 ? 'o' : 'i'} attiv{activeObjectives.length === 1 ? 'o' : 'i'}
+              </p>
+            </div>
           </div>
-          
-          {/* Active objectives pills - REMOVED from header since we show buttons in chat */}
         </SheetHeader>
 
         {/* Chat Area */}
