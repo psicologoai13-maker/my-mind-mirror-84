@@ -237,32 +237,32 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/8 via-transparent to-transparent pointer-events-none" />
         
-        <div className="relative z-10 p-5">
+        <div className="relative z-10 p-4">
           {/* Main row: Title + Circle */}
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             {/* Title and summary */}
             <div className="flex-1 min-w-0">
-              {/* Category badge */}
-              <div className="mb-2">
+              {/* Title with category badge inline */}
+              <div className="flex items-center gap-2 flex-wrap mb-1">
                 <CategoryBadge category={objective.category as ObjectiveCategory} />
+                <h3 className="font-semibold text-foreground text-base leading-tight">
+                  {objective.title}
+                </h3>
               </div>
-              <h3 className="font-semibold text-foreground text-base leading-tight mb-1.5">
-                {objective.title}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                 {getSummary()}
               </p>
             </div>
             
             {/* Circular progress */}
             <div className="shrink-0">
-              <CircularProgress progress={progress} size={64} />
+              <CircularProgress progress={progress} size={56} />
             </div>
             
             {/* Menu button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl shrink-0 -mr-1 -mt-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg shrink-0 -mr-1 -mt-1">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
