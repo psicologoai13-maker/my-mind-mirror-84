@@ -45,37 +45,28 @@ const LifeBalanceRadar: React.FC = () => {
 
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-3xl p-6",
+      "relative overflow-hidden rounded-3xl p-5",
       "bg-glass backdrop-blur-xl border border-glass-border",
       "shadow-glass"
     )}>
       {/* Inner light */}
       <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
       
-      <div className="relative z-10 flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Compass className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-          <h3 className="text-sm font-semibold text-foreground">
-              Aree della Vita
-            </h3>
-            {hasData && missingAreas.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {dynamicAreas.length - missingAreas.length}/{dynamicAreas.length} aree tracciate
-              </p>
-            )}
-          </div>
+      <div className="relative z-10 flex items-center gap-3 mb-2">
+        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Compass className="w-4 h-4 text-primary" />
         </div>
+        <h3 className="text-sm font-semibold text-foreground">
+          Aree della Vita
+        </h3>
       </div>
 
-      {/* Always show the radar chart - with or without data */}
-      <div className="relative z-10 h-64">
+      {/* Radar chart - larger and filling the space */}
+      <div className="relative z-10 h-72 -mx-2">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart 
             data={radarData} 
-            margin={{ top: 30, right: 40, bottom: 30, left: 40 }}
+            margin={{ top: 25, right: 35, bottom: 25, left: 35 }}
           >
             {/* Always visible grid - shows the pentagon shape */}
             <PolarGrid 
@@ -100,8 +91,8 @@ const LifeBalanceRadar: React.FC = () => {
               tick={({ x, y, payload, cx, cy }) => {
                 // Calculate position to push labels outward
                 const angle = Math.atan2(y - cy, x - cx);
-                const offsetX = Math.cos(angle) * 15;
-                const offsetY = Math.sin(angle) * 15;
+                const offsetX = Math.cos(angle) * 12;
+                const offsetY = Math.sin(angle) * 12;
                 
                 return (
                   <text
@@ -110,7 +101,7 @@ const LifeBalanceRadar: React.FC = () => {
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill="hsl(var(--foreground))"
-                    fontSize={12}
+                    fontSize={11}
                     fontWeight={600}
                     className="select-none"
                   >
