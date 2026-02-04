@@ -1,110 +1,103 @@
 
 
-# Piano: Conversazione Vocale Real-Time con ElevenLabs STT
+# Piano: Sostituire SOLO la Voce di Gemini con Carla
 
-## Problema Identificato
+## Problema
 
-L'attuale sistema usa la **Web Speech API del browser** per il riconoscimento vocale, che presenta:
-- Compatibilita iOS inesistente (Safari non supporta `continuous` mode)
-- Accuratezza pessima su desktop (confidence scores del 1-10%)
-- Nessun VAD nativo (richiede hack con timeout)
+`useGeminiVoice` funzionava perfettamente su iOS e desktop con tutta l'intelligenza di Aria intatta. L'unico difetto era la voce robotica del modello `gemini-2.5-flash-preview-native-audio-dialog`.
 
-## Soluzione Proposta: ElevenLabs Realtime STT
+## Soluzione Minima
 
-Sostituire la Web Speech API con **ElevenLabs Scribe v2 Realtime** - un servizio professionale di trascrizione che offre:
+Modificare `useGeminiVoice` per:
+1. **MANTENERE** l'input audio via Gemini (STT + VAD funzionanti)
+2. **MANTENERE** tutta l'intelligenza di Aria (prompt completo)
+3. **IGNORARE** l'audio di risposta di Gemini
+4. **USARE** il testo della risposta per generare audio con ElevenLabs TTS (voce Carla)
 
-- Cross-platform (funziona su iOS, Android, desktop via WebSocket)
-- Alta accuratezza (modello `scribe_v2_realtime`)
-- VAD integrato (rileva automaticamente fine frase)
-- Supporto nativo italiano
-
-### Nuova Architettura
+## Architettura Prima/Dopo
 
 ```text
-+------------------+     +------------------+     +------------------+
-|   UTENTE PARLA   | --> | ElevenLabs STT   | --> |   GEMINI BRAIN   |
-|   (Microfono)    |     | (scribe_v2)      |     | (Intelligenza    |
-|                  |     | Alta accuratezza |     |  clinica Aria)   |
-+------------------+     +------------------+     +------------------+
-                                                           |
-                                                           v
-+------------------+     +------------------+
-|   UTENTE SENTE   | <-- | ElevenLabs TTS   |
-|   (Speaker)      |     | (Voce Carla)     |
-+------------------+     +------------------+
+PRIMA (voce robotica):
+Utente parla → Gemini STT → Gemini Brain → Gemini Audio → Utente sente (robotico)
+
+DOPO (voce Carla):
+Utente parla → Gemini STT → Gemini Brain → ElevenLabs TTS → Utente sente (Carla)
 ```
 
-## Dettagli Implementazione
+## Modifiche Tecniche
 
-### 1. Nuova Edge Function: `elevenlabs-scribe-token`
+### File Modificato
 
-Genera token monouso per la trascrizione realtime (scadenza 15 minuti).
+| File | Modifica |
+|------|----------|
+| `src/hooks/useGeminiVoice.tsx` | Ignorare audio Gemini, chiamare ElevenLabs TTS con il testo |
 
-Endpoint ElevenLabs: `POST /v1/single-use-token/realtime_scribe`
+### Dettaglio Modifiche
 
-### 2. Riscrittura Hook: `useHybridVoice.tsx`
+Nel blocco che gestisce `serverContent.modelTurn.parts`:
 
-Sostituisce Web Speech API con il hook `useScribe` di `@elevenlabs/react`:
+**Prima** (riproduce audio Gemini):
+```typescript
+if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
+  setIsSpeaking(true);
+  const audioData = pcm16Base64ToFloat32(part.inlineData.data);
+  workletNodeRef.current.port.postMessage({ samples: Array.from(audioData) });
+}
+```
 
-**Prima (Web Speech API):**
-- `window.SpeechRecognition` - non funziona su iOS
-- Hack con timeout per rilevare silenzio
-- Accuratezza bassa
+**Dopo** (usa ElevenLabs TTS):
+```typescript
+// Ignoriamo l'audio di Gemini, usiamo solo il testo
+if (part.text) {
+  currentAssistantTextRef.current += part.text;
+}
 
-**Dopo (ElevenLabs Scribe):**
-- `useScribe({ modelId: 'scribe_v2_realtime', commitStrategy: 'vad' })`
-- VAD automatico
-- Alta accuratezza multilingue
+// Quando turnComplete, convertiamo il testo in audio con ElevenLabs
+if (serverContent.turnComplete && currentAssistantTextRef.current) {
+  setIsSpeaking(true);
+  const ttsResponse = await fetch('/functions/v1/elevenlabs-tts', {
+    body: JSON.stringify({ text: currentAssistantTextRef.current })
+  });
+  const ttsData = await ttsResponse.json();
+  playAudioBlob(ttsData.audioContent); // Voce Carla!
+}
+```
 
-### 3. Flusso Conversazione Aggiornato
+### Componente UI
 
-1. Utente avvia sessione
-2. Client richiede token STT da edge function
-3. `useScribe` si connette via WebSocket
-4. Utente parla - ElevenLabs trascrive in tempo reale
-5. VAD rileva fine frase - callback `onCommittedTranscript`
-6. Testo inviato a Gemini (`hybrid-voice-chat`) per risposta Aria
-7. Risposta convertita in audio con ElevenLabs TTS (Carla)
-8. Audio riprodotto all'utente
-9. Ciclo si ripete
+| File | Modifica |
+|------|----------|
+| `src/components/voice/ZenVoiceModal.tsx` | Cambiare import da `useHybridVoice` a `useGeminiVoice` |
 
-## Modifiche File
+## Cosa Rimane Intatto
 
-### Nuovi File
+- STT di Gemini (funziona su iOS via WebSocket)
+- VAD di Gemini (rileva automaticamente fine frase)
+- Prompt completo di Aria (2500+ righe)
+- Memoria a lungo termine
+- Contesto in tempo reale (meteo, data, ecc.)
+- Protocolli clinici (CBT, DBT, ACT, ecc.)
+- Data Hunter (raccolta dati aree vita)
+- Salvataggio sessione e analisi
 
-| File | Scopo |
-|------|-------|
-| `supabase/functions/elevenlabs-scribe-token/index.ts` | Genera token STT monouso |
-
-### File Modificati
-
-| File | Modifiche |
-|------|-----------|
-| `src/hooks/useHybridVoice.tsx` | Sostituisce Web Speech API con `useScribe` di ElevenLabs |
-
-## Vantaggi
+## Cosa Cambia
 
 | Aspetto | Prima | Dopo |
 |---------|-------|------|
-| **iOS** | Non funziona | Funziona |
-| **Accuratezza** | 1-10% confidence | 95%+ accuracy |
-| **VAD** | Hack con timeout | Nativo |
-| **Latenza** | Alta (attesa timeout) | Bassa (VAD immediato) |
-| **Intelligenza Aria** | Preservata | Preservata |
-| **Voce Carla** | Preservata | Preservata |
+| **Voce** | Gemini (robotica) | Carla (naturale) |
+| **STT** | Gemini | Gemini (invariato) |
+| **Brain** | Gemini | Gemini (invariato) |
+| **iOS** | Funziona | Funziona |
 
-## Costi
+## Vantaggi
 
-ElevenLabs STT usa crediti dal piano Starter gia attivo. Il modello `scribe_v2_realtime` ha costi ragionevoli per uso conversazionale.
+- Modifica minima (poche righe di codice)
+- Nessun rischio di perdere funzionalita
+- iOS continua a funzionare
+- Voce naturale italiana
+- Nessuna nuova edge function necessaria (ElevenLabs TTS esiste gia)
 
-## Dipendenze
+## Note
 
-Il pacchetto `@elevenlabs/react` e gia installato nel progetto (versione ^0.14.0).
-
-## Note Tecniche
-
-- Il secret `ELEVENLABS_API_KEY` e gia configurato
-- Nessuna modifica al database richiesta
-- Il cervello Gemini con tutti i protocolli clinici rimane intatto
-- La voce Carla rimane configurata nel TTS
+La edge function `elevenlabs-tts` e gia configurata con la voce Carla (ID: `litDcG1avVppv4R90BLu`).
 
