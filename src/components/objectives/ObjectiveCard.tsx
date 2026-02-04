@@ -83,50 +83,47 @@ const TrackingBadge: React.FC<{ type: 'auto' | 'aria' }> = ({ type }) => {
   );
 };
 
-// Circular progress component
+// Circular progress component - Always positive gradient (violet → teal → emerald)
 const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ 
   progress, 
-  size = 64 
+  size = 48 
 }) => {
-  const strokeWidth = 5;
+  const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
   
-  const getProgressColor = () => {
-    if (progress >= 80) return 'stroke-emerald-500';
-    if (progress >= 50) return 'stroke-primary';
-    if (progress >= 25) return 'stroke-amber-500';
-    return 'stroke-muted-foreground/50';
+  // Positive gradient: indigo → primary → teal → emerald as progress increases
+  const getStrokeColor = () => {
+    if (progress >= 75) return '#10b981'; // emerald-500
+    if (progress >= 50) return '#14b8a6'; // teal-500
+    if (progress >= 25) return '#8b5cf6'; // violet-500 (primary)
+    return '#a78bfa'; // violet-400 (soft start)
   };
 
-  const getGlowColor = () => {
-    if (progress >= 80) return 'drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]';
-    if (progress >= 50) return 'drop-shadow-[0_0_6px_rgba(var(--primary-rgb),0.5)]';
-    if (progress >= 25) return 'drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]';
-    return '';
+  const getGlowIntensity = () => {
+    // Glow increases with progress
+    const intensity = Math.max(0.2, progress / 100 * 0.6);
+    if (progress >= 75) return `drop-shadow(0 0 ${4 + progress/20}px rgba(16,185,129,${intensity}))`;
+    if (progress >= 50) return `drop-shadow(0 0 ${4 + progress/25}px rgba(20,184,166,${intensity}))`;
+    if (progress >= 25) return `drop-shadow(0 0 ${3 + progress/30}px rgba(139,92,246,${intensity}))`;
+    return `drop-shadow(0 0 2px rgba(167,139,250,0.2))`;
   };
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <div className={cn(
-        "absolute inset-0 rounded-full blur-md opacity-30",
-        progress >= 80 ? "bg-emerald-500" :
-        progress >= 50 ? "bg-primary" :
-        progress >= 25 ? "bg-amber-500" : "bg-muted"
-      )} />
-      
       <svg
-        className={cn("transform -rotate-90 relative z-10", getGlowColor())}
+        className="transform -rotate-90 relative z-10"
         width={size}
         height={size}
+        style={{ filter: getGlowIntensity() }}
       >
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           strokeWidth={strokeWidth}
-          className="fill-none stroke-muted/30"
+          className="fill-none stroke-muted/20"
         />
         <circle
           cx={size / 2}
@@ -134,8 +131,9 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
           r={radius}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
-          className={cn("fill-none transition-all duration-700 ease-out", getProgressColor())}
+          className="fill-none transition-all duration-700 ease-out"
           style={{
+            stroke: getStrokeColor(),
             strokeDasharray: circumference,
             strokeDashoffset: offset,
           }}
@@ -143,7 +141,7 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
       </svg>
       
       <div className="absolute inset-0 flex items-center justify-center z-20">
-        <span className="text-base font-bold text-foreground">
+        <span className="text-sm font-bold text-foreground">
           {Math.round(progress)}%
         </span>
       </div>
@@ -226,44 +224,44 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Ambient gradient based on progress */}
+        {/* Ambient gradient - always positive vibes */}
         <div className={cn(
-          "absolute inset-0 opacity-15 transition-opacity duration-500",
-          progress >= 80 ? "bg-gradient-to-br from-emerald-500/40 to-teal-500/10" :
-          progress >= 50 ? "bg-gradient-to-br from-primary/40 to-primary/5" :
-          progress >= 25 ? "bg-gradient-to-br from-amber-500/40 to-orange-500/10" :
-          "bg-gradient-to-br from-muted/30 to-transparent"
+          "absolute inset-0 opacity-10 transition-opacity duration-500",
+          progress >= 75 ? "bg-gradient-to-br from-emerald-500/30 to-teal-500/10" :
+          progress >= 50 ? "bg-gradient-to-br from-teal-500/25 to-primary/10" :
+          progress >= 25 ? "bg-gradient-to-br from-primary/20 to-violet-500/10" :
+          "bg-gradient-to-br from-violet-400/15 to-primary/5"
         )} />
         
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/8 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
         
-        <div className="relative z-10 p-4">
+        <div className="relative z-10 p-3">
           {/* Main row: Title + Circle */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2.5">
             {/* Title and summary */}
             <div className="flex-1 min-w-0">
               {/* Title with category badge inline */}
-              <div className="flex items-center gap-2 flex-wrap mb-1">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                 <CategoryBadge category={objective.category as ObjectiveCategory} />
-                <h3 className="font-semibold text-foreground text-base leading-tight">
+                <h3 className="font-semibold text-foreground text-sm leading-tight">
                   {objective.title}
                 </h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 pr-1">
                 {getSummary()}
               </p>
             </div>
             
             {/* Circular progress */}
             <div className="shrink-0">
-              <CircularProgress progress={progress} size={56} />
+              <CircularProgress progress={progress} size={44} />
             </div>
             
             {/* Menu button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg shrink-0 -mr-1 -mt-1">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg shrink-0 -mr-0.5 -mt-0.5">
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[160px]">
@@ -310,12 +308,12 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </div>
           
           {/* Expand indicator */}
-          <div className="flex justify-center mt-3">
+          <div className="flex justify-center mt-2">
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ duration: 0.2 }}
             >
-              <ChevronDown className="h-4 w-4 text-muted-foreground/50" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40" />
             </motion.div>
           </div>
           
