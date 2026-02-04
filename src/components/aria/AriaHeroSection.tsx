@@ -17,7 +17,7 @@ interface AriaHeroSectionProps {
   lastSession?: Session | null;
   onStartChat: () => void;
   onStartVoice: () => void;
-  onContinue?: () => void;
+  onViewLastSession?: () => void;
 }
 
 const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
@@ -25,7 +25,7 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
   lastSession,
   onStartChat,
   onStartVoice,
-  onContinue,
+  onViewLastSession,
 }) => {
   const formatSessionDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -119,17 +119,18 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
         </motion.button>
       </motion.div>
 
-      {/* Insight Line - Subtle, at bottom */}
+      {/* Insight Line - Subtle, at bottom - Opens session detail */}
       {insightPreview && lastSession && (
         <motion.button
-          onClick={onContinue}
+          onClick={onViewLastSession}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.4 }}
           className={cn(
-            "w-full flex items-center gap-2 px-4 py-2",
-            "text-muted-foreground hover:text-foreground",
-            "transition-colors duration-200"
+            "w-full flex items-center gap-2 px-4 py-3 rounded-2xl",
+            "bg-glass/50 backdrop-blur-sm border border-glass-border/30",
+            "text-muted-foreground hover:text-foreground hover:bg-glass/70",
+            "transition-all duration-200"
           )}
         >
           <span className="text-primary">💜</span>

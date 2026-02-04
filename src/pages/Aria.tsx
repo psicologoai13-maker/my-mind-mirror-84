@@ -173,7 +173,7 @@ const Aria: React.FC = () => {
             lastSession={lastSession}
             onStartChat={handleStartChat}
             onStartVoice={handleStartVoice}
-            onContinue={handleStartChat}
+            onViewLastSession={() => lastSession && setSelectedSessionId(lastSession.id)}
           />
 
           {/* Diary Grid - bigger */}
