@@ -1,161 +1,152 @@
 
-# Redesign Profilo: Layout Compatto e UX Ottimizzata
+# Redesign Aria: Hub Centralizzato con UX Premium
 
 ## Problemi Attuali
 
-### Spazio Sprecato
-1. **Header card troppo alta** - Contiene nome, badge, punti, stats, badges, AND "Guadagna Punti" collapsible
-2. **Premium Card separata** - Duplica info gia presente nel badge "Free/Plus"
-3. **Punti mostrati 2 volte** - Nell'header E nel PointsProgressCard
-4. **7 settings items** - Lista molto lunga con padding eccessivo (py-4 per ogni item)
+### Spazio ed Efficienza
+1. **Session Selector boxes troppo grandi** - 2 box da ~120px ciascuno con decorazioni eccessive
+2. **Diaries grid 2x2** - Occupa ~200px ma mostra solo 4 elementi
+3. **Session history items alti** - Ogni item ~60px con troppo padding
+4. **Header generico** - Nessuna identità visiva distintiva di Aria
 
 ### UX Confusa
-5. **"Guadagna Punti" nascosto** - Richiede tap extra per vedere streak/referral
-6. **Stats sparsi** - Streak, sessioni, punti in posti diversi
-7. **Badge floating** - Senza una sezione chiara
-8. **Settings button inutile** - In alto a destra ma non fa nulla
+5. **Pulsante "+" diari non funziona** - Non apre nulla
+6. **Nessun focus visivo su Aria** - La pagina non comunica che è il "centro" di Aria
+7. **Hierarchy assente** - Chat/Voce, Diari, Cronologia hanno stesso peso visivo
+8. **Empty state debole** - "Nessuna sessione ancora" poco ingaggiante
 
 ---
 
-## Nuovo Design: Layout Verticale Ottimizzato
+## Nuovo Design: Aria Hub Centralizzato
 
 ```text
 +------------------------------------------+
-|  HEADER COMPATTO                          |
-|  +------+  Nome Utente                    |
-|  | 👤  |  🔥 12 giorni • 💬 24 sessioni  |
-|  +------+  💎 850 punti                   |
+|  ARIA HERO (identità visiva forte)        |
+|           ◉ Orb Aria animato              |
+|         "Ciao [nome], come stai?"         |
+|     [💬 Scrivi]     [🎙️ Parla]           |
 +------------------------------------------+
-|  PROGRESS STREAK (inline, sempre visibile)|
-|  [=========>         ] 12/30 giorni       |
-|  +150 pts al prossimo traguardo           |
+|  QUICK INSIGHT (ultima sessione)          |
+|  💜 "Ieri hai parlato di lavoro..."       |
+|     Tocca per continuare →                |
 +------------------------------------------+
-|  PREMIUM CTA (solo se Free, compatto)     |
-|  ✨ Passa a Plus • €4.99/mese  [Scopri >] |
+|  DIARI (scroll orizzontale compatto)      |
+|  [❤️ Amore] [💼 Lavoro] [👥 Rel.] [+]    |
 +------------------------------------------+
-|  IMPOSTAZIONI (gruppi compatti)           |
-|  👤 Account                               |
-|     Dati personali • Interessi            |
-|  ⚙️ Preferenze                            |
-|     Notifiche • Aspetto • Privacy         |
-|  🏥 Salute                                |
-|     Area Terapeutica                      |
-|  ❓ Supporto                              |
-|     Aiuto • Invita amici (+400 pts)       |
-+------------------------------------------+
-|  [Esci]                                   |
+|  CRONOLOGIA (lista ultra-compatta)        |
+|  📜 Cronologia                 Vedi tutto |
+|  +--------------------------------------+ |
+|  | 🎙️ Vocale • 3 Feb  14:30  2min      | |
+|  | 💬 Chat • 2 Feb    10:15  #ansia    | |
+|  | 🎙️ Vocale • 1 Feb  20:00  5min      | |
+|  +--------------------------------------+ |
 +------------------------------------------+
 ```
 
 ---
 
-## Modifiche Tecniche
+## Componenti Tecnici
 
-### 1. Profile.tsx - Nuovo Layout Compatto
-
-**Header semplificato:**
-- Avatar placeholder con iniziali (o emoji)
-- Nome + badge Premium inline
-- Stats in una riga: streak, sessioni, punti
-
-**Streak Progress inline:**
-- Barra progresso sempre visibile (non collapsible)
-- Mostra giorni correnti e punti al prossimo milestone
-
-**Premium CTA condizionale:**
-- Solo se utente Free
-- Una riga con prezzo e CTA
-
-**Settings raggruppati:**
-- 4 gruppi invece di 7 items separati
-- Padding ridotto (py-2.5 invece di py-4)
-- Items inline dove possibile
-
-### 2. Componenti Eliminati/Semplificati
-
-| Componente | Azione |
-|------------|--------|
-| `PointsProgressCard` | Inline nel header (no collapse) |
-| `PremiumCard` | Ridotto a 1 riga CTA |
-| `ProfileBadgesRow` | Spostato in sottopagina |
-| `ProfileStatsRow` | Inline sotto nome |
-
-### 3. Nuovo ProfileCompactHeader Component
+### 1. AriaHeroSection (nuovo)
+Sezione hero con identità Aria forte:
 
 ```tsx
-// Combina: nome, stats, streak progress
-- Avatar con iniziali o emoji
-- Nome + badge plan
-- Stats row: 🔥 streak | 💬 sessions | 💎 points
-- Progress bar streak (always visible)
+// Struttura
+- Orb animato centrale (Canvas o SVG) con gradiente Aurora
+- Saluto personalizzato con ora del giorno
+- Due CTA buttons compatti in una riga
+- Stats sottili: "12 sessioni • 5 giorni streak"
 ```
 
-### 4. Settings Grouped Component
+**Visual:**
+- Orb con animazione pulse/breathing
+- Gradiente Aurora (viola/indigo) come brand identity
+- Reflection glass effect sotto l'orb
+
+### 2. QuickInsightCard (nuovo)
+Mostra l'ultimo insight o suggerimento:
 
 ```tsx
-// 4 gruppi con header + items compatti
-const settingsGroups = [
-  {
-    label: 'Account',
-    icon: '👤',
-    items: [
-      { label: 'Dati personali', action: '/profile/personal' },
-      { label: 'Interessi', action: '/profile/interests' },
-    ]
-  },
-  {
-    label: 'Preferenze',
-    icon: '⚙️',
-    items: [
-      { label: 'Notifiche', action: 'notifications' },
-      { label: 'Aspetto', action: 'appearance' },
-      { label: 'Privacy', action: '/profile/privacy' },
-    ]
-  },
-  {
-    label: 'Salute',
-    icon: '🏥',
-    items: [
-      { label: 'Area Terapeutica', action: '/profile/clinical' },
-    ]
-  },
-  {
-    label: 'Supporto',
-    icon: '❓',
-    items: [
-      { label: 'Aiuto', action: '/profile/help' },
-      { label: 'Invita amici', action: 'referral', badge: '+400' },
-    ]
-  }
-];
+// Se ha sessioni recenti:
+- Preview ultima conversazione
+- "Continua la conversazione" CTA
+
+// Se nessuna sessione:
+- Suggerimento personalizzato
+- "Inizia a parlare con me" CTA
+```
+
+### 3. DiaryChipsScroll (nuovo)
+Diari come chips orizzontali scrollabili:
+
+```tsx
+// Layout: scroll orizzontale
+- Chips compatti: [emoji + label]
+- Max 6 chips visibili
+- Pulsante [+] per aggiungere
+- Altezza totale: ~50px invece di ~200px
+```
+
+**Vantaggi:**
+- 75% risparmio spazio
+- Tutti i diari accessibili con uno scroll
+- Pattern mobile-native (come stories)
+
+### 4. CompactSessionList (nuovo)
+Lista sessioni ultra-compatta:
+
+```tsx
+// Ogni item: 44px invece di 60px
+- Icona tipo (🎙️/💬) + data inline
+- Ora + durata + 1 emotion tag
+- No padding extra, no chevron
 ```
 
 ---
 
-## File da Modificare
+## Modifiche File
 
-### `src/pages/Profile.tsx`
-- Rimuovere `<PremiumCard />` separata
-- Rimuovere `<PointsProgressCard compact />` collapsible
-- Implementare nuovo layout con sezioni inline
-- Ridurre padding globale (space-y-4 invece di space-y-5)
+### `src/pages/Aria.tsx`
+- Rimuovere grid 2x2 per session selector
+- Implementare nuovo layout verticale
+- Ridurre padding globale (space-y-4)
 
-### `src/components/profile/ProfileCompactHeader.tsx` (nuovo)
-- Avatar con iniziali
-- Nome + badge inline
-- Stats row compatta
-- Streak progress sempre visibile
-- Referral code inline (opzionale)
+### `src/components/aria/AriaHeroSection.tsx` (nuovo)
+- Orb animato con Canvas/SVG
+- Saluto dinamico
+- CTA buttons compatti
+- Mini stats row
 
-### `src/components/profile/SettingsGroupList.tsx` (nuovo)
-- Settings raggruppati per categoria
-- Items compatti con padding ridotto
-- Badge per azioni speciali (es. +400 pts referral)
+### `src/components/aria/QuickInsightCard.tsx` (nuovo)
+- Card insight ultima sessione
+- Empty state engaging
+- CTA per continuare
 
-### `src/components/profile/CompactPremiumBanner.tsx` (nuovo)
-- Una riga: icona + testo + prezzo + CTA
-- Solo visibile se utente Free
-- Stile gradient subtle
+### `src/components/aria/DiaryChipsScroll.tsx` (nuovo)
+- Scroll orizzontale chips
+- Add diary inline
+- Feedback touch
+
+### `src/components/aria/CompactSessionItem.tsx` (nuovo)
+- Item sessione 44px
+- Layout inline ottimizzato
+
+---
+
+## Dettagli Animazioni
+
+### Orb Aria
+```text
+- Breathing animation (scale 1.0 → 1.05 → 1.0)
+- Gradient rotation lenta
+- Glow pulsante sincronizzato
+- Touch: ripple + haptic feedback
+```
+
+### Transizioni
+- Chips scroll: momentum physics
+- Session items: stagger entrance (50ms delay)
+- Quick insight: slide-up on mount
 
 ---
 
@@ -163,17 +154,57 @@ const settingsGroups = [
 
 | Sezione | Prima | Dopo | Risparmio |
 |---------|-------|------|-----------|
-| Header card | ~200px | ~120px | 40% |
-| Premium card | ~180px | ~50px | 72% |
-| Settings | ~400px | ~280px | 30% |
-| **Totale** | ~780px | ~450px | **42%** |
+| Session Selector | ~180px | ~160px (hero) | 11% |
+| Diaries Grid | ~200px | ~60px (chips) | 70% |
+| Session Items (5x) | ~300px | ~220px | 27% |
+| **Totale viewport** | ~680px | ~440px | **35%** |
 
 ---
 
 ## Vantaggi UX
 
-1. **Tutto visibile** - No collapse, no tap extra
-2. **Hierarchy chiara** - Gruppi logici per settings
-3. **Focus su azioni** - CTA Premium e referral prominenti
-4. **Consistenza** - Stile Liquid Glass unificato
-5. **Mobile-first** - Ottimizzato per thumb-zone
+1. **Identità Aria forte** - L'orb comunica che è "casa di Aria"
+2. **Azione immediata** - CTA sempre in viewport
+3. **Discovery naturale** - Scroll orizzontale per diari
+4. **Mobile-first** - Pattern nativi (chips, compact lists)
+5. **Engagement** - Quick insight invita a continuare
+6. **Consistenza** - Stile Liquid Glass come Profile
+
+---
+
+## Palette Colori Aria
+
+```css
+/* Hero gradient */
+--aria-orb: linear-gradient(135deg, #9B6FD0, #6366F1, #A78BFA);
+
+/* Quick insight */
+--insight-bg: rgba(139, 92, 246, 0.1);
+--insight-border: rgba(139, 92, 246, 0.2);
+
+/* Diary chips */
+--chip-bg: var(--glass);
+--chip-active: var(--aria-violet);
+```
+
+---
+
+## Schema Componenti
+
+```text
+Aria.tsx
+├── AriaHeroSection
+│   ├── AriaOrb (animato)
+│   ├── GreetingText
+│   ├── ActionButtons (Chat/Voice)
+│   └── MiniStats
+├── QuickInsightCard
+│   ├── InsightContent
+│   └── ContinueCTA
+├── DiaryChipsScroll
+│   ├── DiaryChip[] (map)
+│   └── AddChipButton
+└── SessionHistorySection
+    ├── SectionHeader
+    └── CompactSessionItem[] (map)
+```
