@@ -10,8 +10,8 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.5 Flash Live - Official model for Live API (from Google docs)
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+// Gemini 2.5 Flash Native Audio Dialog - Modello che funzionava prima
+const MODEL = "models/gemini-2.5-flash-preview-native-audio-dialog";
 
 serve(async (req) => {
   const { headers } = req;
