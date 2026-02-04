@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { subDays, startOfDay } from 'date-fns';
+import { subDays, startOfDay, format } from 'date-fns';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import MenteTab from '@/components/analisi/AnalisiTabContent';
 import CorpoTab from '@/components/analisi/CorpoTab';
@@ -76,6 +76,14 @@ const Analisi: React.FC = () => {
   const daysWithData = useMemo(() => {
     return metricsRange.filter(m => 
       m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology
+    );
+  }, [metricsRange]);
+
+  // Check if today has data
+  const hasTodayData = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return metricsRange.some(m => 
+      m.date === todayStr && (m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology)
     );
   }, [metricsRange]);
 
@@ -176,6 +184,7 @@ const Analisi: React.FC = () => {
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
               onMetricClick={(key) => setSelectedMetric(key as MetricType)}
+              hasTodayData={hasTodayData}
             />
           </section>
         )}

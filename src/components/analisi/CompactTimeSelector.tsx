@@ -7,6 +7,7 @@ interface CompactTimeSelectorProps {
   value: TimeRange;
   onChange: (range: TimeRange) => void;
   className?: string;
+  hasTodayData?: boolean;
 }
 
 const ranges: { value: TimeRange; label: string }[] = [
@@ -16,10 +17,20 @@ const ranges: { value: TimeRange; label: string }[] = [
   { value: 'all', label: 'Tutto' },
 ];
 
-const CompactTimeSelector: React.FC<CompactTimeSelectorProps> = ({ value, onChange, className }) => {
+const CompactTimeSelector: React.FC<CompactTimeSelectorProps> = ({ 
+  value, 
+  onChange, 
+  className,
+  hasTodayData = true 
+}) => {
+  // Filter out 'day' if no data for today
+  const availableRanges = ranges.filter(
+    range => range.value !== 'day' || hasTodayData
+  );
+
   return (
     <div className={cn("flex items-center gap-1 bg-muted/50 rounded-lg p-0.5", className)}>
-      {ranges.map((range) => (
+      {availableRanges.map((range) => (
         <button
           key={range.value}
           onClick={(e) => {
