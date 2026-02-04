@@ -1,20 +1,27 @@
 import React, { useState, useMemo } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { subDays, startOfDay } from 'date-fns';
-import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
-import MenteTab from '@/components/analisi/AnalisiTabContent';
+import MetricDetailSheet, { TimeRange } from '@/components/analisi/MetricDetailSheet';
+import CategorySection from '@/components/analisi/CategorySection';
+import CompactTimeSelector from '@/components/analisi/CompactTimeSelector';
 import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
-import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
-import { useAIAnalysis } from '@/hooks/useAIAnalysis';
-import { useChartVisibility } from '@/hooks/useChartVisibility';
+import { useDailyMetricsRange, DailyMetrics } from '@/hooks/useDailyMetrics';
 import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { useHabits } from '@/hooks/useHabits';
-import { useObjectives } from '@/hooks/useObjectives';
-import { useProfile } from '@/hooks/useProfile';
 import { Loader2 } from 'lucide-react';
+import { 
+  VITAL_METRICS, 
+  EMOTION_METRICS, 
+  PSYCHOLOGY_METRICS, 
+  LIFE_AREA_METRICS,
+  MetricConfig 
+} from '@/lib/metricConfigs';
 
-export type TimeRange = 'day' | 'week' | 'month' | 'all';
+// Re-export TimeRange for backward compatibility
+export type { TimeRange };
+
+// Legacy types for backward compatibility
 export type MetricType = 'mood' | 'anxiety' | 'energy' | 'sleep' | 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'love' | 'work' | 'school' | 'social' | 'health' | 'growth' | 'rumination' | 'burnout_level' | 'somatic_tension' | 'self_efficacy' | 'mental_clarity' | 'gratitude' | 'motivation' | 'concentration' | 'self_worth' | 'irritability' | 'loneliness_perceived' | 'guilt';
 
 export interface MetricData {
@@ -28,16 +35,50 @@ export interface MetricData {
   unit?: string;
 }
 
+// Helper to calculate trend
+const calculateTrend = (values: number[]): 'up' | 'down' | 'stable' => {
+  if (values.length < 2) return 'stable';
+  const midpoint = Math.floor(values.length / 2);
+  const firstHalf = values.slice(0, midpoint);
+  const secondHalf = values.slice(midpoint);
+  const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+  const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+  if (secondAvg > firstAvg + 0.3) return 'up';
+  if (secondAvg < firstAvg - 0.3) return 'down';
+  return 'stable';
+};
+
+// Helper to extract metric value from daily data
+const extractValue = (dayData: DailyMetrics, key: string, source: MetricConfig['source']): number | null => {
+  let value: number | null = null;
+  
+  switch (source) {
+    case 'vitals':
+      value = dayData.vitals[key as keyof typeof dayData.vitals];
+      break;
+    case 'emotions':
+      value = (dayData.emotions as Record<string, number>)?.[key] ?? null;
+      break;
+    case 'psychology':
+      value = (dayData.deep_psychology as unknown as Record<string, number | null>)?.[key] ?? null;
+      break;
+    case 'life_areas':
+      value = dayData.life_areas[key as keyof typeof dayData.life_areas];
+      break;
+  }
+  
+  return value && value > 0 ? value : null;
+};
+
+interface MetricDataItem {
+  value: number | null;
+  trend: 'up' | 'down' | 'stable';
+  chartData: { value: number }[];
+}
+
 const Analisi: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
-  const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
-
-  // Fetch user profile for goals
-  const { profile } = useProfile();
-  const userGoals = profile?.selected_goals || [];
-
-  // 🎯 AI-DRIVEN: Layout deciso dall'AI
-  const { layout: aiLayout, isLoading: isLoadingAI } = useAIAnalysis(timeRange);
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -55,88 +96,59 @@ const Analisi: React.FC = () => {
     }
   }, [timeRange]);
 
-  // 🎯 SINGLE SOURCE OF TRUTH: Use the unified RPC hook
+  // Fetch data
   const { metricsRange, isLoading } = useDailyMetricsRange(dateRange.start, dateRange.end);
-  
-  // Get body metrics, habits, objectives for chart visibility
   const { metricsHistory: bodyMetrics } = useBodyMetrics();
   const { habits } = useHabits();
-  const { objectives } = useObjectives();
 
-  // 🎯 DYNAMIC CHART VISIBILITY: Based on user data
-  const { visibleCharts, coreVitalsOnly, availability } = useChartVisibility(
-    metricsRange,
-    bodyMetrics || [],
-    habits || [],
-    objectives || [],
-    userGoals
-  );
-
-  // Filter days with actual data
+  // Filter days with data
   const daysWithData = useMemo(() => {
     return metricsRange.filter(m => 
       m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology
     );
   }, [metricsRange]);
 
-  // Check if sections have data - use coreVitalsOnly length to always show mente section
-  // This ensures time selector is always visible even with no data for current range
-  const hasMenteData = coreVitalsOnly.length > 0;
-  const hasCorpoData = (bodyMetrics || []).some(m => m.weight || m.sleep_hours || m.resting_heart_rate);
-  const hasAbitudiniData = (habits || []).length > 0;
-
-  // Calculate metrics from unified source (for compatibility)
-  const metrics = useMemo<MetricData[]>(() => {
-    const calculateAverage = (values: (number | null | undefined)[]) => {
-      const valid = values.filter((v): v is number => v !== null && v !== undefined && v > 0);
-      if (valid.length === 0) return null;
-      return Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 10) / 10;
-    };
-
-    const calculateTrend = (values: (number | null | undefined)[]): 'up' | 'down' | 'stable' => {
-      const valid = values.filter((v): v is number => v !== null && v !== undefined && v > 0);
-      if (valid.length < 2) return 'stable';
-      const midpoint = Math.floor(valid.length / 2);
-      const firstHalf = valid.slice(0, midpoint);
-      const secondHalf = valid.slice(midpoint);
-      const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-      if (secondAvg > firstAvg + 0.3) return 'up';
-      if (secondAvg < firstAvg - 0.3) return 'down';
-      return 'stable';
-    };
-
-    const moodValues = daysWithData.map(m => m.vitals.mood);
-    const anxietyValues = daysWithData.map(m => m.vitals.anxiety);
-    const energyValues = daysWithData.map(m => m.vitals.energy);
-    const sleepValues = daysWithData.map(m => m.vitals.sleep);
-
-    return [
-      { key: 'mood' as MetricType, label: 'Umore', category: 'vitali' as const, icon: '😌', color: 'hsl(150, 60%, 45%)', average: calculateAverage(moodValues), trend: calculateTrend(moodValues), unit: '/10' },
-      { key: 'anxiety' as MetricType, label: 'Ansia', category: 'vitali' as const, icon: '😰', color: 'hsl(25, 80%, 55%)', average: calculateAverage(anxietyValues), trend: calculateTrend(anxietyValues), unit: '/10' },
-      { key: 'energy' as MetricType, label: 'Energia', category: 'vitali' as const, icon: '⚡', color: 'hsl(45, 80%, 50%)', average: calculateAverage(energyValues), trend: calculateTrend(energyValues), unit: '/10' },
-      { key: 'sleep' as MetricType, label: 'Sonno', category: 'vitali' as const, icon: '💤', color: 'hsl(260, 60%, 55%)', average: calculateAverage(sleepValues), trend: calculateTrend(sleepValues), unit: '/10' },
-    ];
-  }, [daysWithData]);
-
-  // Get psychology data
-  const psychologyData = useMemo(() => {
-    const result: Record<string, number | null> = {};
-    const psychKeys = ['rumination', 'burnout_level', 'somatic_tension', 'self_efficacy', 'mental_clarity', 'gratitude', 'guilt', 'irritability', 'loneliness_perceived', 'coping_ability', 'concentration', 'motivation', 'self_worth'];
+  // Build metric data for all categories
+  const buildMetricData = (metrics: MetricConfig[]): Record<string, MetricDataItem> => {
+    const result: Record<string, MetricDataItem> = {};
     
-    psychKeys.forEach(key => {
+    metrics.forEach(metric => {
       const values = daysWithData
-        .map(m => m.deep_psychology?.[key])
-        .filter((v): v is number => v !== null && v !== undefined && v > 0);
-      result[key] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+        .map(m => extractValue(m, metric.key, metric.source))
+        .filter((v): v is number => v !== null);
+      
+      const average = values.length > 0 
+        ? values.reduce((a, b) => a + b, 0) / values.length 
+        : null;
+      
+      result[metric.key] = {
+        value: average,
+        trend: calculateTrend(values),
+        chartData: values.map(v => ({ value: Math.round(v * 10) })),
+      };
     });
     
     return result;
-  }, [daysWithData]);
+  };
 
-  const selectedMetricData = selectedMetric ? metrics.find(m => m.key === selectedMetric) : null;
+  // Computed metric data for each category
+  const vitalData = useMemo(() => buildMetricData(VITAL_METRICS), [daysWithData]);
+  const emotionData = useMemo(() => buildMetricData(EMOTION_METRICS), [daysWithData]);
+  const psychologyData = useMemo(() => buildMetricData(PSYCHOLOGY_METRICS), [daysWithData]);
+  const lifeAreaData = useMemo(() => buildMetricData(LIFE_AREA_METRICS), [daysWithData]);
 
-  // Calculate lookback days based on time range
+  // Check which sections have data
+  const hasVitalData = Object.values(vitalData).some(d => d.value !== null);
+  const hasEmotionData = Object.values(emotionData).some(d => d.value !== null);
+  const hasPsychologyData = Object.values(psychologyData).some(d => d.value !== null);
+  const hasLifeAreaData = Object.values(lifeAreaData).some(d => d.value !== null);
+  const hasCorpoData = (bodyMetrics || []).some(m => m.weight || m.sleep_hours || m.resting_heart_rate);
+  const hasAbitudiniData = (habits || []).length > 0;
+
+  const hasMenteData = hasVitalData || hasEmotionData || hasPsychologyData || hasLifeAreaData;
+  const hasAnyData = hasMenteData || hasCorpoData || hasAbitudiniData;
+
+  // Calculate lookback days
   const lookbackDays = useMemo(() => {
     switch (timeRange) {
       case 'day': return 1;
@@ -146,8 +158,6 @@ const Analisi: React.FC = () => {
     }
   }, [timeRange]);
 
-  const hasAnyData = hasMenteData || hasCorpoData || hasAbitudiniData;
-
   return (
     <MobileLayout>
       <header className="px-5 pt-6 pb-4">
@@ -156,31 +166,75 @@ const Analisi: React.FC = () => {
             <h1 className="font-display text-2xl font-bold text-foreground">Analisi</h1>
             <p className="text-muted-foreground text-sm mt-1">Il tuo wellness a 360°</p>
           </div>
-          {(isLoadingAI || isLoading) && (
+          {isLoading && (
             <Loader2 className="w-5 h-5 text-primary animate-spin" />
           )}
         </div>
       </header>
 
-      {/* All Content - Only show sections with data */}
       <div className="px-4 pb-8 space-y-8">
-        {/* Mente Section */}
-        {hasMenteData && (
-          <section>
-            <MenteTab
-              metricsRange={metricsRange}
-              dynamicVitals={coreVitalsOnly}
-              visibleCharts={visibleCharts.mente}
-              psychologyData={psychologyData}
-              highlightedMetrics={aiLayout.highlighted_metrics}
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              onMetricClick={(key) => setSelectedMetric(key as MetricType)}
-            />
-          </section>
+        
+        {/* Global Time Selector */}
+        {hasAnyData && (
+          <div className="flex justify-center">
+            <CompactTimeSelector value={timeRange} onChange={setTimeRange} />
+          </div>
         )}
 
-        {/* Corpo Section */}
+        {/* === MENTE SECTION === */}
+        {hasMenteData && (
+          <div className="space-y-6">
+            {/* Parametri Vitali */}
+            {hasVitalData && (
+              <CategorySection
+                title="Parametri Vitali"
+                icon="💫"
+                metrics={VITAL_METRICS}
+                data={vitalData}
+                onMetricClick={setSelectedMetric}
+                layout="grid"
+              />
+            )}
+
+            {/* Emozioni */}
+            {hasEmotionData && (
+              <CategorySection
+                title="Emozioni"
+                icon="🎭"
+                metrics={EMOTION_METRICS}
+                data={emotionData}
+                onMetricClick={setSelectedMetric}
+                layout="scroll"
+              />
+            )}
+
+            {/* Psicologia */}
+            {hasPsychologyData && (
+              <CategorySection
+                title="Psicologia"
+                icon="🧠"
+                metrics={PSYCHOLOGY_METRICS}
+                data={psychologyData}
+                onMetricClick={setSelectedMetric}
+                layout="scroll"
+              />
+            )}
+
+            {/* Aree della Vita */}
+            {hasLifeAreaData && (
+              <CategorySection
+                title="Aree della Vita"
+                icon="🧭"
+                metrics={LIFE_AREA_METRICS}
+                data={lifeAreaData}
+                onMetricClick={setSelectedMetric}
+                layout="scroll"
+              />
+            )}
+          </div>
+        )}
+
+        {/* === CORPO SECTION === */}
         {hasCorpoData && (
           <section>
             <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
@@ -190,7 +244,7 @@ const Analisi: React.FC = () => {
           </section>
         )}
 
-        {/* Abitudini Section */}
+        {/* === ABITUDINI SECTION === */}
         {hasAbitudiniData && (
           <section>
             <h2 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
@@ -200,7 +254,7 @@ const Analisi: React.FC = () => {
           </section>
         )}
 
-        {/* Empty state */}
+        {/* Empty State */}
         {!hasAnyData && !isLoading && (
           <div className="text-center py-16">
             <div className="text-5xl mb-4">📊</div>
@@ -216,7 +270,7 @@ const Analisi: React.FC = () => {
 
       {/* Metric Detail Sheet */}
       <MetricDetailSheet 
-        metric={selectedMetricData}
+        metricKey={selectedMetric}
         isOpen={!!selectedMetric}
         onClose={() => setSelectedMetric(null)}
         timeRange={timeRange}
