@@ -15,6 +15,7 @@ import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
 import EmotionalSpectrumSection from '@/components/analisi/EmotionalSpectrumSection';
 import LifeAreasSection from '@/components/analisi/LifeAreasSection';
+import VitalsSection from '@/components/analisi/VitalsSection';
 import { 
   CLINICAL_DOMAINS, 
   getMetricsByDomain, 
@@ -226,6 +227,12 @@ const Analisi: React.FC = () => {
 
       {/* Clinical Domains */}
       <div className="px-4 pb-8 space-y-6">
+        {/* Vitals Section - Umore, Ansia, Energia, Sonno */}
+        <VitalsSection
+          allMetricsData={allMetricsData}
+          onMetricClick={(key) => setSelectedMetric(key)}
+        />
+        
         {/* Emotional Spectrum - Full emotions breakdown */}
         <EmotionalSpectrumSection
           emotionsData={emotionsData || []}
@@ -238,9 +245,9 @@ const Analisi: React.FC = () => {
           onMetricClick={(key) => setSelectedMetric(key)}
         />
         
-        {/* Render clinical domains (excluding emotional and functioning since we show them above) */}
+        {/* Render clinical domains (excluding emotional, functioning, activation since we show them above) */}
         {CLINICAL_DOMAINS
-          .filter(domain => domain.id !== 'emotional' && domain.id !== 'functioning')
+          .filter(domain => domain.id !== 'emotional' && domain.id !== 'functioning' && domain.id !== 'activation')
           .map(domain => {
             const domainMetrics = getMetricsByDomain(domain.id);
             
