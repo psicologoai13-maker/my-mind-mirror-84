@@ -16,25 +16,36 @@ interface RichMetricCardProps {
   onClick: () => void;
 }
 
+// Get semantic color based on value and whether metric is negative
+const getSemanticRingColor = (value: number, isNegative: boolean): string => {
+  // For negative metrics (anxiety, etc): LOW value = GOOD = green
+  // For positive metrics (mood, etc): HIGH value = GOOD = green
+  const effectiveValue = isNegative ? (10 - value) : value;
+  
+  if (effectiveValue >= 7) return 'hsl(150, 60%, 45%)'; // Green - good
+  if (effectiveValue >= 4) return 'hsl(45, 80%, 50%)';  // Yellow - neutral  
+  return 'hsl(0, 70%, 55%)'; // Red - attention needed
+};
+
 // Progress Ring SVG Component
 const ProgressRing: React.FC<{ 
   value: number; 
-  color: string; 
   size?: number;
   isNegative?: boolean;
-}> = ({ value, color, size = 48, isNegative = false }) => {
+}> = ({ value, size = 48, isNegative = false }) => {
   const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
   // Normalize value 0-10 to percentage
   const normalizedValue = Math.max(0, Math.min(10, value));
-  const progress = (normalizedValue / 10) * circumference;
   
-  // For negative metrics, invert the visual (low = more filled)
-  const displayProgress = isNegative 
-    ? circumference - ((10 - normalizedValue) / 10) * circumference
-    : progress;
+  // For negative metrics, show inverted progress (low anxiety = high fill)
+  const effectiveValue = isNegative ? (10 - normalizedValue) : normalizedValue;
+  const progress = (effectiveValue / 10) * circumference;
+  
+  // Use semantic color based on effective value
+  const ringColor = getSemanticRingColor(normalizedValue, isNegative);
   
   return (
     <svg width={size} height={size} className="transform -rotate-90">
@@ -54,14 +65,14 @@ const ProgressRing: React.FC<{
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke={color}
+        stroke={ringColor}
         strokeWidth={strokeWidth}
         strokeDasharray={circumference}
-        strokeDashoffset={circumference - displayProgress}
+        strokeDashoffset={circumference - progress}
         strokeLinecap="round"
         className="transition-all duration-700 ease-out"
         style={{
-          filter: `drop-shadow(0 0 6px ${color}40)`
+          filter: `drop-shadow(0 0 6px ${ringColor}40)`
         }}
       />
     </svg>
@@ -110,7 +121,6 @@ const RichMetricCard: React.FC<RichMetricCardProps> = ({
         <div className="relative flex-shrink-0">
           <ProgressRing 
             value={value ?? 0} 
-            color={color} 
             size={ringSize}
             isNegative={isNegative}
           />
@@ -152,7 +162,6 @@ const RichMetricCard: React.FC<RichMetricCardProps> = ({
       <div className="relative">
         <ProgressRing 
           value={value ?? 0} 
-          color={color} 
           size={ringSize}
           isNegative={isNegative}
         />

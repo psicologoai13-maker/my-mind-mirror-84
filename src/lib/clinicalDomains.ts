@@ -211,8 +211,8 @@ export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
   {
     key: 'anxiety',
     label: 'Ansia',
-    icon: '😰',
-    color: 'hsl(25, 80%, 55%)',
+    icon: '🧠',
+    color: 'hsl(0, 70%, 55%)',
     domain: 'activation',
     source: 'vitals',
     isNegative: true,
