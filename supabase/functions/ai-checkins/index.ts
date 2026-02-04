@@ -7,35 +7,47 @@ const corsHeaders = {
 };
 
 // ============================================
-// UNIFIED CHECK-IN ITEMS
-// Vitals, Life Areas, Psychology, Emotions
+// UNIFIED CHECK-IN ITEMS - EXPANDED
+// Now includes all vitals, life areas, psychology
 // ============================================
-// NOTE: "growth" (Crescita) is NOT included here - it's calculated by AI based on:
-// - Completed objectives over time
-// - Maintained habits
-// - Session insights and user progress
-// This is shown only in Analysis section, not as a daily question.
-// NOTE: "work" and "school" are handled dynamically based on occupation_context
 const BASE_CHECKIN_ITEMS = [
-  { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji" },
-  { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity" },
-  { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider" },
-  { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "emoji" },
-  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji" },
-  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji" },
-  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji" },
-  { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno" },
-  { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno" },
-  { key: "fear", label: "Paura", question: "Hai paure o preoccupazioni?", type: "emotion", responseType: "yesno" },
-  { key: "joy", label: "Gioia", question: "Quanta gioia senti?", type: "emotion", responseType: "intensity" },
-  { key: "rumination", label: "Rimuginazione", question: "Hai pensieri che tornano in loop?", type: "psychology", responseType: "yesno" },
-  { key: "burnout_level", label: "Burnout", question: "Ti senti esausto/a?", type: "psychology", responseType: "yesno" },
-  { key: "loneliness_perceived", label: "Solitudine", question: "Ti senti solo/a?", type: "psychology", responseType: "yesno" },
-  { key: "gratitude", label: "Gratitudine", question: "Sei grato/a per qualcosa oggi?", type: "psychology", responseType: "yesno" },
-  { key: "mental_clarity", label: "Chiarezza", question: "Hai chiarezza mentale?", type: "psychology", responseType: "slider" },
-  { key: "somatic_tension", label: "Tensione", question: "Senti tensione nel corpo?", type: "psychology", responseType: "yesno" },
-  { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno" },
-  { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno" },
+  // VITALS (4)
+  { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji", baseScore: 60 },
+  { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity", baseScore: 55 },
+  { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider", baseScore: 50 },
+  { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "emoji", baseScore: 50 },
+  
+  // LIFE AREAS (9) - includes new family, leisure, finances
+  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji", baseScore: 40 },
+  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji", baseScore: 40 },
+  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji", baseScore: 40 },
+  { key: "family", label: "Famiglia", question: "Come vanno i rapporti familiari?", type: "life_area", responseType: "emoji", baseScore: 35 },
+  { key: "leisure", label: "Svago", question: "Hai avuto tempo per te?", type: "life_area", responseType: "emoji", baseScore: 30 },
+  { key: "finances", label: "Finanze", question: "Come ti senti riguardo ai soldi?", type: "life_area", responseType: "emoji", baseScore: 30 },
+  
+  // EMOTIONS (key ones for check-in)
+  { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno", baseScore: 35 },
+  { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno", baseScore: 35 },
+  { key: "fear", label: "Paura", question: "Hai paure o preoccupazioni?", type: "emotion", responseType: "yesno", baseScore: 35 },
+  { key: "joy", label: "Gioia", question: "Quanta gioia senti?", type: "emotion", responseType: "intensity", baseScore: 30 },
+  { key: "hope", label: "Speranza", question: "Ti senti speranzoso/a?", type: "emotion", responseType: "yesno", baseScore: 30 },
+  
+  // PSYCHOLOGY - Resources & Attention Signals
+  { key: "motivation", label: "Motivazione", question: "Ti senti motivato/a oggi?", type: "psychology", responseType: "yesno", baseScore: 40 },
+  { key: "rumination", label: "Rimuginazione", question: "Hai pensieri che tornano in loop?", type: "psychology", responseType: "yesno", baseScore: 45 },
+  { key: "burnout_level", label: "Burnout", question: "Ti senti esausto/a?", type: "psychology", responseType: "yesno", baseScore: 45 },
+  { key: "loneliness_perceived", label: "Solitudine", question: "Ti senti solo/a?", type: "psychology", responseType: "yesno", baseScore: 40 },
+  { key: "gratitude", label: "Gratitudine", question: "Sei grato/a per qualcosa oggi?", type: "psychology", responseType: "yesno", baseScore: 30 },
+  { key: "mental_clarity", label: "Chiarezza", question: "Hai chiarezza mentale?", type: "psychology", responseType: "slider", baseScore: 35 },
+  { key: "somatic_tension", label: "Tensione", question: "Senti tensione nel corpo?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno", baseScore: 25 },
+  { key: "self_worth", label: "Autostima", question: "Come ti senti riguardo a te stesso/a?", type: "psychology", responseType: "emoji", baseScore: 40 },
+  { key: "concentration", label: "Concentrazione", question: "Riesci a concentrarti?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  { key: "procrastination", label: "Procrastinazione", question: "Stai rimandando cose importanti?", type: "psychology", responseType: "yesno", baseScore: 35 },
+  
+  // SAFETY (only if detected historically - handled separately)
+  { key: "hopelessness", label: "Speranza", question: "Ti senti senza speranza?", type: "safety", responseType: "yesno", baseScore: 0, safetyCritical: true },
 ];
 
 // Helper to calculate age from birth date
@@ -51,13 +63,11 @@ function calculateAge(birthDate: string | null): number | null {
   return age;
 }
 
-// Build standard checkin items based on occupation context
+// Build checkin items based on occupation context
 function getStandardCheckinItems(occupationContext: string | null, birthDate: string | null): typeof BASE_CHECKIN_ITEMS {
   const age = calculateAge(birthDate);
   const items = [...BASE_CHECKIN_ITEMS];
   
-  // Determine which work/school items to add based on occupation context
-  // Priority: explicit occupation_context > age-based default
   let showWork = false;
   let showSchool = false;
   
@@ -69,37 +79,32 @@ function getStandardCheckinItems(occupationContext: string | null, birthDate: st
   } else if (occupationContext === 'student') {
     showSchool = true;
   } else {
-    // Default based on age
     if (age !== null) {
       if (age < 18) {
         showSchool = true;
       } else if (age >= 18 && age <= 27) {
-        // Default to both for 18-27 if no explicit context
         showWork = true;
         showSchool = true;
       } else {
         showWork = true;
       }
     } else {
-      // No age info, default to work
       showWork = true;
     }
   }
   
-  // Insert work/school items after the base life areas
   if (showWork) {
-    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji" });
+    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji", baseScore: 40 });
   }
   if (showSchool) {
-    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji" });
+    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji", baseScore: 40 });
   }
   
   return items;
 }
 
 // ============================================
-// HABIT METADATA (synced with useHabits.tsx)
-// Maps habit_type -> input method and questions
+// HABIT METADATA
 // ============================================
 const HABIT_METADATA: Record<string, {
   label: string;
@@ -113,7 +118,6 @@ const HABIT_METADATA: Record<string, {
   webFallback?: string;
   rangeOptions?: { label: string; value: number; emoji?: string }[];
 }> = {
-  // Toggle habits
   vitamins: { label: 'Vitamine', icon: '💊', inputMethod: 'toggle', question: 'Hai preso le vitamine?' },
   medication: { label: 'Farmaci', icon: '💉', inputMethod: 'toggle', question: 'Hai preso i farmaci?' },
   sunlight: { label: 'Sole', icon: '☀️', inputMethod: 'toggle', question: 'Sei uscito alla luce del sole?' },
@@ -130,13 +134,8 @@ const HABIT_METADATA: Record<string, {
   kindness: { label: 'Gentilezza', icon: '💝', inputMethod: 'toggle', question: 'Gesto gentile fatto oggi?' },
   networking: { label: 'Networking', icon: '🤝', inputMethod: 'toggle', question: 'Fatto networking?' },
   doctor_visit: { label: 'Visita Medica', icon: '🏥', inputMethod: 'toggle', question: 'Visita medica fatta?' },
-  
-  // Range habits (preset options)
   cigarettes: { 
-    label: 'Sigarette', 
-    icon: '🚭', 
-    inputMethod: 'range', 
-    question: 'Quante sigarette hai fumato oggi?',
+    label: 'Sigarette', icon: '🚭', inputMethod: 'range', question: 'Quante sigarette hai fumato oggi?',
     rangeOptions: [
       { label: 'Nessuna', value: 0, emoji: '🎉' },
       { label: '1-5', value: 3 },
@@ -145,36 +144,26 @@ const HABIT_METADATA: Record<string, {
       { label: '20+', value: 25 },
     ]
   },
-  
-  // Abstain habits
   alcohol: { label: 'Alcol', icon: '🍷', inputMethod: 'abstain', question: 'Non hai bevuto alcolici?' },
   nail_biting: { label: 'Unghie', icon: '💅', inputMethod: 'abstain', question: 'Non ti sei mangiato le unghie?' },
   no_junk_food: { label: 'No Junk Food', icon: '🍔', inputMethod: 'abstain', question: 'Evitato cibo spazzatura?' },
   no_sugar: { label: 'No Zuccheri', icon: '🍬', inputMethod: 'abstain', question: 'Evitato zuccheri aggiunti?' },
   late_snacking: { label: 'Snack Notturni', icon: '🌙', inputMethod: 'abstain', question: 'Evitato snack notturni?' },
-  
-  // Counter habits
   water: { label: 'Acqua', icon: '💧', inputMethod: 'counter', unit: 'L', defaultTarget: 2, step: 0.25 },
   gratitude: { label: 'Gratitudine', icon: '🙏', inputMethod: 'counter', unit: 'cose', defaultTarget: 3 },
   healthy_meals: { label: 'Pasti Sani', icon: '🥗', inputMethod: 'counter', unit: 'pasti', defaultTarget: 3 },
   fruits_veggies: { label: 'Frutta/Verdura', icon: '🍎', inputMethod: 'counter', unit: 'porzioni', defaultTarget: 5 },
   caffeine: { label: 'Caffeina', icon: '☕', inputMethod: 'counter', unit: 'tazze', defaultTarget: 2 },
   no_procrastination: { label: 'Task Completati', icon: '✅', inputMethod: 'counter', unit: 'task', defaultTarget: 3 },
-  
-  // Numeric habits
   sleep: { label: 'Ore Sonno', icon: '😴', inputMethod: 'numeric', unit: 'ore', defaultTarget: 8, step: 0.5 },
   weight: { label: 'Peso', icon: '⚖️', inputMethod: 'numeric', unit: 'kg', step: 0.1 },
   swimming: { label: 'Nuoto', icon: '🏊', inputMethod: 'numeric', unit: 'min', defaultTarget: 30 },
   cycling: { label: 'Ciclismo', icon: '🚴', inputMethod: 'numeric', unit: 'km', defaultTarget: 10 },
   deep_work: { label: 'Focus', icon: '🎯', inputMethod: 'numeric', unit: 'ore', defaultTarget: 4, step: 0.5 },
-  
-  // External sync habits (hidden on web, shown only if webFallback exists)
-  steps: { label: 'Passi', icon: '👟', inputMethod: 'auto_sync', requiresExternalSync: true }, // No webFallback = hidden
-  heart_rate: { label: 'Battito', icon: '💓', inputMethod: 'auto_sync', requiresExternalSync: true }, // No webFallback = hidden
-  social_media: { label: 'Social Media', icon: '📱', inputMethod: 'auto_sync', requiresExternalSync: true }, // Needs Screen Time API
+  steps: { label: 'Passi', icon: '👟', inputMethod: 'auto_sync', requiresExternalSync: true },
+  heart_rate: { label: 'Battito', icon: '💓', inputMethod: 'auto_sync', requiresExternalSync: true },
+  social_media: { label: 'Social Media', icon: '📱', inputMethod: 'auto_sync', requiresExternalSync: true },
   exercise: { label: 'Esercizio', icon: '🏃', inputMethod: 'toggle', question: 'Hai fatto esercizio oggi?', requiresExternalSync: true, webFallback: 'toggle' },
-  
-  // Timer habits (still available on web)
   stretching: { label: 'Stretching', icon: '🧘‍♂️', inputMethod: 'timer', unit: 'min', defaultTarget: 10 },
   strength: { label: 'Pesi', icon: '💪', inputMethod: 'timer', unit: 'min', defaultTarget: 45 },
   cardio: { label: 'Cardio', icon: '🫀', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
@@ -186,7 +175,6 @@ const HABIT_METADATA: Record<string, {
   learning: { label: 'Studio', icon: '🎓', inputMethod: 'timer', unit: 'min', defaultTarget: 30 },
 };
 
-// Habit aliases for backward compatibility
 const HABIT_ALIASES: Record<string, string> = {
   'social_time': 'social_media',
   'new_connection': 'networking',
@@ -197,36 +185,17 @@ const HABIT_ALIASES: Record<string, string> = {
   'smettere_fumare': 'cigarettes',
 };
 
-// Helper to resolve habit type with aliases
 function resolveHabitType(habitType: string): string {
   return HABIT_ALIASES[habitType] || habitType;
 }
 
-// Check if habit should be shown on web
 function shouldShowHabitOnWeb(habitType: string): boolean {
   const resolved = resolveHabitType(habitType);
   const meta = HABIT_METADATA[resolved];
   if (!meta) return false;
-  
-  // If requires external sync and has no web fallback, hide it
-  if (meta.requiresExternalSync && !meta.webFallback) {
-    return false;
-  }
+  if (meta.requiresExternalSync && !meta.webFallback) return false;
   return true;
 }
-
-// ============================================
-// OBJECTIVE INPUT METHOD MAPPING
-// ============================================
-const OBJECTIVE_INPUT_METHODS: Record<string, string> = {
-  auto_body: 'skip', // Don't generate check-in, synced automatically
-  auto_habit: 'skip',
-  numeric: 'numeric',
-  counter: 'counter',
-  milestone: 'toggle',
-  session_detected: 'skip', // AI detects in sessions
-  time_based: 'timer',
-};
 
 interface CachedCheckinsData {
   checkins: any[];
@@ -237,7 +206,6 @@ interface CachedCheckinsData {
   fixedDailyList: any[];
 }
 
-// Get Rome date string
 function getRomeDateString(): string {
   const now = new Date();
   return new Intl.DateTimeFormat('sv-SE', {
@@ -246,6 +214,196 @@ function getRomeDateString(): string {
     month: '2-digit',
     day: '2-digit'
   }).format(now);
+}
+
+// ============================================
+// DATA HUNTING: Calculate dynamic scores
+// based on missing data and critical metrics
+// ============================================
+interface MetricHistory {
+  key: string;
+  lastRecordedDate: string | null;
+  daysSinceRecorded: number;
+  historicalAvg: number | null;
+  isCritical: boolean;
+}
+
+async function getMetricHistory(
+  supabase: any, 
+  userId: string, 
+  today: string
+): Promise<Map<string, MetricHistory>> {
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const startDate = fourteenDaysAgo.toISOString().split('T')[0];
+
+  // Fetch all metric tables in parallel
+  const [emotionsRes, lifeAreasRes, psychologyRes, checkinsRes] = await Promise.all([
+    supabase.from("daily_emotions").select("*").eq("user_id", userId).gte("date", startDate).order("date", { ascending: false }),
+    supabase.from("daily_life_areas").select("*").eq("user_id", userId).gte("date", startDate).order("date", { ascending: false }),
+    supabase.from("daily_psychology").select("*").eq("user_id", userId).gte("date", startDate).order("date", { ascending: false }),
+    supabase.from("daily_checkins").select("*").eq("user_id", userId).gte("created_at", `${startDate}T00:00:00`).order("created_at", { ascending: false }),
+  ]);
+
+  const historyMap = new Map<string, MetricHistory>();
+  const todayDate = new Date(today);
+
+  // Helper to calculate days since
+  const daysSince = (dateStr: string | null): number => {
+    if (!dateStr) return 999;
+    const date = new Date(dateStr);
+    return Math.floor((todayDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  // Process emotions
+  const emotionKeys = ['joy', 'sadness', 'anger', 'fear', 'apathy', 'shame', 'jealousy', 'hope', 'frustration', 'nostalgia'];
+  emotionKeys.forEach(key => {
+    const records = (emotionsRes.data || []).filter((r: any) => r[key] !== null);
+    const lastDate = records.length > 0 ? records[0].date : null;
+    const values = records.map((r: any) => r[key]).filter((v: any) => v !== null);
+    const avg = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : null;
+    
+    historyMap.set(key, {
+      key,
+      lastRecordedDate: lastDate,
+      daysSinceRecorded: daysSince(lastDate),
+      historicalAvg: avg,
+      isCritical: false,
+    });
+  });
+
+  // Process life areas
+  const lifeAreaKeys = ['love', 'work', 'school', 'health', 'social', 'growth', 'family', 'leisure', 'finances'];
+  lifeAreaKeys.forEach(key => {
+    const records = (lifeAreasRes.data || []).filter((r: any) => r[key] !== null);
+    const lastDate = records.length > 0 ? records[0].date : null;
+    const values = records.map((r: any) => r[key]).filter((v: any) => v !== null);
+    const avg = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : null;
+    
+    historyMap.set(key, {
+      key,
+      lastRecordedDate: lastDate,
+      daysSinceRecorded: daysSince(lastDate),
+      historicalAvg: avg,
+      isCritical: false,
+    });
+  });
+
+  // Process psychology (including safety indicators)
+  const psychKeys = [
+    'rumination', 'self_efficacy', 'mental_clarity', 'concentration', 'burnout_level',
+    'coping_ability', 'loneliness_perceived', 'somatic_tension', 'gratitude', 'motivation',
+    'self_worth', 'hopelessness', 'suicidal_ideation', 'self_harm_urges', 'procrastination'
+  ];
+  const safetyKeys = ['hopelessness', 'suicidal_ideation', 'self_harm_urges'];
+  const criticalThresholds: Record<string, number> = {
+    anxiety: 6,
+    hopelessness: 4,
+    suicidal_ideation: 1,
+    self_harm_urges: 1,
+    burnout_level: 7,
+  };
+
+  psychKeys.forEach(key => {
+    const records = (psychologyRes.data || []).filter((r: any) => r[key] !== null);
+    const lastDate = records.length > 0 ? records[0].date : null;
+    const values = records.map((r: any) => r[key]).filter((v: any) => v !== null);
+    const avg = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : null;
+    
+    // Check if this metric has critical historical values
+    const threshold = criticalThresholds[key];
+    const isCritical = safetyKeys.includes(key) || (threshold !== undefined && avg !== null && avg >= threshold);
+    
+    historyMap.set(key, {
+      key,
+      lastRecordedDate: lastDate,
+      daysSinceRecorded: daysSince(lastDate),
+      historicalAvg: avg,
+      isCritical,
+    });
+  });
+
+  // Process vitals from checkins
+  const vitalKeys = ['mood', 'anxiety', 'energy', 'sleep'];
+  vitalKeys.forEach(key => {
+    // For now, simplified - mood from checkins
+    if (key === 'mood') {
+      const records = checkinsRes.data || [];
+      const lastDate = records.length > 0 ? records[0].created_at?.split('T')[0] : null;
+      const values = records.map((r: any) => r.mood_value).filter((v: any) => v !== null);
+      const avg = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : null;
+      
+      historyMap.set(key, {
+        key,
+        lastRecordedDate: lastDate,
+        daysSinceRecorded: daysSince(lastDate),
+        historicalAvg: avg,
+        isCritical: false,
+      });
+    } else {
+      // Other vitals from checkin notes
+      const records = (checkinsRes.data || []).filter((r: any) => {
+        try {
+          const notes = JSON.parse(r.notes || '{}');
+          return notes[key] !== undefined;
+        } catch { return false; }
+      });
+      const lastDate = records.length > 0 ? records[0].created_at?.split('T')[0] : null;
+      const values = records.map((r: any) => {
+        try {
+          return JSON.parse(r.notes || '{}')[key];
+        } catch { return null; }
+      }).filter((v: any) => v !== null);
+      const avg = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : null;
+      
+      const isCritical = key === 'anxiety' && avg !== null && avg >= 6;
+      
+      historyMap.set(key, {
+        key,
+        lastRecordedDate: lastDate,
+        daysSinceRecorded: daysSince(lastDate),
+        historicalAvg: avg,
+        isCritical,
+      });
+    }
+  });
+
+  return historyMap;
+}
+
+// Calculate dynamic score for each metric
+function calculateDynamicScore(
+  item: any,
+  history: MetricHistory | undefined
+): number {
+  let score = item.baseScore || 50;
+
+  if (!history) {
+    // Never recorded = highest priority
+    score += 100;
+    return score;
+  }
+
+  // Data hunting bonuses
+  if (history.daysSinceRecorded >= 14 || history.lastRecordedDate === null) {
+    score += 100; // Never recorded
+  } else if (history.daysSinceRecorded >= 7) {
+    score += 50; // Missing >7 days
+  } else if (history.daysSinceRecorded >= 3) {
+    score += 30; // Missing >3 days
+  }
+
+  // Critical monitoring bonus
+  if (history.isCritical) {
+    score += 40;
+  }
+
+  // Safety indicators always included if ever detected
+  if (item.safetyCritical && history.historicalAvg !== null && history.historicalAvg > 0) {
+    score += 80;
+  }
+
+  return score;
 }
 
 serve(async (req) => {
@@ -277,7 +435,6 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
     if (claimsError || !claimsData?.user) {
@@ -290,7 +447,6 @@ serve(async (req) => {
     const userId = claimsData.user.id;
     const today = getRomeDateString();
 
-    // Check for cached fixed list and get occupation context
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("ai_checkins_cache, selected_goals, onboarding_answers, occupation_context, birth_date")
@@ -301,18 +457,13 @@ serve(async (req) => {
     const occupationContext = profile?.occupation_context as string | null;
     const birthDate = profile?.birth_date as string | null;
     
-    // ============================================
-    // FIXED DAILY LIST - Return UNCHANGED for entire day
-    // Filtering of completed items happens CLIENT-SIDE
-    // ============================================
+    // Return cached list if valid
     if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
       console.log("[ai-checkins] Returning FIXED daily list (immutable for 24h)");
-      
-      // Return the COMPLETE fixed list - client handles filtering
       return new Response(JSON.stringify({ 
         checkins: existingCache.fixedDailyList,
-        fixedDailyList: existingCache.fixedDailyList, // Explicit fixed list
-        allCompleted: false, // Client determines this
+        fixedDailyList: existingCache.fixedDailyList,
+        allCompleted: false,
         aiGenerated: existingCache.aiGenerated || false,
         cachedDate: existingCache.cachedDate,
       }), {
@@ -320,32 +471,30 @@ serve(async (req) => {
       });
     }
 
-    console.log("[ai-checkins] Generating UNIFIED daily list for", today);
+    console.log("[ai-checkins] Generating DATA-DRIVEN daily list for", today);
 
     // ============================================
-    // FETCH ALL DATA IN PARALLEL
+    // FETCH ALL DATA + METRIC HISTORY IN PARALLEL
     // ============================================
     const [
       activeHabitsRes,
-      activeObjectivesRes,
       todayHabitsRes,
-      recentSessionsRes
+      recentSessionsRes,
+      metricHistory
     ] = await Promise.all([
       supabase.from("user_habits_config").select("*").eq("user_id", userId).eq("is_active", true),
-      supabase.from("user_objectives").select("id, title, category, target_value, current_value, unit, input_method, preset_type, finance_tracking_type, tracking_period, description, checkin_visibility").eq("user_id", userId).eq("status", "active"),
       supabase.from("daily_habits").select("habit_type, value").eq("user_id", userId).eq("date", today),
       supabase.from("sessions").select("ai_summary, emotion_tags").eq("user_id", userId).eq("status", "completed").order("start_time", { ascending: false }).limit(3),
+      getMetricHistory(supabase, userId, today),
     ]);
 
     const activeHabits = activeHabitsRes.data || [];
-    const activeObjectives = activeObjectivesRes.data || [];
     const todayHabits = todayHabitsRes.data || [];
     const recentSessions = recentSessionsRes.data || [];
 
-    // Build completed keys (includes today's habits)
+    // Build completed keys
     const completedKeys = await getCompletedKeys(supabase, userId, today);
     
-    // Add completed habits
     todayHabits.forEach((h: any) => {
       const meta = HABIT_METADATA[h.habit_type];
       if (meta) {
@@ -359,23 +508,20 @@ serve(async (req) => {
     });
 
     // ============================================
-    // BUILD UNIFIED CHECK-IN ITEMS
+    // BUILD UNIFIED CHECK-IN ITEMS WITH DYNAMIC SCORING
     // ============================================
     const allItems: any[] = [];
 
-    // 1. HABITS - Convert active habits to check-in items
+    // 1. HABITS
     activeHabits.forEach((config: any) => {
       const resolvedType = resolveHabitType(config.habit_type);
       const key = `habit_${resolvedType}`;
       if (completedKeys.has(key)) return;
-      
-      // Check if should show on web
       if (!shouldShowHabitOnWeb(config.habit_type)) return;
       
       const meta = HABIT_METADATA[resolvedType];
       if (!meta) return;
       
-      // Determine effective input method (use webFallback if available)
       const effectiveInputMethod = meta.webFallback || meta.inputMethod;
 
       allItems.push({
@@ -389,39 +535,42 @@ serve(async (req) => {
         unit: meta.unit || config.unit,
         target: config.daily_target || meta.defaultTarget,
         step: meta.step,
-        priority: 80,
+        dynamicScore: 80, // Habits always have decent priority
       });
     });
 
-    // 2. OBJECTIVES - DISABLED: Objectives are managed only from Progressi page
-    // Users update objectives via chat with Aria, not via check-ins
-    // Keeping this commented for reference
-    /*
-    activeObjectives.forEach((obj: any) => {
-      // ... objective check-in logic disabled
-    });
-    */
-
-    // 3. STANDARD CHECK-INS (vitals, life_areas, etc.) - dynamic based on occupation
+    // 2. STANDARD CHECK-INS with DYNAMIC SCORING
     const standardCheckins = getStandardCheckinItems(occupationContext, birthDate);
     standardCheckins.forEach((item) => {
       if (completedKeys.has(item.key)) return;
+      
+      // Skip safety items unless historically detected
+      if (item.safetyCritical) {
+        const history = metricHistory.get(item.key);
+        if (!history || history.historicalAvg === null || history.historicalAvg === 0) {
+          return;
+        }
+      }
+      
+      const history = metricHistory.get(item.key);
+      const dynamicScore = calculateDynamicScore(item, history);
+      
       allItems.push({
         ...item,
-        priority: item.type === 'vital' ? 70 : 50,
+        dynamicScore,
+        missingDays: history?.daysSinceRecorded || 999,
+        historicalAvg: history?.historicalAvg,
       });
     });
 
     // ============================================
-    // AI SELECTION - Pick most relevant items
+    // AI SELECTION WITH DATA HUNTING CONTEXT
     // ============================================
     const MAX_ITEMS = 8;
     
-    // Sort by priority then use AI to refine selection
-    const sortedItems = allItems.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-    
-    // Take top items by priority, then let AI reorder
-    const candidateItems = sortedItems.slice(0, 12);
+    // Sort by dynamic score
+    const sortedItems = allItems.sort((a, b) => (b.dynamicScore || 0) - (a.dynamicScore || 0));
+    const candidateItems = sortedItems.slice(0, 15);
     
     let finalItems: any[] = [];
     let aiGenerated = false;
@@ -431,28 +580,39 @@ serve(async (req) => {
       const sessionContext = recentSessions.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
       const emotionTags = recentSessions.flatMap((s: any) => s.emotion_tags || []) || [];
 
-      const systemPrompt = `Sei uno psicologo che sceglie quali check-in mostrare oggi. 
-      
+      // Build missing data context for AI
+      const missingDataContext = candidateItems
+        .filter(i => i.missingDays >= 3)
+        .map(i => `${i.label}: mancante da ${i.missingDays} giorni`)
+        .slice(0, 5)
+        .join(", ");
+
+      const systemPrompt = `Sei uno psicologo che sceglie quali check-in mostrare oggi.
+
 REGOLE:
 - Scegli MAX ${MAX_ITEMS} items dalla lista, ORDINATI per importanza
-- Prioritizza: obiettivi personali > habits con streak a rischio > vitali importanti
-- Se l'utente ha sessioni recenti con emozioni negative, includi check-in correlati
+- PRIORITÀ 1: Metriche mancanti da più tempo (data hunting)
+- PRIORITÀ 2: Vitali base (mood, anxiety, sleep, energy)
+- PRIORITÀ 3: Bilancia categorie (almeno 1 life area, 1 psychology)
+- PRIORITÀ 4: Habits attive dell'utente
+- Se ci sono segnali critici (hopelessness, burnout alto), SEMPRE includerli
 - Rispondi SOLO con JSON array di "key" nell'ordine giusto
 
-Esempio: ["habit_meditation", "objective_123", "mood", "anxiety"]`;
+Esempio: ["mood", "love", "motivation", "habit_meditation"]`;
 
       const itemsText = candidateItems.map((i: any) => 
-        `- ${i.key}: "${i.label}" (${i.type}, ${i.responseType})`
+        `- ${i.key}: "${i.label}" (${i.type}, score=${Math.round(i.dynamicScore)}, mancante=${i.missingDays || 0}gg)`
       ).join("\n");
 
       const userPrompt = `Obiettivi utente: ${goals.join(", ") || "Non specificati"}
 Contesto sessioni: ${sessionContext || "Nessuna"}
 Emozioni recenti: ${emotionTags.join(", ") || "Non rilevate"}
+Dati mancanti: ${missingDataContext || "Nessuno critico"}
 
-Check-in disponibili:
+Check-in disponibili (ordinati per urgenza):
 ${itemsText}
 
-Scegli i ${MAX_ITEMS} più importanti IN ORDINE:`;
+Scegli i ${MAX_ITEMS} più importanti IN ORDINE, bilanciando categorie e dati mancanti:`;
 
       try {
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -495,7 +655,7 @@ Scegli i ${MAX_ITEMS} più importanti IN ORDINE:`;
       }
     }
 
-    // Fallback: use priority-sorted items
+    // Fallback: use dynamic score sorted items
     if (finalItems.length === 0) {
       finalItems = candidateItems.slice(0, MAX_ITEMS);
     }
@@ -504,11 +664,12 @@ Scegli i ${MAX_ITEMS} più importanti IN ORDINE:`;
     finalItems = finalItems.map((item: any, index: number) => ({
       ...item,
       reason: item.type === 'habit' ? 'Habit attiva' : 
-              item.type === 'objective' ? 'Obiettivo personale' : 
+              item.missingDays >= 7 ? `Mancante da ${item.missingDays}gg` :
+              item.isCritical ? 'Monitoraggio' :
               index === 0 ? 'Priorità oggi' : undefined,
     }));
 
-    console.log("[ai-checkins] Created unified list with", finalItems.length, "items");
+    console.log("[ai-checkins] Created DATA-DRIVEN list with", finalItems.length, "items");
 
     // Cache the fixed list
     const cachePayload: CachedCheckinsData = {
@@ -542,7 +703,6 @@ Scegli i ${MAX_ITEMS} più importanti IN ORDINE:`;
   }
 });
 
-// Helper function to get completed keys from all sources
 async function getCompletedKeys(supabase: any, userId: string, today: string): Promise<Set<string>> {
   const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
     supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
@@ -565,13 +725,13 @@ async function getCompletedKeys(supabase: any, userId: string, today: string): P
   }
 
   lifeAreasRes.data?.forEach((record: any) => {
-    ["love", "work", "social", "growth", "health"].forEach(k => {
+    ["love", "work", "school", "social", "growth", "health", "family", "leisure", "finances"].forEach(k => {
       if (record[k]) completedKeys.add(k);
     });
   });
 
   emotionsRes.data?.forEach((record: any) => {
-    ["joy", "sadness", "anger", "fear", "apathy"].forEach(k => {
+    ["joy", "sadness", "anger", "fear", "apathy", "hope", "shame", "jealousy", "frustration", "nostalgia"].forEach(k => {
       if (record[k]) completedKeys.add(k);
     });
   });
