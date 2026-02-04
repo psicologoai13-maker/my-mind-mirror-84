@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.update-objective-chat]
 verify_jwt = false
+
+[functions.elevenlabs-conversation-token]
+verify_jwt = false
+
+[functions.aria-agent-backend]
+verify_jwt = false
