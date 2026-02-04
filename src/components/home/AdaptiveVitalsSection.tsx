@@ -2,7 +2,6 @@ import React from 'react';
 import { useAIDashboard, MetricConfig } from '@/hooks/useAIDashboard';
 import { useTimeWeightedMetrics, TrendInfo } from '@/hooks/useTimeWeightedMetrics';
 import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard';
-import { Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AdaptiveVitalsSection: React.FC = () => {
@@ -111,21 +110,19 @@ const AdaptiveVitalsSection: React.FC = () => {
   if (isLoading && !hasAnyData) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <div className="p-1.5 rounded-lg bg-primary/10">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
+        <div className="flex items-center gap-2.5 px-1">
+          <span className="text-xl">🎯</span>
+          <h3 className="font-display font-semibold text-sm text-foreground">I tuoi focus</h3>
         </div>
         {/* Silent skeleton grid */}
-        <div className="flex gap-4">
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
-            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+        <div className="flex gap-3">
+          <div className="flex-1 flex flex-col gap-3">
+            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
+            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
           </div>
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
-            <div className="h-32 bg-muted/30 rounded-3xl animate-pulse" />
+          <div className="flex-1 flex flex-col gap-3">
+            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
+            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
           </div>
         </div>
       </div>
@@ -135,17 +132,15 @@ const AdaptiveVitalsSection: React.FC = () => {
   return (
     <div className="space-y-4" data-tutorial="vitals">
       {/* Section Title */}
-      <div className="flex items-center gap-2 px-1">
-        <div className="p-1.5 rounded-lg bg-primary/10">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-        </div>
-        <h3 className="text-sm font-semibold text-foreground">I tuoi focus</h3>
+      <div className="flex items-center gap-2.5 px-1">
+        <span className="text-xl">🎯</span>
+        <h3 className="font-display font-semibold text-sm text-foreground">I tuoi focus</h3>
       </div>
 
       {/* Priority Metrics - 2 independent columns */}
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         {/* Left Column */}
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-1 flex flex-col gap-3">
           {primaryMetrics.filter((_, i) => i % 2 === 0).map((metric, index) => {
             const metricKey = metric.key as MetricKey;
             const config = METRIC_CONFIG[metricKey];
@@ -167,9 +162,8 @@ const AdaptiveVitalsSection: React.FC = () => {
             );
           })}
         </div>
-        
         {/* Right Column */}
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-1 flex flex-col gap-3">
           {primaryMetrics.filter((_, i) => i % 2 === 1).map((metric, index) => {
             const metricKey = metric.key as MetricKey;
             const config = METRIC_CONFIG[metricKey];

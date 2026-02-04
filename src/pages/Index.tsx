@@ -104,13 +104,14 @@ const Index: React.FC = () => {
         <OnboardingTutorial onComplete={handleTutorialComplete} />
       )}
 
-      {/* Premium Hero Header */}
-      <header className="px-6 pt-8 pb-4">
+      {/* Header */}
+      <header className="px-5 pt-6 pb-4">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground tracking-tight">
+            <h1 className="font-display text-2xl font-bold text-foreground">
               {isLoading ? '...' : `Ciao ${userName}`}
             </h1>
+            <p className="text-muted-foreground text-sm mt-1">Come ti senti oggi?</p>
           </div>
           <Button 
             variant="ghost" 
@@ -153,7 +154,7 @@ const Index: React.FC = () => {
         <SmartCheckinSection onStartCheckin={startCheckinTimer} />
       </header>
 
-      <div className="px-6 pb-8 space-y-5">
+      <div className="px-5 pb-8 space-y-6">
         {/* AI-Ordered Widgets */}
         {sortedWidgets.map((widget, index) => renderWidget(widget, index))}
       </div>

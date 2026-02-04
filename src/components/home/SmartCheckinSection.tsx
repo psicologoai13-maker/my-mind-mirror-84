@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, Sparkles, Plus, Minus, Play, Pause, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, X, Plus, Minus, Play, Pause, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePersonalizedCheckins, CheckinItem, responseTypeConfig } from '@/hooks/usePersonalizedCheckins';
 import { useCheckins } from '@/hooks/useCheckins';
@@ -450,15 +450,15 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Sparkles className="w-4 h-4 text-primary/50" />
-          <span className="text-xs font-medium text-muted-foreground/50">Check-in</span>
+        <div className="flex items-center gap-2.5 px-1">
+          <span className="text-xl opacity-50">✏️</span>
+          <span className="text-sm font-semibold text-muted-foreground/50">Check-in</span>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((i) => (
             <div 
               key={i} 
-              className="h-20 rounded-xl bg-muted/30 animate-pulse"
+              className="h-20 rounded-xl bg-glass/30 border border-glass-border/30 animate-pulse"
             />
           ))}
         </div>
@@ -767,13 +767,10 @@ const SmartCheckinSection: React.FC<SmartCheckinSectionProps> = ({ onStartChecki
   return (
     <div className="space-y-3" data-tutorial="checkin">
       {/* Check-in Title */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">Check-in</h3>
-        </div>
+      <div className="flex items-center gap-2.5 px-1">
+        <span className="text-xl">✏️</span>
+        <h3 className="font-display font-semibold text-sm text-foreground">Check-in</h3>
+        <div className="flex-1" />
         {(completedCount + Object.keys(locallyCompleted).length) > 0 && (
           <span className="text-xs text-emerald-600 font-medium">
             {completedCount + Object.keys(locallyCompleted).length} completati

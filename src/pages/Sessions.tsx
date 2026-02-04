@@ -99,38 +99,41 @@ const Sessions: React.FC = () => {
       <header className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-primary" />
-              <h1 className="font-display text-2xl font-bold text-foreground">Il tuo Diario</h1>
-            </div>
+            <h1 className="font-display text-2xl font-bold text-foreground">Diario</h1>
             <p className="text-muted-foreground text-sm mt-1">Scrivi, rifletti, cresci</p>
           </div>
           <div className="flex gap-2">
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="icon" 
               onClick={() => setVoiceModalOpen(true)}
-              className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+              className="rounded-2xl bg-card shadow-soft"
             >
-              <Mic className="w-5 h-5" />
+              <Mic className="w-5 h-5 text-primary" />
             </Button>
-            <Button variant="hero" size="icon" onClick={handleStartSession}>
+            <Button 
+              variant="default" 
+              size="icon" 
+              onClick={handleStartSession}
+              className="rounded-2xl shadow-soft"
+            >
               <Plus className="w-5 h-5" />
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="px-5 space-y-8 pb-8">
+      <div className="px-5 space-y-6 pb-8">
         {/* Thematic Notebooks Section */}
         <section className="animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-lg text-foreground">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="text-xl">📔</span>
+            <h2 className="font-display font-semibold text-sm text-foreground">
               I Tuoi Quaderni
             </h2>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {DIARY_THEMES.map((themeConfig) => (
               <DiaryNotebookCard
                 key={themeConfig.theme}
@@ -144,46 +147,53 @@ const Sessions: React.FC = () => {
 
         {/* Next Session Card */}
         {nextSession && (
-          <div className="bg-card rounded-3xl p-6 shadow-premium animate-slide-up stagger-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary" />
+          <div className={cn(
+            "relative overflow-hidden rounded-3xl p-5",
+            "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
+            "shadow-glass animate-slide-up"
+          )}>
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">⏰</span>
+                <span className="text-xs font-medium text-primary uppercase tracking-wide">Prossima Sessione</span>
               </div>
-              <span className="text-xs font-medium text-primary uppercase tracking-wide">Prossima Sessione</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-display font-semibold text-foreground">
-                  {formatUpcomingDate(nextSession.start_time)}
-                </h3>
-                <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{format(new Date(nextSession.start_time), 'HH:mm')}</span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-semibold text-foreground">
+                    {formatUpcomingDate(nextSession.start_time)}
+                  </h3>
+                  <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      <span>{format(new Date(nextSession.start_time), 'HH:mm')}</span>
+                    </div>
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full",
+                      nextSession.type === 'voice' 
+                        ? "bg-muted/50 text-muted-foreground" 
+                        : "bg-primary/10 text-primary"
+                    )}>
+                      {nextSession.type === 'voice' ? 'Vocale' : 'Chat'}
+                    </span>
                   </div>
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    nextSession.type === 'voice' 
-                      ? "bg-muted text-muted-foreground" 
-                      : "bg-primary/10 text-primary"
-                  )}>
-                    {nextSession.type === 'voice' ? 'Vocale' : 'Chat'}
-                  </span>
                 </div>
+                <Button variant="default" size="sm" className="rounded-xl" onClick={handleStartSession}>
+                  Inizia ora
+                </Button>
               </div>
-              <Button variant="default" size="sm" onClick={handleStartSession}>
-                Inizia ora
-              </Button>
             </div>
           </div>
         )}
 
         {/* Journal Timeline */}
-        <section className="space-y-4 animate-slide-up stagger-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display font-semibold text-lg text-foreground">
+        <section className="space-y-3 animate-slide-up stagger-2">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">📜</span>
+            <h2 className="font-display font-semibold text-sm text-foreground">
               Cronologia
             </h2>
+            <div className="flex-1" />
             <span className="text-xs text-muted-foreground">
               {journalSessions.length} {journalSessions.length === 1 ? 'sessione' : 'sessioni'}
             </span>
@@ -196,18 +206,23 @@ const Sessions: React.FC = () => {
               ))}
             </div>
           ) : journalSessions.length === 0 ? (
-            <div className="bg-card rounded-3xl p-8 shadow-premium text-center">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
-                <BookOpen className="w-7 h-7 text-muted-foreground" />
+            <div className={cn(
+              "relative overflow-hidden rounded-3xl p-8 text-center",
+              "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
+              "shadow-glass"
+            )}>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none" />
+              <div className="relative z-10">
+                <div className="text-5xl mb-4">📖</div>
+                <h3 className="font-display font-semibold text-foreground mb-2">Nessuna sessione</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Le tue sessioni appariranno qui
+                </p>
+                <Button variant="default" className="rounded-xl" onClick={handleStartSession}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuova sessione
+                </Button>
               </div>
-              <h3 className="font-display font-semibold text-foreground mb-2">Nessuna sessione</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Le tue sessioni appariranno qui
-              </p>
-              <Button variant="default" onClick={handleStartSession}>
-                <Plus className="w-4 h-4 mr-2" />
-                Nuova sessione
-              </Button>
             </div>
           ) : (
             <div className="space-y-2">
