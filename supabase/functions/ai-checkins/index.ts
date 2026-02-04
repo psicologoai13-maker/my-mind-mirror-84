@@ -393,105 +393,14 @@ serve(async (req) => {
       });
     });
 
-    // 2. OBJECTIVES - Convert to check-in items (skip auto-sync)
+    // 2. OBJECTIVES - DISABLED: Objectives are managed only from Progressi page
+    // Users update objectives via chat with Aria, not via check-ins
+    // Keeping this commented for reference
+    /*
     activeObjectives.forEach((obj: any) => {
-      const inputMethod = obj.input_method || 'numeric';
-      const mappedType = OBJECTIVE_INPUT_METHODS[inputMethod];
-      
-      // Skip objectives that sync automatically or via sessions
-      if (mappedType === 'skip') return;
-      
-      // Check checkin_visibility setting
-      // 'hidden' = don't show in check-in at all (manual only from Progressi)
-      // 'daily' = show once per day (default)
-      // 'permanent' = always show (repeatable)
-      const visibility = obj.checkin_visibility || 'daily';
-      if (visibility === 'hidden') return;
-      
-      const key = `objective_${obj.id}`;
-      // For 'daily' visibility, check if already completed today
-      // For 'permanent', always show regardless of completion
-      if (visibility === 'daily' && completedKeys.has(key)) return;
-
-      // Generate context-aware questions based on category and finance_tracking_type
-      let question = `Progresso "${obj.title}"?`;
-      const financeType = obj.finance_tracking_type;
-      const trackingPeriod = obj.tracking_period;
-      
-      // Period labels for context
-      const periodLabel = trackingPeriod === 'daily' ? 'oggi' 
-        : trackingPeriod === 'weekly' ? 'questa settimana'
-        : trackingPeriod === 'monthly' ? 'questo mese'
-        : 'finora';
-      
-      if (obj.category === 'body') {
-        if (obj.unit?.toLowerCase() === 'kg') {
-          question = `Quanto pesi oggi?`;
-        } else if (obj.unit?.toLowerCase() === '%') {
-          question = `Qual è la tua % di grasso corporeo?`;
-        } else {
-          question = `Valore attuale per "${obj.title}"?`;
-        }
-      } else if (obj.category === 'finance') {
-        // Specific questions based on finance_tracking_type
-        switch (financeType) {
-          case 'periodic_saving':
-            question = `Quanto hai risparmiato ${periodLabel}?`;
-            break;
-          case 'spending_limit':
-            question = `Quanto hai speso ${periodLabel}?`;
-            break;
-          case 'accumulation':
-            question = `A quanto ammonta il totale dei risparmi?`;
-            break;
-          case 'debt_reduction':
-            question = `Quanto debito hai rimborsato ${periodLabel}?`;
-            break;
-          case 'periodic_income':
-            question = `Quanto hai guadagnato ${periodLabel}?`;
-            break;
-          default:
-            question = `Aggiornamento "${obj.title}"?`;
-        }
-      } else if (obj.category === 'study') {
-        if (obj.unit === 'libri') {
-          question = `Quanti libri hai completato ${periodLabel}?`;
-        } else if (obj.unit === 'ore') {
-          question = `Quante ore hai studiato ${periodLabel}?`;
-        } else {
-          question = `Progresso "${obj.title}"?`;
-        }
-      } else if (inputMethod === 'counter') {
-        question = `Quanti ${obj.unit || 'progressi'} ${periodLabel}?`;
-      } else if (inputMethod === 'milestone') {
-        question = `Hai fatto progressi su "${obj.title}"?`;
-      }
-
-      // Determine if this objective is repeatable (can be logged multiple times per day)
-      // Repeatable: 
-      // 1. checkin_visibility is 'permanent' (user setting)
-      // 2. OR finance type is spending/saving/income (can happen multiple times per day)
-      const isFinanceRepeatable = obj.category === 'finance' && 
-        ['spending_limit', 'periodic_saving', 'periodic_income'].includes(financeType);
-      const isRepeatable = visibility === 'permanent' || isFinanceRepeatable;
-
-      allItems.push({
-        key,
-        label: obj.title,
-        question,
-        type: 'objective',
-        responseType: mappedType,
-        objectiveId: obj.id,
-        unit: obj.unit,
-        target: obj.target_value,
-        financeType: financeType, // Pass finance type for UI context
-        trackingPeriod: trackingPeriod,
-        repeatable: isRepeatable, // Repeatable items stay visible after response
-        currentValue: obj.current_value, // Pass current value for accumulation
-        checkinVisibility: visibility, // Pass visibility setting for client reference
-        priority: 90, // Objectives have highest priority
-      });
+      // ... objective check-in logic disabled
     });
+    */
 
     // 3. STANDARD CHECK-INS (vitals, life_areas, etc.) - dynamic based on occupation
     const standardCheckins = getStandardCheckinItems(occupationContext, birthDate);
