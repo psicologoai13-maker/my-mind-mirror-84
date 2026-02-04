@@ -1,29 +1,43 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Heart, Briefcase, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
-import type { ThematicDiary, DiaryTheme } from '@/hooks/useThematicDiaries';
 
-// Extended diary themes
-const ALL_DIARY_THEMES = [
-  { id: 'love', label: 'Amore', emoji: '❤️' },
-  { id: 'work', label: 'Lavoro', emoji: '💼' },
-  { id: 'relationships', label: 'Relazioni', emoji: '👥' },
-  { id: 'self', label: 'Me Stesso', emoji: '✨' },
-  { id: 'health', label: 'Salute', emoji: '💪' },
-  { id: 'family', label: 'Famiglia', emoji: '👨‍👩‍👧' },
-  { id: 'dreams', label: 'Sogni', emoji: '🌙' },
-  { id: 'gratitude', label: 'Gratitudine', emoji: '🙏' },
-];
+interface Diary {
+  id: string;
+  theme: string;
+  last_message_preview?: string | null;
+}
 
 interface DiaryChipsScrollProps {
   activeDiaryIds: string[];
-  diaries?: ThematicDiary[];
+  diaries?: Diary[] | null;
   onOpenDiary: (theme: string) => void;
   onAddDiary: () => void;
 }
+
+const DIARY_CONFIG: Record<string, { icon: React.ReactNode; label: string; gradient: string }> = {
+  love: { 
+    icon: <Heart className="w-4 h-4" />, 
+    label: 'Amore',
+    gradient: 'from-rose-500 to-pink-500'
+  },
+  work: { 
+    icon: <Briefcase className="w-4 h-4" />, 
+    label: 'Lavoro',
+    gradient: 'from-amber-500 to-orange-500'
+  },
+  relationships: { 
+    icon: <Users className="w-4 h-4" />, 
+    label: 'Relazioni',
+    gradient: 'from-sky-500 to-blue-500'
+  },
+  self: { 
+    icon: <User className="w-4 h-4" />, 
+    label: 'Me stesso',
+    gradient: 'from-emerald-500 to-teal-500'
+  },
+};
 
 const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
   activeDiaryIds,
@@ -31,83 +45,55 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
   onOpenDiary,
   onAddDiary,
 }) => {
-  const getDiaryLabel = (id: string) => {
-    const suggested = ALL_DIARY_THEMES.find(d => d.id === id);
-    if (suggested) return { emoji: suggested.emoji, label: suggested.label };
-    
-    const customDiaries = JSON.parse(localStorage.getItem('customDiaries') || '{}');
-    if (customDiaries[id]) {
-      const parts = customDiaries[id].split(' ');
-      return { emoji: parts[0], label: parts.slice(1).join(' ') };
-    }
-    
-    return { emoji: '📝', label: id };
-  };
-
   return (
     <section className="px-5">
-      {/* Section Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">📔</span>
-        <h2 className="font-display font-semibold text-sm text-foreground">I Tuoi Diari</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display font-semibold text-sm text-foreground">I tuoi diari</h2>
+        {activeDiaryIds.length < 6 && (
+          <button
+            onClick={onAddDiary}
+            className="text-xs text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Aggiungi
+          </button>
+        )}
       </div>
 
-      {/* Horizontal Scroll Container */}
-      <div className="overflow-x-auto scrollbar-hide -mx-5 px-5">
-        <div className="flex gap-2.5 pb-1">
-          {activeDiaryIds.map((diaryId, index) => {
-            const diary = diaries?.find(d => d.theme === diaryId);
-            const { emoji, label } = getDiaryLabel(diaryId);
-            const hasActivity = diary && diary.last_updated_at;
-            
-            return (
-              <motion.button
-                key={diaryId}
-                onClick={() => onOpenDiary(diaryId)}
-                className={cn(
-                  "relative flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap",
-                  "bg-glass backdrop-blur-xl border border-glass-border",
-                  "shadow-glass hover:shadow-glass-glow",
-                  "transition-all duration-300",
-                  "active:scale-[0.97]"
-                )}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                {/* Inner highlight */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-transparent pointer-events-none" />
-                
-                <span className="text-base relative z-10">{emoji}</span>
-                <span className="font-medium text-sm text-foreground relative z-10">{label}</span>
-                
-                {/* Activity dot */}
-                {hasActivity && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary absolute -top-0.5 -right-0.5" />
-                )}
-              </motion.button>
-            );
-          })}
+      <div className="grid grid-cols-4 gap-2">
+        {activeDiaryIds.slice(0, 4).map((themeId, index) => {
+          const config = DIARY_CONFIG[themeId];
+          const diary = diaries?.find(d => d.theme === themeId);
+          
+          if (!config) return null;
 
-          {/* Add Diary Button */}
-          {activeDiaryIds.length < 6 && (
+          return (
             <motion.button
-              onClick={onAddDiary}
+              key={themeId}
+              onClick={() => onOpenDiary(themeId)}
               className={cn(
-                "flex items-center justify-center w-10 h-10 rounded-2xl",
-                "bg-glass backdrop-blur-xl border border-glass-border border-dashed",
-                "text-muted-foreground hover:text-primary hover:border-primary/30",
-                "transition-all duration-300",
-                "active:scale-[0.95]"
+                "flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl",
+                "bg-glass backdrop-blur-sm border border-glass-border/50",
+                "hover:shadow-glass transition-all duration-200",
+                "active:scale-[0.97]"
               )}
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: activeDiaryIds.length * 0.05 }}
+              transition={{ delay: index * 0.05 }}
             >
-              <Plus className="w-4 h-4" />
+              <div className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center",
+                `bg-gradient-to-br ${config.gradient}`,
+                "text-white shadow-sm"
+              )}>
+                {config.icon}
+              </div>
+              <span className="text-[11px] font-medium text-foreground truncate w-full text-center">
+                {config.label}
+              </span>
             </motion.button>
-          )}
-        </div>
+          );
+        })}
       </div>
     </section>
   );

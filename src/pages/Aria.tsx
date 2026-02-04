@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { History, ChevronDown, ChevronUp } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { ZenVoiceModal } from '@/components/voice/ZenVoiceModal';
 import { useThematicDiaries } from '@/hooks/useThematicDiaries';
@@ -12,10 +12,10 @@ import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
 import SessionDetailModal from '@/components/sessions/SessionDetailModal';
 import LocationPermissionModal from '@/components/location/LocationPermissionModal';
 import AriaHeroSection from '@/components/aria/AriaHeroSection';
-import QuickInsightCard from '@/components/aria/QuickInsightCard';
 import DiaryChipsScroll from '@/components/aria/DiaryChipsScroll';
 import CompactSessionItem from '@/components/aria/CompactSessionItem';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { DiaryTheme } from '@/hooks/useThematicDiaries';
 
 const Aria: React.FC = () => {
@@ -23,6 +23,7 @@ const Aria: React.FC = () => {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [pendingAction, setPendingAction] = useState<'chat' | 'voice' | null>(null);
   const [selectedDiaryTheme, setSelectedDiaryTheme] = useState<DiaryTheme | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -31,7 +32,6 @@ const Aria: React.FC = () => {
   const { permission, requestLocation, isLoading: locationLoading } = useUserLocation();
   const { profile } = useProfile();
 
-  // Active diaries - stored in localStorage for persistence
   const [activeDiaryIds, setActiveDiaryIds] = useState<string[]>(() => {
     const stored = localStorage.getItem('activeDiaryIds');
     return stored ? JSON.parse(stored) : ['love', 'work', 'relationships', 'self'];
@@ -39,12 +39,6 @@ const Aria: React.FC = () => {
 
   const recentSessions = journalSessions?.slice(0, 5) || [];
   const lastSession = journalSessions?.[0] || null;
-
-  // Calculate stats
-  const sessionCount = journalSessions?.length || 0;
-  const streakDays = 0; // TODO: Calculate from sessions
-
-  // Check if we should show location permission modal
   const shouldAskLocation = permission === 'prompt' && profile?.location_permission_granted !== false;
 
   const handleStartChat = () => {
@@ -115,7 +109,6 @@ const Aria: React.FC = () => {
     localStorage.setItem('activeDiaryIds', JSON.stringify(newIds));
   };
 
-  // If a diary theme is selected, show the thematic chat interface
   if (selectedDiaryTheme) {
     const selectedDiary = diaries?.find(d => d.theme === selectedDiaryTheme);
     return (
@@ -129,24 +122,17 @@ const Aria: React.FC = () => {
 
   return (
     <MobileLayout>
-      <div className="pb-28 space-y-4">
-        {/* Hero Section with Aria Identity */}
+      <div className="pb-20 space-y-3 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
+        {/* Hero Section with integrated insight */}
         <AriaHeroSection
           userName={profile?.name || undefined}
-          sessionCount={sessionCount}
-          streakDays={streakDays}
+          lastSession={lastSession}
           onStartChat={handleStartChat}
           onStartVoice={handleStartVoice}
-        />
-
-        {/* Quick Insight Card */}
-        <QuickInsightCard
-          lastSession={lastSession}
           onContinue={handleStartChat}
-          onStartNew={handleStartChat}
         />
 
-        {/* Diary Chips Horizontal Scroll */}
+        {/* Diary Grid - bigger */}
         <DiaryChipsScroll
           activeDiaryIds={activeDiaryIds}
           diaries={diaries}
@@ -154,50 +140,51 @@ const Aria: React.FC = () => {
           onAddDiary={() => setShowDiaryModal(true)}
         />
 
-        {/* Session History - Compact List */}
-        <section className="px-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📜</span>
-              <h2 className="font-display font-semibold text-sm text-foreground">Cronologia</h2>
-            </div>
-            {recentSessions.length > 0 && (
-              <button 
-                onClick={() => navigate('/sessions')}
-                className="text-xs text-primary font-medium flex items-center gap-0.5 hover:text-primary/80 transition-colors"
-              >
-                Vedi tutto
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        {/* Collapsible History - icon trigger */}
+        {recentSessions.length > 0 && (
+          <section className="px-5 mt-auto">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-2 rounded-xl",
+                "bg-glass/50 backdrop-blur-sm border border-glass-border/50",
+                "hover:bg-glass transition-all duration-200",
+                "text-muted-foreground"
+              )}
+            >
+              <History className="w-4 h-4" />
+              <span className="text-xs font-medium">Cronologia</span>
+              {showHistory ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
 
-          {sessionsLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="w-5 h-5 animate-spin text-aria-violet" />
-            </div>
-          ) : recentSessions.length === 0 ? (
-            <div className={cn(
-              "relative overflow-hidden text-center py-6 rounded-2xl",
-              "bg-glass/50 backdrop-blur-sm border border-glass-border/50"
-            )}>
-              <p className="text-muted-foreground text-sm">
-                Nessuna sessione ancora
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {recentSessions.map((session, index) => (
-                <CompactSessionItem
-                  key={session.id}
-                  session={session}
-                  index={index}
-                  onClick={() => setSelectedSessionId(session.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            <AnimatePresence>
+              {showHistory && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden mt-2"
+                >
+                  <div className="space-y-1.5 max-h-[180px] overflow-y-auto scrollbar-hide">
+                    {recentSessions.map((session, index) => (
+                      <CompactSessionItem
+                        key={session.id}
+                        session={session}
+                        index={index}
+                        onClick={() => setSelectedSessionId(session.id)}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+        )}
       </div>
 
       <ZenVoiceModal
