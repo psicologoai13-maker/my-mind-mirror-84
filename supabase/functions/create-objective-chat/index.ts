@@ -91,8 +91,8 @@ Il JSON deve essere nel formato:
   "input_method": "numeric|milestone",
   "deadline": "YYYY-MM-DD" o null,
   "objective_type": "counter|transformation|milestone",
-  "ai_custom_description": "Una frase motivazionale e personalizzata che descrive l'obiettivo in modo empatico, es: 'Il tuo percorso verso un fisico più sano', 'La tua avventura alla scoperta del mondo', 'Il tuo viaggio verso la libertà finanziaria'. MAX 60 caratteri, SENZA emoji.",
-  "ai_feedback": "Una frase che indica lo stato attuale, es: 'Sei all'inizio del tuo percorso!', 'Hai già fatto i primi passi', 'Pronto per iniziare questa sfida'. MAX 50 caratteri."
+  "ai_custom_description": "Frase breve che descrive l'obiettivo. MASSIMO 50 CARATTERI. Esempi: 'Il tuo percorso verso un fisico sano', 'Scoprire il mondo viaggiando', 'Costruire indipendenza economica'. NIENTE emoji, NIENTE punti finali.",
+  "ai_feedback": "Stato attuale in 40 caratteri max. Es: 'Pronto a iniziare!', 'Primi passi fatti'"
 }
 
 IMPORTANTE: 
