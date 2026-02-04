@@ -149,8 +149,8 @@ export const MenteTab: React.FC<MenteTabProps> = ({
   return (
     <div className="space-y-6">
 
-      {/* Dynamic Vitals Grid - Always show if any data */}
-      {hasAnyData && dynamicVitals.length > 0 && (
+      {/* Dynamic Vitals Grid - Always show with time selector */}
+      {dynamicVitals.length > 0 && (
         <DynamicVitalsGrid
           metrics={dynamicVitals}
           data={vitalData}

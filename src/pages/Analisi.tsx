@@ -79,8 +79,9 @@ const Analisi: React.FC = () => {
     );
   }, [metricsRange]);
 
-  // Check if sections have data
-  const hasMenteData = daysWithData.length > 0;
+  // Check if sections have data - use coreVitalsOnly length to always show mente section
+  // This ensures time selector is always visible even with no data for current range
+  const hasMenteData = coreVitalsOnly.length > 0;
   const hasCorpoData = (bodyMetrics || []).some(m => m.weight || m.sleep_hours || m.resting_heart_rate);
   const hasAbitudiniData = (habits || []).length > 0;
 
