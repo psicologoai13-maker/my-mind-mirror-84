@@ -480,7 +480,8 @@ export const usePersonalizedCheckins = () => {
     if (todayAllData?.lifeAreas) {
       todayAllData.lifeAreas.forEach((record: any) => {
         // NOTE: 'growth' is excluded - it's AI-calculated, not user-reported
-        ['love', 'work', 'social', 'health'].forEach(key => {
+        // Include ALL user-reportable life areas: love, work, social, health, family, finances, leisure, school
+        ['love', 'work', 'social', 'health', 'family', 'finances', 'leisure', 'school'].forEach(key => {
           const value = record[key];
           if (value && typeof value === 'number') {
             completed[key] = Math.max(completed[key] || 0, Math.ceil(value / 2));
