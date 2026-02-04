@@ -87,7 +87,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-20 h-20 rounded-full bg-glass border-2 border-dashed border-aria-violet/30 flex items-center justify-center mb-2"
+                className="w-20 h-20 rounded-full bg-glass border-2 border-dashed border-aria-violet/30 flex items-center justify-center mb-2 backdrop-blur-xl"
               >
                 <span className="text-2xl text-muted-foreground">?</span>
               </motion.div>
@@ -103,7 +103,7 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
           </motion.span>
         </div>
 
-        {/* Mood Selector with Aurora accent */}
+        {/* Mood Selector with Glass Interactive */}
         <div className="flex items-center justify-center gap-2">
           {moodEmojis.map((mood, index) => (
             <motion.button
@@ -111,13 +111,16 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
               onClick={() => handleMoodSelect(index)}
               whileTap={{ scale: 0.9 }}
               className={cn(
-                "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl",
+                "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl relative overflow-hidden",
                 "transition-all duration-300 bg-glass backdrop-blur-xl border",
                 moodSelected && index === currentMood
-                  ? "border-aria-violet/50 shadow-aria-glow scale-110 ring-2 ring-aria-violet/30"
+                  ? "border-aria-violet/50 shadow-aria-glow scale-110 ring-2 ring-aria-violet/30 selection-glow"
                   : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
               )}
             >
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" 
+                   style={{ transform: 'translateX(-100%)', animation: 'none' }} />
               {mood.emoji}
             </motion.button>
           ))}
@@ -130,16 +133,16 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         </div>
       </motion.div>
 
-      {/* Divider */}
+      {/* Gradient Divider */}
       <motion.div
         initial={{ opacity: 0, scaleX: 0 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ delay: 0.3 }}
         className="flex items-center gap-3 mb-6"
       >
-        <div className="flex-1 h-px bg-border" />
-        <span className="text-xs text-muted-foreground font-medium">Un po' su di te</span>
-        <div className="flex-1 h-px bg-border" />
+        <div className="flex-1 divider-gradient" />
+        <span className="text-xs text-muted-foreground font-medium px-2">Un po' su di te</span>
+        <div className="flex-1 divider-gradient" />
       </motion.div>
 
       {/* Gender Section */}
@@ -157,10 +160,10 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
               onClick={() => onGenderChange(option.id)}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
                 "bg-glass backdrop-blur-xl border",
                 gender === option.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
                   : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
               )}
             >
@@ -184,10 +187,10 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
               onClick={() => onAgeChange(age)}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
                 "bg-glass backdrop-blur-xl border",
                 ageRange === age
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow"
+                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
                   : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
               )}
             >

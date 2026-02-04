@@ -27,7 +27,7 @@ const BASE_INTERESTS = [
   { id: 'tech', emoji: '💻', label: 'Tecnologia' },
 ];
 
-// Youth-specific interests (ONLY for <18 and 18-24 age ranges)
+// Youth-specific interests
 const YOUTH_INTERESTS = [
   { id: 'tiktok', emoji: '📱', label: 'TikTok/Social' },
   { id: 'anime', emoji: '🎌', label: 'Anime/Manga' },
@@ -37,7 +37,7 @@ const YOUTH_INTERESTS = [
   { id: 'esports', emoji: '🏆', label: 'Esport' },
 ];
 
-// Adult-specific interests (25+ years)
+// Adult-specific interests
 const ADULT_INTERESTS = [
   { id: 'wine', emoji: '🍷', label: 'Vino/Cucina' },
   { id: 'gardening', emoji: '🌻', label: 'Giardinaggio' },
@@ -47,13 +47,10 @@ const ADULT_INTERESTS = [
   { id: 'volunteering', emoji: '🤝', label: 'Volontariato' },
 ];
 
-// YOUTH_AGES: Only these two values qualify as "youth"
 const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
 
 const isYouthAge = (ageRange?: string): boolean => {
-  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
-  console.log('[InterestsStep] Age filter:', { ageRange, isYouth });
-  return isYouth;
+  return YOUTH_AGE_RANGES.includes(ageRange as any);
 };
 
 const InterestsStep: React.FC<InterestsStepProps> = ({
@@ -62,7 +59,6 @@ const InterestsStep: React.FC<InterestsStepProps> = ({
   onChange,
   ageRange,
 }) => {
-  // Build options based on age
   const INTERESTS_OPTIONS = [
     ...BASE_INTERESTS,
     ...(isYouthAge(ageRange) ? YOUTH_INTERESTS : ADULT_INTERESTS),
@@ -103,8 +99,8 @@ const InterestsStep: React.FC<InterestsStepProps> = ({
         </motion.p>
       </div>
 
-      {/* Interests Grid */}
-      <div className="grid grid-cols-4 gap-3 pb-4">
+      {/* Interests Grid - 3 columns for better breathing */}
+      <div className="grid grid-cols-3 gap-3 pb-4">
         {INTERESTS_OPTIONS.map((interest, index) => {
           const isSelected = selectedInterests.includes(interest.id);
           
@@ -113,21 +109,27 @@ const InterestsStep: React.FC<InterestsStepProps> = ({
               key={interest.id}
               onClick={() => toggleInterest(interest.id)}
               className={cn(
-                "flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200",
-                "bg-glass backdrop-blur-sm border",
+                "flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300",
+                "bg-glass backdrop-blur-xl border min-h-[90px]",
                 isSelected 
-                  ? "border-primary/50 shadow-glass-glow bg-primary/10" 
-                  : "border-glass-border hover:border-primary/30"
+                  ? "border-aria-violet/50 shadow-aria-glow selection-glow" 
+                  : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
               )}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 + index * 0.02 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-2xl mb-1">{interest.emoji}</span>
+              <motion.span 
+                className="text-3xl mb-1.5"
+                animate={{ scale: isSelected ? 1.15 : 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                {interest.emoji}
+              </motion.span>
               <span className={cn(
                 "text-xs font-medium text-center leading-tight",
-                isSelected ? "text-primary" : "text-muted-foreground"
+                isSelected ? "text-aria-violet" : "text-muted-foreground"
               )}>
                 {interest.label}
               </span>
@@ -143,8 +145,8 @@ const InterestsStep: React.FC<InterestsStepProps> = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <span className="text-sm text-muted-foreground">
-            {selectedInterests.length} selezionat{selectedInterests.length === 1 ? 'o' : 'i'}
+          <span className="text-sm text-aria-violet font-medium">
+            {selectedInterests.length} selezionat{selectedInterests.length === 1 ? 'o' : 'i'} ✨
           </span>
         </motion.div>
       )}

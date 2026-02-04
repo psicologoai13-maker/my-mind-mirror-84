@@ -19,25 +19,18 @@ interface GoalsStepProps {
 
 // Base goals for everyone
 const baseGoalOptions: GoalOption[] = [
-  // Mental wellness
   { id: 'anxiety', label: 'Gestire ansia', emoji: '🧘', description: 'Ritrovare la calma' },
   { id: 'stress', label: 'Ridurre stress', emoji: '😮‍💨', description: 'Più leggerezza' },
   { id: 'mood', label: 'Migliorare umore', emoji: '😊', description: 'Più serenità' },
   { id: 'self_esteem', label: 'Autostima', emoji: '✨', description: 'Amarti di più' },
-  
-  // Physical wellness
   { id: 'sleep', label: 'Dormire meglio', emoji: '😴', description: 'Notti rigeneranti' },
   { id: 'energy', label: 'Più energia', emoji: '⚡', description: 'Vitalità quotidiana' },
   { id: 'fitness', label: 'Forma fisica', emoji: '💪', description: 'Corpo più sano' },
   { id: 'nutrition', label: 'Alimentazione', emoji: '🥗', description: 'Mangiare meglio' },
-  
-  // Relationships & social
   { id: 'relationships', label: 'Relazioni', emoji: '💕', description: 'Legami più profondi' },
   { id: 'social', label: 'Vita sociale', emoji: '👥', description: 'Più connessioni' },
   { id: 'communication', label: 'Comunicazione', emoji: '💬', description: 'Esprimerti meglio' },
   { id: 'boundaries', label: 'Confini sani', emoji: '🛡️', description: 'Dire di no' },
-  
-  // Personal growth
   { id: 'growth', label: 'Crescita personale', emoji: '🌱', description: 'Evoluzione continua' },
   { id: 'focus', label: 'Concentrazione', emoji: '🧠', description: 'Mente lucida' },
   { id: 'creativity', label: 'Creatività', emoji: '🎨', description: 'Esprimere idee' },
@@ -46,8 +39,7 @@ const baseGoalOptions: GoalOption[] = [
   { id: 'motivation', label: 'Motivazione', emoji: '🔥', description: 'Ritrovare la spinta' },
 ];
 
-// Youth-specific goals (ONLY for <18 and 18-24 age ranges)
-// These should NEVER appear for 25+, 35+, 45+, 55+ users
+// Youth-specific goals
 const youthGoalOptions: GoalOption[] = [
   { id: 'school_performance', label: 'Rendimento scolastico', emoji: '📊', description: 'Migliorare a scuola' },
   { id: 'study_habits', label: 'Abitudini studio', emoji: '📖', description: 'Studiare meglio' },
@@ -56,7 +48,7 @@ const youthGoalOptions: GoalOption[] = [
   { id: 'future_anxiety', label: 'Ansia per il futuro', emoji: '🔮', description: 'Cosa farò da grande?' },
 ];
 
-// Adult-specific goals (25+ years)
+// Adult-specific goals
 const adultGoalOptions: GoalOption[] = [
   { id: 'work_life', label: 'Work-life balance', emoji: '⚖️', description: 'Equilibrio vita-lavoro' },
   { id: 'productivity', label: 'Produttività', emoji: '🎯', description: 'Fare di più' },
@@ -66,13 +58,10 @@ const adultGoalOptions: GoalOption[] = [
   { id: 'aging', label: 'Invecchiare bene', emoji: '🌅', description: 'Accettare il tempo' },
 ];
 
-// YOUTH_AGES: Only these two values qualify as "youth"
 const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
 
 const isYouthAge = (ageRange?: string): boolean => {
-  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
-  console.log('[GoalsStep] Age filter:', { ageRange, isYouth });
-  return isYouth;
+  return YOUTH_AGE_RANGES.includes(ageRange as any);
 };
 
 const spring = {
@@ -82,7 +71,6 @@ const spring = {
 };
 
 const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange, ageRange }) => {
-  // Build options based on age
   const goalOptions = [
     ...baseGoalOptions,
     ...(isYouthAge(ageRange) ? youthGoalOptions : adultGoalOptions),
@@ -92,7 +80,6 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
     if (selectedGoals.includes(goalId)) {
       onChange(selectedGoals.filter(g => g !== goalId));
     } else {
-      // Free selection - no limit
       onChange([...selectedGoals, goalId]);
     }
   };
@@ -114,14 +101,19 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
         </h1>
       </motion.div>
 
-      {/* Counter */}
+      {/* Counter Badge with Pulse */}
       <motion.div 
         className="flex items-center justify-center mb-4"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-glass backdrop-blur-xl border border-glass-border">
+        <motion.div 
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
+          key={selectedGoals.length}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 0.3 }}
+        >
           <span className="text-sm font-medium text-foreground">
             {selectedGoals.length} {selectedGoals.length === 1 ? 'selezionato' : 'selezionati'}
           </span>
@@ -138,12 +130,12 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
               </motion.span>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
       </motion.div>
 
-      {/* Goals Grid - Scrollable */}
+      {/* Goals Grid - Glass Interactive Cards */}
       <div className="flex-1 overflow-y-auto pb-4 -mx-1 px-1">
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           {goalOptions.map((goal, index) => {
             const isSelected = selectedGoals.includes(goal.id);
 
@@ -156,32 +148,33 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
                 transition={{ delay: Math.min(index * 0.03, 0.3), ...spring }}
                 whileTap={{ scale: 0.95 }}
                 className={cn(
-                  "relative p-3 rounded-2xl text-left transition-all duration-300",
-                  "bg-glass backdrop-blur-xl border",
-                  "flex flex-col items-center justify-center min-h-[100px]",
+                  "relative p-3.5 rounded-2xl text-left transition-all duration-300",
+                  "bg-glass backdrop-blur-xl border overflow-hidden",
+                  "flex flex-col items-center justify-center min-h-[110px]",
                   isSelected
-                    ? "border-primary/50 shadow-glass-glow ring-1 ring-primary/20"
-                    : "border-glass-border shadow-glass hover:shadow-glass-elevated"
+                    ? "border-aria-violet/50 shadow-aria-glow ring-1 ring-aria-violet/20 selection-glow"
+                    : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
                 )}
               >
-                {/* Selection indicator */}
+                {/* Selection indicator with animation */}
                 <AnimatePresence>
                   {isSelected && (
                     <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      exit={{ scale: 0, rotate: 180 }}
+                      transition={spring}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                     >
-                      <Check className="w-3 h-3 text-primary-foreground" />
+                      <Check className="w-3.5 h-3.5 text-white" />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Emoji */}
                 <motion.span 
-                  className="text-3xl mb-1.5"
-                  animate={{ scale: isSelected ? 1.1 : 1 }}
+                  className="text-4xl mb-2"
+                  animate={{ scale: isSelected ? 1.15 : 1 }}
                   transition={spring}
                 >
                   {goal.emoji}
@@ -190,7 +183,7 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
                 {/* Label */}
                 <span className={cn(
                   "text-xs font-semibold text-center leading-tight",
-                  isSelected ? "text-primary" : "text-foreground"
+                  isSelected ? "text-aria-violet" : "text-foreground"
                 )}>
                   {goal.label}
                 </span>
@@ -207,7 +200,7 @@ const GoalsStep: React.FC<GoalsStepProps> = ({ userName, selectedGoals, onChange
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="text-center text-sm text-primary py-2 font-medium"
+            className="text-center text-sm text-aria-violet py-2 font-medium"
           >
             {selectedGoals.length === 1 && "Ottima scelta! 🌟"}
             {selectedGoals.length === 2 && "Bene così! ✨"}

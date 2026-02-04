@@ -32,7 +32,6 @@ const baseMotivationOptions: MotivationOption[] = [
 ];
 
 // Youth-specific motivations (ONLY for <18 and 18-24 age ranges)
-// These should NEVER appear for 25+, 35+, 45+, 55+ users
 const youthMotivationOptions: MotivationOption[] = [
   { id: 'school_stress', label: 'Stress scolastico', emoji: '📚', description: 'Gestire verifiche e interrogazioni' },
   { id: 'bullying', label: 'Bullismo', emoji: '🛡️', description: 'Affrontare situazioni difficili' },
@@ -51,14 +50,10 @@ const adultMotivationOptions: MotivationOption[] = [
   { id: 'life_transition', label: 'Cambiamenti vita', emoji: '🔄', description: 'Affrontare nuove fasi' },
 ];
 
-// YOUTH_AGES: Only these two values qualify as "youth"
-// Everything else (25-34, 35-44, 45-54, 55+, undefined) = adult
 const YOUTH_AGE_RANGES = ['<18', '18-24'] as const;
 
 const isYouthAge = (ageRange?: string): boolean => {
-  const isYouth = YOUTH_AGE_RANGES.includes(ageRange as any);
-  console.log('[MotivationStep] Age filter:', { ageRange, isYouth });
-  return isYouth;
+  return YOUTH_AGE_RANGES.includes(ageRange as any);
 };
 
 const spring = {
@@ -68,7 +63,6 @@ const spring = {
 };
 
 const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotivations, onChange, ageRange }) => {
-  // Build options based on age
   const motivationOptions = [
     ...baseMotivationOptions,
     ...(isYouthAge(ageRange) ? youthMotivationOptions : adultMotivationOptions),
@@ -99,14 +93,19 @@ const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotiv
         </h1>
       </motion.div>
 
-      {/* Counter */}
+      {/* Counter Badge with Pulse */}
       <motion.div 
         className="flex items-center justify-center mb-4"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-glass backdrop-blur-xl border border-glass-border">
+        <motion.div 
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
+          key={selectedMotivations.length}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 0.3 }}
+        >
           <span className="text-sm font-medium text-foreground">
             {selectedMotivations.length} {selectedMotivations.length === 1 ? 'selezionata' : 'selezionate'}
           </span>
@@ -123,12 +122,12 @@ const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotiv
               </motion.span>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
       </motion.div>
 
-      {/* Options Grid - Scrollable */}
+      {/* Options Grid - Glass Interactive Cards */}
       <div className="flex-1 overflow-y-auto pb-4 -mx-1 px-1">
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           {motivationOptions.map((option, index) => {
             const isSelected = selectedMotivations.includes(option.id);
 
@@ -141,32 +140,39 @@ const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotiv
                 transition={{ delay: Math.min(index * 0.03, 0.3), ...spring }}
                 whileTap={{ scale: 0.95 }}
                 className={cn(
-                  "relative p-3 rounded-2xl text-left transition-all duration-300",
-                  "bg-glass backdrop-blur-xl border",
-                  "flex flex-col items-center justify-center min-h-[100px]",
+                  "relative p-3.5 rounded-2xl text-left transition-all duration-300",
+                  "bg-glass backdrop-blur-xl border overflow-hidden",
+                  "flex flex-col items-center justify-center min-h-[110px]",
                   isSelected
-                    ? "border-primary/50 shadow-glass-glow ring-1 ring-primary/20"
-                    : "border-glass-border shadow-glass hover:shadow-glass-elevated"
+                    ? "border-aria-violet/50 shadow-aria-glow ring-1 ring-aria-violet/20 selection-glow"
+                    : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
                 )}
               >
-                {/* Selection indicator */}
+                {/* Shimmer effect on hover */}
+                <div className={cn(
+                  "absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700",
+                  "translate-x-[-100%] group-hover:translate-x-[100%]"
+                )} />
+                
+                {/* Selection indicator with animation */}
                 <AnimatePresence>
                   {isSelected && (
                     <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      exit={{ scale: 0, rotate: 180 }}
+                      transition={spring}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                     >
-                      <Check className="w-3 h-3 text-primary-foreground" />
+                      <Check className="w-3.5 h-3.5 text-white" />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Emoji */}
                 <motion.span 
-                  className="text-3xl mb-1.5"
-                  animate={{ scale: isSelected ? 1.1 : 1 }}
+                  className="text-4xl mb-2"
+                  animate={{ scale: isSelected ? 1.15 : 1 }}
                   transition={spring}
                 >
                   {option.emoji}
@@ -175,7 +181,7 @@ const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotiv
                 {/* Label */}
                 <span className={cn(
                   "text-xs font-semibold text-center leading-tight",
-                  isSelected ? "text-primary" : "text-foreground"
+                  isSelected ? "text-aria-violet" : "text-foreground"
                 )}>
                   {option.label}
                 </span>
@@ -206,7 +212,7 @@ const MotivationStep: React.FC<MotivationStepProps> = ({ userName, selectedMotiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="text-center text-sm text-primary py-2 font-medium"
+            className="text-center text-sm text-aria-violet py-2 font-medium"
           >
             {selectedMotivations.length === 1 && "Capito! 🌟"}
             {selectedMotivations.length >= 2 && "Perfetto, sono qui per tutto questo 💫"}

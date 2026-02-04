@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, MessageCircle } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 interface NameInputStepProps {
   value: string;
@@ -40,21 +40,34 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
 
   return (
     <div className="flex-1 flex flex-col px-6 py-8">
-      {/* Header with Avatar - Aurora themed */}
+      {/* Header with Aurora Orb Avatar */}
       <motion.div 
         className="mb-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Avatar bubble with Aurora gradient */}
+        {/* Aurora Orb with Concentric Rings */}
         <motion.div 
-          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-aria-violet/20 to-aria-indigo/10 flex items-center justify-center mb-6 border border-aria-violet/30 shadow-aria-glow backdrop-blur-xl"
+          className="relative w-20 h-20 mb-6"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={spring}
         >
-          <MessageCircle className="w-8 h-8 text-aria-violet" />
+          {/* Outer ring */}
+          <motion.div 
+            className="absolute inset-[-12px] rounded-full border border-aria-violet/20 ring-concentric-2"
+          />
+          
+          {/* Middle ring */}
+          <motion.div 
+            className="absolute inset-[-6px] rounded-full border border-aria-violet/30 ring-concentric-1"
+          />
+          
+          {/* Main orb */}
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-aria-violet/20 to-aria-indigo/10 flex items-center justify-center border border-aria-violet/30 shadow-aria-glow backdrop-blur-xl">
+            <Sparkles className="w-10 h-10 text-aria-violet" />
+          </div>
         </motion.div>
         
         <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -71,12 +84,21 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
           <motion.div 
             className={`
               relative rounded-2xl transition-all duration-300
-              ${isFocused ? 'shadow-aria-glow' : 'shadow-glass'}
+              ${isFocused ? 'shadow-[0_0_25px_rgba(155,111,208,0.3)]' : 'shadow-glass'}
             `}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
+            {/* Gradient border effect */}
+            <div className={`
+              absolute inset-0 rounded-2xl transition-opacity duration-300
+              bg-gradient-to-r from-aria-violet/50 via-aria-indigo/50 to-aria-purple/50
+              ${isFocused ? 'opacity-100' : 'opacity-0'}
+            `} style={{ padding: '2px' }}>
+              <div className="w-full h-full rounded-2xl bg-background" />
+            </div>
+            
             <Input
               ref={inputRef}
               type="text"
@@ -87,7 +109,7 @@ const NameInputStep: React.FC<NameInputStepProps> = ({ value, onChange, onNext }
               onKeyDown={handleKeyDown}
               placeholder="Il tuo nome"
               enterKeyHint="done"
-              className="h-16 text-xl text-center rounded-2xl border-2 bg-glass backdrop-blur-xl transition-all duration-300 focus:border-aria-violet focus:ring-0 focus:outline-none border-glass-border"
+              className="relative h-16 text-xl text-center rounded-2xl border-2 bg-glass backdrop-blur-xl transition-all duration-300 focus:border-aria-violet focus:ring-0 focus:outline-none border-glass-border"
               autoFocus
             />
           </motion.div>

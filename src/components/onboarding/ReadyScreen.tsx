@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sparkles, MessageCircle, Shield, Heart, Target, Loader2 } from 'lucide-react';
+import FloatingParticles from '@/components/aria/FloatingParticles';
 
 interface ReadyScreenProps {
   userName: string;
@@ -43,7 +44,6 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Simulate profile preparation
     const progressInterval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -71,6 +71,9 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-aria-violet/20 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-1/3 right-1/4 w-48 h-48 bg-aria-indigo/15 rounded-full blur-3xl animate-pulse delay-700" />
 
+      {/* Floating Particles */}
+      <FloatingParticles />
+
       <AnimatePresence mode="wait">
         {isProcessing ? (
           /* Processing State */
@@ -82,8 +85,18 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
             transition={{ type: "spring", damping: 25 }}
             className="relative z-10 flex flex-col items-center text-center"
           >
-            {/* Animated Loader */}
+            {/* Animated Loader with Rings */}
             <div className="relative mb-6">
+              {/* Outer ring */}
+              <motion.div 
+                className="absolute inset-[-12px] rounded-full border border-aria-violet/20 ring-concentric-2"
+              />
+              
+              {/* Middle ring */}
+              <motion.div 
+                className="absolute inset-[-6px] rounded-full border border-aria-violet/30 ring-concentric-1"
+              />
+              
               <motion.div
                 className="w-20 h-20 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                 animate={{ 
@@ -129,9 +142,10 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
             <div className="card-glass p-6 rounded-3xl overflow-hidden relative">
               {/* Inner aurora glow */}
               <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent pointer-events-none" />
               
               <div className="relative z-10">
-                {/* Aria Avatar */}
+                {/* Aria Avatar with Rings */}
                 <div className="flex justify-center mb-5">
                   <motion.div
                     initial={{ scale: 0 }}
@@ -139,6 +153,16 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                     transition={{ type: "spring", delay: 0.1, stiffness: 200 }}
                     className="relative"
                   >
+                    {/* Outer ring */}
+                    <motion.div 
+                      className="absolute inset-[-10px] rounded-full border border-aria-violet/20 ring-concentric-2"
+                    />
+                    
+                    {/* Middle ring */}
+                    <motion.div 
+                      className="absolute inset-[-5px] rounded-full border border-aria-violet/30 ring-concentric-1"
+                    />
+                    
                     <div className="w-16 h-16 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow">
                       <Sparkles className="w-8 h-8 text-white" />
                     </div>
@@ -178,7 +202,7 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.25 + index * 0.1 }}
-                        className="flex items-center gap-3 p-2.5 rounded-xl bg-secondary/40 border border-border/30"
+                        className="flex items-center gap-3 p-2.5 rounded-xl bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
                       >
                         <div className="w-8 h-8 rounded-full bg-aria-violet/20 flex items-center justify-center flex-shrink-0">
                           <item.icon className="w-4 h-4 text-aria-violet" />
@@ -213,7 +237,7 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                             key={goalId}
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-aria-violet/10 border border-aria-violet/20"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-glass backdrop-blur-xl border border-aria-violet/20 shadow-glass"
                           >
                             <span className="text-sm">{goal.emoji}</span>
                             <span className="text-[11px] font-medium text-foreground/80">{goal.label}</span>
@@ -244,7 +268,7 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                   <Button
                     variant="ghost"
                     onClick={() => onComplete(false)}
-                    className="w-full h-10 rounded-full text-muted-foreground text-sm hover:bg-secondary/50"
+                    className="w-full h-10 rounded-full text-muted-foreground text-sm hover:bg-glass"
                   >
                     Più tardi
                   </Button>
