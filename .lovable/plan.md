@@ -1,162 +1,179 @@
 
+# Redesign Profilo: Layout Compatto e UX Ottimizzata
 
-# Piano: Check-in Intelligenti e Focus Topics Clinici
+## Problemi Attuali
 
-## Problema Attuale
+### Spazio Sprecato
+1. **Header card troppo alta** - Contiene nome, badge, punti, stats, badges, AND "Guadagna Punti" collapsible
+2. **Premium Card separata** - Duplica info gia presente nel badge "Free/Plus"
+3. **Punti mostrati 2 volte** - Nell'header E nel PointsProgressCard
+4. **7 settings items** - Lista molto lunga con padding eccessivo (py-4 per ogni item)
 
-### Check-in
-La selezione degli 8 check-in giornalieri è quasi casuale perche:
-- NON considera quali dati mancano da giorni/settimane
-- NON priorizza metriche critiche da monitorare
-- Priorita statica (vitals=70, altri=50) invece che basata su necessita
-
-### Focus Topics
-Mostra solo 9 metriche hardcoded su ~66 disponibili:
-- 5 emozioni base (joy, sadness, anger, fear, apathy)
-- 4 psychology (rumination, burnout, gratitude, loneliness)
-
-Ignora completamente hope (8/10), motivation (9/10), growth (9/10) che sono i veri focus dell'utente!
+### UX Confusa
+5. **"Guadagna Punti" nascosto** - Richiede tap extra per vedere streak/referral
+6. **Stats sparsi** - Streak, sessioni, punti in posti diversi
+7. **Badge floating** - Senza una sezione chiara
+8. **Settings button inutile** - In alto a destra ma non fa nulla
 
 ---
 
-## Soluzione: Check-in con "Data Hunting"
-
-### Nuova Logica di Selezione
+## Nuovo Design: Layout Verticale Ottimizzato
 
 ```text
-PRIORITA 1 - MONITORAGGIO CRITICO (sempre inclusi)
-  - Safety indicators (hopelessness, suicidal_ideation) se mai rilevati
-  - Ansia se storicamente > 6/10
-  - Mood quotidiano (metrica base)
-
-PRIORITA 2 - DATA HUNTING (dati mancanti)
-  - Metriche MAI rilevate dal profilo = priorita massima
-  - Metriche mancanti da >7 giorni = priorita alta
-  - Metriche mancanti da >3 giorni = priorita media
-
-PRIORITA 3 - BILANCIAMENTO CATEGORIE
-  - Almeno 1-2 vitali (mood, anxiety, energy, sleep)
-  - Almeno 1-2 life areas (work/school, social, health, love)
-  - Almeno 1-2 psychology (basati su bisogni)
-  - Habits attive dell'utente
++------------------------------------------+
+|  HEADER COMPATTO                          |
+|  +------+  Nome Utente                    |
+|  | 👤  |  🔥 12 giorni • 💬 24 sessioni  |
+|  +------+  💎 850 punti                   |
++------------------------------------------+
+|  PROGRESS STREAK (inline, sempre visibile)|
+|  [=========>         ] 12/30 giorni       |
+|  +150 pts al prossimo traguardo           |
++------------------------------------------+
+|  PREMIUM CTA (solo se Free, compatto)     |
+|  ✨ Passa a Plus • €4.99/mese  [Scopri >] |
++------------------------------------------+
+|  IMPOSTAZIONI (gruppi compatti)           |
+|  👤 Account                               |
+|     Dati personali • Interessi            |
+|  ⚙️ Preferenze                            |
+|     Notifiche • Aspetto • Privacy         |
+|  🏥 Salute                                |
+|     Area Terapeutica                      |
+|  ❓ Supporto                              |
+|     Aiuto • Invita amici (+400 pts)       |
++------------------------------------------+
+|  [Esci]                                   |
++------------------------------------------+
 ```
-
-### Implementazione Edge Function
-
-Modificare `supabase/functions/ai-checkins/index.ts`:
-
-1. **Nuova query storica** - Fetchare dati ultimi 14 giorni per calcolare:
-   - Quali metriche non sono MAI state rilevate
-   - Quali metriche mancano da X giorni
-   - Quali metriche hanno valori critici da monitorare
-
-2. **Scoring dinamico** per ogni metrica:
-   - `+100` se mai rilevata
-   - `+50` se mancante da >7 giorni
-   - `+30` se mancante da >3 giorni  
-   - `+40` se valore storico critico (ansia >6, hopelessness >4)
-   - `+20` se vital base (mood)
-
-3. **AI refinement** con contesto arricchito:
-   - Passa all'AI quali metriche mancano e da quanto
-   - L'AI sceglie bilanciando importanza clinica e necessita dati
 
 ---
 
-## Soluzione: Focus Topics Clinici
+## Modifiche Tecniche
 
-### Nuova Logica
+### 1. Profile.tsx - Nuovo Layout Compatto
 
-```text
-FONTI DATI (tutte considerate):
-  - 20 Emozioni (joy, hope, fear, curiosity, serenity, etc.)
-  - 9 Life Areas (work, love, social, growth, etc.)
-  - 12 Resources (motivation, self_efficacy, gratitude, etc.)
-  - 8 Attention Signals (anxiety, rumination, burnout, etc.)
+**Header semplificato:**
+- Avatar placeholder con iniziali (o emoji)
+- Nome + badge Premium inline
+- Stats in una riga: streak, sessioni, punti
 
-SELEZIONE TOP 4:
-  1. Ordina TUTTE le metriche per intensita (valore piu alto)
-  2. Prendi le top 4 con valore >= 5
-  3. Etichetta ogni focus con categoria (emozione/area/risorsa/attenzione)
+**Streak Progress inline:**
+- Barra progresso sempre visibile (non collapsible)
+- Mostra giorni correnti e punti al prossimo milestone
+
+**Premium CTA condizionale:**
+- Solo se utente Free
+- Una riga con prezzo e CTA
+
+**Settings raggruppati:**
+- 4 gruppi invece di 7 items separati
+- Padding ridotto (py-2.5 invece di py-4)
+- Items inline dove possibile
+
+### 2. Componenti Eliminati/Semplificati
+
+| Componente | Azione |
+|------------|--------|
+| `PointsProgressCard` | Inline nel header (no collapse) |
+| `PremiumCard` | Ridotto a 1 riga CTA |
+| `ProfileBadgesRow` | Spostato in sottopagina |
+| `ProfileStatsRow` | Inline sotto nome |
+
+### 3. Nuovo ProfileCompactHeader Component
+
+```tsx
+// Combina: nome, stats, streak progress
+- Avatar con iniziali o emoji
+- Nome + badge plan
+- Stats row: 🔥 streak | 💬 sessions | 💎 points
+- Progress bar streak (always visible)
 ```
 
-### Implementazione Component
+### 4. Settings Grouped Component
 
-Modificare `src/components/home/FocusTopics.tsx`:
-
-1. **Espandere useTimeWeightedMetrics** per includere:
-   - Nuove 6 emozioni (disgust, surprise, serenity, pride, affection, curiosity)
-   - Nuove 3 life areas (family, leisure, finances)
-   - Risorse positive (motivation, sense_of_purpose, resilience, etc.)
-
-2. **Nuovo algoritmo di selezione**:
-   - Raccoglie TUTTE le metriche con valore > 0
-   - Le ordina per intensita
-   - Mostra le top 4 con etichette colorate per tipo
-
-3. **Visualizzazione migliorata**:
-   - Emozioni positive = verde
-   - Emozioni negative/attenzione = arancione/rosso
-   - Life areas = blu
-   - Risorse = viola
+```tsx
+// 4 gruppi con header + items compatti
+const settingsGroups = [
+  {
+    label: 'Account',
+    icon: '👤',
+    items: [
+      { label: 'Dati personali', action: '/profile/personal' },
+      { label: 'Interessi', action: '/profile/interests' },
+    ]
+  },
+  {
+    label: 'Preferenze',
+    icon: '⚙️',
+    items: [
+      { label: 'Notifiche', action: 'notifications' },
+      { label: 'Aspetto', action: 'appearance' },
+      { label: 'Privacy', action: '/profile/privacy' },
+    ]
+  },
+  {
+    label: 'Salute',
+    icon: '🏥',
+    items: [
+      { label: 'Area Terapeutica', action: '/profile/clinical' },
+    ]
+  },
+  {
+    label: 'Supporto',
+    icon: '❓',
+    items: [
+      { label: 'Aiuto', action: '/profile/help' },
+      { label: 'Invita amici', action: 'referral', badge: '+400' },
+    ]
+  }
+];
+```
 
 ---
 
 ## File da Modificare
 
-### 1. `supabase/functions/ai-checkins/index.ts`
-- Aggiungere query storica per "data hunting"
-- Implementare scoring dinamico
-- Migliorare prompt AI con contesto dati mancanti
-- Bilanciare categorie nella selezione finale
+### `src/pages/Profile.tsx`
+- Rimuovere `<PremiumCard />` separata
+- Rimuovere `<PointsProgressCard compact />` collapsible
+- Implementare nuovo layout con sezioni inline
+- Ridurre padding globale (space-y-4 invece di space-y-5)
 
-### 2. `src/components/home/FocusTopics.tsx`
-- Espandere pool metriche considerate (da 9 a ~50)
-- Includere life areas e risorse positive
-- Aggiungere etichette categoria
-- Migliorare visualizzazione con colori per tipo
+### `src/components/profile/ProfileCompactHeader.tsx` (nuovo)
+- Avatar con iniziali
+- Nome + badge inline
+- Stats row compatta
+- Streak progress sempre visibile
+- Referral code inline (opzionale)
 
-### 3. `src/hooks/useTimeWeightedMetrics.tsx`
-- Aggiungere le 6 nuove emozioni
-- Aggiungere le 3 nuove life areas
-- Aggiungere parametri risorse (motivation, sense_of_purpose, etc.)
+### `src/components/profile/SettingsGroupList.tsx` (nuovo)
+- Settings raggruppati per categoria
+- Items compatti con padding ridotto
+- Badge per azioni speciali (es. +400 pts referral)
 
----
-
-## Esempio Risultato Atteso
-
-### Check-in per l'utente attuale
-
-Prima (casuale):
-```
-rumination, joy, burnout, social, sadness, anxiety, work, gratitude
-```
-
-Dopo (data-driven):
-```
-mood (vital base), anxiety (storico), love (mancante 5gg), 
-health (mai rilevato), sleep (vital), family (mai rilevato),
-motivation (conferma valore alto), finances (nuovo + obiettivo)
-```
-
-### Focus Topics per l'utente attuale
-
-Prima (limitato):
-```
-gioia 5/10, gratitudine 6/10
-```
-
-Dopo (completo):
-```
-motivazione 9/10 (risorsa), speranza 8/10 (emozione), 
-crescita 9/10 (area vita), curiosita 7/10 (emozione)
-```
+### `src/components/profile/CompactPremiumBanner.tsx` (nuovo)
+- Una riga: icona + testo + prezzo + CTA
+- Solo visibile se utente Free
+- Stile gradient subtle
 
 ---
 
-## Note Tecniche
+## Stima Risparmio Spazio
 
-- Le nuove colonne database (emotions, life areas, psychology) sono gia state aggiunte nelle migrazioni precedenti
-- L'edge function `process-session` gia estrae tutte le 66 metriche
-- Il hook `useTimeWeightedMetrics` va solo esteso per esporre le nuove metriche
+| Sezione | Prima | Dopo | Risparmio |
+|---------|-------|------|-----------|
+| Header card | ~200px | ~120px | 40% |
+| Premium card | ~180px | ~50px | 72% |
+| Settings | ~400px | ~280px | 30% |
+| **Totale** | ~780px | ~450px | **42%** |
 
+---
+
+## Vantaggi UX
+
+1. **Tutto visibile** - No collapse, no tap extra
+2. **Hierarchy chiara** - Gruppi logici per settings
+3. **Focus su azioni** - CTA Premium e referral prominenti
+4. **Consistenza** - Stile Liquid Glass unificato
+5. **Mobile-first** - Ottimizzato per thumb-zone
