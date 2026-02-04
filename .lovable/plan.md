@@ -1,263 +1,235 @@
 
+# Redesign Completo Sezione Analisi - Design Attraente
 
-# Riorganizzazione Clinica Sezione Analisi
+## Problemi Attuali (dalla screenshot)
+1. **Card piatte e noiose**: Solo testo + numero senza elementi visivi
+2. **Spazi vuoti**: Card singola su una riga crea "buco" visivo
+3. **Mancanza di gerarchia**: Tutte le sezioni sembrano uguali
+4. **Nessun grafico attraente**: Solo un minuscolo sparkline invisibile
+5. **Sezioni non contenute**: Ogni dominio sembra "fluttuare"
 
-## Analisi dello Stato Attuale
+## Soluzione: Design a 3 Livelli
 
-### Problemi Identificati
-1. **Terminologia errata**: "Parametri Vitali" è un termine medico (frequenza cardiaca, pressione, ecc.) - non psicologico
-2. **Organizzazione non clinica**: I dati sono raggruppati per fonte tecnica, non per dominio psicologico
-3. **Storico limitato**: Solo 4 metriche cliccabili su ~40 tracciate
-4. **Ridondanza**: 16 metriche psicologiche + 14 emozioni con sovrapposizioni
-5. **Mancano aggregazioni**: Nessun indice composito clinicamente significativo
-6. **UX passiva**: Grafici statici da scrollare invece di esplorazione interattiva
-
-### Metriche Attualmente Tracciate
-- **Sessioni/Check-in**: mood, anxiety, energy, sleep (4)
-- **Emozioni**: 14 emozioni (gioia, tristezza, rabbia, paura, apatia + 9 secondarie)
-- **Psicologia**: 16 metriche (ruminazione, burnout, autoefficacia, ecc.)
-- **Aree Vita**: 6 aree (lavoro/scuola, amore, sociale, salute, crescita)
-
----
-
-## Nuova Architettura: Domini Clinici
-
-### Struttura Proposta (6 Domini)
+### Livello 1: Card Contenitore per Dominio
+Ogni dominio clinico avrà una card contenitore con:
+- Sfondo glass con bordo sottile
+- Header con icona + titolo
+- Le metriche all'interno organizzate
 
 ```text
-┌─────────────────────────────────────────────────┐
-│  📊 Analisi                                     │
-│  Il tuo benessere psicologico                   │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  [Oggi] [Settimana] [Mese] [Tutto]              │
-│                                                 │
-│  ══════════════════════════════════════════════ │
-│                                                 │
-│  💜 STATO EMOTIVO                               │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐   │
-│  │ Umore  │ │ Gioia  │ │ Triste │ │ Rabbia │   │
-│  │  7.2↑  │ │  6.5↑  │ │  2.1↓  │ │  1.8→  │   │
-│  │ ▂▃▅▆▇  │ │ ▃▄▅▆▇  │ │ ▇▅▃▂▁  │ │ ▂▂▂▂▂  │   │
-│  └────────┘ └────────┘ └────────┘ └────────┘   │
-│  (scroll per vedere tutte le 14+ emozioni)     │
-│                                                 │
-│  ⚡ ATTIVAZIONE                                 │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐   │
-│  │ Ansia  │ │ Energia│ │ Nervos │ │ Sopraf │   │
-│  │  4.1↓  │ │  6.8→  │ │  3.2↓  │ │  2.5↓  │   │
-│  │ ▇▆▅▄▃  │ │ ▄▄▅▅▄  │ │ ▆▅▄▃▂  │ │ ▅▄▃▂▂  │   │
-│  └────────┘ └────────┘ └────────┘ └────────┘   │
-│                                                 │
-│  🧠 COGNITIVO                                   │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐   │
-│  │Chiarezz│ │Concentr│ │Ruminaz │ │Pensieri│   │
-│  │  6.2→  │ │  5.8→  │ │  3.5↓  │ │  2.8↓  │   │
-│  │ ▄▄▅▅▅  │ │ ▃▄▄▅▅  │ │ ▆▅▄▃▃  │ │ ▅▄▃▃▂  │   │
-│  └────────┘ └────────┘ └────────┘ └────────┘   │
-│                                                 │
-│  💤 SOMATICO                                    │
-│  ┌────────┐ ┌────────┐ ┌────────┐              │
-│  │ Sonno  │ │Tensione│ │Appetito│              │
-│  │  7.5↑  │ │  3.0↓  │ │  5.5→  │              │
-│  │ ▂▃▅▆▇  │ │ ▆▅▄▃▂  │ │ ▄▄▅▅▅  │              │
-│  └────────┘ └────────┘ └────────┘              │
-│                                                 │
-│  🧭 FUNZIONAMENTO                               │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐   │
-│  │ Lavoro │ │ Amore  │ │ Sociale│ │ Salute │   │
-│  │  6.0↑  │ │  7.2→  │ │  5.5↑  │ │  6.8→  │   │
-│  │ ▂▃▄▅▆  │ │ ▅▅▆▆▆  │ │ ▂▃▄▅▆  │ │ ▅▅▆▆▆  │   │
-│  └────────┘ └────────┘ └────────┘ └────────┘   │
-│                                                 │
-│  💪 RISORSE PERSONALI                           │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐   │
-│  │Autoeffi│ │Autostim│ │Gratitud│ │Motivaz │   │
-│  │  7.8↑  │ │  6.5→  │ │  7.2↑  │ │  6.0→  │   │
-│  │ ▃▄▅▆▇  │ │ ▄▄▅▅▅  │ │ ▃▄▅▆▇  │ │ ▄▄▅▅▅  │   │
-│  └────────┘ └────────┘ └────────┘ └────────┘   │
-│                                                 │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ 💜 Stato Emotivo                        │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐    │
+│ │ 😌      │ │ 😊      │ │ 😨      │    │
+│ │ ●●●○    │ │ ●●●●    │ │ ●○○○    │    │
+│ │ Umore   │ │ Gioia   │ │ Paura   │    │
+│ │ 8.0     │ │ 7.0     │ │ 2.0     │    │
+│ └─────────┘ └─────────┘ └─────────┘    │
+└─────────────────────────────────────────┘
 ```
 
-### Mappatura Metriche per Dominio
+### Livello 2: Card Metrica con Progress Ring
+Ogni metrica avrà un mini progress ring visivo:
 
-| Dominio | Metriche | Fonte DB |
-|---------|----------|----------|
-| **Stato Emotivo** | Umore, Gioia, Tristezza, Rabbia, Paura, Apatia, Vergogna, Gelosia, Speranza, Frustrazione, Nostalgia, Eccitazione, Delusione | `sessions`, `daily_emotions` |
-| **Attivazione** | Ansia, Energia, Nervosismo, Sopraffazione, Burnout, Irritabilità | `sessions`, `daily_emotions`, `daily_psychology` |
-| **Cognitivo** | Chiarezza Mentale, Concentrazione, Ruminazione, Pensieri Intrusivi | `daily_psychology` |
-| **Somatico** | Qualità Sonno, Tensione Fisica, Appetito, Esposizione Sole | `sessions`, `daily_psychology` |
-| **Funzionamento** | Lavoro/Scuola, Amore, Sociale, Salute, Crescita | `daily_life_areas` |
-| **Risorse** | Autoefficacia, Autostima, Gratitudine, Motivazione, Coping | `daily_psychology` |
+```text
+┌───────────────┐
+│     😌        │  <- Icona grande centrata
+│   ╭───╮       │
+│   │ ● │       │  <- Progress ring colorato
+│   ╰───╯       │
+│   Umore       │  <- Label
+│    8.0        │  <- Valore grande
+│    ↑          │  <- Trend piccolo
+└───────────────┘
+```
 
----
+### Livello 3: Layout Intelligente Anti-Vuoto
+- **3 colonne** per le metriche (più compatte, meno spazi)
+- Quando il numero è **non divisibile per 3**, l'ultima card si espande
+- Es: 4 metriche = 3 + 1 (espansa a tutta larghezza)
+- Es: 5 metriche = 3 + 2 (due card a metà)
+
+## Struttura Visiva Finale
+
+```text
+┌─────────────────────────────────────────┐
+│  📊 Analisi                             │
+│  Il tuo benessere psicologico           │
+│                                         │
+│  [Settimana] [Mese] [Tutto]             │
+│                                         │
+│  ╔═════════════════════════════════════╗│
+│  ║ 💜 Stato Emotivo                    ║│
+│  ║ ┌──────┐ ┌──────┐ ┌──────┐         ║│
+│  ║ │  😌  │ │  😊  │ │  😨  │         ║│
+│  ║ │ ╭─╮  │ │ ╭─╮  │ │ ╭─╮  │         ║│
+│  ║ │ │●│  │ │ │●│  │ │ │○│  │         ║│
+│  ║ │ ╰─╯  │ │ ╰─╯  │ │ ╰─╯  │         ║│
+│  ║ │Umore │ │Gioia │ │Paura │         ║│
+│  ║ │ 8.0  │ │ 7.0  │ │ 2.0  │         ║│
+│  ║ └──────┘ └──────┘ └──────┘         ║│
+│  ╚═════════════════════════════════════╝│
+│                                         │
+│  ╔═════════════════════════════════════╗│
+│  ║ ⚡ Attivazione                       ║│
+│  ║ ┌────────────────────────────────┐  ║│
+│  ║ │        😰  Ansia               │  ║│
+│  ║ │        ╭─────╮                 │  ║│ <- Card singola espansa
+│  ║ │        │  ●  │  2.0 ↓          │  ║│    con ring più grande
+│  ║ │        ╰─────╯                 │  ║│
+│  ║ └────────────────────────────────┘  ║│
+│  ╚═════════════════════════════════════╝│
+│                                         │
+│  ╔═════════════════════════════════════╗│
+│  ║ 🧠 Cognitivo                        ║│
+│  ║ ┌────────────────────────────────┐  ║│
+│  ║ │   💡  Chiarezza Mentale        │  ║│
+│  ║ │   ╭─────╮                      │  ║│
+│  ║ │   │  ●  │  8.0 ↑               │  ║│
+│  ║ │   ╰─────╯                      │  ║│
+│  ║ └────────────────────────────────┘  ║│
+│  ╚═════════════════════════════════════╝│
+│                                         │
+└─────────────────────────────────────────┘
+```
 
 ## Componenti Tecnici
 
-### 1. UnifiedMetricCard (Nuovo)
-
-Card compatta e cliccabile per ogni singola metrica:
+### 1. RichMetricCard (sostituzione UnifiedMetricCard)
+Card con progress ring SVG integrato:
 
 ```typescript
-interface UnifiedMetricCardProps {
+interface RichMetricCardProps {
   metricKey: string;
   label: string;
   icon: string;
   color: string;
-  value: number | null;        // Media periodo
+  value: number | null;
   trend: 'up' | 'down' | 'stable';
-  sparklineData: number[];     // Ultimi 7 punti
-  isNegative?: boolean;        // Se true, basso = buono
+  isNegative?: boolean;
+  size?: 'compact' | 'expanded';  // Per gestire card singole
   onClick: () => void;
 }
 ```
 
 Caratteristiche:
-- Dimensione: ~100x90px (compatta)
-- Valore grande con colore semantico
-- Mini-sparkline SVG (7 punti)
-- Freccia trend con significato invertito per metriche negative
-- Feedback tattile al click
+- Progress ring SVG con animazione
+- Icona centrata sopra il ring
+- Valore grande sotto con colore semantico
+- Trend indicator discreto
+- Variante `expanded` per card singole (ring piu grande, layout orizzontale)
 
-### 2. ClinicalDomainSection (Nuovo)
-
-Wrapper per ogni dominio clinico:
+### 2. DomainCard (nuova wrapper)
+Card contenitore per ogni dominio:
 
 ```typescript
-interface ClinicalDomainSectionProps {
-  title: string;
-  icon: string;
-  description?: string;
-  metrics: MetricConfig[];
+interface DomainCardProps {
+  domain: ClinicalDomain;
+  children: React.ReactNode;
+}
+```
+
+Caratteristiche:
+- Sfondo `bg-glass/30` con bordo `border-glass-border`
+- Header con icona + titolo dominio
+- Padding interno uniforme
+- Radius arrotondato per effetto "contenitore"
+
+### 3. SmartMetricsGrid (layout intelligente)
+Griglia che elimina spazi vuoti:
+
+```typescript
+interface SmartMetricsGridProps {
+  metrics: ClinicalMetric[];
   metricsData: Record<string, MetricData>;
   onMetricClick: (key: string) => void;
 }
 ```
 
-Caratteristiche:
-- Header con icona + titolo dominio
-- ScrollArea orizzontale per overflow
-- Griglia responsiva 2-4 colonne
-- Collapse/expand opzionale
-
-### 3. MetricDetailSheet (Estensione)
-
-Estendere per supportare TUTTE le ~40 metriche:
-
-```typescript
-// Aggiungere casi per:
-- Tutte le 14 emozioni (joy, sadness, anger, fear, apathy, shame, jealousy, hope, frustration, nostalgia, nervousness, overwhelm, excitement, disappointment)
-- Tutte le 16 metriche psicologiche
-- Tutte le 6 aree vita
-```
-
-### 4. Configurazione Metriche Centralizzata
-
-Nuovo file `src/lib/clinicalDomains.ts`:
-
-```typescript
-export interface ClinicalMetric {
-  key: string;
-  label: string;
-  icon: string;
-  color: string;
-  domain: 'emotional' | 'activation' | 'cognitive' | 'somatic' | 'functioning' | 'resources';
-  source: 'vitals' | 'emotions' | 'psychology' | 'life_areas';
-  isNegative: boolean;
-  description: string;
-}
-
-export const CLINICAL_DOMAINS = [
-  {
-    id: 'emotional',
-    label: 'Stato Emotivo',
-    icon: '💜',
-    description: 'Come ti senti emotivamente'
-  },
-  // ... altri domini
-];
-
-export const ALL_CLINICAL_METRICS: ClinicalMetric[] = [
-  // ~40 metriche con configurazione completa
-];
-```
-
----
+Logica:
+- Filtra metriche con dati
+- Se count === 1: card espansa a tutta larghezza
+- Se count === 2: due card a meta
+- Se count >= 3: griglia 3 colonne
+- Ultima riga: espande per riempire
 
 ## File da Modificare
 
 ### Creare
-1. `src/lib/clinicalDomains.ts` - Configurazione domini e metriche
-2. `src/components/analisi/UnifiedMetricCard.tsx` - Card metrica singola
-3. `src/components/analisi/ClinicalDomainSection.tsx` - Sezione dominio
-4. `src/components/analisi/AnalisiRedesigned.tsx` - Nuovo layout principale
+1. `src/components/analisi/RichMetricCard.tsx` - Card con progress ring
+2. `src/components/analisi/DomainCard.tsx` - Card contenitore dominio
 
 ### Modificare
-1. `src/components/analisi/MetricDetailSheet.tsx` - Supporto tutte le metriche
-2. `src/pages/Analisi.tsx` - Integrare nuovo layout
+1. `src/components/analisi/ClinicalDomainSection.tsx` - Usare DomainCard + layout smart
+2. `src/components/analisi/UnifiedMetricCard.tsx` - Sostituire con RichMetricCard
 
-### Deprecare (mantenere per ora, rimuovere dopo test)
-- `DynamicVitalsGrid.tsx`
-- `EmotionalSpectrumRadar.tsx`
-- `EmotionalMixBar.tsx`
-- `DeepPsychologyCard.tsx`
-- `LifeBalanceRadar.tsx`
+### Rimuovere/Deprecare
+- Il vecchio `UnifiedMetricCard.tsx` sara sostituito
 
----
+## Dettagli Implementativi
 
-## Logica di Rendering
-
-### Visibilità Sezioni
+### Progress Ring SVG
 ```typescript
-// Mostra dominio solo se ha almeno 1 metrica con dati
-const shouldShowDomain = (domain: ClinicalDomain, data: MetricData[]) => {
-  return domain.metrics.some(m => data[m.key]?.value !== null);
+const ProgressRing = ({ value, color, size = 40 }) => {
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (value / 10) * circumference;
+  
+  return (
+    <svg width={size} height={size}>
+      {/* Background circle */}
+      <circle
+        cx={size/2}
+        cy={size/2}
+        r={radius}
+        fill="none"
+        stroke="hsl(var(--muted))"
+        strokeWidth={strokeWidth}
+      />
+      {/* Progress arc */}
+      <circle
+        cx={size/2}
+        cy={size/2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference - progress}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+      />
+    </svg>
+  );
 };
 ```
 
-### Time Selector Intelligente
-- Mostra "Oggi" solo se ci sono dati oggi
-- Sempre visibile anche senza dati nel range (per cambiare range)
-
-### Semantic Colors
+### Layout Grid Intelligente
 ```typescript
-const getScoreColor = (value: number, isNegative: boolean) => {
-  if (isNegative) {
-    // Per metriche negative (ansia, ruminazione): basso = verde
-    if (value <= 3) return 'text-emerald-500';
-    if (value <= 6) return 'text-amber-500';
-    return 'text-orange-500';
-  } else {
-    // Per metriche positive (umore, gioia): alto = verde
-    if (value >= 7) return 'text-emerald-500';
-    if (value >= 4) return 'text-amber-500';
-    return 'text-orange-500';
-  }
+const getGridLayout = (count: number) => {
+  if (count === 1) return 'grid-cols-1';
+  if (count === 2) return 'grid-cols-2';
+  return 'grid-cols-3';
+};
+
+const getLastRowSpan = (count: number, index: number) => {
+  const remainder = count % 3;
+  const isLastRow = index >= count - remainder;
+  
+  if (remainder === 1 && isLastRow) return 'col-span-3'; // Espandi a tutta larghezza
+  if (remainder === 2 && isLastRow) return 'col-span-1'; // Due card normali
+  return 'col-span-1';
 };
 ```
-
----
 
 ## Vantaggi del Nuovo Design
 
-1. **Clinicamente corretto**: Terminologia e organizzazione psicologica valida
-2. **Storico universale**: Ogni singola metrica è cliccabile e mostra andamento
-3. **Densità informativa**: Più dati in meno spazio
-4. **Esplorazione attiva**: L'utente scopre invece di scrollare passivamente
-5. **Mobile-first**: Card touch-friendly
-6. **Scalabile**: Facile aggiungere nuove metriche o domini
-7. **Semantico**: Colori che comunicano significato (verde = bene, anche per ansia bassa)
-
----
-
-## Sequenza Implementazione
-
-1. Creare `clinicalDomains.ts` con configurazione completa
-2. Creare `UnifiedMetricCard.tsx` componente base
-3. Creare `ClinicalDomainSection.tsx` wrapper
-4. Estendere `MetricDetailSheet.tsx` per tutte le metriche
-5. Creare nuovo layout in `Analisi.tsx`
-6. Testing e polish
-7. Deprecare vecchi componenti
-
+1. **Visivamente attraente**: Progress ring colorati invece di numeri piatti
+2. **Zero spazi vuoti**: Layout intelligente che adatta le card
+3. **Gerarchia chiara**: Card contenitore per ogni dominio
+4. **Consistenza Liquid Glass**: Usa il design system esistente
+5. **Feedback visivo**: Ring animati e colori semantici
+6. **Compattezza**: 3 colonne invece di 2 = piu metriche visibili
+7. **Touch-friendly**: Card grandi e ben spaziate
