@@ -14,11 +14,15 @@ interface LifeBalanceScores {
   growth: number | null;
 }
 
+// Extended Emotions Interface (20 emotions)
 interface SpecificEmotions {
+  // Base emotions (Ekman model)
   joy: number;
   sadness: number;
   anger: number;
   fear: number;
+  disgust?: number;      // NEW: Disgusto - base Ekman
+  surprise?: number;     // NEW: Sorpresa - base Ekman
   apathy: number;
   // Secondary emotions
   shame?: number;
@@ -26,11 +30,15 @@ interface SpecificEmotions {
   hope?: number;
   frustration?: number;
   nostalgia?: number;
-  // NEW: Extended emotions (Profilazione 360°)
-  nervousness?: number;    // Nervosismo/agitazione
-  overwhelm?: number;      // Sopraffazione
-  excitement?: number;     // Eccitazione/entusiasmo
-  disappointment?: number; // Delusione
+  nervousness?: number;
+  overwhelm?: number;
+  excitement?: number;
+  disappointment?: number;
+  // NEW: Extended emotions
+  serenity?: number;     // Calma/pace interiore
+  pride?: number;        // Orgoglio/soddisfazione
+  affection?: number;    // Affetto/tenerezza
+  curiosity?: number;    // Curiosità/interesse
 }
 
 interface ClinicalIndices {
@@ -39,13 +47,17 @@ interface ClinicalIndices {
   perceived_stress: number | null;
 }
 
+// Extended Life Areas Interface (9 areas)
 interface LifeAreas {
   work: number | null;
   school: number | null;
   love: number | null;
+  family?: number | null;   // NEW: Relazioni familiari
   health: number | null;
   social: number | null;
   growth: number | null;
+  leisure?: number | null;  // NEW: Tempo libero
+  finances?: number | null; // NEW: Finanze
 }
 
 interface VoiceAnalysis {
@@ -54,29 +66,46 @@ interface VoiceAnalysis {
   confidence: number;
 }
 
-// NEW: Deep Psychology Metrics Interface (16 parametri totali)
+// Extended Deep Psychology Metrics Interface (~32 parametri)
 interface DeepPsychology {
-  // Cognitive (4)
+  // Cognitive (6)
   rumination: number | null;
   self_efficacy: number | null;
   mental_clarity: number | null;
-  concentration: number | null;    // NEW: Livello di concentrazione
-  // Stress & Coping (3)
+  concentration: number | null;
+  dissociation?: number | null;      // NEW: Distacco dalla realtà
+  confusion?: number | null;         // NEW: Confusione mentale
+  // Activation (4)
   burnout_level: number | null;
-  coping_ability: number | null;
-  loneliness_perceived: number | null;
-  // Physiological (3)
+  irritability: number | null;
+  racing_thoughts?: number | null;   // NEW: Pensieri accelerati
+  emotional_regulation?: number | null; // NEW: Capacità regolazione emotiva
+  // Behavioral (4) - NEW CATEGORY
+  avoidance?: number | null;         // NEW: Evitamento situazioni
+  social_withdrawal?: number | null; // NEW: Ritiro sociale
+  compulsive_urges?: number | null;  // NEW: Impulsi compulsivi
+  procrastination?: number | null;   // NEW: Procrastinazione
+  // Somatic (3)
   somatic_tension: number | null;
   appetite_changes: number | null;
   sunlight_exposure: number | null;
-  // Complex Emotional (4)
+  // Resources (11)
+  coping_ability: number | null;
+  loneliness_perceived: number | null;
   guilt: number | null;
   gratitude: number | null;
-  irritability: number | null;
-  // NEW: Extended Psychology (Profilazione 360°)
-  motivation: number | null;        // Livello di motivazione
-  intrusive_thoughts: number | null; // Pensieri intrusivi
-  self_worth: number | null;        // Autostima/valore di sé
+  motivation: number | null;
+  intrusive_thoughts: number | null;
+  self_worth: number | null;
+  sense_of_purpose?: number | null;       // NEW: Senso di scopo
+  life_satisfaction?: number | null;      // NEW: Soddisfazione di vita
+  perceived_social_support?: number | null; // NEW: Supporto sociale
+  resilience?: number | null;             // NEW: Resilienza
+  mindfulness?: number | null;            // NEW: Presenza/consapevolezza
+  // Safety Indicators - CRITICAL (3)
+  suicidal_ideation?: number | null;      // NEW: Pensieri suicidari
+  hopelessness?: number | null;           // NEW: Disperazione
+  self_harm_urges?: number | null;        // NEW: Impulsi autolesionistici
 }
 
 interface UserContext {
@@ -821,7 +850,7 @@ Un utente con ansia 6 e umore 4 NON può avere solo "gioia 100%" -
 deve avere fear >= 3 e sadness >= 2 come minimo.
 
 ═══════════════════════════════════════════════
-📊 STRUTTURA JSON RICHIESTA
+📊 STRUTTURA JSON RICHIESTA (ESTESA v2.0 - ~66 metriche)
 ═══════════════════════════════════════════════
 {
   "vitals": {
@@ -836,6 +865,8 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "anger": <0-10, 0 se non presente>,
     "fear": <0-10, 0 se non presente>,
     "apathy": <0-10, 0 se non ESPLICITAMENTE vuoto/distacco>,
+    "disgust": <0-10, avversione/repulsione>,
+    "surprise": <0-10, reazione all'inaspettato>,
     "shame": <0-10, vergogna/imbarazzo>,
     "jealousy": <0-10, gelosia/invidia>,
     "hope": <0-10, speranza/ottimismo>,
@@ -844,14 +875,22 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "nervousness": <0-10, nervosismo/agitazione - diverso da ansia, più fisico>,
     "overwhelm": <0-10, sopraffazione - troppo da gestire>,
     "excitement": <0-10, eccitazione/entusiasmo positivo>,
-    "disappointment": <0-10, delusione da aspettative non soddisfatte>
+    "disappointment": <0-10, delusione da aspettative non soddisfatte>,
+    "serenity": <0-10, calma interiore e pace>,
+    "pride": <0-10, orgoglio per risultati>,
+    "affection": <0-10, affetto/tenerezza>,
+    "curiosity": <0-10, interesse/voglia di esplorare>
   },
   "life_areas": {
     "work": <1-10 o null>,
+    "school": <1-10 o null>,
     "love": <1-10 o null>,
+    "family": <1-10 o null, relazioni familiari>,
     "health": <1-10 o null>,
     "social": <1-10 o null>,
-    "growth": <1-10 o null>
+    "growth": <1-10 o null>,
+    "leisure": <1-10 o null, tempo libero/hobby>,
+    "finances": <1-10 o null, situazione economica>
   },
   "deep_psychology": {
     "rumination": <1-10 o null, pensieri ossessivi ricorrenti>,
@@ -869,7 +908,23 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
     "irritability": <1-10 o null, irritabilità>,
     "motivation": <1-10 o null, livello di motivazione - diverso da energia>,
     "intrusive_thoughts": <1-10 o null, pensieri intrusivi ego-distonici>,
-    "self_worth": <1-10 o null, autostima/valore di sé>
+    "self_worth": <1-10 o null, autostima/valore di sé>,
+    "dissociation": <1-10 o null, distacco dalla realtà - CRITICO per trauma>,
+    "confusion": <1-10 o null, confusione mentale>,
+    "racing_thoughts": <1-10 o null, pensieri accelerati - indicatore mania>,
+    "emotional_regulation": <1-10 o null, capacità di gestire emozioni>,
+    "avoidance": <1-10 o null, evitamento situazioni - core ansia>,
+    "social_withdrawal": <1-10 o null, ritiro sociale>,
+    "compulsive_urges": <1-10 o null, impulsi compulsivi - OCD>,
+    "procrastination": <1-10 o null, rimandare compiti>,
+    "sense_of_purpose": <1-10 o null, senso di scopo/direzione>,
+    "life_satisfaction": <1-10 o null, soddisfazione generale>,
+    "perceived_social_support": <1-10 o null, supporto dagli altri>,
+    "resilience": <1-10 o null, capacità di riprendersi>,
+    "mindfulness": <1-10 o null, presenza nel momento>,
+    "suicidal_ideation": <0-10 o null, CRITICO - pensieri di farsi del male. Alert se > 5>,
+    "hopelessness": <0-10 o null, CRITICO - perdita totale di speranza. Alert se > 7>,
+    "self_harm_urges": <0-10 o null, CRITICO - impulsi autolesionistici. Alert se > 5>
   },
   "voice_analysis": ${is_voice ? '{ "tone": "calm|agitated|neutral", "speed": "slow|fast|normal", "confidence": 0.0-1.0 }' : 'null'},
   "emotion_tags": ["#Tag1", "#Tag2"],
@@ -1229,30 +1284,37 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       throw new Error(`Failed to update session: ${sessionError.message}`);
     }
 
-    // 2. SAVE TO daily_emotions (upsert) - including all 18 emotions
-    console.log('[process-session] Saving to daily_emotions with all 18 emotions...');
+    // 2. SAVE TO daily_emotions (upsert) - including all 20 emotions
+    console.log('[process-session] Saving to daily_emotions with all 20 emotions...');
     const { error: emotionsError } = await supabase
       .from('daily_emotions')
       .upsert({
         user_id: user_id,
         date: today,
-        // Primary emotions (5)
+        // Primary emotions - Ekman base (6)
         joy: analysis.emotions.joy || 0,
         sadness: analysis.emotions.sadness || 0,
         anger: analysis.emotions.anger || 0,
         fear: analysis.emotions.fear || 0,
         apathy: analysis.emotions.apathy || 0,
+        disgust: analysis.emotions.disgust || null,
+        surprise: analysis.emotions.surprise || null,
         // Secondary emotions (5)
         shame: analysis.emotions.shame || null,
         jealousy: analysis.emotions.jealousy || null,
         hope: analysis.emotions.hope || null,
         frustration: analysis.emotions.frustration || null,
         nostalgia: analysis.emotions.nostalgia || null,
-        // NEW: Extended emotions (4) - Profilazione 360°
+        // Extended emotions (4)
         nervousness: analysis.emotions.nervousness || null,
         overwhelm: analysis.emotions.overwhelm || null,
         excitement: analysis.emotions.excitement || null,
         disappointment: analysis.emotions.disappointment || null,
+        // NEW: Extended positive emotions (4)
+        serenity: analysis.emotions.serenity || null,
+        pride: analysis.emotions.pride || null,
+        affection: analysis.emotions.affection || null,
+        curiosity: analysis.emotions.curiosity || null,
         source: 'session',
         session_id: session_id
       }, { onConflict: 'user_id,date,source' });
@@ -1261,7 +1323,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.error('[process-session] Error saving daily_emotions:', emotionsError);
     }
 
-    // 3. SAVE TO daily_life_areas (upsert) - only if any area was detected
+    // 3. SAVE TO daily_life_areas (upsert) - 9 areas
     const hasLifeAreas = Object.values(analysis.life_areas).some(v => v !== null);
     if (hasLifeAreas) {
       console.log('[process-session] Saving to daily_life_areas...');
@@ -1273,9 +1335,12 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           work: analysis.life_areas.work,
           school: analysis.life_areas.school,
           love: analysis.life_areas.love,
+          family: analysis.life_areas.family || null,
           health: analysis.life_areas.health,
           social: analysis.life_areas.social,
           growth: analysis.life_areas.growth,
+          leisure: analysis.life_areas.leisure || null,
+          finances: analysis.life_areas.finances || null,
           source: 'session',
           session_id: session_id
         }, { onConflict: 'user_id,date,source' });
@@ -1285,36 +1350,53 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       }
     }
 
-    // 4. NEW: SAVE TO daily_psychology (upsert) - all 16 parameters
+    // 4. SAVE TO daily_psychology (upsert) - ~32 parameters including safety indicators
     const hasDeepPsychology = Object.values(analysis.deep_psychology).some(v => v !== null);
     if (hasDeepPsychology) {
-      console.log('[process-session] Saving to daily_psychology with all 16 parameters...');
+      console.log('[process-session] Saving to daily_psychology with all ~32 parameters...');
       const { error: psychologyError } = await supabase
         .from('daily_psychology')
         .upsert({
           user_id: user_id,
           date: today,
-          // Cognitive (4)
+          // Cognitive (6)
           rumination: analysis.deep_psychology.rumination,
           self_efficacy: analysis.deep_psychology.self_efficacy,
           mental_clarity: analysis.deep_psychology.mental_clarity,
           concentration: analysis.deep_psychology.concentration,
-          // Stress & Coping (3)
+          dissociation: analysis.deep_psychology.dissociation || null,
+          confusion: analysis.deep_psychology.confusion || null,
+          // Activation (4)
           burnout_level: analysis.deep_psychology.burnout_level,
-          coping_ability: analysis.deep_psychology.coping_ability,
-          loneliness_perceived: analysis.deep_psychology.loneliness_perceived,
-          // Physiological (3)
+          irritability: analysis.deep_psychology.irritability,
+          racing_thoughts: analysis.deep_psychology.racing_thoughts || null,
+          emotional_regulation: analysis.deep_psychology.emotional_regulation || null,
+          // Behavioral (4)
+          avoidance: analysis.deep_psychology.avoidance || null,
+          social_withdrawal: analysis.deep_psychology.social_withdrawal || null,
+          compulsive_urges: analysis.deep_psychology.compulsive_urges || null,
+          procrastination: analysis.deep_psychology.procrastination || null,
+          // Somatic (3)
           somatic_tension: analysis.deep_psychology.somatic_tension,
           appetite_changes: analysis.deep_psychology.appetite_changes,
           sunlight_exposure: analysis.deep_psychology.sunlight_exposure,
-          // Complex Emotional (3)
+          // Resources (11)
+          coping_ability: analysis.deep_psychology.coping_ability,
+          loneliness_perceived: analysis.deep_psychology.loneliness_perceived,
           guilt: analysis.deep_psychology.guilt,
           gratitude: analysis.deep_psychology.gratitude,
-          irritability: analysis.deep_psychology.irritability,
-          // NEW: Extended Psychology (3) - Profilazione 360°
           motivation: analysis.deep_psychology.motivation,
           intrusive_thoughts: analysis.deep_psychology.intrusive_thoughts,
           self_worth: analysis.deep_psychology.self_worth,
+          sense_of_purpose: analysis.deep_psychology.sense_of_purpose || null,
+          life_satisfaction: analysis.deep_psychology.life_satisfaction || null,
+          perceived_social_support: analysis.deep_psychology.perceived_social_support || null,
+          resilience: analysis.deep_psychology.resilience || null,
+          mindfulness: analysis.deep_psychology.mindfulness || null,
+          // SAFETY INDICATORS (3) - CRITICAL
+          suicidal_ideation: analysis.deep_psychology.suicidal_ideation || null,
+          hopelessness: analysis.deep_psychology.hopelessness || null,
+          self_harm_urges: analysis.deep_psychology.self_harm_urges || null,
           // Metadata
           source: 'session',
           session_id: session_id

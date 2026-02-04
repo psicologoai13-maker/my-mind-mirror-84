@@ -141,11 +141,14 @@ export type Database = {
       }
       daily_emotions: {
         Row: {
+          affection: number | null
           anger: number | null
           apathy: number | null
           created_at: string
+          curiosity: number | null
           date: string
           disappointment: number | null
+          disgust: number | null
           excitement: number | null
           fear: number | null
           frustration: number | null
@@ -156,19 +159,25 @@ export type Database = {
           nervousness: number | null
           nostalgia: number | null
           overwhelm: number | null
+          pride: number | null
           sadness: number | null
+          serenity: number | null
           session_id: string | null
           shame: number | null
           source: string
+          surprise: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          affection?: number | null
           anger?: number | null
           apathy?: number | null
           created_at?: string
+          curiosity?: number | null
           date?: string
           disappointment?: number | null
+          disgust?: number | null
           excitement?: number | null
           fear?: number | null
           frustration?: number | null
@@ -179,19 +188,25 @@ export type Database = {
           nervousness?: number | null
           nostalgia?: number | null
           overwhelm?: number | null
+          pride?: number | null
           sadness?: number | null
+          serenity?: number | null
           session_id?: string | null
           shame?: number | null
           source?: string
+          surprise?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          affection?: number | null
           anger?: number | null
           apathy?: number | null
           created_at?: string
+          curiosity?: number | null
           date?: string
           disappointment?: number | null
+          disgust?: number | null
           excitement?: number | null
           fear?: number | null
           frustration?: number | null
@@ -202,10 +217,13 @@ export type Database = {
           nervousness?: number | null
           nostalgia?: number | null
           overwhelm?: number | null
+          pride?: number | null
           sadness?: number | null
+          serenity?: number | null
           session_id?: string | null
           shame?: number | null
           source?: string
+          surprise?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -262,9 +280,12 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          family: number | null
+          finances: number | null
           growth: number | null
           health: number | null
           id: string
+          leisure: number | null
           love: number | null
           school: number | null
           session_id: string | null
@@ -277,9 +298,12 @@ export type Database = {
         Insert: {
           created_at?: string
           date?: string
+          family?: number | null
+          finances?: number | null
           growth?: number | null
           health?: number | null
           id?: string
+          leisure?: number | null
           love?: number | null
           school?: number | null
           session_id?: string | null
@@ -292,9 +316,12 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          family?: number | null
+          finances?: number | null
           growth?: number | null
           health?: number | null
           id?: string
+          leisure?: number | null
           love?: number | null
           school?: number | null
           session_id?: string | null
@@ -317,75 +344,123 @@ export type Database = {
       daily_psychology: {
         Row: {
           appetite_changes: number | null
+          avoidance: number | null
           burnout_level: number | null
+          compulsive_urges: number | null
           concentration: number | null
+          confusion: number | null
           coping_ability: number | null
           created_at: string
           date: string
+          dissociation: number | null
+          emotional_regulation: number | null
           gratitude: number | null
           guilt: number | null
+          hopelessness: number | null
           id: string
           intrusive_thoughts: number | null
           irritability: number | null
+          life_satisfaction: number | null
           loneliness_perceived: number | null
           mental_clarity: number | null
+          mindfulness: number | null
           motivation: number | null
+          perceived_social_support: number | null
+          procrastination: number | null
+          racing_thoughts: number | null
+          resilience: number | null
           rumination: number | null
           self_efficacy: number | null
+          self_harm_urges: number | null
           self_worth: number | null
+          sense_of_purpose: number | null
           session_id: string | null
+          social_withdrawal: number | null
           somatic_tension: number | null
           source: string
+          suicidal_ideation: number | null
           sunlight_exposure: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           appetite_changes?: number | null
+          avoidance?: number | null
           burnout_level?: number | null
+          compulsive_urges?: number | null
           concentration?: number | null
+          confusion?: number | null
           coping_ability?: number | null
           created_at?: string
           date?: string
+          dissociation?: number | null
+          emotional_regulation?: number | null
           gratitude?: number | null
           guilt?: number | null
+          hopelessness?: number | null
           id?: string
           intrusive_thoughts?: number | null
           irritability?: number | null
+          life_satisfaction?: number | null
           loneliness_perceived?: number | null
           mental_clarity?: number | null
+          mindfulness?: number | null
           motivation?: number | null
+          perceived_social_support?: number | null
+          procrastination?: number | null
+          racing_thoughts?: number | null
+          resilience?: number | null
           rumination?: number | null
           self_efficacy?: number | null
+          self_harm_urges?: number | null
           self_worth?: number | null
+          sense_of_purpose?: number | null
           session_id?: string | null
+          social_withdrawal?: number | null
           somatic_tension?: number | null
           source?: string
+          suicidal_ideation?: number | null
           sunlight_exposure?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           appetite_changes?: number | null
+          avoidance?: number | null
           burnout_level?: number | null
+          compulsive_urges?: number | null
           concentration?: number | null
+          confusion?: number | null
           coping_ability?: number | null
           created_at?: string
           date?: string
+          dissociation?: number | null
+          emotional_regulation?: number | null
           gratitude?: number | null
           guilt?: number | null
+          hopelessness?: number | null
           id?: string
           intrusive_thoughts?: number | null
           irritability?: number | null
+          life_satisfaction?: number | null
           loneliness_perceived?: number | null
           mental_clarity?: number | null
+          mindfulness?: number | null
           motivation?: number | null
+          perceived_social_support?: number | null
+          procrastination?: number | null
+          racing_thoughts?: number | null
+          resilience?: number | null
           rumination?: number | null
           self_efficacy?: number | null
+          self_harm_urges?: number | null
           self_worth?: number | null
+          sense_of_purpose?: number | null
           session_id?: string | null
+          social_withdrawal?: number | null
           somatic_tension?: number | null
           source?: string
+          suicidal_ideation?: number | null
           sunlight_exposure?: number | null
           updated_at?: string
           user_id?: string
