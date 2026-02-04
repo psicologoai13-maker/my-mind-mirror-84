@@ -8,7 +8,7 @@ const AdaptiveVitalsSection: React.FC = () => {
   // 🎯 AI-DRIVEN: Layout deciso dall'AI in base al focus utente
   const { layout, isLoading: isLoadingAI, error: aiError } = useAIDashboard();
   // 🎯 TIME-WEIGHTED: Valori calcolati con pesatura temporale (30 giorni, half-life 10 giorni)
-  const { vitals, vitalsTrends, emotions, lifeAreas, lifeAreasTrends, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 10);
+  const { vitals, vitalsTrends, emotions, lifeAreas, lifeAreasTrends, deepPsychology, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 10);
   const [showSecondary, setShowSecondary] = React.useState(false);
 
   // Build metric values and trends from time-weighted source
@@ -39,8 +39,21 @@ const AdaptiveVitalsSection: React.FC = () => {
       calmness: toPercentage(vitals.anxiety ? 10 - vitals.anxiety : null),
       loneliness: toPercentage(lifeAreas.social ? 10 - lifeAreas.social : null),
       emotional_clarity: toPercentage(vitals.mood),
+      // Psychology metrics
+      self_efficacy: toPercentage(deepPsychology.self_efficacy),
+      mental_clarity: toPercentage(deepPsychology.mental_clarity),
+      motivation: toPercentage(deepPsychology.motivation),
+      rumination: toPercentage(deepPsychology.rumination),
+      burnout_level: toPercentage(deepPsychology.burnout_level),
+      self_worth: toPercentage(deepPsychology.self_worth),
+      gratitude: toPercentage(deepPsychology.gratitude),
+      concentration: toPercentage(deepPsychology.concentration),
+      resilience: toPercentage(deepPsychology.resilience),
+      mindfulness: toPercentage(deepPsychology.mindfulness),
+      life_satisfaction: toPercentage(deepPsychology.life_satisfaction),
+      sense_of_purpose: toPercentage(deepPsychology.sense_of_purpose),
     };
-  }, [vitals, emotions, lifeAreas]);
+  }, [vitals, emotions, lifeAreas, deepPsychology]);
 
   // Build trend mapping for each metric key
   const metricTrends = React.useMemo((): Partial<Record<MetricKey, TrendInfo>> => {
@@ -68,6 +81,19 @@ const AdaptiveVitalsSection: React.FC = () => {
       anger: defaultTrend,
       fear: defaultTrend,
       apathy: defaultTrend,
+      // Psychology metrics - use default trends for now
+      self_efficacy: defaultTrend,
+      mental_clarity: defaultTrend,
+      motivation: defaultTrend,
+      rumination: defaultTrend,
+      burnout_level: defaultTrend,
+      self_worth: defaultTrend,
+      gratitude: defaultTrend,
+      concentration: defaultTrend,
+      resilience: defaultTrend,
+      mindfulness: defaultTrend,
+      life_satisfaction: defaultTrend,
+      sense_of_purpose: defaultTrend,
     };
   }, [vitalsTrends, lifeAreasTrends]);
 
