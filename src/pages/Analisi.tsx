@@ -60,12 +60,12 @@ const Analisi: React.FC = () => {
   }, [timeRange]);
 
   // Fetch all data
-  const { metricsRange, isLoading } = useDailyMetricsRange(dateRange.start, dateRange.end);
-  const { metricsHistory: bodyMetrics } = useBodyMetrics();
-  const { habits } = useHabits();
+  const { metricsRange, isLoading: isLoadingMetrics } = useDailyMetricsRange(dateRange.start, dateRange.end);
+  const { metricsHistory: bodyMetrics, isLoading: isLoadingBody } = useBodyMetrics();
+  const { habits, isLoading: isLoadingHabits } = useHabits();
   
   // Fetch emotions directly from daily_emotions table (full 14 emotions)
-  const { data: emotionsData } = useQuery({
+  const { data: emotionsData, isLoading: isLoadingEmotions } = useQuery({
     queryKey: ['daily-emotions-range', user?.id, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -82,6 +82,9 @@ const Analisi: React.FC = () => {
     enabled: !!user?.id,
     staleTime: 60 * 1000,
   });
+
+  // Unified loading state - wait for ALL data before showing anything
+  const isLoading = isLoadingMetrics || isLoadingEmotions || isLoadingBody || isLoadingHabits;
 
   // Check if today has data (for time selector)
   const hasTodayData = useMemo(() => {
@@ -226,19 +229,41 @@ const Analisi: React.FC = () => {
         </div>
       </header>
 
-      {/* Time Selector */}
-      {hasMenteData && (
-        <div className="px-4 pb-4">
-          <CompactTimeSelector
-            value={timeRange}
-            onChange={setTimeRange}
-            hasTodayData={hasTodayData}
-          />
+      {/* Unified Loading State - Show nothing until ALL data is ready */}
+      {isLoading ? (
+        <div className="px-4 pb-8 space-y-6">
+          {/* Time Selector Skeleton */}
+          <div className="h-10 bg-muted/50 rounded-lg animate-pulse" />
+          
+          {/* Content Skeletons - All at once */}
+          <div className="space-y-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-3">
+                <div className="h-6 w-40 bg-muted/50 rounded animate-pulse" />
+                <div className="grid grid-cols-2 gap-3">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="h-24 bg-muted/30 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Time Selector */}
+          {hasMenteData && (
+            <div className="px-4 pb-4">
+              <CompactTimeSelector
+                value={timeRange}
+                onChange={setTimeRange}
+                hasTodayData={hasTodayData}
+              />
+            </div>
+          )}
 
-      {/* Clinical Domains */}
-      <div className="px-4 pb-8 space-y-6">
+          {/* Clinical Domains */}
+          <div className="px-4 pb-8 space-y-6">
         {/* Emotional Spectrum - Full emotions breakdown */}
         <EmotionalSpectrumSection
           emotionsData={emotionsData || []}
@@ -305,7 +330,7 @@ const Analisi: React.FC = () => {
         )}
 
         {/* Empty state */}
-        {!hasAnyData && !isLoading && (
+        {!hasAnyData && (
           <div className="text-center py-16">
             <div className="text-5xl mb-4">📊</div>
             <h3 className="font-display font-semibold text-lg text-foreground mb-2">
@@ -316,15 +341,17 @@ const Analisi: React.FC = () => {
             </p>
           </div>
         )}
-      </div>
+          </div>
 
-      {/* Metric Detail Sheet */}
-      <MetricDetailSheet 
-        metricKey={selectedMetric}
-        isOpen={!!selectedMetric}
-        onClose={() => setSelectedMetric(null)}
-        timeRange={timeRange}
-      />
+          {/* Metric Detail Sheet */}
+          <MetricDetailSheet 
+            metricKey={selectedMetric}
+            isOpen={!!selectedMetric}
+            onClose={() => setSelectedMetric(null)}
+            timeRange={timeRange}
+          />
+        </>
+      )}
     </MobileLayout>
   );
 };
