@@ -1,3 +1,4 @@
+// v2.0 - Data Hunting Check-ins (2026-02-04)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -471,7 +472,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("[ai-checkins] Generating DATA-DRIVEN daily list for", today);
+    console.log("[ai-checkins] v2.0 DATA-HUNTING - Generating smart list for", today);
 
     // ============================================
     // FETCH ALL DATA + METRIC HISTORY IN PARALLEL
