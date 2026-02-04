@@ -14,18 +14,12 @@ export interface TrendInfo {
   type: TrendType;
   icon: string;
   label: string;
-  delta: number; // Difference between recent (3 days) and period average
+  delta: number;
 }
 
 /**
  * Calcola una media ponderata dove i dati più recenti hanno più peso.
  * Utilizza una funzione di decay esponenziale.
- * 
- * IMPORTANTE: Usa l'updated_at esatto per pesare i dati più recenti più fortemente,
- * anche se sono dello stesso giorno.
- * 
- * @param values Array di valori con timestamp
- * @param halfLifeDays Dopo quanti giorni il peso si dimezza (default: 10)
  */
 const calculateTimeWeightedAverage = (
   values: { value: number | null; timestamp: number }[],
@@ -65,7 +59,6 @@ const calculateTrend = (
   const now = Date.now();
   const threeDaysAgo = now - (3 * 24 * 60 * 60 * 1000);
   
-  // Get recent values (last 3 days)
   const recentValues = values
     .filter(v => v.value !== null && v.value > 0 && v.timestamp >= threeDaysAgo)
     .map(v => v.value as number);
@@ -77,14 +70,12 @@ const calculateTrend = (
   const recentAvg = recentValues.reduce((a, b) => a + b, 0) / recentValues.length;
   const delta = recentAvg - periodAverage;
   
-  // Calculate variance for volatility detection
   const allValid = values.filter(v => v.value !== null && v.value > 0).map(v => v.value as number);
   const variance = allValid.length > 1 
     ? allValid.reduce((sum, val) => sum + Math.pow(val - periodAverage, 2), 0) / allValid.length
     : 0;
   const stdDev = Math.sqrt(variance);
 
-  // Determine trend type
   if (stdDev > 3.0) {
     return { type: 'volatile', icon: '⚡', label: 'Volatile', delta: Math.round(delta * 10) / 10 };
   } else if (delta > 1.0) {
@@ -95,6 +86,90 @@ const calculateTrend = (
     return { type: 'stable', icon: '➡️', label: 'Stabile', delta: Math.round(delta * 10) / 10 };
   }
 };
+
+// ===========================================
+// EXTENDED TYPE DEFINITIONS
+// All 20 emotions, 9 life areas, 32 psychology params
+// ===========================================
+
+export interface ExtendedEmotions {
+  // Primary (5)
+  joy: number | null;
+  sadness: number | null;
+  anger: number | null;
+  fear: number | null;
+  apathy: number | null;
+  // Secondary (9)
+  shame: number | null;
+  jealousy: number | null;
+  hope: number | null;
+  frustration: number | null;
+  nostalgia: number | null;
+  nervousness: number | null;
+  overwhelm: number | null;
+  excitement: number | null;
+  disappointment: number | null;
+  // NEW: Extended (6)
+  disgust: number | null;
+  surprise: number | null;
+  serenity: number | null;
+  pride: number | null;
+  affection: number | null;
+  curiosity: number | null;
+}
+
+export interface ExtendedLifeAreas {
+  love: number | null;
+  work: number | null;
+  school: number | null;
+  health: number | null;
+  social: number | null;
+  growth: number | null;
+  // NEW: Extended (3)
+  family: number | null;
+  leisure: number | null;
+  finances: number | null;
+}
+
+export interface ExtendedPsychology {
+  // Attention Signals (negative)
+  rumination: number | null;
+  burnout_level: number | null;
+  loneliness_perceived: number | null;
+  somatic_tension: number | null;
+  appetite_changes: number | null;
+  guilt: number | null;
+  irritability: number | null;
+  intrusive_thoughts: number | null;
+  // Safety indicators
+  suicidal_ideation: number | null;
+  hopelessness: number | null;
+  self_harm_urges: number | null;
+  // Cognitive
+  dissociation: number | null;
+  confusion: number | null;
+  racing_thoughts: number | null;
+  // Behavioral
+  avoidance: number | null;
+  social_withdrawal: number | null;
+  compulsive_urges: number | null;
+  procrastination: number | null;
+  // Resources (positive)
+  self_efficacy: number | null;
+  mental_clarity: number | null;
+  concentration: number | null;
+  coping_ability: number | null;
+  sunlight_exposure: number | null;
+  gratitude: number | null;
+  motivation: number | null;
+  self_worth: number | null;
+  sense_of_purpose: number | null;
+  life_satisfaction: number | null;
+  perceived_social_support: number | null;
+  emotional_regulation: number | null;
+  resilience: number | null;
+  mindfulness: number | null;
+}
 
 export interface TimeWeightedData {
   vitals: {
@@ -109,32 +184,8 @@ export interface TimeWeightedData {
     energy: TrendInfo;
     sleep: TrendInfo;
   };
-  emotions: {
-    joy: number | null;
-    sadness: number | null;
-    anger: number | null;
-    fear: number | null;
-    apathy: number | null;
-    // Secondary emotions
-    shame: number | null;
-    jealousy: number | null;
-    hope: number | null;
-    frustration: number | null;
-    nostalgia: number | null;
-    // NEW: Extended emotions
-    nervousness: number | null;
-    overwhelm: number | null;
-    excitement: number | null;
-    disappointment: number | null;
-  };
-  lifeAreas: {
-    love: number | null;
-    work: number | null;
-    school: number | null;
-    health: number | null;
-    social: number | null;
-    growth: number | null;
-  };
+  emotions: ExtendedEmotions;
+  lifeAreas: ExtendedLifeAreas;
   lifeAreasTrends: {
     love: TrendInfo;
     work: TrendInfo;
@@ -142,8 +193,11 @@ export interface TimeWeightedData {
     health: TrendInfo;
     social: TrendInfo;
     growth: TrendInfo;
+    family: TrendInfo;
+    leisure: TrendInfo;
+    finances: TrendInfo;
   };
-  deepPsychology: DeepPsychology;
+  deepPsychology: ExtendedPsychology;
   hasData: boolean;
   daysWithData: number;
 }
@@ -155,19 +209,39 @@ interface LifeAreaRecord {
   health: number | null;
   social: number | null;
   growth: number | null;
+  family: number | null;
+  leisure: number | null;
+  finances: number | null;
+  updated_at: string;
+}
+
+interface EmotionRecord {
+  joy: number | null;
+  sadness: number | null;
+  anger: number | null;
+  fear: number | null;
+  apathy: number | null;
+  shame: number | null;
+  jealousy: number | null;
+  hope: number | null;
+  frustration: number | null;
+  nostalgia: number | null;
+  nervousness: number | null;
+  overwhelm: number | null;
+  excitement: number | null;
+  disappointment: number | null;
+  disgust: number | null;
+  surprise: number | null;
+  serenity: number | null;
+  pride: number | null;
+  affection: number | null;
+  curiosity: number | null;
   updated_at: string;
 }
 
 /**
  * Hook che calcola metriche con media ponderata temporale.
- * I dati più recenti hanno più rilevanza rispetto ai dati più vecchi.
- * 
- * CRITICO: Ora usa updated_at per pesare le life areas, non solo la data!
- * Questo significa che un'entry fatta 5 minuti fa pesa molto di più
- * di una fatta stamattina o ieri.
- * 
- * @param lookbackDays Numero di giorni da considerare (default: 30)
- * @param halfLifeDays Dopo quanti giorni il peso si dimezza (default: 10)
+ * EXTENDED: Includes ALL 20 emotions, 9 life areas, and 32 psychology parameters.
  */
 export const useTimeWeightedMetrics = (
   lookbackDays: number = 30,
@@ -175,7 +249,6 @@ export const useTimeWeightedMetrics = (
 ) => {
   const { user } = useAuth();
   
-  // Use Rome timezone for date calculations to match the rest of the app
   const getRomeDate = () => {
     const formatter = new Intl.DateTimeFormat('sv-SE', { 
       timeZone: 'Europe/Rome',
@@ -191,19 +264,17 @@ export const useTimeWeightedMetrics = (
   const startDate = subDays(today, lookbackDays);
   const startDateStr = format(startDate, 'yyyy-MM-dd');
   
-  // Use the existing daily metrics range for vitals, life areas, psychology
   const { metricsRange, isLoading: metricsLoading } = useDailyMetricsRange(startDate, today);
 
-  // 🎯 CRITICAL: Fetch emotions DIRECTLY from daily_emotions table
-  // The RPC only returns the latest record per day, but we need MAX of all values
+  // Fetch ALL 20 emotions from daily_emotions
   const { data: rawEmotionsData, isLoading: emotionsLoading } = useQuery({
-    queryKey: ['emotions-weighted', user?.id, startDateStr, todayRome],
+    queryKey: ['emotions-weighted-extended', user?.id, startDateStr, todayRome],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
         .from('daily_emotions')
-        .select('joy, sadness, anger, fear, apathy, shame, jealousy, hope, frustration, nostalgia, updated_at')
+        .select('joy, sadness, anger, fear, apathy, shame, jealousy, hope, frustration, nostalgia, nervousness, overwhelm, excitement, disappointment, disgust, surprise, serenity, pride, affection, curiosity, updated_at')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
         .lte('date', todayRome)
@@ -214,25 +285,24 @@ export const useTimeWeightedMetrics = (
         return [];
       }
       
-      return data || [];
+      return (data || []) as EmotionRecord[];
     },
     enabled: !!user,
     staleTime: 30 * 1000,
   });
 
-  // Fetch life areas directly with updated_at for proper time-weighting
-  // CRITICAL: Use Rome date to include today's data correctly
+  // Fetch ALL 9 life areas
   const { data: lifeAreasData, isLoading: lifeAreasLoading } = useQuery({
-    queryKey: ['life-areas-weighted', user?.id, startDateStr, todayRome],
+    queryKey: ['life-areas-weighted-extended', user?.id, startDateStr, todayRome],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
         .from('daily_life_areas')
-        .select('love, work, school, health, social, growth, updated_at')
+        .select('love, work, school, health, social, growth, family, leisure, finances, updated_at')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
-        .lte('date', todayRome) // Use Rome date to include today
+        .lte('date', todayRome)
         .order('updated_at', { ascending: false });
       
       if (error) {
@@ -243,17 +313,41 @@ export const useTimeWeightedMetrics = (
       return (data || []) as LifeAreaRecord[];
     },
     enabled: !!user,
-    staleTime: 30 * 1000, // 30 seconds - refresh often for recent changes
+    staleTime: 30 * 1000,
   });
 
-  const isLoading = metricsLoading || lifeAreasLoading || emotionsLoading;
+  // Fetch ALL psychology data including new extended params
+  const { data: psychologyData, isLoading: psychologyLoading } = useQuery({
+    queryKey: ['psychology-weighted-extended', user?.id, startDateStr, todayRome],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('daily_psychology')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startDateStr)
+        .lte('date', todayRome)
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        console.error('[useTimeWeightedMetrics] Error fetching psychology:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  });
+
+  const isLoading = metricsLoading || lifeAreasLoading || emotionsLoading || psychologyLoading;
 
   const weightedData = useMemo<TimeWeightedData>(() => {
     const daysWithData = metricsRange.filter(m => 
       m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology
     );
 
-    // Helper to extract values with timestamps
     const extractVitalWithTimestamp = (
       data: DailyMetrics[],
       getter: (m: DailyMetrics) => number
@@ -264,34 +358,39 @@ export const useTimeWeightedMetrics = (
       }));
     };
 
-    // Default trend for no data
     const defaultTrend: TrendInfo = { type: 'unknown', icon: '•', label: 'Nessun dato', delta: 0 };
 
-    if (daysWithData.length === 0 && (!lifeAreasData || lifeAreasData.length === 0)) {
+    const hasAnyData = daysWithData.length > 0 || 
+                       (lifeAreasData && lifeAreasData.length > 0) ||
+                       (rawEmotionsData && rawEmotionsData.length > 0) ||
+                       (psychologyData && psychologyData.length > 0);
+
+    if (!hasAnyData) {
       return {
         vitals: { mood: null, anxiety: null, energy: null, sleep: null },
         vitalsTrends: { mood: defaultTrend, anxiety: defaultTrend, energy: defaultTrend, sleep: defaultTrend },
         emotions: { 
           joy: null, sadness: null, anger: null, fear: null, apathy: null,
           shame: null, jealousy: null, hope: null, frustration: null, nostalgia: null,
-          nervousness: null, overwhelm: null, excitement: null, disappointment: null
+          nervousness: null, overwhelm: null, excitement: null, disappointment: null,
+          disgust: null, surprise: null, serenity: null, pride: null, affection: null, curiosity: null
         },
-        lifeAreas: { love: null, work: null, school: null, health: null, social: null, growth: null },
-        lifeAreasTrends: { love: defaultTrend, work: defaultTrend, school: defaultTrend, health: defaultTrend, social: defaultTrend, growth: defaultTrend },
-        deepPsychology: {
-          rumination: null, self_efficacy: null, mental_clarity: null, concentration: null,
-          burnout_level: null, coping_ability: null, loneliness_perceived: null,
-          somatic_tension: null, appetite_changes: null, sunlight_exposure: null,
-          guilt: null, gratitude: null, irritability: null,
-          motivation: null, intrusive_thoughts: null, self_worth: null,
+        lifeAreas: { 
+          love: null, work: null, school: null, health: null, social: null, growth: null,
+          family: null, leisure: null, finances: null 
         },
+        lifeAreasTrends: { 
+          love: defaultTrend, work: defaultTrend, school: defaultTrend, 
+          health: defaultTrend, social: defaultTrend, growth: defaultTrend,
+          family: defaultTrend, leisure: defaultTrend, finances: defaultTrend
+        },
+        deepPsychology: getEmptyPsychology(),
         hasData: false,
         daysWithData: 0,
       };
     }
 
-    // 🎯 VITALS: WEIGHTED RECENT (30 giorni, half-life 10 giorni)
-    // Media ponderata dove i dati recenti pesano di più
+    // VITALS
     const moodValues = extractVitalWithTimestamp(daysWithData, m => m.vitals.mood);
     const anxietyValues = extractVitalWithTimestamp(daysWithData, m => m.vitals.anxiety);
     const energyValues = extractVitalWithTimestamp(daysWithData, m => m.vitals.energy);
@@ -304,7 +403,6 @@ export const useTimeWeightedMetrics = (
       sleep: calculateTimeWeightedAverage(sleepValues, halfLifeDays),
     };
 
-    // Calculate trends for vitals
     const vitalsTrends = {
       mood: calculateTrend(moodValues, vitals.mood),
       anxiety: calculateTrend(anxietyValues, vitals.anxiety),
@@ -312,39 +410,35 @@ export const useTimeWeightedMetrics = (
       sleep: calculateTrend(sleepValues, vitals.sleep),
     };
 
-    // 🎯 EMOTIONS: Query diretta sulla tabella daily_emotions
-    type EmotionKey = 'joy' | 'sadness' | 'anger' | 'fear' | 'apathy' | 'shame' | 'jealousy' | 'hope' | 'frustration' | 'nostalgia' | 'nervousness' | 'overwhelm' | 'excitement' | 'disappointment';
-    
-    // For emotions, extract with timestamps from raw data
-    const extractEmotionWithTimestamp = (key: EmotionKey): { value: number | null; timestamp: number }[] => {
+    // ALL 20 EMOTIONS
+    const emotionKeys: (keyof EmotionRecord)[] = [
+      'joy', 'sadness', 'anger', 'fear', 'apathy',
+      'shame', 'jealousy', 'hope', 'frustration', 'nostalgia',
+      'nervousness', 'overwhelm', 'excitement', 'disappointment',
+      'disgust', 'surprise', 'serenity', 'pride', 'affection', 'curiosity'
+    ];
+
+    const extractEmotionWithTimestamp = (key: keyof EmotionRecord): { value: number | null; timestamp: number }[] => {
       if (!rawEmotionsData || rawEmotionsData.length === 0) return [];
       return rawEmotionsData.map(record => ({
-        value: typeof record[key as keyof typeof record] === 'number' ? record[key as keyof typeof record] as number : null,
+        value: typeof record[key] === 'number' ? record[key] as number : null,
         timestamp: new Date(record.updated_at).getTime(),
       }));
     };
 
-    const emotions = {
-      // Primary emotions (5) - weighted average
-      joy: calculateTimeWeightedAverage(extractEmotionWithTimestamp('joy'), halfLifeDays),
-      sadness: calculateTimeWeightedAverage(extractEmotionWithTimestamp('sadness'), halfLifeDays),
-      anger: calculateTimeWeightedAverage(extractEmotionWithTimestamp('anger'), halfLifeDays),
-      fear: calculateTimeWeightedAverage(extractEmotionWithTimestamp('fear'), halfLifeDays),
-      apathy: calculateTimeWeightedAverage(extractEmotionWithTimestamp('apathy'), halfLifeDays),
-      // Secondary emotions (5)
-      shame: calculateTimeWeightedAverage(extractEmotionWithTimestamp('shame'), halfLifeDays),
-      jealousy: calculateTimeWeightedAverage(extractEmotionWithTimestamp('jealousy'), halfLifeDays),
-      hope: calculateTimeWeightedAverage(extractEmotionWithTimestamp('hope'), halfLifeDays),
-      frustration: calculateTimeWeightedAverage(extractEmotionWithTimestamp('frustration'), halfLifeDays),
-      nostalgia: calculateTimeWeightedAverage(extractEmotionWithTimestamp('nostalgia'), halfLifeDays),
-      // Extended emotions (4)
-      nervousness: calculateTimeWeightedAverage(extractEmotionWithTimestamp('nervousness'), halfLifeDays),
-      overwhelm: calculateTimeWeightedAverage(extractEmotionWithTimestamp('overwhelm'), halfLifeDays),
-      excitement: calculateTimeWeightedAverage(extractEmotionWithTimestamp('excitement'), halfLifeDays),
-      disappointment: calculateTimeWeightedAverage(extractEmotionWithTimestamp('disappointment'), halfLifeDays),
-    };
+    const emotions: ExtendedEmotions = {} as ExtendedEmotions;
+    emotionKeys.forEach(key => {
+      if (key !== 'updated_at') {
+        (emotions as any)[key] = calculateTimeWeightedAverage(extractEmotionWithTimestamp(key), halfLifeDays);
+      }
+    });
 
-    // 🎯 LIFE AREAS: WEIGHTED RECENT (30 giorni, half-life 10 giorni)
+    // ALL 9 LIFE AREAS
+    const lifeAreaKeys: (keyof LifeAreaRecord)[] = [
+      'love', 'work', 'school', 'health', 'social', 'growth',
+      'family', 'leisure', 'finances'
+    ];
+
     const extractLifeAreaWithTimestamp = (key: keyof LifeAreaRecord): { value: number | null; timestamp: number }[] => {
       if (!lifeAreasData || lifeAreasData.length === 0) return [];
       return lifeAreasData.map(record => ({
@@ -353,53 +447,44 @@ export const useTimeWeightedMetrics = (
       }));
     };
 
-    const loveValues = extractLifeAreaWithTimestamp('love');
-    const workValues = extractLifeAreaWithTimestamp('work');
-    const schoolValues = extractLifeAreaWithTimestamp('school');
-    const healthValues = extractLifeAreaWithTimestamp('health');
-    const socialValues = extractLifeAreaWithTimestamp('social');
-    const growthValues = extractLifeAreaWithTimestamp('growth');
+    const lifeAreas: ExtendedLifeAreas = {} as ExtendedLifeAreas;
+    const lifeAreasTrends: TimeWeightedData['lifeAreasTrends'] = {} as TimeWeightedData['lifeAreasTrends'];
+    
+    lifeAreaKeys.forEach(key => {
+      if (key !== 'updated_at') {
+        const values = extractLifeAreaWithTimestamp(key);
+        (lifeAreas as any)[key] = calculateTimeWeightedAverage(values, halfLifeDays);
+        (lifeAreasTrends as any)[key] = calculateTrend(values, (lifeAreas as any)[key]);
+      }
+    });
 
-    const lifeAreas = {
-      love: calculateTimeWeightedAverage(loveValues, halfLifeDays),
-      work: calculateTimeWeightedAverage(workValues, halfLifeDays),
-      school: calculateTimeWeightedAverage(schoolValues, halfLifeDays),
-      health: calculateTimeWeightedAverage(healthValues, halfLifeDays),
-      social: calculateTimeWeightedAverage(socialValues, halfLifeDays),
-      growth: calculateTimeWeightedAverage(growthValues, halfLifeDays),
-    };
-
-    // Calculate trends for life areas
-    const lifeAreasTrends = {
-      love: calculateTrend(loveValues, lifeAreas.love),
-      work: calculateTrend(workValues, lifeAreas.work),
-      school: calculateTrend(schoolValues, lifeAreas.school),
-      health: calculateTrend(healthValues, lifeAreas.health),
-      social: calculateTrend(socialValues, lifeAreas.social),
-      growth: calculateTrend(growthValues, lifeAreas.growth),
-    };
-
-    // 🎯 DEEP PSYCHOLOGY: Weighted average (16 parametri totali)
-    const sortedByDate = [...daysWithData].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    const psychologyKeys: (keyof DeepPsychology)[] = [
-      'rumination', 'self_efficacy', 'mental_clarity', 'concentration',
-      'burnout_level', 'coping_ability', 'loneliness_perceived',
-      'somatic_tension', 'appetite_changes', 'sunlight_exposure', 
-      'guilt', 'gratitude', 'irritability',
-      'motivation', 'intrusive_thoughts', 'self_worth'
+    // ALL 32 PSYCHOLOGY PARAMETERS
+    const psychologyKeys: (keyof ExtendedPsychology)[] = [
+      // Attention signals
+      'rumination', 'burnout_level', 'loneliness_perceived', 'somatic_tension',
+      'appetite_changes', 'guilt', 'irritability', 'intrusive_thoughts',
+      // Safety
+      'suicidal_ideation', 'hopelessness', 'self_harm_urges',
+      // Cognitive
+      'dissociation', 'confusion', 'racing_thoughts',
+      // Behavioral
+      'avoidance', 'social_withdrawal', 'compulsive_urges', 'procrastination',
+      // Resources
+      'self_efficacy', 'mental_clarity', 'concentration', 'coping_ability',
+      'sunlight_exposure', 'gratitude', 'motivation', 'self_worth',
+      'sense_of_purpose', 'life_satisfaction', 'perceived_social_support',
+      'emotional_regulation', 'resilience', 'mindfulness'
     ];
 
-    const extractPsychologyWithTimestamp = (key: keyof DeepPsychology): { value: number | null; timestamp: number }[] => {
-      return daysWithData.map(m => ({
-        value: m.deep_psychology?.[key] ?? null,
-        timestamp: new Date(m.date).getTime(),
+    const extractPsychologyWithTimestamp = (key: keyof ExtendedPsychology): { value: number | null; timestamp: number }[] => {
+      if (!psychologyData || psychologyData.length === 0) return [];
+      return psychologyData.map((record: any) => ({
+        value: record[key] ?? null,
+        timestamp: new Date(record.updated_at).getTime(),
       }));
     };
 
-    const deepPsychology: DeepPsychology = {} as DeepPsychology;
+    const deepPsychology: ExtendedPsychology = {} as ExtendedPsychology;
     psychologyKeys.forEach(key => {
       deepPsychology[key] = calculateTimeWeightedAverage(extractPsychologyWithTimestamp(key), halfLifeDays);
     });
@@ -412,9 +497,14 @@ export const useTimeWeightedMetrics = (
       lifeAreasTrends,
       deepPsychology,
       hasData: true,
-      daysWithData: Math.max(daysWithData.length, lifeAreasData?.length || 0),
+      daysWithData: Math.max(
+        daysWithData.length, 
+        lifeAreasData?.length || 0,
+        rawEmotionsData?.length || 0,
+        psychologyData?.length || 0
+      ),
     };
-  }, [metricsRange, lifeAreasData, rawEmotionsData, halfLifeDays]);
+  }, [metricsRange, lifeAreasData, rawEmotionsData, psychologyData, halfLifeDays]);
 
   return {
     ...weightedData,
@@ -422,5 +512,21 @@ export const useTimeWeightedMetrics = (
     rawMetrics: metricsRange,
   };
 };
+
+function getEmptyPsychology(): ExtendedPsychology {
+  return {
+    rumination: null, burnout_level: null, loneliness_perceived: null,
+    somatic_tension: null, appetite_changes: null, guilt: null,
+    irritability: null, intrusive_thoughts: null, suicidal_ideation: null,
+    hopelessness: null, self_harm_urges: null, dissociation: null,
+    confusion: null, racing_thoughts: null, avoidance: null,
+    social_withdrawal: null, compulsive_urges: null, procrastination: null,
+    self_efficacy: null, mental_clarity: null, concentration: null,
+    coping_ability: null, sunlight_exposure: null, gratitude: null,
+    motivation: null, self_worth: null, sense_of_purpose: null,
+    life_satisfaction: null, perceived_social_support: null,
+    emotional_regulation: null, resilience: null, mindfulness: null,
+  };
+}
 
 export default useTimeWeightedMetrics;

@@ -1,65 +1,200 @@
 import React from 'react';
-import { useTimeWeightedMetrics } from '@/hooks/useTimeWeightedMetrics';
+import { useTimeWeightedMetrics, ExtendedEmotions, ExtendedLifeAreas, ExtendedPsychology } from '@/hooks/useTimeWeightedMetrics';
 import { Hash, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface Topic {
-  tag: string;
-  intensity: number;
+// ===========================================
+// METRIC CONFIGURATION
+// Maps all metrics to Italian labels and categories
+// ===========================================
+
+type MetricCategory = 'emotion_positive' | 'emotion_negative' | 'life_area' | 'resource' | 'attention';
+
+interface MetricConfig {
+  label: string;
+  category: MetricCategory;
+}
+
+// All 20 emotions
+const EMOTION_CONFIG: Record<keyof ExtendedEmotions, MetricConfig> = {
+  // Positive emotions
+  joy: { label: 'Gioia', category: 'emotion_positive' },
+  hope: { label: 'Speranza', category: 'emotion_positive' },
+  excitement: { label: 'Eccitazione', category: 'emotion_positive' },
+  serenity: { label: 'Serenità', category: 'emotion_positive' },
+  pride: { label: 'Orgoglio', category: 'emotion_positive' },
+  affection: { label: 'Affetto', category: 'emotion_positive' },
+  curiosity: { label: 'Curiosità', category: 'emotion_positive' },
+  nostalgia: { label: 'Nostalgia', category: 'emotion_positive' }, // Neutral/positive
+  surprise: { label: 'Sorpresa', category: 'emotion_positive' },
+  // Negative emotions
+  sadness: { label: 'Tristezza', category: 'emotion_negative' },
+  anger: { label: 'Rabbia', category: 'emotion_negative' },
+  fear: { label: 'Paura', category: 'emotion_negative' },
+  apathy: { label: 'Apatia', category: 'emotion_negative' },
+  shame: { label: 'Vergogna', category: 'emotion_negative' },
+  jealousy: { label: 'Gelosia', category: 'emotion_negative' },
+  frustration: { label: 'Frustrazione', category: 'emotion_negative' },
+  nervousness: { label: 'Nervosismo', category: 'emotion_negative' },
+  overwhelm: { label: 'Sopraffazione', category: 'emotion_negative' },
+  disappointment: { label: 'Delusione', category: 'emotion_negative' },
+  disgust: { label: 'Disgusto', category: 'emotion_negative' },
+};
+
+// All 9 life areas
+const LIFE_AREA_CONFIG: Record<keyof ExtendedLifeAreas, MetricConfig> = {
+  love: { label: 'Amore', category: 'life_area' },
+  work: { label: 'Lavoro', category: 'life_area' },
+  school: { label: 'Studio', category: 'life_area' },
+  health: { label: 'Salute', category: 'life_area' },
+  social: { label: 'Socialità', category: 'life_area' },
+  growth: { label: 'Crescita', category: 'life_area' },
+  family: { label: 'Famiglia', category: 'life_area' },
+  leisure: { label: 'Svago', category: 'life_area' },
+  finances: { label: 'Finanze', category: 'life_area' },
+};
+
+// Psychology resources (positive)
+const RESOURCE_KEYS: (keyof ExtendedPsychology)[] = [
+  'motivation', 'self_efficacy', 'mental_clarity', 'concentration',
+  'coping_ability', 'gratitude', 'self_worth', 'sense_of_purpose',
+  'life_satisfaction', 'perceived_social_support', 'emotional_regulation',
+  'resilience', 'mindfulness', 'sunlight_exposure'
+];
+
+// Psychology attention signals (negative)
+const ATTENTION_KEYS: (keyof ExtendedPsychology)[] = [
+  'rumination', 'burnout_level', 'loneliness_perceived', 'somatic_tension',
+  'appetite_changes', 'guilt', 'irritability', 'intrusive_thoughts',
+  'hopelessness', 'dissociation', 'confusion', 'racing_thoughts',
+  'avoidance', 'social_withdrawal', 'compulsive_urges', 'procrastination'
+];
+
+const PSYCHOLOGY_LABELS: Record<string, string> = {
+  motivation: 'Motivazione',
+  self_efficacy: 'Autoefficacia',
+  mental_clarity: 'Chiarezza',
+  concentration: 'Concentrazione',
+  coping_ability: 'Resilienza',
+  gratitude: 'Gratitudine',
+  self_worth: 'Autostima',
+  sense_of_purpose: 'Scopo',
+  life_satisfaction: 'Soddisfazione',
+  perceived_social_support: 'Supporto',
+  emotional_regulation: 'Regolazione',
+  resilience: 'Resilienza',
+  mindfulness: 'Mindfulness',
+  sunlight_exposure: 'Luce solare',
+  // Attention signals
+  rumination: 'Rimuginazione',
+  burnout_level: 'Burnout',
+  loneliness_perceived: 'Solitudine',
+  somatic_tension: 'Tensione',
+  appetite_changes: 'Appetito',
+  guilt: 'Senso di colpa',
+  irritability: 'Irritabilità',
+  intrusive_thoughts: 'Pensieri intrusivi',
+  hopelessness: 'Disperazione',
+  dissociation: 'Dissociazione',
+  confusion: 'Confusione',
+  racing_thoughts: 'Pensieri accelerati',
+  avoidance: 'Evitamento',
+  social_withdrawal: 'Ritiro sociale',
+  compulsive_urges: 'Compulsioni',
+  procrastination: 'Procrastinazione',
+};
+
+// Category styling
+const CATEGORY_STYLES: Record<MetricCategory, string> = {
+  emotion_positive: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50',
+  emotion_negative: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700/50',
+  life_area: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50',
+  resource: 'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700/50',
+  attention: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/50',
+};
+
+const CATEGORY_LABELS: Record<MetricCategory, string> = {
+  emotion_positive: 'emozione',
+  emotion_negative: 'emozione',
+  life_area: 'area vita',
+  resource: 'risorsa',
+  attention: 'attenzione',
+};
+
+interface FocusItem {
+  key: string;
+  label: string;
+  value: number;
+  category: MetricCategory;
 }
 
 const FocusTopics: React.FC = () => {
-  // 🎯 TIME-WEIGHTED AVERAGE: Use unified data source (30 giorni, half-life 10 giorni)
-  const { emotions, deepPsychology, hasData } = useTimeWeightedMetrics(30, 10);
+  // Use 30-day lookback with 10-day half-life
+  const { emotions, lifeAreas, deepPsychology, hasData } = useTimeWeightedMetrics(30, 10);
 
-  // Generate topics from time-weighted emotional data
-  const topics = React.useMemo<Topic[]>(() => {
+  // Collect ALL metrics with value >= 5 and sort by intensity
+  const focusItems = React.useMemo<FocusItem[]>(() => {
     if (!hasData) return [];
     
-    const topicList: Topic[] = [];
+    const items: FocusItem[] = [];
 
-    // Add emotions as topics
-    if (emotions.joy !== null && emotions.joy > 0) {
-      topicList.push({ tag: 'gioia', intensity: emotions.joy });
-    }
-    if (emotions.sadness !== null && emotions.sadness > 0) {
-      topicList.push({ tag: 'tristezza', intensity: emotions.sadness });
-    }
-    if (emotions.anger !== null && emotions.anger > 0) {
-      topicList.push({ tag: 'rabbia', intensity: emotions.anger });
-    }
-    if (emotions.fear !== null && emotions.fear > 0) {
-      topicList.push({ tag: 'paura', intensity: emotions.fear });
-    }
-    if (emotions.apathy !== null && emotions.apathy > 0) {
-      topicList.push({ tag: 'apatia', intensity: emotions.apathy });
-    }
+    // Add emotions (all 20)
+    (Object.keys(EMOTION_CONFIG) as (keyof ExtendedEmotions)[]).forEach(key => {
+      const value = emotions[key];
+      if (value !== null && value >= 5) {
+        items.push({
+          key,
+          label: EMOTION_CONFIG[key].label,
+          value,
+          category: EMOTION_CONFIG[key].category,
+        });
+      }
+    });
 
-    // Add psychology topics
-    if (deepPsychology.rumination !== null && deepPsychology.rumination >= 5) {
-      topicList.push({ tag: 'ruminazione', intensity: deepPsychology.rumination });
-    }
-    if (deepPsychology.burnout_level !== null && deepPsychology.burnout_level >= 5) {
-      topicList.push({ tag: 'stress', intensity: deepPsychology.burnout_level });
-    }
-    if (deepPsychology.gratitude !== null && deepPsychology.gratitude >= 5) {
-      topicList.push({ tag: 'gratitudine', intensity: deepPsychology.gratitude });
-    }
-    if (deepPsychology.loneliness_perceived !== null && deepPsychology.loneliness_perceived >= 5) {
-      topicList.push({ tag: 'solitudine', intensity: deepPsychology.loneliness_perceived });
-    }
+    // Add life areas (all 9)
+    (Object.keys(LIFE_AREA_CONFIG) as (keyof ExtendedLifeAreas)[]).forEach(key => {
+      const value = lifeAreas[key];
+      if (value !== null && value >= 5) {
+        items.push({
+          key,
+          label: LIFE_AREA_CONFIG[key].label,
+          value,
+          category: 'life_area',
+        });
+      }
+    });
 
-    return topicList
-      .sort((a, b) => b.intensity - a.intensity)
+    // Add psychology resources (positive)
+    RESOURCE_KEYS.forEach(key => {
+      const value = deepPsychology[key];
+      if (value !== null && value >= 5) {
+        items.push({
+          key,
+          label: PSYCHOLOGY_LABELS[key] || key,
+          value,
+          category: 'resource',
+        });
+      }
+    });
+
+    // Add attention signals (negative) - only if >= 5 (concerning)
+    ATTENTION_KEYS.forEach(key => {
+      const value = deepPsychology[key];
+      if (value !== null && value >= 5) {
+        items.push({
+          key,
+          label: PSYCHOLOGY_LABELS[key] || key,
+          value,
+          category: 'attention',
+        });
+      }
+    });
+
+    // Sort by value descending and take top 4
+    return items
+      .sort((a, b) => b.value - a.value)
       .slice(0, 4);
-  }, [emotions, deepPsychology, hasData]);
-
-  const topicColors = [
-    'bg-primary/15 text-primary border-primary/20',
-    'bg-accent text-accent-foreground border-accent',
-    'bg-secondary text-secondary-foreground border-secondary',
-    'bg-muted text-muted-foreground border-muted',
-  ];
+  }, [emotions, lifeAreas, deepPsychology, hasData]);
 
   return (
     <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-5 shadow-soft border border-border/50 h-full">
@@ -72,21 +207,24 @@ const FocusTopics: React.FC = () => {
         </h3>
       </div>
 
-      {topics.length > 0 ? (
+      {focusItems.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {topics.map((topic, index) => (
+          {focusItems.map((item, index) => (
             <div
-              key={topic.tag}
+              key={item.key}
               className={cn(
                 "px-3 py-2 rounded-full text-sm font-medium border transition-all duration-300",
                 "hover:scale-105 cursor-default",
-                topicColors[index % topicColors.length]
+                CATEGORY_STYLES[item.category]
               )}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <span className="capitalize">{topic.tag}</span>
-              <span className="ml-1 text-xs opacity-70">
-                {Math.round(topic.intensity)}/10
+              <span className="capitalize">{item.label}</span>
+              <span className="ml-1.5 text-xs opacity-70">
+                {Math.round(item.value)}/10
+              </span>
+              <span className="ml-1 text-[10px] opacity-50">
+                ({CATEGORY_LABELS[item.category]})
               </span>
             </div>
           ))}
