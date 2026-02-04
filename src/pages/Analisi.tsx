@@ -10,6 +10,7 @@ import ClinicalDomainSection, { MetricData as ClinicalMetricData } from '@/compo
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
 import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
+import EmotionalSpectrumSection from '@/components/analisi/EmotionalSpectrumSection';
 import { 
   CLINICAL_DOMAINS, 
   getMetricsByDomain, 
@@ -201,20 +202,28 @@ const Analisi: React.FC = () => {
 
       {/* Clinical Domains */}
       <div className="px-4 pb-8 space-y-6">
-        {/* Render all 6 clinical domains */}
-        {CLINICAL_DOMAINS.map(domain => {
-          const domainMetrics = getMetricsByDomain(domain.id);
-          
-          return (
-            <ClinicalDomainSection
-              key={domain.id}
-              domain={domain}
-              metrics={domainMetrics}
-              metricsData={allMetricsData}
-              onMetricClick={(key) => setSelectedMetric(key)}
-            />
-          );
-        })}
+        {/* Emotional Spectrum - Full emotions breakdown with radar */}
+        <EmotionalSpectrumSection
+          allMetricsData={allMetricsData}
+          onMetricClick={(key) => setSelectedMetric(key)}
+        />
+        
+        {/* Render clinical domains (excluding emotional since we show it above) */}
+        {CLINICAL_DOMAINS
+          .filter(domain => domain.id !== 'emotional')
+          .map(domain => {
+            const domainMetrics = getMetricsByDomain(domain.id);
+            
+            return (
+              <ClinicalDomainSection
+                key={domain.id}
+                domain={domain}
+                metrics={domainMetrics}
+                metricsData={allMetricsData}
+                onMetricClick={(key) => setSelectedMetric(key)}
+              />
+            );
+          })}
 
         {/* Corpo Section */}
         {hasCorpoData && (
