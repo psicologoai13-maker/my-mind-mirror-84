@@ -114,20 +114,13 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
         throw new Error("No signed URL received from server");
       }
 
-      console.log("🚀 Starting ElevenLabs conversation with dynamic overrides...");
-      console.log("📝 System prompt length:", data.systemPrompt?.length || 0);
+      console.log("🚀 Starting ElevenLabs conversation with dynamic variables...");
+      console.log("📝 Dynamic variables:", Object.keys(data.dynamicVariables || {}));
       
-      // Start conversation with signed URL and dynamic overrides
+      // Start conversation with signed URL and dynamic variables
       await conversation.startSession({
         signedUrl: data.signedUrl,
-        overrides: {
-          agent: {
-            prompt: {
-              prompt: data.systemPrompt,
-            },
-            language: "it",
-          },
-        },
+        dynamicVariables: data.dynamicVariables || {},
       });
 
       console.log("✅ Conversation session started");
