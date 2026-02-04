@@ -2,12 +2,14 @@ import React from 'react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EMOTION_CONFIG, EmotionKey, ALL_EMOTION_KEYS } from '@/lib/emotionConfig';
 
 interface EmotionData {
   emotion: string;
   label: string;
   value: number;
   fullMark: number;
+  color: string;
 }
 
 interface EmotionalSpectrumRadarProps {
@@ -15,19 +17,6 @@ interface EmotionalSpectrumRadarProps {
   extendedEmotions?: Record<string, number | null>;
   className?: string;
 }
-
-const EMOTION_CONFIG: { key: string; label: string; color: string }[] = [
-  { key: 'joy', label: 'Gioia', color: 'hsl(50, 90%, 50%)' },
-  { key: 'sadness', label: 'Tristezza', color: 'hsl(210, 60%, 50%)' },
-  { key: 'anger', label: 'Rabbia', color: 'hsl(0, 80%, 50%)' },
-  { key: 'fear', label: 'Paura', color: 'hsl(270, 60%, 50%)' },
-  { key: 'apathy', label: 'Apatia', color: 'hsl(220, 20%, 50%)' },
-  { key: 'excitement', label: 'Eccitazione', color: 'hsl(340, 80%, 55%)' },
-  { key: 'hope', label: 'Speranza', color: 'hsl(160, 60%, 45%)' },
-  { key: 'frustration', label: 'Frustrazione', color: 'hsl(25, 80%, 55%)' },
-  { key: 'nervousness', label: 'Nervosismo', color: 'hsl(45, 70%, 50%)' },
-  { key: 'overwhelm', label: 'Sopraffazione', color: 'hsl(280, 50%, 50%)' },
-];
 
 const EmotionalSpectrumRadar: React.FC<EmotionalSpectrumRadarProps> = ({
   emotions,
@@ -37,27 +26,35 @@ const EmotionalSpectrumRadar: React.FC<EmotionalSpectrumRadarProps> = ({
   // Combine basic and extended emotions
   const allEmotions = { ...emotions, ...extendedEmotions };
   
-  // Build data for radar chart (only include emotions with values)
-  const radarData: EmotionData[] = EMOTION_CONFIG
-    .map(({ key, label }) => ({
-      emotion: key,
-      label,
-      value: allEmotions[key] !== null && allEmotions[key] !== undefined 
-        ? Math.round(allEmotions[key] as number) 
-        : 0,
-      fullMark: 10,
-    }))
-    .filter(d => d.value > 0 || EMOTION_CONFIG.slice(0, 5).some(e => e.key === d.emotion)); // Always show base 5 emotions
+  // Build data for radar chart - only include emotions with values > 0
+  // Limit to max 8 emotions for readability, prioritized by value
+  const radarData: EmotionData[] = React.useMemo(() => {
+    const emotionsWithValues = ALL_EMOTION_KEYS
+      .map(key => {
+        const value = allEmotions[key];
+        const config = EMOTION_CONFIG[key];
+        return {
+          emotion: key,
+          label: config?.label || key,
+          value: value !== null && value !== undefined ? Math.round(value as number) : 0,
+          fullMark: 10,
+          color: config?.color || 'hsl(220, 10%, 50%)',
+        };
+      })
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8); // Max 8 for readability
+    
+    return emotionsWithValues;
+  }, [allEmotions]);
 
-  // If not enough emotions to show, return null
-  if (radarData.filter(d => d.value > 0).length < 2) {
+  // Need at least 3 emotions for a meaningful radar
+  if (radarData.length < 3) {
     return null;
   }
 
   // Calculate dominant emotion
-  const dominantEmotion = radarData.reduce((prev, curr) => 
-    curr.value > prev.value ? curr : prev
-  , radarData[0]);
+  const dominantEmotion = radarData[0];
 
   return (
     <section className={cn("animate-fade-in mb-6", className)}>
@@ -70,7 +67,7 @@ const EmotionalSpectrumRadar: React.FC<EmotionalSpectrumRadarProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">🌈</span>
-            <h3 className="font-display font-semibold text-foreground">Spettro Emotivo</h3>
+            <h3 className="font-display font-semibold text-foreground">Radar Emotivo</h3>
           </div>
           <span className="px-2 py-0.5 text-[10px] font-medium bg-gradient-aria-subtle text-aria-violet rounded-full flex items-center gap-1">
             <Sparkles className="w-3 h-3" />
@@ -129,25 +126,29 @@ const EmotionalSpectrumRadar: React.FC<EmotionalSpectrumRadarProps> = ({
           </div>
         )}
 
-        {/* Emotion legend (scrollable) */}
+        {/* Emotion legend (scrollable) - show top 6 */}
         <div className="mt-3 flex flex-wrap gap-2">
-          {radarData
-            .filter(d => d.value > 0)
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 5)
-            .map((item) => (
+          {radarData.slice(0, 6).map((item) => {
+            const config = EMOTION_CONFIG[item.emotion as EmotionKey];
+            return (
               <div
                 key={item.emotion}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 text-xs"
               >
                 <div 
                   className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: EMOTION_CONFIG.find(e => e.key === item.emotion)?.color || 'hsl(var(--primary))' }}
+                  style={{ backgroundColor: config?.color || item.color }}
                 />
                 <span className="text-muted-foreground">{item.label}</span>
                 <span className="font-medium text-foreground">{item.value}</span>
               </div>
-            ))}
+            );
+          })}
+          {radarData.length > 6 && (
+            <span className="text-xs text-muted-foreground px-2 py-1">
+              +{radarData.length - 6}
+            </span>
+          )}
         </div>
       </div>
     </section>
