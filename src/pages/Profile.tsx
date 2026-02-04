@@ -79,23 +79,26 @@ const Profile: React.FC = () => {
 
   return (
     <MobileLayout>
-      <header className="px-6 pt-8 pb-2">
+      <header className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold text-foreground">Profilo</h1>
-          <Button variant="ghost" size="icon" className="rounded-xl">
-            <Settings className="w-5 h-5" />
+          <div>
+            <h1 className="font-display text-2xl font-bold text-foreground">Profilo</h1>
+            <p className="text-muted-foreground text-sm mt-1">Le tue impostazioni</p>
+          </div>
+          <Button variant="ghost" size="icon" className="rounded-2xl bg-card shadow-soft">
+            <Settings className="w-5 h-5 text-muted-foreground" />
           </Button>
         </div>
       </header>
 
-      <div className="px-6 space-y-5 pb-8">
+      <div className="px-5 space-y-5 pb-8">
         {/* Profile Header - Glass Card with Earn Points */}
         <div className={cn(
           "relative overflow-hidden rounded-3xl p-5",
-          "bg-glass backdrop-blur-xl border border-glass-border",
+          "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
           "shadow-glass"
         )}>
-          {/* Inner light */}
+          {/* Inner light reflection */}
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
           
           <div className="relative z-10 flex items-start justify-between mb-4">
@@ -145,15 +148,15 @@ const Profile: React.FC = () => {
         {/* Settings Menu - Glass Card */}
         <div className={cn(
           "relative overflow-hidden rounded-3xl",
-          "bg-glass backdrop-blur-xl border border-glass-border",
+          "bg-glass/30 backdrop-blur-xl border border-glass-border/60",
           "shadow-glass"
         )}>
           {/* Inner light */}
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
           
-          <div className="relative z-10 px-5 py-3 border-b border-border/30">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Settings className="w-4 h-4" />
+          <div className="relative z-10 flex items-center gap-2.5 px-4 py-3 border-b border-glass-border/30">
+            <span className="text-xl">⚙️</span>
+            <h3 className="font-display font-semibold text-sm text-foreground">
               Impostazioni
             </h3>
           </div>
@@ -191,13 +194,13 @@ const Profile: React.FC = () => {
           })}
         </div>
 
-        {/* Logout - Glass style */}
+        {/* Logout */}
         <Button 
           variant="outline" 
           className={cn(
             "w-full rounded-2xl",
-            "bg-glass backdrop-blur-xl border-destructive/30",
-            "text-destructive hover:bg-destructive/10 hover:text-destructive"
+            "bg-glass/30 backdrop-blur-xl border-glass-border/60",
+            "text-destructive hover:bg-destructive/10 hover:border-destructive/30"
           )}
           onClick={handleLogout}
         >

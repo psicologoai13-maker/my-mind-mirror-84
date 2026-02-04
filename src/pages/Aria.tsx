@@ -151,15 +151,15 @@ const Aria: React.FC = () => {
 
   return (
     <MobileLayout>
-      <div className="p-4 pb-28 space-y-6">
-        {/* Page Title */}
-        <header>
-          <h1 className="text-2xl font-semibold text-foreground">Aria</h1>
-          <p className="text-sm text-muted-foreground mt-1">Il tuo spazio di riflessione</p>
+      <div className="pb-28 space-y-6">
+        {/* Header */}
+        <header className="px-5 pt-6 pb-2">
+          <h1 className="font-display text-2xl font-bold text-foreground">Aria</h1>
+          <p className="text-muted-foreground text-sm mt-1">Il tuo spazio di riflessione</p>
         </header>
 
-        {/* Session Type Selector - Two Premium Glass Boxes with Aria gradient */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Session Type Selector */}
+        <div className="px-5 grid grid-cols-2 gap-4">
           {/* Chat Box - Primary accent */}
           <button
             onClick={handleStartChat}
@@ -225,12 +225,13 @@ const Aria: React.FC = () => {
           </button>
         </div>
 
-        {/* Thematic Diaries - Glass cards */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground">I Tuoi Diari</h2>
+        {/* Thematic Diaries */}
+        <section className="px-5">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="text-xl">📔</span>
+            <h2 className="font-display font-semibold text-sm text-foreground">I Tuoi Diari</h2>
+            <div className="flex-1" />
             <button
-              onClick={() => setShowDiaryModal(true)}
               className={cn(
                 "w-8 h-8 flex items-center justify-center rounded-full",
                 "bg-glass backdrop-blur-xl border border-glass-border",
@@ -276,16 +277,18 @@ const Aria: React.FC = () => {
           </div>
         </section>
 
-        {/* Session History - Glass cards */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground">Cronologia</h2>
+        {/* Session History */}
+        <section className="px-5">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="text-xl">📜</span>
+            <h2 className="font-display font-semibold text-sm text-foreground">Cronologia</h2>
+            <div className="flex-1" />
             <button 
               onClick={() => navigate('/sessions')}
-              className="text-sm text-primary font-medium flex items-center gap-1 hover:text-primary/80 transition-colors"
+              className="text-xs text-primary font-medium flex items-center gap-0.5 hover:text-primary/80 transition-colors"
             >
               Vedi tutto
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
