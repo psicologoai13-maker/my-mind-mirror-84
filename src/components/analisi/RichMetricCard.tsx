@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSemanticColor, getSemanticTrend } from '@/lib/clinicalDomains';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
@@ -94,7 +94,8 @@ const RichMetricCard: React.FC<RichMetricCardProps> = ({
   const valueColor = getSemanticColor(value, isNegative);
   const { color: trendColor } = getSemanticTrend(trend, isNegative);
   
-  const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
+  const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : null;
+  const showTrend = trend !== 'stable';
   
   const handleClick = () => {
     light();
@@ -138,7 +139,7 @@ const RichMetricCard: React.FC<RichMetricCardProps> = ({
             <span className={cn("text-2xl font-bold tabular-nums", valueColor)}>
               {displayValue}
             </span>
-            <TrendIcon className={cn("w-4 h-4", trendColor)} />
+            {showTrend && TrendIcon && <TrendIcon className={cn("w-4 h-4", trendColor)} />}
           </div>
         </div>
       </button>
@@ -180,7 +181,7 @@ const RichMetricCard: React.FC<RichMetricCardProps> = ({
         <span className={cn("text-base font-bold tabular-nums", valueColor)}>
           {displayValue}
         </span>
-        <TrendIcon className={cn("w-3 h-3", trendColor)} />
+        {showTrend && TrendIcon && <TrendIcon className={cn("w-3 h-3", trendColor)} />}
       </div>
     </button>
   );
