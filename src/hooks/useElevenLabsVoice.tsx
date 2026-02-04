@@ -1,6 +1,7 @@
 import { useConversation } from "@elevenlabs/react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealTimeContext } from "./useRealTimeContext";
 import { toast } from "sonner";
 
 export type ElevenLabsStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -22,6 +23,7 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
   const [error, setError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const audioLevelInterval = useRef<NodeJS.Timeout | null>(null);
+  const { context } = useRealTimeContext();
 
   const conversation = useConversation({
     onConnect: () => {
@@ -50,11 +52,8 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
   useEffect(() => {
     if (status === 'connected') {
       audioLevelInterval.current = setInterval(() => {
-        // Get input/output volume for visualization
         const inputLevel = conversation.getInputVolume();
         const outputLevel = conversation.getOutputVolume();
-        
-        // Use whichever is higher for the visualization
         const level = Math.max(inputLevel, outputLevel);
         setAudioLevel(level);
       }, 50);
@@ -83,8 +82,8 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log("✅ Microphone permission granted");
 
-      // Get signed URL from edge function
-      console.log("🔑 Getting ElevenLabs signed URL...");
+      // Get signed URL and system prompt from edge function
+      console.log("🔑 Getting ElevenLabs signed URL with full context...");
       
       const { data: session } = await supabase.auth.getSession();
       
@@ -98,6 +97,9 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
               ? `Bearer ${session.session.access_token}`
               : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
+          body: JSON.stringify({
+            realTimeContext: context // Pass current real-time context
+          }),
         }
       );
 
@@ -112,12 +114,23 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
         throw new Error("No signed URL received from server");
       }
 
-      console.log("🚀 Starting ElevenLabs conversation...");
+      console.log("🚀 Starting ElevenLabs conversation with dynamic overrides...");
+      console.log("📝 System prompt length:", data.systemPrompt?.length || 0);
       
-      // Start conversation with signed URL (WebSocket)
+      // Start conversation with signed URL and dynamic overrides
       await conversation.startSession({
         signedUrl: data.signedUrl,
+        overrides: {
+          agent: {
+            prompt: {
+              prompt: data.systemPrompt,
+            },
+            language: "it",
+          },
+        },
       });
+
+      console.log("✅ Conversation session started");
 
     } catch (err) {
       console.error("Failed to start ElevenLabs conversation:", err);
@@ -127,11 +140,13 @@ export const useElevenLabsVoice = (): UseElevenLabsVoiceReturn => {
       
       if (errorMessage.includes("Permission denied") || errorMessage.includes("not-allowed")) {
         toast.error("Permesso microfono negato");
+      } else if (errorMessage.includes("overrides")) {
+        toast.error("Abilita 'Client Overrides' nella dashboard ElevenLabs");
       } else {
         toast.error(`Errore: ${errorMessage}`);
       }
     }
-  }, [conversation]);
+  }, [conversation, context]);
 
   const stop = useCallback(async () => {
     console.log("🛑 Stopping ElevenLabs conversation...");
