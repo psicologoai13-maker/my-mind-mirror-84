@@ -613,82 +613,327 @@ PRESTA ATTENZIONE EXTRA a qualsiasi indizio su queste aree nella conversazione.
 Se trovi anche un minimo riferimento, ESTRAI un punteggio.`
       : '';
 
-    // NEW: Deep Psychology semantic extraction rules
+    // NEW: Deep Psychology semantic extraction rules (HARDENED v2.0)
     const deepPsychologyPrompt = `
 ═══════════════════════════════════════════════
-🧠 DEEP PSYCHOLOGY - ANALISI MECCANISMI SOTTOSTANTI
+🧠 DEEP PSYCHOLOGY - ANALISI MECCANISMI SOTTOSTANTI (v2.0)
 ═══════════════════════════════════════════════
 Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
+⚠️ REGOLA FONDAMENTALE: Se l'utente NON parla di un tema → NULL. NON inventare mai!
 
 📌 REGOLE DI ESTRAZIONE SEMANTICA:
 
-**COGNITIVI:**
-- rumination (pensieri ossessivi): "Non riesco a smettere di pensare a...", "mi tormento", "continuo a rimuginare" → 7-10
-  - Ripetizione dello stesso tema nella conversazione → segnale di ruminazione
-- self_efficacy (fiducia in sé): "ce la posso fare", "sono capace" → 8-10 | "non ne sono capace", "fallirò" → 1-4
-- mental_clarity: "ho le idee chiare", "so cosa fare" → 8-10 | "confuso", "non so", "nebbia mentale" → 1-4
-- concentration (NEW): "Riesco a concentrarmi", "focus", "mente lucida sul task" → 8-10
-  "Mi distraggo", "non riesco a focalizzarmi", "pensieri vagano" → 1-4
-  - Inferisci anche da come l'utente parla (coerente vs frammentato)
-
-**STRESS & COPING:**
-- burnout_level: "sono esausto", "non ce la faccio più", "svuotato", "logorato" → 8-10
-  - Menzione di lavoro eccessivo + stanchezza cronica = burnout
-- coping_ability (resilienza): "riesco a gestire", "ce la faccio" → 8-10 | "mi sento sopraffatto" → 1-4
-- loneliness_perceived: "mi sento solo anche tra la gente", "nessuno mi capisce", "isolato" → 7-10
-  - ATTENZIONE: Diversa dalla socialità bassa! Uno può avere amici ma sentirsi solo.
-
-**FISIOLOGICI:**
-- somatic_tension: "peso sul petto", "nodo allo stomaco", "tensione muscolare", "mal di testa da stress" → 7-10
-  - Qualsiasi sintomo fisico correlato a stress emotivo
-- appetite_changes: "non mangio", "mangio troppo per il nervoso", "fame nervosa" → 7-10
-  - Sia troppo che troppo poco indicano cambiamenti significativi
-- sunlight_exposure: SOLO SE ESPLICITAMENTE MENZIONATO!
-  - "sempre in casa", "non esco mai", "lavoro al buio", "non vedo la luce" → 1-4
-  - "sono uscito", "ho fatto una passeggiata", "sono stato al sole", "ho preso aria" → 7-10
-  - ⚠️ NON INFERIRE da altre abitudini! Se l'utente non parla di uscire/sole → NULL
-
-**EMOTIVI COMPLESSI:**
-- guilt (senso di colpa): "è colpa mia", "avrei dovuto", "mi sento in colpa", "ho deluso" → 7-10
-- gratitude: "sono grato", "apprezzo", "fortunato" → 7-10 | assenza di gratitudine in contesti positivi → 1-4
-- irritability: "mi dà fastidio", "sono irascibile", "mi innervosisco facilmente" → 7-10
-
-**NUOVI PARAMETRI PSICOLOGICI:**
-- motivation (NEW): "Sono motivato", "voglio farlo", "ci credo" → 8-10
-  "Non ho voglia", "a che scopo", "perché dovrei" → 1-4
-  - CORRELATO ma diverso da energia: uno può avere energia ma non motivazione
-- intrusive_thoughts (NEW): "Non riesco a togliermi dalla testa...", "pensiero che torna", "ossessione" → 7-10
-  - Diverso da RUMINAZIONE: i pensieri intrusivi sono ego-distonici (non li vuole)
-  - La ruminazione è ego-sintonica (ci pensa perché "deve")
-- self_worth (NEW): "Mi sento inutile", "non valgo niente", "sono un fallimento" → 1-3
-  "Sono fiero di me", "ce l'ho fatta", "sono capace" → 8-10
-  - CORRELATO a self_efficacy ma più ampio (valore personale vs capacità)
-
 ═══════════════════════════════════════════════
-😰 EMOZIONI AGGIUNTIVE - ESTRAZIONE SEMANTICA
+🧩 COGNITIVI (6 metriche)
 ═══════════════════════════════════════════════
 
-**NERVOSISMO (nervousness):**
-- "Sono nervoso", "agitato", "non riesco a stare fermo", "irrequieto" → 7-10
+**rumination** (pensieri ossessivi ricorrenti):
+- RILEVA: "Non riesco a smettere di pensare a...", "mi tormento", "continuo a rimuginare", "pensiero fisso"
+- Ripetizione dello stesso tema nella conversazione → segnale di ruminazione
+- PUNTEGGIO: 7-10 se esplicito, 5-6 se inferito da ripetizioni
+- Se NON menzionato → null
+
+**self_efficacy** (fiducia nelle proprie capacità):
+- ALTA (7-10): "ce la posso fare", "sono capace", "ci riuscirò", "ho le competenze"
+- BASSA (1-4): "non ne sono capace", "fallirò", "non ce la faccio", "sono incompetente"
+- Se NON menzionato → null
+
+**mental_clarity** (chiarezza mentale):
+- ALTA (7-10): "ho le idee chiare", "so cosa fare", "vedo chiaramente", "lucido"
+- BASSA (1-4): "confuso", "non so", "nebbia mentale", "idee confuse", "non capisco"
+- Se NON menzionato → null
+
+**concentration** (livello di concentrazione):
+- ALTA (7-10): "riesco a concentrarmi", "focus", "mente lucida sul task", "sono produttivo"
+- BASSA (1-4): "mi distraggo", "non riesco a focalizzarmi", "pensieri vagano", "attenzione dispersa"
+- Inferisci anche da come l'utente parla (coerente vs frammentato)
+- Se NON menzionato → null
+
+**dissociation** (distacco dalla realtà) ⚠️ CRITICO PER TRAUMA:
+- RILEVA: "mi sento distaccato", "come se guardassi da fuori", "non mi sento nel mio corpo"
+- RILEVA: "tutto sembra irreale", "sensazione di estraneità", "non sono io", "autopilota"
+- PUNTEGGIO: 6-10 se esplicito
+- ⚠️ ALERT CLINICO se > 7: possibile dissociazione patologica
+- Se NON menzionato → null (MAI inferire!)
+
+**confusion** (confusione mentale):
+- RILEVA: "sono confuso", "non capisco", "ho le idee confuse", "nebbia", "non so cosa pensare"
+- RILEVA: "mi gira la testa", "non ci capisco niente", "tutto è un casino"
+- PUNTEGGIO: 5-8
+- Diverso da mental_clarity bassa: confusion è uno STATO ATTIVO di smarrimento
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+⚡ ATTIVAZIONE E STRESS (4 metriche)
+═══════════════════════════════════════════════
+
+**burnout_level** (esaurimento professionale/emotivo):
+- RILEVA: "sono esausto", "non ce la faccio più", "svuotato", "logorato", "bruciato"
+- Menzione di lavoro eccessivo + stanchezza cronica = burnout
+- PUNTEGGIO: 8-10 se esplicito, 6-7 se lavoro stressante cronico
+- ⚠️ SOLO se legato a lavoro/doveri. Stanchezza generica ≠ burnout
+- Se NON menzionato → null
+
+**irritability** (irritabilità):
+- RILEVA: "mi dà fastidio", "sono irascibile", "mi innervosisco facilmente", "perdo la pazienza"
+- RILEVA: "sbotto", "mi dà sui nervi", "sopporto sempre meno"
+- PUNTEGGIO: 7-10 se esplicito
+- Se NON menzionato → null
+
+**racing_thoughts** (pensieri accelerati) - INDICATORE IPOMANIA:
+- RILEVA: "i pensieri corrono", "mente che non si ferma", "mille pensieri insieme"
+- RILEVA: "non riesco a fermare la testa", "saltello da un pensiero all'altro", "testa in corsa"
+- PUNTEGGIO: 6-10
+- ⚠️ Se > 7 + energia alta + poco sonno → segnalare possibile ipomania in insights
+- Se NON menzionato → null
+
+**emotional_regulation** (capacità di gestire le emozioni):
+- BASSA (1-4): "esplodo", "non riesco a controllarmi", "perdo le staffe", "reagisco male", "mi faccio travolgere"
+- ALTA (7-10): "riesco a gestire", "mantengo la calma", "controllo le emozioni", "non mi faccio sopraffare"
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+🏃 COMPORTAMENTALI (4 metriche)
+═══════════════════════════════════════════════
+
+**avoidance** (evitamento situazioni) - CORE DELL'ANSIA:
+- RILEVA: "evito", "non voglio affrontare", "scappo da", "non ci vado", "rimando"
+- RILEVA: "non ho il coraggio di", "preferisco non pensarci", "lo evito come la peste"
+- PUNTEGGIO: 5-9
+- ⚠️ Cerca SEMPRE questo indicatore - è il cuore dei disturbi d'ansia!
+- Se NON menzionato → null
+
+**social_withdrawal** (ritiro sociale):
+- RILEVA: "non esco più", "ho annullato appuntamenti", "preferisco stare solo"
+- RILEVA: "non rispondo ai messaggi", "mi isolo", "evito la gente", "non ho voglia di vedere nessuno"
+- PUNTEGGIO: 5-9
+- Diverso da loneliness: qui è un COMPORTAMENTO attivo
+- Se NON menzionato → null
+
+**compulsive_urges** (impulsi compulsivi) - INDICATORE OCD:
+- RILEVA: "devo assolutamente", "non resisto", "impulso irresistibile", "bisogno di controllare"
+- RILEVA: "devo rifare", "se non faccio X mi sento male", "controllare più volte"
+- PUNTEGGIO: 5-9
+- ⚠️ Se presente, cercare anche rituali → possibile OCD
+- Se NON menzionato → null
+
+**procrastination** (rimandare compiti):
+- RILEVA: "rimando", "lo farò domani", "non inizio mai", "aspetto sempre l'ultimo momento"
+- RILEVA: "procrastino", "non trovo mai il momento", "rinvio"
+- PUNTEGGIO: 4-8
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+🏥 FISIOLOGICI (3 metriche)
+═══════════════════════════════════════════════
+
+**somatic_tension** (tensione fisica da stress):
+- RILEVA: "peso sul petto", "nodo allo stomaco", "tensione muscolare", "mal di testa da stress"
+- Qualsiasi sintomo fisico correlato a stress emotivo → 7-10
+- Se NON menzionato → null
+
+**appetite_changes** (alterazioni appetito):
+- RILEVA: "non mangio", "mangio troppo per il nervoso", "fame nervosa", "ho perso l'appetito"
+- Sia troppo che troppo poco indicano cambiamenti significativi → 7-10
+- Se NON menzionato → null
+
+**sunlight_exposure** (esposizione alla luce) ⚠️ SOLO SE ESPLICITAMENTE MENZIONATO:
+- BASSO (1-4): "sempre in casa", "non esco mai", "lavoro al buio", "non vedo la luce", "chiuso in casa"
+- ALTO (7-10): "sono uscito", "ho fatto una passeggiata", "sono stato al sole", "ho preso aria"
+- ⚠️ NON INFERIRE da altre abitudini! Se l'utente non parla di uscire/sole → NULL
+- Se NON esplicitamente menzionato → null (MAI inventare!)
+
+═══════════════════════════════════════════════
+❤️ EMOTIVI COMPLESSI (6 metriche)
+═══════════════════════════════════════════════
+
+**guilt** (senso di colpa):
+- RILEVA: "è colpa mia", "avrei dovuto", "mi sento in colpa", "ho deluso", "mi rimprovero"
+- PUNTEGGIO: 7-10 se esplicito
+- Se NON menzionato → null
+
+**gratitude** (gratitudine espressa):
+- RILEVA: "sono grato", "apprezzo", "fortunato", "ringrazio", "che fortuna"
+- PUNTEGGIO: 7-10 se esplicito
+- Assenza di gratitudine in contesti positivi → non significa 0, significa null
+- Se NON menzionato → null
+
+**motivation** (livello di motivazione):
+- ALTA (8-10): "sono motivato", "voglio farlo", "ci credo", "non vedo l'ora di iniziare"
+- BASSA (1-4): "non ho voglia", "a che scopo", "perché dovrei", "zero motivazione"
+- DIVERSO da energia: uno può avere energia ma non motivazione (e viceversa)
+- Se NON menzionato → null
+
+**intrusive_thoughts** (pensieri intrusivi ego-distonici):
+- RILEVA: "non riesco a togliermi dalla testa...", "pensiero che torna", "ossessione"
+- RILEVA: "immagini che non voglio", "pensieri che mi spaventano"
+- DIVERSO da RUMINAZIONE: i pensieri intrusivi sono ego-distonici (non li vuole avere)
+- La ruminazione è ego-sintonica (ci pensa perché "deve")
+- PUNTEGGIO: 7-10 se esplicito
+- Se NON menzionato → null
+
+**self_worth** (autostima/valore di sé):
+- BASSO (1-3): "mi sento inutile", "non valgo niente", "sono un fallimento", "faccio schifo"
+- ALTO (8-10): "sono fiero di me", "ce l'ho fatta", "sono capace", "valgo"
+- DIVERSO da self_efficacy: self_worth è valore personale, self_efficacy è capacità
+- Se NON menzionato → null
+
+**coping_ability** (capacità di gestire lo stress):
+- ALTA (8-10): "riesco a gestire", "ce la faccio", "tengo duro", "so come affrontarlo"
+- BASSA (1-4): "mi sento sopraffatto", "non reggo", "crollo", "non so come gestire"
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+🌟 RISORSE PERSONALI (6 metriche)
+═══════════════════════════════════════════════
+
+**sense_of_purpose** (senso di scopo/direzione):
+- BASSO (1-4): "non so perché faccio le cose", "a che serve", "senza scopo", "vuoto esistenziale", "non ho direzione"
+- ALTO (7-10): "ho uno scopo", "so cosa voglio", "la mia missione", "so dove sto andando"
+- Se NON menzionato → null
+
+**life_satisfaction** (soddisfazione generale della vita):
+- BASSA (1-4): "non sono contento della mia vita", "vorrei tutto diverso", "insoddisfatto", "delusione costante"
+- ALTA (7-10): "sono soddisfatto", "la mia vita mi piace", "sono fortunato", "non cambierei nulla"
+- Se NON menzionato → null
+
+**perceived_social_support** (supporto percepito dagli altri):
+- BASSO (1-4): "nessuno mi aiuta", "sono solo", "non ho nessuno", "non posso contare su nessuno"
+- ALTO (7-10): "ho persone su cui contare", "posso chiedere aiuto", "mi supportano", "ho una rete"
+- Se NON menzionato → null
+
+**resilience** (capacità di riprendersi):
+- BASSA (1-4): "crollo", "non ce la faccio", "mi arrendo", "non mi riprendo mai"
+- ALTA (7-10): "mi rialzo sempre", "supero le difficoltà", "ce la farò", "sono resistente"
+- Se NON menzionato → null
+
+**mindfulness** (presenza nel momento):
+- BASSO (1-4): "sempre nella mia testa", "perso nei pensieri", "non sono presente", "sempre altrove"
+- ALTO (7-10): "vivo nel presente", "consapevole", "qui e ora", "focalizzato sul momento"
+- Se NON menzionato → null
+
+**loneliness_perceived** (solitudine percepita):
+- RILEVA: "mi sento solo anche tra la gente", "nessuno mi capisce", "isolato", "abbandonato"
+- ATTENZIONE: Diversa dalla socialità bassa! Uno può avere amici ma sentirsi solo.
+- PUNTEGGIO: 7-10 se esplicito
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+🚨 SICUREZZA - INDICATORI CRITICI (3 metriche)
+═══════════════════════════════════════════════
+
+**suicidal_ideation** (pensieri di farsi del male) ⚠️ CRITICO:
+- RILEVA: "non voglio più vivere", "sarebbe meglio se non ci fossi", "pensieri di farla finita"
+- RILEVA: "vorrei sparire", "non ha senso andare avanti"
+- PUNTEGGIO: 5-10 in base a intensità
+- ⚠️ ALERT se > 5: crisis_risk DEVE essere "high"
+- Se NON menzionato → null
+
+**hopelessness** (disperazione totale) ⚠️ CRITICO:
+- RILEVA: "non cambierà mai niente", "non c'è speranza", "è tutto inutile", "non vedo via d'uscita"
+- PUNTEGGIO: 7-10 se esplicito
+- ⚠️ ALERT se > 7: predittore depressione maggiore
+- Se NON menzionato → null
+
+**self_harm_urges** (impulsi autolesionistici) ⚠️ CRITICO:
+- RILEVA: "voglia di farmi del male", "mi sono fatto del male", "impulso di tagliarmi"
+- PUNTEGGIO: 5-10 in base a intensità
+- ⚠️ ALERT se > 5: crisis_risk DEVE essere "high"
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+😰 EMOZIONI SECONDARIE - ESTRAZIONE SEMANTICA
+═══════════════════════════════════════════════
+
+**nervousness** (nervosismo/agitazione):
+- RILEVA: "sono nervoso", "agitato", "non riesco a stare fermo", "irrequieto", "in ansia"
 - Movimento continuo, mani sudate, parlare veloce → inferisci 5-7
-- Diverso da ANSIA: il nervosismo è più fisico/superficiale, l'ansia è più profonda
+- DIVERSO da ANSIA: il nervosismo è più fisico/superficiale, l'ansia è più profonda
+- Se NON menzionato → null
 
-**SOPRAFFAZIONE (overwhelm):**
-- "Mi sento sopraffatto", "è troppo", "non ce la faccio", "troppe cose" → 7-10
+**overwhelm** (sopraffazione) ⚠️ CRITICO PER BURNOUT:
+- RILEVA: "mi sento sopraffatto", "è troppo", "non ce la faccio", "troppe cose"
 - Menzione di liste infinite, scadenze multiple, responsabilità eccessive → 6-8
-- CRITICO per burnout detection
+- PUNTEGGIO: 7-10 se esplicito
+- Se NON menzionato → null
 
-**ECCITAZIONE (excitement):**
-- "Sono elettrizzato", "non vedo l'ora", "entusiasta", "gasato" → 7-10
+**excitement** (eccitazione/entusiasmo):
+- RILEVA: "sono elettrizzato", "non vedo l'ora", "entusiasta", "gasato", "carico"
 - Nuove opportunità, eventi positivi imminenti → inferisci
 - Può coesistere con nervosismo (eccitazione nervosa)
+- Se NON menzionato → null
 
-**DELUSIONE (disappointment):**
-- "Sono deluso", "mi aspettavo di più", "che peccato", "speravo meglio" → 7-10
+**disappointment** (delusione):
+- RILEVA: "sono deluso", "mi aspettavo di più", "che peccato", "speravo meglio"
 - Aspettative non soddisfatte, promesse non mantenute → 5-7
+- Se NON menzionato → null
 
-⚠️ ANTI-HALLUCINATION: Se NON ci sono indizi, il valore DEVE essere null.
+═══════════════════════════════════════════════
+😀 EMOZIONI EKMAN ESTESE + POSITIVE SECONDARIE
+═══════════════════════════════════════════════
+
+**disgust** (avversione/repulsione) - BASE EKMAN:
+- RILEVA: "mi fa schifo", "ripugnante", "che disgusto", "non lo sopporto fisicamente"
+- ⚠️ DIVERSO da disapprovazione morale! Disgust è FISICO/VISCERALE.
+- PUNTEGGIO: 5-10 se esplicito
+- Se NON menzionato → null (MAI inferire!)
+
+**surprise** (reazione all'inaspettato) - BASE EKMAN:
+- RILEVA: "non me l'aspettavo!", "sono rimasto di stucco", "incredibile!", "che sorpresa"
+- Può essere POSITIVA o NEGATIVA. Rileva il TIPO nel contesto.
+- PUNTEGGIO: 5-10 se esplicito
+- Se NON menzionato → null
+
+**serenity** (calma interiore/pace):
+- RILEVA: "mi sento in pace", "sono sereno", "tranquillo", "calma interiore", "pace mentale"
+- ⚠️ DIVERSO da bassa ansia! Serenity è uno stato ATTIVO di pace, non assenza di negatività.
+- PUNTEGGIO: 6-10 se esplicito
+- Se NON menzionato → null
+
+**pride** (orgoglio per risultati):
+- RILEVA: "sono fiero di me", "ce l'ho fatta!", "sono orgoglioso", "mi sono superato"
+- CORRELATO a achievement - cerca celebrazioni di successi
+- PUNTEGGIO: 6-10 se esplicito
+- Se NON menzionato → null
+
+**affection** (affetto/tenerezza):
+- RILEVA: "gli/le voglio bene", "mi sta a cuore", "lo/la amo", "tenerezza", "mi manca"
+- Emozione RELAZIONALE - cerca menzioni di persone care
+- PUNTEGGIO: 5-10 se esplicito
+- Se NON menzionato → null
+
+**curiosity** (interesse/voglia di esplorare):
+- RILEVA: "mi incuriosisce", "vorrei sapere di più", "sono interessato", "mi affascina"
+- Segnale POSITIVO di engagement mentale
+- PUNTEGGIO: 5-10 se esplicito
+- Se NON menzionato → null
+
+═══════════════════════════════════════════════
+🏠 AREE VITA ESTESE (family, leisure, finances)
+═══════════════════════════════════════════════
+
+**family** (relazioni familiari) - NUOVO:
+- CERCA: genitori, madre, padre, fratelli, sorelle, figli, nonni, zii, cugini, famiglia
+- NEGATIVO (1-4): "mia madre mi stressa", "litigato con mio padre", "tensioni familiari", "non parlo con i miei"
+- POSITIVO (7-9): "bella giornata in famiglia", "mi supportano", "rapporti buoni"
+- ⚠️ DISTINGUI da love (partner) e social (amici)!
+- Se NON menzionato → null
+
+**leisure** (tempo libero/hobby) - NUOVO:
+- CERCA: hobby, relax, weekend, vacanze, sport per piacere, film, serie, giochi, svago
+- NEGATIVO (1-3): "non ho tempo per me", "solo lavoro, zero svago", "mai un momento libero"
+- POSITIVO (7-9): "mi sono rilassato", "mi sono divertito", "tempo per i miei hobby"
+- Se NON menzionato → null
+
+**finances** (situazione economica) - NUOVO:
+- CERCA: soldi, spese, risparmio, debiti, stipendio, bollette, mutuo, affitto, costi
+- NEGATIVO (1-4): "non arrivo a fine mese", "preoccupato per i soldi", "debiti", "ristrettezze"
+- POSITIVO (7-9): "economicamente tranquillo", "ho ricevuto un aumento!", "risparmi ok"
+- Se NON menzionato → null
+
+⚠️ ANTI-HALLUCINATION GLOBALE: Se NON ci sono indizi ESPLICITI, il valore DEVE essere null.
 Solo valori ESPLICITI o FORTEMENTE INFERIBILI → assegna punteggio.
+NON inventare NIENTE basandoti su inferenze generali!
 `;
 
     // Build the OMNISCIENT analysis prompt with personalization
