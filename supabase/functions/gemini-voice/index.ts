@@ -478,23 +478,36 @@ Inizia con un saluto caldo e chiedi come sta oggi.`;
         
         geminiSocket.onmessage = (event) => {
           try {
-            const data = JSON.parse(event.data);
-            
-            // Check for setup completion
-            if (data.setupComplete) {
-              setupComplete = true;
-              console.log("[gemini-voice] Gemini setup complete!");
+            // Handle string messages
+            const messageData = typeof event.data === 'string' ? event.data : null;
+            if (!messageData) {
+              console.log("[gemini-voice] Received binary message, forwarding");
               if (clientSocket.readyState === WebSocket.OPEN) {
-                clientSocket.send(JSON.stringify({ type: 'setup_complete', model: MODEL }));
+                clientSocket.send(event.data);
               }
               return;
+            }
+
+            const data = JSON.parse(messageData);
+            console.log("[gemini-voice] Received message type:", Object.keys(data).join(', '));
+            
+            // Check for setup completion - Gemini may use different format
+            if (data.setupComplete || data.setup_complete || (data.serverContent && !setupComplete)) {
+              if (!setupComplete) {
+                setupComplete = true;
+                console.log("[gemini-voice] Gemini setup complete! Keys received:", Object.keys(data).join(', '));
+                if (clientSocket.readyState === WebSocket.OPEN) {
+                  clientSocket.send(JSON.stringify({ type: 'setup_complete', model: MODEL }));
+                }
+              }
             }
             
             // Forward all messages to client
             if (clientSocket.readyState === WebSocket.OPEN) {
-              clientSocket.send(event.data);
+              clientSocket.send(messageData);
             }
-          } catch {
+          } catch (err) {
+            console.error("[gemini-voice] Error parsing message:", err);
             // Non-JSON message, forward as-is
             if (clientSocket.readyState === WebSocket.OPEN) {
               clientSocket.send(event.data);
