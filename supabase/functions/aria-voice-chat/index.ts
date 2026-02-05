@@ -9,8 +9,8 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
 
-// Italian-optimized voice ID (Laura - multilingual female voice)
-const ITALIAN_VOICE_ID = 'FGY2WhTYpPnrIDTdsKH5';
+// Italian voice ID (custom Italian voice)
+const ITALIAN_VOICE_ID = 'QITiGyM4owEZrBEf0QV8';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🧠 ARIA VOICE - MIRROR BRAIN SYSTEM (Condensed Clinical Intelligence)
