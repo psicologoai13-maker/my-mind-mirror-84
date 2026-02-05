@@ -27,7 +27,7 @@ export const useElevenLabsAgent = () => {
       console.log('[ElevenLabs] Disconnected from agent');
     },
     onMessage: (message: any) => {
-      console.log('[ElevenLabs] Message:', message);
+      console.log('[ElevenLabs] Message received:', JSON.stringify(message, null, 2));
       
       // Handle user transcript
       if (message?.type === 'user_transcript') {
@@ -62,19 +62,24 @@ export const useElevenLabsAgent = () => {
           console.log('[ElevenLabs] Aria said:', agentText);
         }
       }
+
+      // Handle client tool calls
+      if (message?.type === 'client_tool_call') {
+        console.log('[ElevenLabs] Client tool call received:', message);
+      }
     },
     onError: (error) => {
       console.error('[ElevenLabs] Error:', error);
       setError(typeof error === 'string' ? error : 'Errore di connessione');
-      toast.error('Errore di connessione con Aria');
     },
     // Client tools - called by the ElevenLabs agent
     clientTools: {
       // This tool is called by the agent to get Aria's response
       aria_respond: async (params: { user_message: string }) => {
-        console.log('[ElevenLabs] aria_respond called with:', params.user_message);
+        console.log('[ElevenLabs] 🎯 aria_respond CALLED with:', params);
         
         try {
+          console.log('[ElevenLabs] Calling aria-agent-backend...');
           const { data, error } = await supabase.functions.invoke('aria-agent-backend', {
             body: {
               message: params.user_message,
@@ -88,7 +93,7 @@ export const useElevenLabsAgent = () => {
           }
 
           const response = data?.response || "Scusa, puoi ripetere?";
-          console.log('[ElevenLabs] Aria response:', response);
+          console.log('[ElevenLabs] ✅ Aria response:', response);
           return response;
           
         } catch (err) {
