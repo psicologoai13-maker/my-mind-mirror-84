@@ -469,15 +469,13 @@
              speechConfig: {
                voiceConfig: {
                  prebuiltVoiceConfig: {
-                    voiceName: "Kore" // Female voice - warm, friendly, natural Italian
-                 }
-               }
-            },
-            // Voice persona instructions embedded in generation
-            languageCode: "it-IT"
-           }
+                    voiceName: "Kore"
+                  }
+                }
+              }
+            }
          })
-       }
+        }
      );
  
      if (!response.ok) {
