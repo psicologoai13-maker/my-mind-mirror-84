@@ -150,45 +150,65 @@ const INTERVENTION_PROTOCOLS = `
 `;
 
 // ═══════════════════════════════════════════════
-// 🎯 RUBRICA VALUTAZIONE EMOTIVA
+// 🎯 RUBRICA CLINICA - 8 DOMINI, 66 METRICHE
 // ═══════════════════════════════════════════════
-const EMOTIONAL_RUBRIC = `
+const CLINICAL_RUBRIC = `
 ═══════════════════════════════════════════════
-🎯 RUBRICA VALUTAZIONE (65 METRICHE)
+🎯 ARCHITETTURA CLINICA (8 DOMINI - 66 METRICHE)
 ═══════════════════════════════════════════════
 
-**4 VITALI** (scala 1-10):
-- Umore (mood), Ansia (anxiety), Energia (energy), Sonno (sleep)
+**1️⃣ STATO EMOTIVO (21 metriche)**
+- Umore (mood) - vitale principale
+- 20 Emozioni specifiche:
+  PRIMARIE: Gioia, Tristezza, Rabbia, Paura, Apatia, Disgusto, Sorpresa
+  SECONDARIE: Vergogna, Gelosia, Speranza, Frustrazione, Nostalgia,
+              Eccitazione, Delusione, Serenità, Orgoglio, Affetto, Curiosità
+  EMOTIVO: Senso di Colpa
 
-**20 EMOZIONI** (scala 0-10, 0 se non espressa):
-PRIMARIE: Gioia, Tristezza, Rabbia, Paura, Apatia
-SECONDARIE: Vergogna, Gelosia, Speranza, Frustrazione, Nostalgia,
-            Nervosismo, Sopraffazione, Eccitazione, Delusione,
-            Disgusto, Sorpresa, Serenità, Orgoglio, Affetto, Curiosità
+**2️⃣ ATTIVAZIONE & AROUSAL (8 metriche)**
+- Ansia (anxiety) - vitale
+- Energia (energy) - vitale
+- Nervosismo, Sopraffazione
+- Burnout, Irritabilità, Pensieri Accelerati, Regolazione Emotiva
 
-**9 AREE DELLA VITA** (scala 1-10):
-Lavoro, Scuola, Amore, Famiglia, Sociale, Salute, Crescita, Tempo Libero, Finanze
+**3️⃣ COGNITIVO (6 metriche)**
+- Chiarezza Mentale, Concentrazione
+- Ruminazione, Pensieri Intrusivi
+- Dissociazione, Confusione
 
-**32 PSICOLOGIA PROFONDA** (scala 1-10):
+**4️⃣ COMPORTAMENTALE (4 metriche)**
+- Evitamento, Ritiro Sociale
+- Impulsi Compulsivi, Procrastinazione
 
-COGNITIVI: Ruminazione, Autoefficacia, Chiarezza Mentale, Concentrazione,
-           Pensieri Intrusivi, Autostima, Dissociazione, Confusione, Pensieri Accelerati
+**5️⃣ SOMATICO (4 metriche)**
+- Qualità Sonno (sleep) - vitale
+- Tensione Fisica, Appetito, Esposizione Sole
 
-STRESS/COPING: Burnout, Capacità Coping, Solitudine Percepita, Supporto Sociale
+**6️⃣ RISORSE PERSONALI (11 metriche)**
+- Autoefficacia, Autostima, Gratitudine
+- Motivazione, Coping, Solitudine Percepita
+- Senso di Scopo, Soddisfazione di Vita
+- Supporto Sociale, Resilienza, Mindfulness
 
-FISIOLOGICI: Tensione Somatica, Cambiamenti Appetito, Esposizione Solare
+**7️⃣ AREE DELLA VITA (9 aree)**
+- Lavoro, Studio, Amore, Famiglia
+- Sociale, Salute, Crescita
+- Tempo Libero, Finanze
 
-EMOTIVI: Senso di Colpa, Gratitudine, Irritabilità, Motivazione, Regolazione Emotiva
+**8️⃣ SICUREZZA - INDICATORI CRITICI (3 metriche)**
+⚠️ PRIORITÀ ASSOLUTA:
+- Ideazione Suicidaria (threshold: 5)
+- Disperazione (threshold: 7)
+- Impulsi Autolesionistici (threshold: 5)
+→ Se sopra soglia: ATTIVA PROTOCOLLO SICUREZZA IMMEDIATAMENTE
 
-COMPORTAMENTALI: Evitamento, Ritiro Sociale, Impulsi Compulsivi, Procrastinazione
-
-RISORSE: Senso di Scopo, Soddisfazione di Vita, Resilienza, Mindfulness
-
-⚠️ SICUREZZA (PRIORITÀ MASSIMA):
-- Ideazione Suicidaria, Disperazione, Impulsi Autolesionismo
-→ Se >7: attiva IMMEDIATAMENTE protocollo sicurezza
-
-REGOLA: Se NON menzionato, il valore è NULL. NON inventare.
+═══════════════════════════════════════════════
+📊 REGOLE DI RILEVAMENTO
+═══════════════════════════════════════════════
+- Se un tema NON è menzionato → valore NULL (non inventare!)
+- Metriche "negative" (ansia, ruminazione...): basso = buono
+- Metriche "positive" (gioia, energia...): alto = buono
+- Scala 1-10 per vitali/aree, 0-10 per emozioni (0 = non espressa)
 `;
 
 serve(async (req) => {
@@ -564,7 +584,7 @@ EMOTIVI:
 
 ⚠️ REGOLA: UNA domanda investigativa per messaggio, solo quando NATURALE.
 
-${EMOTIONAL_RUBRIC}
+${CLINICAL_RUBRIC}
 
 ${CLINICAL_KNOWLEDGE_BASE}
 
