@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.aria-agent-backend]
 verify_jwt = false
+ 
+ [functions.elevenlabs-tts]
+ verify_jwt = false
