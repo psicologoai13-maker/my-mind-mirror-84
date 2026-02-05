@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,40 +39,87 @@ serve(async (req) => {
 
     console.log('[openai-realtime-session] Creating session for user:', userId, 'with context:', !!realTimeContext);
 
-    // Fetch user's long-term memory and life areas scores if available
+    // Fetch user's long-term memory, life areas scores, and recent sessions
     let longTermMemory: string[] = [];
     let lifeAreasScores: Record<string, number | null> = {};
     let userName: string | null = null;
+    let recentSessions: Array<{ start_time: string; ai_summary: string | null; transcript: string | null }> = [];
     
     if (userId) {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
       const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('long_term_memory, name, life_areas_scores')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // Parallel fetch profile and sessions
+      const [profileResult, sessionsResult] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('long_term_memory, name, life_areas_scores')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('sessions')
+          .select('start_time, ai_summary, transcript')
+          .eq('user_id', userId)
+          .eq('status', 'completed')
+          .order('start_time', { ascending: false })
+          .limit(5)
+      ]);
 
-      if (profileError) {
-        console.error('[openai-realtime-session] Error fetching profile:', profileError);
-      } else if (profileData) {
-        longTermMemory = profileData.long_term_memory || [];
-        userName = profileData.name || null;
-        lifeAreasScores = (profileData.life_areas_scores as Record<string, number | null>) || {};
+      if (profileResult.error) {
+        console.error('[openai-realtime-session] Error fetching profile:', profileResult.error);
+      } else if (profileResult.data) {
+        longTermMemory = profileResult.data.long_term_memory || [];
+        userName = profileResult.data.name || null;
+        lifeAreasScores = (profileResult.data.life_areas_scores as Record<string, number | null>) || {};
         console.log('[openai-realtime-session] Loaded', longTermMemory.length, 'memory items');
+      }
+      
+      if (sessionsResult.data) {
+        recentSessions = sessionsResult.data;
+        console.log('[openai-realtime-session] Loaded', recentSessions.length, 'recent sessions');
       }
     }
 
-    // Build memory context string
+    // Build memory context string - SMART SELECTION with priority tags (same as ai-chat)
     let memoryContext = '';
     if (longTermMemory.length > 0) {
+      // Priority tags that should always be included
+      const priorityTags = ['[EVENTO]', '[PERSONA]', '[HOBBY]', '[PIACE]', '[NON PIACE]', '[VIAGGIO]', '[LAVORO]'];
+      const priorityItems = longTermMemory.filter(m => priorityTags.some(tag => m.includes(tag)));
+      const recentItems = longTermMemory.slice(-25); // Last 25 items for recency
+      
+      // Combine: all priority items + recent items (deduplicated)
+      const combined = [...new Set([...priorityItems, ...recentItems])];
+      const selectedMemory = combined.slice(0, 50); // Cap at 50 to avoid token overflow
+      
       memoryContext = `\n\nMEMORIA DELLE SESSIONI PRECEDENTI:
 Ricorda questi fatti importanti sull'utente:
-${longTermMemory.map((fact, i) => `- ${fact}`).join('\n')}
+${selectedMemory.map((fact) => `- ${fact}`).join('\n')}
 
 Usa questa memoria per personalizzare la conversazione e mostrare che ricordi cosa ha condiviso in passato.`;
+    }
+    
+    // Build recent sessions context with transcript fallback
+    let sessionsContext = '';
+    if (recentSessions.length > 0) {
+      const sessionsInfo = recentSessions.map(s => {
+        const date = new Date(s.start_time);
+        const diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+        const timeAgo = diffDays === 0 ? 'oggi' : diffDays === 1 ? 'ieri' : `${diffDays} giorni fa`;
+        
+        // Use ai_summary if available, otherwise extract from transcript
+        let summary = s.ai_summary?.slice(0, 150);
+        if (!summary && s.transcript) {
+          const transcriptExcerpt = s.transcript.slice(0, 300).replace(/\n+/g, ' ');
+          summary = `Conversazione: "${transcriptExcerpt}..."`;
+        }
+        summary = summary || 'conversazione breve';
+        return `- ${timeAgo}: ${summary}`;
+      }).join('\n');
+      
+      sessionsContext = `\n\nCONVERSAZIONI RECENTI (ricorda questi argomenti!):
+${sessionsInfo}`;
     }
 
     // ============================================
@@ -242,7 +289,7 @@ TECNICHE CBT DA USARE:
 - Identificazione distorsioni cognitive (catastrofizzazione, pensiero tutto-o-nulla)
 - Socratic questioning per far emergere insight
 - Grounding sensoriale per momenti di ansia
-- Validazione emotiva prima di ogni intervento${memoryContext}${dataHunterInstruction}${deepPsychologyVoice}
+- Validazione emotiva prima di ogni intervento${memoryContext}${sessionsContext}${dataHunterInstruction}${deepPsychologyVoice}
 
 SICUREZZA:
 Se l'utente esprime intenti suicidi o autolesionistici, INTERROMPI e fornisci:
