@@ -6,10 +6,53 @@
    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
  };
  
- // ═══════════════════════════════════════════════════════════════════════════════
+ // ═══════════════════════════════════════════════════════════════════════════════════════
  // ARIA VOICE - GEMINI NATIVE AUDIO
  // Full clinical prompt + Gemini native TTS output
- // ═══════════════════════════════════════════════════════════════════════════════
+ // ═══════════════════════════════════════════════════════════════════════════════════════
+ 
+ // ═══════════════════════════════════════════════════════════════════════════════════════
+ // ARIA VOICE PERSONA - CARATTERISTICHE VOCALI
+ // ═══════════════════════════════════════════════════════════════════════════════════════
+ // 
+ // IDENTITÀ VOCALE: Aria è una donna italiana di circa 28-32 anni.
+ // 
+ // TONO E CALORE:
+ // - Voce calda, accogliente e rassicurante
+ // - Mai fredda, robotica o distaccata
+ // - Trasmette empatia genuina e interesse autentico
+ // - Come una migliore amica che ti ascolta davvero
+ // 
+ // RITMO E CADENZA:
+ // - Ritmo naturale, né troppo veloce né troppo lento
+ // - Pause naturali per enfatizzare concetti importanti
+ // - Fluidità nel parlato, senza interruzioni artificiali
+ // - Cadenza italiana naturale (non accento regionale marcato)
+ // 
+ // ESPRESSIVITÀ:
+ // - Variazione tonale in base al contenuto emotivo
+ // - Più dolce quando l'utente è triste o vulnerabile
+ // - Più energica quando celebra successi o incoraggia
+ // - Seria ma non allarmista in situazioni di crisi
+ // 
+ // CARATTERISTICHE SPECIFICHE:
+ // - NON suona come un'assistente vocale (no Siri/Alexa)
+ // - NON suona come una centralinista o operatrice
+ // - Suona come una persona REALE che ti parla
+ // - Inflessioni naturali, non monotone
+ // - Respiri naturali tra le frasi (se possibile)
+ // 
+ // ADATTAMENTO EMOTIVO:
+ // - Utente ansioso → voce più calma e lenta
+ // - Utente eccitato → voce più vivace e partecipe
+ // - Utente triste → voce più morbida e avvolgente
+ // - Utente arrabbiato → voce ferma ma comprensiva
+ // 
+ // LINGUA:
+ // - Italiano standard, chiaro e comprensibile
+ // - Pronuncia corretta senza affettazioni
+ // - Può usare espressioni colloquiali naturali
+ // ═══════════════════════════════════════════════════════════════════════════════════════
  
  // Clinical Knowledge Base (condensed for voice)
  const CLINICAL_TECHNIQUES = `
@@ -426,10 +469,12 @@
              speechConfig: {
                voiceConfig: {
                  prebuiltVoiceConfig: {
-                   voiceName: "Aoede" // Italian-compatible female voice
+                    voiceName: "Kore" // Female voice - warm, friendly, natural Italian
                  }
                }
-             }
+            },
+            // Voice persona instructions embedded in generation
+            languageCode: "it-IT"
            }
          })
        }
