@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
- import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,9 +27,8 @@ serve(async (req) => {
     }
 
     console.log('[elevenlabs-token] Requesting conversation token for agent:', agentId);
-     console.log('[elevenlabs-token] Dynamic variables:', JSON.stringify(dynamicVariables));
 
-    // Request a conversation token from ElevenLabs
+    // Request a WebRTC conversation token from ElevenLabs (not signed URL)
     const response = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
       {
@@ -48,25 +46,10 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    
-     // Append dynamic variables to the signed URL if provided
-     let signedUrl = data.signed_url;
-     if (Object.keys(dynamicVariables).length > 0) {
-       try {
-         const varsJson = JSON.stringify(dynamicVariables);
-         const varsBase64 = btoa(varsJson);
-         const separator = signedUrl.includes('?') ? '&' : '?';
-         signedUrl = `${signedUrl}${separator}dynamic_variables=${encodeURIComponent(varsBase64)}`;
-         console.log('[elevenlabs-token] Added dynamic variables to URL');
-       } catch (encodeError) {
-         console.warn('[elevenlabs-token] Failed to encode dynamic variables:', encodeError);
-       }
-     }
- 
     console.log('[elevenlabs-token] Token obtained successfully');
 
     return new Response(JSON.stringify({ 
-       signed_url: signedUrl,
+      signed_url: data.signed_url,
       agent_id: agentId 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
