@@ -81,15 +81,30 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
   }, []);
 
+  // Convert base64 to Blob - more reliable on iOS Safari than data URIs
+  const base64ToBlob = useCallback((base64: string, mimeType: string): Blob => {
+    // Use fetch to decode base64 - handles binary correctly
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }, []);
+
   // Play audio with iOS compatibility
   const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
-    console.log('[HybridVoice] Playing audio...');
+    console.log('[HybridVoice] Playing audio, iOS:', PLATFORM.isIOS);
     setIsSpeaking(true);
     setIsListening(false);
 
     const useBrowserTTS = () => {
       return new Promise<void>((resolve) => {
         console.log('[HybridVoice] Using browser TTS');
+        // Cancel any ongoing speech
+        window.speechSynthesis?.cancel();
+        
         const utterance = new SpeechSynthesisUtterance(fallbackText);
         utterance.lang = 'it-IT';
         utterance.rate = 1.0;
@@ -101,12 +116,17 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
           setIsSpeaking(false);
           resolve();
         };
-        window.speechSynthesis.speak(utterance);
+        
+        // iOS Safari fix: need a small delay before speaking
+        setTimeout(() => {
+          window.speechSynthesis.speak(utterance);
+        }, 50);
       });
     };
 
     // If no audio data, use TTS
     if (!audioBase64) {
+      console.log('[HybridVoice] No audio data, using TTS');
       return useBrowserTTS();
     }
 
@@ -114,10 +134,18 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = '';
         audioRef.current = null;
       }
 
-      const audioUrl = `data:${mimeType || 'audio/mpeg'};base64,${audioBase64}`;
+      console.log('[HybridVoice] Converting base64 to Blob...');
+      
+      // Convert base64 to Blob URL - works better on iOS Safari than data URIs
+      const audioBlob = base64ToBlob(audioBase64, mimeType || 'audio/mpeg');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      console.log('[HybridVoice] Created blob URL, size:', audioBlob.size);
+      
       const audio = new Audio();
       
       // iOS Safari needs these attributes
@@ -128,38 +156,54 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       audioRef.current = audio;
 
       return new Promise<void>((resolve) => {
+        const cleanup = () => {
+          URL.revokeObjectURL(audioUrl);
+          audioRef.current = null;
+        };
+
         audio.onended = () => {
           console.log('[HybridVoice] Audio playback finished');
           setIsSpeaking(false);
-          audioRef.current = null;
+          cleanup();
           resolve();
         };
 
-        audio.onerror = () => {
-          console.log('[HybridVoice] Audio error, falling back to TTS');
+        audio.onerror = (e) => {
+          console.log('[HybridVoice] Audio error:', e, 'falling back to TTS');
           setIsSpeaking(false);
-          audioRef.current = null;
+          cleanup();
           useBrowserTTS().then(resolve);
+        };
+
+        audio.oncanplaythrough = () => {
+          console.log('[HybridVoice] Audio ready to play');
         };
 
         // Set src after event handlers
         audio.src = audioUrl;
         
+        // iOS Safari: load() helps trigger canplaythrough
+        audio.load();
+        
         const playPromise = audio.play();
         if (playPromise) {
-          playPromise.catch(() => {
-            console.log('[HybridVoice] Play failed, using TTS');
-            setIsSpeaking(false);
-            audioRef.current = null;
-            useBrowserTTS().then(resolve);
-          });
+          playPromise
+            .then(() => {
+              console.log('[HybridVoice] Audio playing successfully');
+            })
+            .catch((err) => {
+              console.log('[HybridVoice] Play failed:', err.message, 'using TTS');
+              setIsSpeaking(false);
+              cleanup();
+              useBrowserTTS().then(resolve);
+            });
         }
       });
     } catch (err) {
       console.log('[HybridVoice] Audio setup failed, using TTS');
       return useBrowserTTS();
     }
-  }, []);
+  }, [base64ToBlob]);
 
   const processUserInput = useCallback(async (userText: string) => {
     if (!userText.trim() || isProcessingRef.current) return;
