@@ -45,6 +45,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
 
+  // All refs
   const recognitionRef = useRef<any>(null);
   const sessionIdRef = useRef<string | null>(null);
   const conversationHistoryRef = useRef<Array<{ role: string; content: string }>>([]);
@@ -53,9 +54,6 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const pendingTextRef = useRef<string>('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isActiveRef = useRef(false);
-  
-  // Ref to hold process function for circular dependency
-  const processUserInputRef = useRef<(text: string) => Promise<void>>();
 
   // Keep ref in sync
   useEffect(() => {
@@ -90,38 +88,38 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     return new Blob([byteArray], { type: mimeType });
   }, []);
 
+  // Browser TTS fallback
+  const useBrowserTTS = useCallback((text: string): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      console.log('[HybridVoice] Using browser TTS for:', text.substring(0, 30));
+      window.speechSynthesis?.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'it-IT';
+      utterance.rate = 1.0;
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        resolve();
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        resolve();
+      };
+      
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 50);
+    });
+  }, []);
+
   // Play audio with iOS compatibility
   const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
-    console.log('[HybridVoice] Playing audio, iOS:', PLATFORM.isIOS);
+    console.log('[HybridVoice] playAudio called, hasAudio:', !!audioBase64);
     setIsSpeaking(true);
     setIsListening(false);
 
-    const useBrowserTTS = () => {
-      return new Promise<void>((resolve) => {
-        console.log('[HybridVoice] Using browser TTS');
-        window.speechSynthesis?.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(fallbackText);
-        utterance.lang = 'it-IT';
-        utterance.rate = 1.0;
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          resolve();
-        };
-        utterance.onerror = () => {
-          setIsSpeaking(false);
-          resolve();
-        };
-        
-        setTimeout(() => {
-          window.speechSynthesis.speak(utterance);
-        }, 50);
-      });
-    };
-
     if (!audioBase64) {
-      console.log('[HybridVoice] No audio data, using TTS');
-      return useBrowserTTS();
+      return useBrowserTTS(fallbackText);
     }
 
     try {
@@ -157,10 +155,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         };
 
         audio.onerror = (e) => {
-          console.log('[HybridVoice] Audio error:', e, 'falling back to TTS');
-          setIsSpeaking(false);
+          console.log('[HybridVoice] Audio error, using TTS');
           cleanup();
-          useBrowserTTS().then(resolve);
+          useBrowserTTS(fallbackText).then(resolve);
         };
 
         audio.src = audioUrl;
@@ -172,26 +169,108 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
             .then(() => console.log('[HybridVoice] Audio playing'))
             .catch((err) => {
               console.log('[HybridVoice] Play failed:', err.message);
-              setIsSpeaking(false);
               cleanup();
-              useBrowserTTS().then(resolve);
+              useBrowserTTS(fallbackText).then(resolve);
             });
         }
       });
     } catch (err) {
       console.log('[HybridVoice] Audio setup failed, using TTS');
-      return useBrowserTTS();
+      return useBrowserTTS(fallbackText);
     }
-  }, [base64ToBlob]);
+  }, [base64ToBlob, useBrowserTTS]);
 
-  // Create new recognition instance
-  const createRecognition = useCallback(() => {
+  // Main function to process user input and get AI response
+  // This is NOT a useCallback to avoid circular dependencies
+  const doProcessUserInput = async (userText: string): Promise<void> => {
+    const trimmedText = userText.trim();
+    console.log('[HybridVoice] doProcessUserInput called with:', trimmedText);
+    
+    if (!trimmedText) {
+      console.log('[HybridVoice] Empty text, skipping');
+      return;
+    }
+    
+    if (isProcessingRef.current) {
+      console.log('[HybridVoice] Already processing, saving for later');
+      pendingTextRef.current = trimmedText;
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    setIsListening(false);
+    console.log('[HybridVoice] Processing:', trimmedText);
+
+    // Safety timeout
+    const safetyTimeout = setTimeout(() => {
+      console.log('[HybridVoice] Safety timeout - resetting processing flag');
+      isProcessingRef.current = false;
+    }, 30000);
+
+    const userEntry: TranscriptEntry = { role: 'user', text: trimmedText, timestamp: new Date() };
+    setTranscript(prev => [...prev, userEntry]);
+    conversationHistoryRef.current.push({ role: 'user', content: trimmedText });
+
+    try {
+      console.log('[HybridVoice] Calling aria-voice-chat...');
+      const { data, error: backendError } = await supabase.functions.invoke('aria-voice-chat', {
+        body: {
+          message: trimmedText,
+          conversationHistory: conversationHistoryRef.current.slice(-10).map(m => ({
+            role: m.role,
+            text: m.content
+          }))
+        }
+      });
+
+      console.log('[HybridVoice] Backend response received, error:', backendError);
+      
+      if (backendError) throw new Error(backendError.message);
+
+      const assistantText = data?.text || "Scusa, non ho capito. Puoi ripetere?";
+      console.log('[HybridVoice] AI response:', assistantText.substring(0, 50));
+
+      const assistantEntry: TranscriptEntry = { role: 'assistant', text: assistantText, timestamp: new Date() };
+      setTranscript(prev => [...prev, assistantEntry]);
+      conversationHistoryRef.current.push({ role: 'assistant', content: assistantText });
+
+      console.log('[HybridVoice] Playing audio response...');
+      await playAudio(data?.audio || null, data?.mimeType || 'audio/mpeg', assistantText);
+      console.log('[HybridVoice] Audio finished');
+
+    } catch (err) {
+      console.error('[HybridVoice] Process error:', err);
+      toast.error('Errore nella risposta');
+    } finally {
+      clearTimeout(safetyTimeout);
+      isProcessingRef.current = false;
+      console.log('[HybridVoice] Processing complete, will restart recognition');
+      
+      // Restart recognition after processing
+      if (isActiveRef.current) {
+        setTimeout(() => {
+          if (isActiveRef.current && !isProcessingRef.current) {
+            console.log('[HybridVoice] Restarting recognition...');
+            startRecognition();
+          }
+        }, 500);
+      }
+    }
+  };
+
+  // Start or restart recognition
+  const startRecognition = useCallback(() => {
+    console.log('[HybridVoice] startRecognition called');
+    
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      throw new Error('SpeechRecognition non disponibile');
+      console.error('[HybridVoice] SpeechRecognition not available');
+      return;
     }
 
+    // Always create new instance on iOS
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     
     // CRITICAL for iOS Safari: continuous MUST be false
     recognition.continuous = !(PLATFORM.isIOS || PLATFORM.isSafari);
@@ -218,7 +297,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         }
       }
 
-      console.log('[HybridVoice] Result - interim:', interimTranscript, 'final:', finalTranscript);
+      console.log('[HybridVoice] onresult - interim:', interimTranscript, 'final:', finalTranscript);
 
       // Store any text we receive
       if (interimTranscript || finalTranscript) {
@@ -234,10 +313,12 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
 
       // If we got final transcript, process immediately
       if (finalTranscript && finalTranscript.trim()) {
-        console.log('[HybridVoice] Got final transcript, processing:', finalTranscript);
+        const textToProcess = finalTranscript.trim();
+        console.log('[HybridVoice] Final transcript, processing:', textToProcess);
         pendingTextRef.current = '';
         try { recognition.stop(); } catch (e) {}
-        processUserInputRef.current?.(finalTranscript.trim());
+        // Call directly - no ref needed
+        doProcessUserInput(textToProcess);
         return;
       }
 
@@ -249,9 +330,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
             console.log('[HybridVoice] Silence timeout, processing:', text);
             pendingTextRef.current = '';
             try { recognition.stop(); } catch (e) {}
-            processUserInputRef.current?.(text);
+            doProcessUserInput(text);
           }
-        }, 600); // Slightly longer timeout for iOS
+        }, 700); // Longer timeout for iOS
       }
     };
 
@@ -261,7 +342,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     recognition.onend = () => {
-      console.log('[HybridVoice] Recognition ended, pendingText:', pendingTextRef.current?.substring(0, 30) || '(empty)');
+      const pendingText = pendingTextRef.current?.trim();
+      console.log('[HybridVoice] onend - pendingText:', pendingText || '(none)', 'isProcessing:', isProcessingRef.current);
+      
       setAudioLevel(0);
       setIsListening(false);
       
@@ -271,38 +354,22 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         silenceTimeoutRef.current = null;
       }
       
-      // CRITICAL for iOS: Process any pending text BEFORE restarting
-      const pendingText = pendingTextRef.current?.trim();
+      // CRITICAL: Process any pending text
       if (pendingText && !isProcessingRef.current && isActiveRef.current) {
-        console.log('[HybridVoice] Processing pending text on end:', pendingText);
+        console.log('[HybridVoice] Processing pending text from onend:', pendingText);
         pendingTextRef.current = '';
-        processUserInputRef.current?.(pendingText);
-        return; // processUserInput will restart recognition
+        doProcessUserInput(pendingText);
+        return;
       }
       
       // Auto-restart only if not processing and still active
       if (isActiveRef.current && !isProcessingRef.current) {
-        const delay = PLATFORM.isIOS || PLATFORM.isSafari ? 500 : 200;
-        console.log('[HybridVoice] Scheduling restart in', delay, 'ms');
+        console.log('[HybridVoice] Auto-restart in 600ms');
         setTimeout(() => {
           if (isActiveRef.current && !isProcessingRef.current) {
-            try {
-              // On iOS, MUST create new instance
-              if (PLATFORM.isIOS || PLATFORM.isSafari) {
-                recognitionRef.current = createRecognition();
-              }
-              recognitionRef.current?.start();
-            } catch (e) {
-              console.log('[HybridVoice] Restart failed, creating new instance');
-              try {
-                recognitionRef.current = createRecognition();
-                recognitionRef.current?.start();
-              } catch (e2) {
-                console.error('[HybridVoice] Failed to restart:', e2);
-              }
-            }
+            startRecognition();
           }
-        }, delay);
+        }, 600);
       }
     };
 
@@ -319,112 +386,26 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       
       // On no-speech, just restart
       if (event.error === 'no-speech' && isActiveRef.current && !isProcessingRef.current) {
-        setTimeout(() => {
-          try {
-            if (PLATFORM.isIOS || PLATFORM.isSafari) {
-              recognitionRef.current = createRecognition();
-            }
-            recognitionRef.current?.start();
-          } catch (e) {}
-        }, 300);
+        setTimeout(() => startRecognition(), 300);
       }
     };
 
-    return recognition;
-  }, []);
-
-  // Process user input - defined after createRecognition
-  const processUserInput = useCallback(async (userText: string) => {
-    const trimmedText = userText.trim();
-    if (!trimmedText) {
-      console.log('[HybridVoice] Empty text, skipping');
-      return;
-    }
-    
-    if (isProcessingRef.current) {
-      console.log('[HybridVoice] Already processing, saving for later:', trimmedText);
-      pendingTextRef.current = trimmedText;
-      return;
-    }
-    
-    isProcessingRef.current = true;
-    setIsListening(false);
-    console.log('[HybridVoice] Processing:', trimmedText);
-
-    // Safety timeout - reset processing flag after 30s max
-    const safetyTimeout = setTimeout(() => {
-      console.log('[HybridVoice] Safety timeout triggered');
-      isProcessingRef.current = false;
-    }, 30000);
-
-    const userEntry: TranscriptEntry = { role: 'user', text: trimmedText, timestamp: new Date() };
-    setTranscript(prev => [...prev, userEntry]);
-    conversationHistoryRef.current.push({ role: 'user', content: trimmedText });
-
     try {
-      console.log('[HybridVoice] Calling aria-voice-chat...');
-      const { data, error: backendError } = await supabase.functions.invoke('aria-voice-chat', {
-        body: {
-          message: trimmedText,
-          conversationHistory: conversationHistoryRef.current.slice(-10).map(m => ({
-            role: m.role,
-            text: m.content
-          }))
-        }
-      });
-
-      if (backendError) throw new Error(backendError.message);
-
-      const assistantText = data?.text || "Scusa, non ho capito. Puoi ripetere?";
-      console.log('[HybridVoice] Got response:', assistantText.substring(0, 50));
-
-      const assistantEntry: TranscriptEntry = { role: 'assistant', text: assistantText, timestamp: new Date() };
-      setTranscript(prev => [...prev, assistantEntry]);
-      conversationHistoryRef.current.push({ role: 'assistant', content: assistantText });
-
-      await playAudio(data?.audio || null, data?.mimeType || 'audio/mpeg', assistantText);
-
-      console.log('[HybridVoice] Audio finished, will restart recognition');
-
-    } catch (err) {
-      console.error('[HybridVoice] Process error:', err);
-      toast.error('Errore nella risposta');
-    } finally {
-      clearTimeout(safetyTimeout);
-      isProcessingRef.current = false;
-      console.log('[HybridVoice] Processing complete, isActive:', isActiveRef.current);
-      
-      // Restart recognition after processing
-      if (isActiveRef.current) {
-        setTimeout(() => {
-          if (isActiveRef.current && !isProcessingRef.current) {
-            try {
-              console.log('[HybridVoice] Restarting recognition after response');
-              // On iOS, ALWAYS create new instance
-              recognitionRef.current = createRecognition();
-              recognitionRef.current?.start();
-            } catch (e) {
-              console.error('[HybridVoice] Failed to restart after response:', e);
-            }
-          }
-        }, 400);
-      }
+      recognition.start();
+      console.log('[HybridVoice] Recognition start() called');
+    } catch (e) {
+      console.error('[HybridVoice] Failed to start recognition:', e);
     }
-  }, [playAudio, createRecognition]);
+  }, [playAudio]);
 
-  // Store processUserInput in ref for circular dependency
-  useEffect(() => {
-    processUserInputRef.current = processUserInput;
-  }, [processUserInput]);
-
-  // START - Optimized for iOS Safari
+  // START
   const start = useCallback(async () => {
     if (!user) {
       toast.error('Devi essere autenticato');
       return;
     }
 
-    console.log('[HybridVoice] Starting... Platform:', PLATFORM);
+    console.log('[HybridVoice] === START ===, Platform:', PLATFORM);
     
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
@@ -440,27 +421,21 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     pendingTextRef.current = '';
     isProcessingRef.current = false;
 
-    // For iOS Safari: Start recognition IMMEDIATELY in user gesture context
+    // For iOS Safari: Start recognition IMMEDIATELY
     if (PLATFORM.isIOS || PLATFORM.isSafari) {
-      console.log('[HybridVoice] iOS/Safari: Starting recognition immediately');
+      console.log('[HybridVoice] iOS/Safari path');
       
       try {
-        recognitionRef.current = createRecognition();
-        recognitionRef.current.start();
-        
         setIsActive(true);
         isActiveRef.current = true;
         setIsConnecting(false);
         
+        startRecognition();
+        
         // Create session in background
         startSession.mutateAsync('voice').then(session => {
-          if (session) {
-            sessionIdRef.current = session.id;
-            console.log('[HybridVoice] Session created:', session.id);
-          }
-        }).catch(err => {
-          console.warn('[HybridVoice] Session creation failed:', err);
-        });
+          if (session) sessionIdRef.current = session.id;
+        }).catch(err => console.warn('[HybridVoice] Session error:', err));
         
         toast.success('Aria è pronta! Parla pure');
         return;
@@ -469,41 +444,25 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         console.error('[HybridVoice] iOS start failed:', err);
         setIsConnecting(false);
         setIsActive(false);
-        
-        if (err.message?.includes('not-allowed') || err.name === 'NotAllowedError') {
-          setError('Permesso microfono negato');
-          toast.error('Abilita il microfono nelle impostazioni');
-        } else {
-          setError('Errore avvio');
-          toast.error('Errore avvio - riprova');
-        }
+        isActiveRef.current = false;
+        toast.error('Errore avvio - riprova');
         return;
       }
     }
 
     // Non-iOS flow
     try {
-      console.log('[HybridVoice] Requesting microphone permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
 
       const session = await startSession.mutateAsync('voice');
-      if (!session) throw new Error('Session creation failed');
-      sessionIdRef.current = session.id;
+      if (session) sessionIdRef.current = session.id;
 
-      recognitionRef.current = createRecognition();
-      
       setIsActive(true);
       isActiveRef.current = true;
       setIsConnecting(false);
       
-      setTimeout(() => {
-        try {
-          recognitionRef.current?.start();
-        } catch (e) {
-          console.error('[HybridVoice] Start failed:', e);
-        }
-      }, 100);
+      startRecognition();
       
       toast.success('Aria è pronta! Parla pure');
 
@@ -511,47 +470,37 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       console.error('[HybridVoice] Start error:', err);
       setIsConnecting(false);
       setIsActive(false);
-      
-      if (err.name === 'NotAllowedError') {
-        setError('Permesso microfono negato');
-        toast.error('Abilita il microfono');
-      } else {
-        setError(err.message || 'Errore di connessione');
-        toast.error('Impossibile avviare');
-      }
+      toast.error('Impossibile avviare');
     }
-  }, [user, startSession, createRecognition]);
+  }, [user, startSession, startRecognition]);
 
+  // STOP
   const stop = useCallback(async () => {
-    console.log('[HybridVoice] Stopping...');
+    console.log('[HybridVoice] === STOP ===');
 
-    // Update state first to prevent restarts
     setIsActive(false);
     isActiveRef.current = false;
     setIsListening(false);
     setIsSpeaking(false);
     setAudioLevel(0);
 
-    // Clear timeouts
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = null;
     }
 
-    // Stop recognition
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
       recognitionRef.current = null;
     }
 
-    // Stop audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
     window.speechSynthesis?.cancel();
 
-    // Save session in background
+    // Save session
     if (sessionIdRef.current && transcript.length > 0) {
       const sid = sessionIdRef.current;
       const fullTranscript = transcript
@@ -570,8 +519,6 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     sessionIdRef.current = null;
     pendingTextRef.current = '';
     isProcessingRef.current = false;
-
-    console.log('[HybridVoice] Stopped');
   }, [transcript, endSession, user]);
 
   return {
@@ -587,7 +534,6 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   };
 };
 
-// TypeScript declarations
 declare global {
   interface Window {
     SpeechRecognition: any;
