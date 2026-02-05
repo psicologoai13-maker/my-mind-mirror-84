@@ -247,7 +247,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
           clearTimeout(silenceTimeoutRef.current);
         }
         
-         // Process after silence (0.8s for faster response)
+         // Process after silence (0.5s for faster response - reduced from 0.8s)
         silenceTimeoutRef.current = setTimeout(() => {
           if (pendingTextRef.current && !isProcessingRef.current) {
             console.log('[HybridVoice] Silence timeout, processing:', pendingTextRef.current);
@@ -256,7 +256,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
             recognition.stop();
             processUserInput(textToProcess);
           }
-         }, 800);
+         }, 500);
       }
 
       if (finalTranscript) {
