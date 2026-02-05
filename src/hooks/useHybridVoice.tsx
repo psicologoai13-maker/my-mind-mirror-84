@@ -42,7 +42,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const pendingTextRef = useRef<string>('');
   const isIOSRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-   const isActiveRef = useRef(false);
+  const isActiveRef = useRef(false);
+  const intentionalStopRef = useRef(false); // Flag to track intentional stops
 
   // Detect iOS
   useEffect(() => {
@@ -247,12 +248,13 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
           clearTimeout(silenceTimeoutRef.current);
         }
         
-         // Process after silence (0.5s for faster response - reduced from 0.8s)
+          // Process after silence (0.5s for faster response - reduced from 0.8s)
         silenceTimeoutRef.current = setTimeout(() => {
           if (pendingTextRef.current && !isProcessingRef.current) {
             console.log('[HybridVoice] Silence timeout, processing:', pendingTextRef.current);
             const textToProcess = pendingTextRef.current;
             pendingTextRef.current = '';
+            intentionalStopRef.current = true;
             recognition.stop();
             processUserInput(textToProcess);
           }
@@ -265,6 +267,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
           clearTimeout(silenceTimeoutRef.current);
         }
         pendingTextRef.current = '';
+        intentionalStopRef.current = true;
         recognition.stop();
         processUserInput(finalTranscript);
       }
@@ -279,33 +282,42 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       console.log('[HybridVoice] Recognition ended');
       setAudioLevel(0);
       
-      // Auto-restart if still active and not processing
-       if (isActiveRef.current && !isProcessingRef.current && !isSpeaking) {
+      // Auto-restart if still active and not processing (with delay to avoid conflicts)
+      if (isActiveRef.current && !isProcessingRef.current && !isSpeaking) {
         setTimeout(() => {
-           if (isActiveRef.current && recognitionRef.current && !isProcessingRef.current) {
+          if (isActiveRef.current && recognitionRef.current && !isProcessingRef.current) {
             try {
+              intentionalStopRef.current = false;
               recognitionRef.current.start();
             } catch (e) {
-              console.log('[HybridVoice] Could not restart recognition');
+              // Recognition might already be running, ignore
             }
           }
-        }, 100);
+        }, 300); // Increased delay to avoid rapid restart conflicts
       }
     };
 
     recognition.onerror = (event) => {
-      console.error('[HybridVoice] Recognition error:', event.error);
+      // Only log non-intentional aborted errors
+      if (event.error === 'aborted' && intentionalStopRef.current) {
+        intentionalStopRef.current = false;
+        return; // Ignore intentional aborts
+      }
+      
+      if (event.error !== 'aborted') {
+        console.error('[HybridVoice] Recognition error:', event.error);
+      }
       
       if (event.error === 'no-speech') {
         // Restart listening
-         if (isActiveRef.current && !isProcessingRef.current) {
+        if (isActiveRef.current && !isProcessingRef.current) {
           setTimeout(() => {
             try {
               recognition.start();
             } catch (e) {
               // Ignore
             }
-          }, 100);
+          }, 200);
         }
       } else if (event.error !== 'aborted') {
         setError(`Errore riconoscimento: ${event.error}`);
