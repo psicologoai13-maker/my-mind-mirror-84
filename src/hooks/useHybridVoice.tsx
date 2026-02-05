@@ -42,17 +42,46 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const pendingTextRef = useRef<string>('');
   const isIOSRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-   const isActiveRef = useRef(false);
+  const isActiveRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
 
-  // Detect iOS
+  // Detect iOS/Safari
   useEffect(() => {
-    isIOSRef.current = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    isIOSRef.current = /iPad|iPhone|iPod/.test(ua) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   }, []);
 
-   // Keep isActiveRef in sync
-   useEffect(() => {
-     isActiveRef.current = isActive;
-   }, [isActive]);
+  // Keep isActiveRef in sync
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
+
+  // Unlock audio on iOS - must be called from user gesture
+  const unlockAudioForIOS = useCallback(async () => {
+    if (audioUnlockedRef.current) return;
+    
+    try {
+      // Create and play a silent audio to unlock audio context
+      const silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+      silentAudio.volume = 0.01;
+      await silentAudio.play();
+      silentAudio.pause();
+      
+      // Also unlock Web Speech Synthesis
+      if (window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance('');
+        utterance.volume = 0;
+        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.cancel();
+      }
+      
+      audioUnlockedRef.current = true;
+      console.log('[HybridVoice] Audio unlocked for iOS');
+    } catch (e) {
+      console.log('[HybridVoice] Audio unlock attempt:', e);
+    }
+  }, []);
  
   // Cleanup on unmount
   useEffect(() => {
@@ -86,12 +115,17 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
 
        // If we have audio data, play it
        if (audioBase64) {
-         // ElevenLabs returns MP3 directly - no conversion needed
-         console.log('[HybridVoice] Playing audio, mime:', mimeType);
+         console.log('[HybridVoice] Playing audio, mime:', mimeType, 'iOS:', isIOSRef.current);
+         
+         // For iOS Safari, we need to create the audio element differently
          const audioUrl = `data:${mimeType || 'audio/mpeg'};base64,${audioBase64}`;
-         const audio = new Audio(audioUrl);
+         const audio = new Audio();
          audioRef.current = audio;
- 
+         
+         // Set source after creating - iOS Safari prefers this
+         audio.src = audioUrl;
+         audio.preload = 'auto';
+         
          return new Promise<void>((resolve, reject) => {
            audio.onended = () => {
              console.log('[HybridVoice] Audio playback finished');
@@ -104,39 +138,67 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
              console.error('[HybridVoice] Audio playback error:', e);
              setIsSpeaking(false);
              audioRef.current = null;
-             reject(e);
+             // On iOS error, fallback to browser TTS
+             if (isIOSRef.current) {
+               console.log('[HybridVoice] iOS audio failed, using TTS fallback');
+               useBrowserTTS(fallbackText).then(resolve).catch(reject);
+             } else {
+               reject(e);
+             }
            };
- 
+
+           // iOS Safari needs user interaction or unlocked audio context
            audio.play().catch((playError) => {
              console.error('[HybridVoice] Audio play error:', playError);
              setIsSpeaking(false);
              audioRef.current = null;
-             reject(playError);
+             // Fallback to browser TTS on play failure
+             console.log('[HybridVoice] Play failed, using TTS fallback');
+             useBrowserTTS(fallbackText).then(resolve).catch(reject);
            });
          });
       }
 
-       // Fallback to browser TTS
-       throw new Error('No audio data, using fallback');
+       // No audio data - use browser TTS
+       return useBrowserTTS(fallbackText);
     } catch (err) {
-       console.log('[HybridVoice] Using browser TTS fallback');
-      setIsSpeaking(false);
-      
-      return new Promise<void>((resolve) => {
-         const utterance = new SpeechSynthesisUtterance(fallbackText);
-        utterance.lang = 'it-IT';
-         utterance.rate = 1.0;
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          resolve();
-        };
-        utterance.onerror = () => {
-          setIsSpeaking(false);
-          resolve();
-        };
-        window.speechSynthesis.speak(utterance);
-      });
+       console.log('[HybridVoice] Using browser TTS fallback due to error:', err);
+      return useBrowserTTS(fallbackText);
     }
+  }, []);
+
+  // Browser TTS helper function
+  const useBrowserTTS = useCallback((text: string): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      setIsSpeaking(true);
+      
+      // Cancel any ongoing speech first
+      window.speechSynthesis?.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'it-IT';
+      utterance.rate = 1.0;
+      
+      // On iOS, get Italian voice if available
+      if (isIOSRef.current) {
+        const voices = window.speechSynthesis?.getVoices() || [];
+        const italianVoice = voices.find(v => v.lang.startsWith('it'));
+        if (italianVoice) {
+          utterance.voice = italianVoice;
+        }
+      }
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        resolve();
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        resolve();
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    });
   }, []);
 
   const processUserInput = useCallback(async (userText: string) => {
@@ -327,6 +389,11 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     conversationHistoryRef.current = [];
 
     try {
+      // CRITICAL: Unlock audio on iOS BEFORE anything else (must be in user gesture)
+      if (isIOSRef.current) {
+        await unlockAudioForIOS();
+      }
+      
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('[HybridVoice] Microphone permission granted');
@@ -354,7 +421,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setError(err instanceof Error ? err.message : 'Errore di connessione');
       toast.error('Impossibile avviare la conversazione');
     }
-  }, [user, startSession, setupSpeechRecognition]);
+  }, [user, startSession, setupSpeechRecognition, unlockAudioForIOS]);
 
   const stop = useCallback(async () => {
     console.log('[HybridVoice] Stopping session...');
