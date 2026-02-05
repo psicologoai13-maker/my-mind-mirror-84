@@ -20,15 +20,14 @@ serve(async (req) => {
     // Get agent ID from request body or use default
     const body = await req.json().catch(() => ({}));
     const agentId = body.agentId || Deno.env.get("ELEVENLABS_AGENT_ID");
-     const dynamicVariables = body.dynamicVariables || {};
     
     if (!agentId) {
       throw new Error("ELEVENLABS_AGENT_ID not configured. Please create an agent in ElevenLabs dashboard and add the ID.");
     }
 
-    console.log('[elevenlabs-token] Requesting conversation token for agent:', agentId);
+    console.log('[elevenlabs-token] Requesting WebRTC token for agent:', agentId);
 
-    // Request a WebRTC conversation token from ElevenLabs (not signed URL)
+    // Request a WebRTC conversation token (more stable than WebSocket signed URL)
     const response = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
       {
@@ -50,7 +49,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       signed_url: data.signed_url,
-      agent_id: agentId 
+      agent_id: agentId,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
