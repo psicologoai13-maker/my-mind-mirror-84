@@ -1,14 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
+const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
 
 // ═══════════════════════════════════════════════
 // 🧠 ARIA - CLINICAL PSYCHOLOGY SYSTEM PROMPT
@@ -125,8 +123,56 @@ serve(async (req) => {
 
     console.log('[aria-voice-chat] Response:', assistantText.substring(0, 50));
 
+    // Generate audio with ElevenLabs if available
+    let audioBase64: string | null = null;
+    let audioMimeType = 'audio/mpeg';
+    
+    if (ELEVENLABS_API_KEY) {
+      try {
+        console.log('[aria-voice-chat] Generating audio with ElevenLabs...');
+        
+        const ttsResponse = await fetch('https://api.elevenlabs.io/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL', {
+          method: 'POST',
+          headers: {
+            'xi-api-key': ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: assistantText,
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.3,
+              use_speaker_boost: true
+            }
+          }),
+        });
+
+        if (ttsResponse.ok) {
+          const audioBuffer = await ttsResponse.arrayBuffer();
+          const uint8Array = new Uint8Array(audioBuffer);
+          
+          // Convert to base64
+          let binary = '';
+          for (let i = 0; i < uint8Array.length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+          audioBase64 = btoa(binary);
+          
+          console.log('[aria-voice-chat] Audio generated successfully');
+        } else {
+          console.error('[aria-voice-chat] ElevenLabs error:', ttsResponse.status);
+        }
+      } catch (ttsError) {
+        console.error('[aria-voice-chat] TTS error:', ttsError);
+      }
+    }
+
     return new Response(JSON.stringify({ 
       text: assistantText,
+      audio: audioBase64,
+      mimeType: audioMimeType,
       success: true
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

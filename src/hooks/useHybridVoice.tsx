@@ -174,8 +174,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setTranscript(prev => [...prev, assistantEntry]);
       conversationHistoryRef.current.push({ role: 'assistant', content: assistantText });
 
-      // Play response using browser TTS (Lovable Gateway returns text only)
-      await playAudio(null, '', assistantText);
+      // Play response with ElevenLabs audio (or fallback to browser TTS)
+      await playAudio(data?.audio || null, data?.mimeType || 'audio/mpeg', assistantText);
 
       // Resume listening after speaking
        if (isActiveRef.current && recognitionRef.current) {
