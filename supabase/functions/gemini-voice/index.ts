@@ -10,8 +10,9 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.5 Flash Live - Native Audio (correct model for v1beta)
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+// Gemini 2.0 Flash Live - stable model for Live API
+// Note: Native audio models use different format - trying stable model first
+const MODEL = "gemini-2.0-flash-live-001";
 
 serve(async (req) => {
   const { headers } = req;
@@ -453,36 +454,42 @@ Inizia con un saluto caldo e chiedi come sta oggi.`;
         geminiSocket.onopen = () => {
           console.log("[gemini-voice] Connected to Gemini, sending setup with model:", MODEL);
           
-          // Setup message with correct snake_case format for v1beta API
+          // Setup message with CORRECT camelCase format per Google documentation
+          // See: https://ai.google.dev/api/live
           const setupMessage = {
             setup: {
               model: MODEL,
-              generation_config: {
-                response_modalities: ["AUDIO"],
-                speech_config: {
-                  voice_config: {
-                    prebuilt_voice_config: {
-                      voice_name: "Charon" // Calm and reassuring voice, ideal for therapy
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: "Aoede" // Warm, clear female voice for therapy
                     }
                   }
                 }
               },
-              system_instruction: {
+              systemInstruction: {
                 parts: [{ text: SYSTEM_PROMPT }]
               }
             }
           };
           
+          console.log("[gemini-voice] Sending setup:", JSON.stringify(setupMessage).substring(0, 500));
           geminiSocket!.send(JSON.stringify(setupMessage));
-          console.log("[gemini-voice] Setup message sent with config:", JSON.stringify(setupMessage.setup.generation_config));
+          console.log("[gemini-voice] Setup message sent, waiting for setupComplete...");
         };
         
         geminiSocket.onmessage = (event) => {
           try {
+            // Log all incoming messages for debugging
+            const rawData = typeof event.data === 'string' ? event.data : '[binary data]';
+            console.log("[gemini-voice] Received message:", rawData.substring(0, 300));
+            
             const data = JSON.parse(event.data);
             
             // Check for setup completion
-            if (data.setupComplete) {
+            if (data.setupComplete !== undefined) {
               setupComplete = true;
               console.log("[gemini-voice] Gemini setup complete!");
               if (clientSocket.readyState === WebSocket.OPEN) {
