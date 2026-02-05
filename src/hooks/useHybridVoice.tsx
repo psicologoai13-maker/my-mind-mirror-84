@@ -86,7 +86,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
 
        // If we have audio data, play it
        if (audioBase64) {
-         const audioUrl = `data:${mimeType};base64,${audioBase64}`;
+         // ElevenLabs returns MP3 directly - no conversion needed
+         console.log('[HybridVoice] Playing audio, mime:', mimeType);
+         const audioUrl = `data:${mimeType || 'audio/mpeg'};base64,${audioBase64}`;
          const audio = new Audio(audioUrl);
          audioRef.current = audio;
  
