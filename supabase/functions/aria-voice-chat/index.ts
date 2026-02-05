@@ -1012,8 +1012,14 @@ Terapia: ${ctx.profile.therapy_status === 'in_therapy' ? 'Segue già un percorso
       
       const memoryContent = selectedMemory.join('\n- ');
       blocks.push(`
-📝 MEMORIA (cose che sai di ${name || 'questa persona'} - USA QUESTE INFO!):
-- ${memoryContent}`);
+🧠 MEMORIA PERSONALE (REGOLE CRITICHE!):
+- ${memoryContent}
+
+⚠️ REGOLE MEMORIA - OBBLIGATORIE:
+1. SE l'utente menziona un viaggio/partenza E hai [EVENTO] viaggi in memoria → NON chiedere "dove vai?", DI' "Ah il viaggio a [destinazione]!"
+2. NON chiedere cose che già sai dalla memoria
+3. Quando l'utente parla di topic che hai in memoria, DIMOSTRA che ricordi: "Mi avevi parlato di..."
+4. Cerca nella memoria: viaggi, persone, hobby, eventi prima di fare domande`);
     }
     
     // Goals
