@@ -91,8 +91,15 @@ export const useElevenLabsAgent = () => {
        const userContext = contextData?.user_context || 'Prima conversazione con Aria.';
        console.log('[ElevenLabs] User context loaded:', { userName, contextLength: userContext.length });
 
-       // Get signed URL from our edge function
-       const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token');
+       // Get signed URL from our edge function with dynamic variables
+       const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token', {
+         body: {
+           dynamicVariables: {
+             user_name: userName,
+             user_context: userContext
+           }
+         }
+       });
  
       if (tokenError || !data?.signed_url) {
         throw new Error(tokenError?.message || 'Failed to get conversation token');
@@ -100,13 +107,9 @@ export const useElevenLabsAgent = () => {
 
       console.log('[ElevenLabs] Got signed URL, starting session...');
 
-       // Start the conversation session with dynamic variables
+       // Start the conversation session (dynamic variables are in the signed URL)
       await conversation.startSession({
-         signedUrl: data.signed_url,
-         dynamicVariables: {
-           user_name: userName,
-           user_context: userContext
-         }
+         signedUrl: data.signed_url
       });
 
       console.log('[ElevenLabs] Session started successfully');
