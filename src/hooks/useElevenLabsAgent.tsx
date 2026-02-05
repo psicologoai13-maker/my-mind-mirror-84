@@ -100,11 +100,12 @@ export const useElevenLabsAgent = () => {
         throw new Error(tokenError?.message || 'Failed to get conversation token');
       }
 
-      console.log('[ElevenLabs] Got signed URL, starting session without dynamic variables first...');
+      console.log('[ElevenLabs] Got signed URL, starting WebSocket session...');
 
-      // Start the conversation session - test without dynamic variables first
+      // Start with signedUrl (WebSocket) - basic connection test
       await conversation.startSession({
-        signedUrl: data.signed_url
+        signedUrl: data.signed_url,
+        connectionType: 'websocket'
       });
 
       console.log('[ElevenLabs] Session started successfully');

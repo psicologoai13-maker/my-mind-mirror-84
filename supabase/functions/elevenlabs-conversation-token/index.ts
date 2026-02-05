@@ -25,9 +25,9 @@ serve(async (req) => {
       throw new Error("ELEVENLABS_AGENT_ID not configured. Please create an agent in ElevenLabs dashboard and add the ID.");
     }
 
-    console.log('[elevenlabs-token] Requesting WebRTC token for agent:', agentId);
+    console.log('[elevenlabs-token] Requesting conversation token for agent:', agentId);
 
-    // Request a WebRTC conversation token (more stable than WebSocket signed URL)
+    // Request a conversation token for WebRTC (more stable than WebSocket signed URL)
     const response = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
       {
