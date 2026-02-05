@@ -423,39 +423,80 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     setTranscript([]);
     conversationHistoryRef.current = [];
 
+    const isIOSOrSafari = isIOSRef.current || isSafariRef.current;
+    console.log('[HybridVoice] Starting on platform:', { iOS: isIOSRef.current, Safari: isSafariRef.current });
+
     try {
       // On iOS/Safari, unlock audio first (must be in user gesture context)
-      if (isIOSRef.current || isSafariRef.current) {
+      if (isIOSOrSafari) {
+        console.log('[HybridVoice] Unlocking audio for iOS/Safari...');
         await unlockAudioForIOS();
       }
 
-      // Request microphone permission
+      // Request microphone permission with timeout for iOS
       console.log('[HybridVoice] Requesting microphone permission...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop the stream immediately, we just needed permission
-      stream.getTracks().forEach(track => track.stop());
+      
+      const getMicPermission = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+      };
+      
+      // iOS Safari can hang on getUserMedia, add timeout
+      const permissionTimeout = isIOSOrSafari ? 10000 : 30000;
+      const permissionResult = await Promise.race([
+        getMicPermission(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout richiesta microfono')), permissionTimeout)
+        )
+      ]);
+      
       console.log('[HybridVoice] Microphone permission granted');
 
-      // Create session in database
-      const session = await startSession.mutateAsync('voice');
+      // Create session in database with timeout
+      console.log('[HybridVoice] Creating session...');
+      const sessionPromise = startSession.mutateAsync('voice');
+      const session = await Promise.race([
+        sessionPromise,
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout creazione sessione')), 15000)
+        )
+      ]);
+      
       if (!session) throw new Error('Failed to create session');
       sessionIdRef.current = session.id;
       console.log('[HybridVoice] Session created:', session.id);
 
       // Setup speech recognition
+      console.log('[HybridVoice] Setting up speech recognition...');
       recognitionRef.current = setupSpeechRecognition();
       
+      // IMPORTANT: Set states BEFORE starting recognition
       setIsActive(true);
       setIsConnecting(false);
       
-      // Start listening with small delay on iOS for stability
-      const startDelay = (isIOSRef.current || isSafariRef.current) ? 100 : 0;
+      // Start listening with delay on iOS for stability
+      const startDelay = isIOSOrSafari ? 200 : 50;
       setTimeout(() => {
+        if (!recognitionRef.current) {
+          console.error('[HybridVoice] Recognition ref is null');
+          return;
+        }
         try {
-          recognitionRef.current?.start();
-          console.log('[HybridVoice] Recognition started');
+          recognitionRef.current.start();
+          console.log('[HybridVoice] Recognition started successfully');
         } catch (e) {
           console.error('[HybridVoice] Failed to start recognition:', e);
+          // On iOS, try to recreate the recognition instance
+          if (isIOSOrSafari) {
+            try {
+              console.log('[HybridVoice] Retrying with new instance...');
+              recognitionRef.current = setupSpeechRecognition();
+              recognitionRef.current?.start();
+            } catch (e2) {
+              console.error('[HybridVoice] Retry failed:', e2);
+            }
+          }
         }
       }, startDelay);
       
@@ -464,12 +505,16 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     } catch (err) {
       console.error('[HybridVoice] Error starting:', err);
       setIsConnecting(false);
+      setIsActive(false);
       const errorMessage = err instanceof Error ? err.message : 'Errore di connessione';
       
       // Better error messages for common iOS issues
-      if (errorMessage.includes('Permission denied') || errorMessage.includes('not allowed')) {
+      if (errorMessage.includes('Permission denied') || errorMessage.includes('not allowed') || errorMessage.includes('NotAllowedError')) {
         setError('Permesso microfono negato. Vai in Impostazioni > Safari > Microfono per abilitarlo.');
         toast.error('Abilita il microfono nelle impostazioni');
+      } else if (errorMessage.includes('Timeout')) {
+        setError('Connessione lenta. Riprova.');
+        toast.error('Timeout - riprova');
       } else {
         setError(errorMessage);
         toast.error('Impossibile avviare la conversazione');
