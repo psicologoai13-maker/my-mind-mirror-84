@@ -969,8 +969,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-3-flash-preview',
         messages,
-        max_tokens: 250, // Keep responses concise for voice
-        temperature: 0.75,
+        max_tokens: 150, // Ultra-concise for fast voice responses
+        temperature: 0.7,
       }),
     });
 
@@ -1015,7 +1015,7 @@ serve(async (req) => {
       try {
         console.log('[aria-voice-chat] Generating Italian voice audio...');
         
-        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ITALIAN_VOICE_ID}`, {
+        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ITALIAN_VOICE_ID}?output_format=mp3_44100_64&optimize_streaming_latency=4`, {
           method: 'POST',
           headers: {
             'xi-api-key': ELEVENLABS_API_KEY,
@@ -1023,12 +1023,11 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             text: assistantText,
-            model_id: 'eleven_multilingual_v2',
+            model_id: 'eleven_turbo_v2_5',
             voice_settings: {
               stability: 0.5,
               similarity_boost: 0.8,
-              style: 0.4,
-              use_speaker_boost: true
+              use_speaker_boost: false
             }
           }),
         });
