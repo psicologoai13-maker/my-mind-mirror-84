@@ -323,29 +323,53 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     recognition.onspeechend = () => {
+      console.log('[HybridVoice] Speech ended');
       setAudioLevel(0.2);
     };
 
     recognition.onend = () => {
-      console.log('[HybridVoice] Recognition ended');
+      console.log('[HybridVoice] Recognition ended, pending:', pendingTextRef.current?.substring(0, 30));
       setAudioLevel(0);
+      setIsListening(false);
       
-      // Auto-restart on iOS (non-continuous mode requires manual restart)
+      // Clear any pending silence timeout
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+      }
+      
+      // CRITICAL for iOS: Process any pending text BEFORE restarting
+      // iOS Safari stops recognition automatically after speech ends,
+      // but the silenceTimeout may not have fired yet
+      if (pendingTextRef.current && !isProcessingRef.current && isActiveRef.current) {
+        const text = pendingTextRef.current.trim();
+        pendingTextRef.current = '';
+        
+        if (text.length > 0) {
+          console.log('[HybridVoice] Processing pending text on end:', text);
+          processUserInput(text);
+          return; // processUserInput will restart recognition after response
+        }
+      }
+      
+      // Auto-restart only if not processing
       if (isActiveRef.current && !isProcessingRef.current) {
-        const delay = PLATFORM.isIOS || PLATFORM.isSafari ? 400 : 200;
+        const delay = PLATFORM.isIOS || PLATFORM.isSafari ? 500 : 200;
         setTimeout(() => {
           if (isActiveRef.current && !isProcessingRef.current) {
             try {
-              // On iOS, create new instance
+              // On iOS, always create new instance
               if (PLATFORM.isIOS || PLATFORM.isSafari) {
                 recognitionRef.current = createRecognition();
               }
               recognitionRef.current?.start();
+              setIsListening(true);
             } catch (e) {
-              console.log('[HybridVoice] Restart failed, creating new instance');
+              console.log('[HybridVoice] Restart failed:', e);
               try {
                 recognitionRef.current = createRecognition();
                 recognitionRef.current?.start();
+                setIsListening(true);
               } catch (e2) {
                 console.error('[HybridVoice] Failed to restart:', e2);
               }
