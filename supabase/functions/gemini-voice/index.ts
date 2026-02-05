@@ -10,8 +10,8 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.5 Flash Live - Native Audio (latest stable model)
-const MODEL = "models/gemini-2.5-flash-native-audio-latest";
+// Gemini 2.5 Flash Live - Native Audio (correct model for v1beta)
+const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 
 serve(async (req) => {
   const { headers } = req;
@@ -453,27 +453,28 @@ Inizia con un saluto caldo e chiedi come sta oggi.`;
         geminiSocket.onopen = () => {
           console.log("[gemini-voice] Connected to Gemini, sending setup with model:", MODEL);
           
+          // Setup message with correct snake_case format for v1beta API
           const setupMessage = {
             setup: {
               model: MODEL,
-              generationConfig: {
-                responseModalities: ["AUDIO"],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: "Aoede" // Warm, empathetic female voice
+              generation_config: {
+                response_modalities: ["AUDIO"],
+                speech_config: {
+                  voice_config: {
+                    prebuilt_voice_config: {
+                      voice_name: "Charon" // Calm and reassuring voice, ideal for therapy
                     }
                   }
                 }
               },
-              systemInstruction: {
+              system_instruction: {
                 parts: [{ text: SYSTEM_PROMPT }]
               }
             }
           };
           
           geminiSocket!.send(JSON.stringify(setupMessage));
-          console.log("[gemini-voice] Setup message sent");
+          console.log("[gemini-voice] Setup message sent with config:", JSON.stringify(setupMessage.setup.generation_config));
         };
         
         geminiSocket.onmessage = (event) => {
