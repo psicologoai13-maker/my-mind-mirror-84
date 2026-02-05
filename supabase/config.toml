@@ -62,3 +62,6 @@ verify_jwt = false
   
  [functions.gemini-voice-native]
  verify_jwt = false
+
+[functions.aria-voice-chat]
+verify_jwt = false
