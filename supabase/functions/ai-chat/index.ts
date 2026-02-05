@@ -558,8 +558,22 @@ function buildPersonalizedSystemPrompt(
   profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null; occupation_context: string | null } | null = null
 ): string {
   const name = userName?.split(' ')[0] || null;
-  const memoryContent = memory.length > 0 
-    ? memory.slice(-30).join('\n- ')
+  
+  // Smart memory selection: prioritize tagged items + recent items
+  let selectedMemory: string[] = [];
+  if (memory.length > 0) {
+    // Priority tags that should always be included
+    const priorityTags = ['[EVENTO]', '[PERSONA]', '[HOBBY]', '[PIACE]', '[NON PIACE]'];
+    const priorityItems = memory.filter(m => priorityTags.some(tag => m.includes(tag)));
+    const recentItems = memory.slice(-25); // Last 25 items for recency
+    
+    // Combine: all priority items + recent items (deduplicated)
+    const combined = [...new Set([...priorityItems, ...recentItems])];
+    selectedMemory = combined.slice(0, 50); // Cap at 50 to avoid token overflow
+  }
+  
+  const memoryContent = selectedMemory.length > 0 
+    ? selectedMemory.join('\n- ')
     : 'Nessun ricordo precedente - prima conversazione.';
 
   const personaStyle = getPersonaStyle(selectedGoals, onboardingAnswers);
@@ -1552,8 +1566,15 @@ Se i dati sono positivi, celebra! "Oggi sembri in forma!"
     const sessionLines = recentSessions.map(s => {
       const date = new Date(s.start_time).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
       const tags = s.emotion_tags?.slice(0, 3).join(', ') || 'nessun tag';
-      const summary = s.ai_summary?.slice(0, 100) || 'Nessun riassunto';
-      return `- ${date} (${s.type}): ${summary}... [${tags}]`;
+      // Use ai_summary if available, otherwise extract from transcript
+      let summary = s.ai_summary?.slice(0, 150);
+      if (!summary && s.transcript) {
+        // Extract meaningful excerpt from transcript (skip greetings, get substance)
+        const transcriptExcerpt = s.transcript.slice(0, 300).replace(/\n+/g, ' ');
+        summary = `Conversazione: "${transcriptExcerpt}..."`;
+      }
+      summary = summary || 'Nessun dettaglio disponibile';
+      return `- ${date} (${s.type}): ${summary} [${tags}]`;
     });
     
     // Calculate time since last session
@@ -2051,6 +2072,7 @@ interface RecentSession {
   start_time: string;
   type: string;
   ai_summary: string | null;
+  transcript: string | null;
   emotion_tags: string[];
   mood_score_detected: number | null;
   anxiety_score_detected: number | null;
@@ -2172,14 +2194,14 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
         .eq('status', 'active'),
       // Get daily metrics via RPC for unified data
       supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
-      // Get recent sessions (last 3)
+      // Get recent sessions (last 5) - includes transcript for memory continuity
       supabase
         .from('sessions')
-        .select('id, start_time, type, ai_summary, emotion_tags, mood_score_detected, anxiety_score_detected')
+        .select('id, start_time, type, ai_summary, transcript, emotion_tags, mood_score_detected, anxiety_score_detected')
         .eq('user_id', user.id)
         .eq('status', 'completed')
         .order('start_time', { ascending: false })
-        .limit(3),
+        .limit(5),
       // Get today's habits
       supabase
         .from('daily_habits')
