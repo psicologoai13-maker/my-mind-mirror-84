@@ -15,7 +15,8 @@ export const useElevenLabsAgent = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const transcriptRef = useRef<TranscriptEntry[]>([]);
-  const conversationHistoryRef = useRef<Array<{ role: string; text: string }>>([]);
+   const sessionIdRef = useRef<string | null>(null);
+   const sessionStartTimeRef = useRef<Date | null>(null);
 
   // ElevenLabs useConversation hook
   const conversation = useConversation({
@@ -38,10 +39,6 @@ export const useElevenLabsAgent = () => {
             text: userText,
             timestamp: new Date()
           });
-          conversationHistoryRef.current.push({
-            role: 'user',
-            text: userText
-          });
           console.log('[ElevenLabs] User said:', userText);
         }
       }
@@ -55,53 +52,14 @@ export const useElevenLabsAgent = () => {
             text: agentText,
             timestamp: new Date()
           });
-          conversationHistoryRef.current.push({
-            role: 'assistant',
-            text: agentText
-          });
           console.log('[ElevenLabs] Aria said:', agentText);
         }
-      }
-
-      // Handle client tool calls
-      if (message?.type === 'client_tool_call') {
-        console.log('[ElevenLabs] Client tool call received:', message);
       }
     },
     onError: (error) => {
       console.error('[ElevenLabs] Error:', error);
       setError(typeof error === 'string' ? error : 'Errore di connessione');
     },
-    // Client tools - called by the ElevenLabs agent
-    clientTools: {
-      // This tool is called by the agent to get Aria's response
-      aria_respond: async (params: { user_message: string }) => {
-        console.log('[ElevenLabs] 🎯 aria_respond CALLED with:', params);
-        
-        try {
-          console.log('[ElevenLabs] Calling aria-agent-backend...');
-          const { data, error } = await supabase.functions.invoke('aria-agent-backend', {
-            body: {
-              message: params.user_message,
-              conversationHistory: conversationHistoryRef.current.slice(-10)
-            }
-          });
-
-          if (error) {
-            console.error('[ElevenLabs] Backend error:', error);
-            return "Mi dispiace, non riesco a rispondere in questo momento.";
-          }
-
-          const response = data?.response || "Scusa, puoi ripetere?";
-          console.log('[ElevenLabs] ✅ Aria response:', response);
-          return response;
-          
-        } catch (err) {
-          console.error('[ElevenLabs] Error calling backend:', err);
-          return "Scusa, c'è stato un problema. Puoi ripetere?";
-        }
-      }
-    }
   });
 
   // Start conversation
@@ -114,25 +72,41 @@ export const useElevenLabsAgent = () => {
     setIsConnecting(true);
     setError(null);
     transcriptRef.current = [];
-    conversationHistoryRef.current = [];
+     sessionStartTimeRef.current = new Date();
 
     try {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('[ElevenLabs] Microphone permission granted');
 
-      // Get signed URL from our edge function
-      const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token');
+       // Fetch user context for dynamic variables
+       console.log('[ElevenLabs] Fetching user context...');
+       const { data: contextData, error: contextError } = await supabase.functions.invoke('elevenlabs-context');
+       
+       if (contextError) {
+         console.warn('[ElevenLabs] Context fetch warning:', contextError);
+       }
+       
+       const userName = contextData?.user_name || 'Utente';
+       const userContext = contextData?.user_context || 'Prima conversazione con Aria.';
+       console.log('[ElevenLabs] User context loaded:', { userName, contextLength: userContext.length });
 
+       // Get signed URL from our edge function
+       const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token');
+ 
       if (tokenError || !data?.signed_url) {
         throw new Error(tokenError?.message || 'Failed to get conversation token');
       }
 
       console.log('[ElevenLabs] Got signed URL, starting session...');
 
-      // Start the conversation session with WebSocket
+       // Start the conversation session with dynamic variables
       await conversation.startSession({
-        signedUrl: data.signed_url
+         signedUrl: data.signed_url,
+         dynamicVariables: {
+           user_name: userName,
+           user_context: userContext
+         }
       });
 
       console.log('[ElevenLabs] Session started successfully');
@@ -153,25 +127,49 @@ export const useElevenLabsAgent = () => {
       await conversation.endSession();
       console.log('[ElevenLabs] Session ended');
       
-      // Save session transcript if we have messages
+       // Save session and process transcript if we have messages
       if (transcriptRef.current.length > 0 && user) {
         try {
           const transcript = transcriptRef.current
             .map(t => `${t.role === 'user' ? 'Utente' : 'Aria'}: ${t.text}`)
             .join('\n');
           
-          // Create a session record
-          await supabase.from('sessions').insert({
+           // Create session record
+           const { data: sessionData, error: insertError } = await supabase.from('sessions').insert({
             user_id: user.id,
             type: 'voice',
             status: 'completed',
-            start_time: transcriptRef.current[0]?.timestamp.toISOString(),
+             start_time: sessionStartTimeRef.current?.toISOString() || new Date().toISOString(),
             end_time: new Date().toISOString(),
             transcript,
             ai_summary: 'Sessione vocale con Aria'
-          });
+           }).select('id').single();
           
-          console.log('[ElevenLabs] Session saved');
+           if (insertError) {
+             console.error('[ElevenLabs] Failed to save session:', insertError);
+           } else {
+             sessionIdRef.current = sessionData?.id || null;
+             console.log('[ElevenLabs] Session saved:', sessionIdRef.current);
+             
+             // Process session in background (extract 66 metrics, update memory)
+             if (sessionIdRef.current) {
+               console.log('[ElevenLabs] Processing session for clinical analysis...');
+               supabase.functions.invoke('process-session', {
+                 body: {
+                   session_id: sessionIdRef.current,
+                   user_id: user.id,
+                   transcript,
+                   is_voice: true
+                 }
+               }).then(({ error: processError }) => {
+                 if (processError) {
+                   console.error('[ElevenLabs] Process session error:', processError);
+                 } else {
+                   console.log('[ElevenLabs] Session processed successfully');
+                 }
+               });
+             }
+           }
         } catch (saveError) {
           console.error('[ElevenLabs] Failed to save session:', saveError);
         }
@@ -199,9 +197,8 @@ export const useElevenLabsAgent = () => {
     error,
     transcript: transcriptRef.current,
     
-    // Computed audio level (for visualization)
-    // ElevenLabs doesn't expose this directly, so we'll use a placeholder
-    audioLevel: conversation.isSpeaking ? 0.7 : 0.3,
+     // Audio level for visualization
+     audioLevel: conversation.isSpeaking ? 0.7 : (conversation.status === 'connected' ? 0.3 : 0.1),
     
     // Actions
     start,
