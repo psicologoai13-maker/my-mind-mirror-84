@@ -11,7 +11,7 @@
    }
  
    try {
-     const { text } = await req.json();
+    const { text, stream = true } = await req.json();
      
      if (!text || typeof text !== 'string') {
        return new Response(JSON.stringify({ error: "Text is required" }), {
@@ -30,8 +30,13 @@
      
      console.log('[elevenlabs-tts] Generating speech for:', text.substring(0, 50) + '...');
  
+    // Use streaming endpoint for faster time-to-first-audio
+    const endpoint = stream 
+      ? `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`
+      : `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
+
      const response = await fetch(
-       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      endpoint,
        {
          method: "POST",
          headers: {
@@ -40,7 +45,7 @@
          },
          body: JSON.stringify({
            text,
-           model_id: "eleven_multilingual_v2",
+          model_id: "eleven_turbo_v2_5", // Faster model for lower latency
            voice_settings: {
              stability: 0.5,
              similarity_boost: 0.75,
@@ -57,9 +62,22 @@
        throw new Error(`ElevenLabs API error: ${response.status}`);
      }
  
-     const audioBuffer = await response.arrayBuffer();
-     console.log('[elevenlabs-tts] Audio generated, size:', audioBuffer.byteLength);
+    // For streaming, pass through the stream directly
+    if (stream && response.body) {
+      console.log('[elevenlabs-tts] Streaming audio response');
+      return new Response(response.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "audio/mpeg",
+          "Transfer-Encoding": "chunked",
+        },
+      });
+    }
  
+    // Non-streaming fallback
+    const audioBuffer = await response.arrayBuffer();
+    console.log('[elevenlabs-tts] Audio generated, size:', audioBuffer.byteLength);
+    
      return new Response(audioBuffer, {
        headers: {
          ...corsHeaders,

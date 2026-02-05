@@ -70,7 +70,7 @@
      setIsListening(false);
  
      try {
-       // Call ElevenLabs TTS edge function
+      // Call ElevenLabs TTS edge function with streaming
        const response = await fetch(
          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
          {
@@ -79,7 +79,7 @@
              'Content-Type': 'application/json',
              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
            },
-           body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, stream: true }),
          }
        );
  
@@ -87,29 +87,35 @@
          throw new Error(`TTS error: ${response.status}`);
        }
  
-       const audioBlob = await response.blob();
-       const audioUrl = URL.createObjectURL(audioBlob);
-       
-       audioRef.current = new Audio(audioUrl);
-       
-       await new Promise<void>((resolve, reject) => {
-         if (!audioRef.current) {
-           reject(new Error('Audio not initialized'));
-           return;
-         }
-         
-         audioRef.current.onended = () => {
-           URL.revokeObjectURL(audioUrl);
-           resolve();
-         };
-         
-         audioRef.current.onerror = (e) => {
-           URL.revokeObjectURL(audioUrl);
-           reject(e);
-         };
-         
-         audioRef.current.play().catch(reject);
-       });
+      // Use MediaSource for streaming playback if supported, fallback to blob
+      if ('MediaSource' in window && MediaSource.isTypeSupported('audio/mpeg')) {
+        await playStreamingAudio(response);
+      } else {
+        // Fallback: wait for full audio
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audioRef.current = new Audio(audioUrl);
+        
+        await new Promise<void>((resolve, reject) => {
+          if (!audioRef.current) {
+            reject(new Error('Audio not initialized'));
+            return;
+          }
+          
+          audioRef.current.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+          };
+          
+          audioRef.current.onerror = (e) => {
+            URL.revokeObjectURL(audioUrl);
+            reject(e);
+          };
+          
+          audioRef.current.play().catch(reject);
+        });
+      }
  
      } catch (err) {
        console.error('[HybridVoice] TTS error:', err);
@@ -119,6 +125,91 @@
        audioRef.current = null;
      }
    }, []);
+
+  // Streaming audio playback using MediaSource API
+  const playStreamingAudio = useCallback(async (response: Response): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const mediaSource = new MediaSource();
+        const audio = new Audio();
+        audio.src = URL.createObjectURL(mediaSource);
+        audioRef.current = audio;
+
+        mediaSource.addEventListener('sourceopen', async () => {
+          try {
+            const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+            const reader = response.body?.getReader();
+            
+            if (!reader) {
+              reject(new Error('No response body'));
+              return;
+            }
+
+            // Start playing as soon as we have some data
+            let hasStartedPlaying = false;
+
+            const processChunk = async () => {
+              const { done, value } = await reader.read();
+              
+              if (done) {
+                // Wait for buffer to finish, then end stream
+                sourceBuffer.addEventListener('updateend', () => {
+                  if (mediaSource.readyState === 'open') {
+                    mediaSource.endOfStream();
+                  }
+                }, { once: true });
+                return;
+              }
+
+              // Append chunk to buffer
+              if (!sourceBuffer.updating) {
+                sourceBuffer.appendBuffer(value);
+              }
+
+              // Start playing after first chunk
+              if (!hasStartedPlaying && audio.readyState >= 2) {
+                hasStartedPlaying = true;
+                audio.play().catch(console.error);
+              }
+
+              // Wait for buffer to be ready, then process next chunk
+              if (sourceBuffer.updating) {
+                sourceBuffer.addEventListener('updateend', processChunk, { once: true });
+              } else {
+                await processChunk();
+              }
+            };
+
+            await processChunk();
+
+            // Start playing if not already started
+            if (!hasStartedPlaying) {
+              audio.play().catch(console.error);
+            }
+
+            // Resolve when audio ends
+            audio.onended = () => {
+              URL.revokeObjectURL(audio.src);
+              resolve();
+            };
+
+            audio.onerror = (e) => {
+              URL.revokeObjectURL(audio.src);
+              reject(e);
+            };
+
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        mediaSource.addEventListener('error', reject);
+
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }, []);
  
    const processUserInput = useCallback(async (userText: string) => {
      if (!userText.trim() || isProcessingRef.current) return;
@@ -226,6 +317,7 @@
          }
          
          // If browser doesn't fire speechend, process after silence
+         // Reduced from 1.5s to 0.8s for faster response
          silenceTimeoutRef.current = setTimeout(() => {
            if (pendingTextRef.current && !isProcessingRef.current) {
              console.log('[HybridVoice] Silence timeout, processing:', pendingTextRef.current);
@@ -234,7 +326,7 @@
              recognition.stop();
              processUserInput(textToProcess);
            }
-         }, 1500);
+         }, 800);
        }
  
        if (finalTranscript) {
