@@ -219,8 +219,27 @@ export const useGeminiVoice = (): UseGeminiVoiceReturn => {
         console.log('[GeminiVoice] WebSocket connected, waiting for setup...');
       };
 
-      wsRef.current.onmessage = (event) => {
+      wsRef.current.onmessage = async (event) => {
         try {
+          // Handle binary data (audio) separately from JSON messages
+          if (event.data instanceof Blob) {
+            // Binary audio data from Gemini - play it directly
+            const arrayBuffer = await event.data.arrayBuffer();
+            const int16Array = new Int16Array(arrayBuffer);
+            const float32Array = new Float32Array(int16Array.length);
+            for (let i = 0; i < int16Array.length; i++) {
+              float32Array[i] = int16Array[i] / 32768;
+            }
+            
+            setIsSpeaking(true);
+            setIsListening(false);
+            
+            if (workletNodeRef.current) {
+              workletNodeRef.current.port.postMessage({ samples: Array.from(float32Array) });
+            }
+            return;
+          }
+          
           const data = JSON.parse(event.data);
           
           // Handle setup complete
