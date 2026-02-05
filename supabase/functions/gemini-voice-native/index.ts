@@ -455,66 +455,76 @@
      // Add current message
      contents.push({ role: "user", parts: [{ text: message }] });
  
-      // Call Gemini 2.5 Flash Native Audio for real-time conversation
-      console.log('[gemini-voice-native] Calling Gemini 2.5 Flash Native Audio...');
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-native-audio-dialog:generateContent?key=${GOOGLE_API_KEY}`,
+      // STEP 1: Call Gemini 2.5 Flash for TEXT generation (supports multiturn conversation)
+      console.log('[gemini-voice-native] Step 1: Generating text with gemini-2.5-flash...');
+      const textResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
        {
          method: "POST",
          headers: { "Content-Type": "application/json" },
          body: JSON.stringify({
            contents,
             generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: "Kore" // Italian-friendly warm female voice
-                  }
-                }
-              }
+              maxOutputTokens: 200
             }
          })
         }
      );
  
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[gemini-voice-native] Gemini error:', response.status, errorText);
-        throw new Error(`Gemini API error: ${response.status}`);
+      if (!textResponse.ok) {
+        const errorText = await textResponse.text();
+        console.error('[gemini-voice-native] Text generation error:', textResponse.status, errorText);
+        throw new Error(`Text generation error: ${textResponse.status}`);
       }
 
-      const data = await response.json();
-      console.log('[gemini-voice-native] Response received');
+      const textData = await textResponse.json();
+      const ariaText = textData.candidates?.[0]?.content?.parts?.[0]?.text || "Scusa, non ho capito. Puoi ripetere?";
+      console.log('[gemini-voice-native] Generated text:', ariaText.substring(0, 80) + '...');
 
-      // Extract text and audio from response
-      const candidate = data.candidates?.[0]?.content;
-      let textResponse = "";
+      // STEP 2: Call Gemini 2.5 Flash Preview TTS for AUDIO generation
+      console.log('[gemini-voice-native] Step 2: Generating audio with gemini-2.5-flash-preview-tts...');
+      const audioResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: ariaText }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: "Kore" // Warm female voice good for Italian
+                  }
+                }
+              }
+            }
+          })
+        }
+      );
+
       let audioData = null;
       let mimeType = "audio/L16;rate=24000";
 
-      if (candidate?.parts) {
-        for (const part of candidate.parts) {
-          if (part.text) {
-            textResponse = part.text;
+      if (audioResponse.ok) {
+        const audioJson = await audioResponse.json();
+        const audioPart = audioJson.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+        if (audioPart?.inlineData) {
+          audioData = audioPart.inlineData.data;
+          mimeType = audioPart.inlineData.mimeType || mimeType;
+          console.log('[gemini-voice-native] Audio generated successfully, mimeType:', mimeType);
+        } else {
+          console.warn('[gemini-voice-native] No audio in TTS response');
           }
-          if (part.inlineData) {
-            audioData = part.inlineData.data;
-            mimeType = part.inlineData.mimeType || mimeType;
-          }
+      } else {
+        const ttsError = await audioResponse.text();
+        console.error('[gemini-voice-native] TTS error:', audioResponse.status, ttsError);
        }
-      }
 
-      // Fallback text if no text in response
-      if (!textResponse) {
-        textResponse = "Scusa, non ho capito. Puoi ripetere?";
-      }
-
-      console.log('[gemini-voice-native] Text:', textResponse.substring(0, 50) + '...');
-      console.log('[gemini-voice-native] Audio:', audioData ? 'present' : 'none');
 
        return new Response(JSON.stringify({
-        text: textResponse,
+        text: ariaText,
         audio: audioData,
         mimeType: mimeType,
          crisis_detected: isCrisis
