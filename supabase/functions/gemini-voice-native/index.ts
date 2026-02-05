@@ -455,112 +455,72 @@
      // Add current message
      contents.push({ role: "user", parts: [{ text: message }] });
  
-      // STEP 1: Call Gemini Flash for TEXT generation (supports multiturn)
-      console.log('[gemini-voice-native] Calling Gemini Flash for text...');
-      const textResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+      // Call Gemini 2.5 Flash Native Audio for real-time conversation
+      console.log('[gemini-voice-native] Calling Gemini 2.5 Flash Native Audio...');
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-native-audio-dialog:generateContent?key=${GOOGLE_API_KEY}`,
        {
          method: "POST",
          headers: { "Content-Type": "application/json" },
          body: JSON.stringify({
            contents,
-            generationConfig: { maxOutputTokens: 150 }
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: "Kore" // Italian-friendly warm female voice
+                  }
+                }
+              }
+            }
          })
         }
      );
  
-      if (!textResponse.ok) {
-        const errorText = await textResponse.text();
-        console.error('[gemini-voice-native] Gemini text error:', textResponse.status, errorText);
-        throw new Error(`Gemini API error: ${textResponse.status}`);
-      }
- 
-      const textData = await textResponse.json();
-      const ariaText = textData.candidates?.[0]?.content?.parts?.[0]?.text || "Scusa, non ho capito. Puoi ripetere?";
-      console.log('[gemini-voice-native] Aria text:', ariaText.substring(0, 50) + '...');
-
-      // STEP 2: Call ElevenLabs for TTS (natural Italian voice)
-      const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
-      
-      if (!ELEVENLABS_API_KEY) {
-        console.log('[gemini-voice-native] No ElevenLabs key, returning text only');
-        return new Response(JSON.stringify({
-          text: ariaText,
-          audio: null,
-          crisis_detected: isCrisis
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[gemini-voice-native] Gemini error:', response.status, errorText);
+        throw new Error(`Gemini API error: ${response.status}`);
       }
 
-      try {
-        console.log('[gemini-voice-native] Calling ElevenLabs TTS...');
-        // Use a warm Italian female voice - "Aria" voice ID or fallback to a good Italian voice
-        // Common Italian female voices: 
-        // - "nPczCjzI2devNBz1zQrb" (Brian - but let's use a female)
-        // - "EXAVITQu4vr4xnSDxMaL" (Bella - female, warm)
-        // - "jBpfuIE2acCO8z3wKNLl" (Gigi - female, young, Italian-capable)
-        const voiceId = "EXAVITQu4vr4xnSDxMaL"; // Bella - warm female voice
-        
-        const ttsResponse = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-         {
-           method: "POST",
-            headers: { 
-              "Content-Type": "application/json",
-              "xi-api-key": ELEVENLABS_API_KEY
-            },
-           body: JSON.stringify({
-              text: ariaText,
-              model_id: "eleven_multilingual_v2", // Best for Italian
-              voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0.3, // More natural conversational style
-                use_speaker_boost: true
-              }
-           })
-         }
-       );
-        
-        if (!ttsResponse.ok) {
-          const ttsError = await ttsResponse.text();
-          console.error('[gemini-voice-native] ElevenLabs error:', ttsResponse.status, ttsError);
-          // Return text without audio
-          return new Response(JSON.stringify({
-            text: ariaText,
-            audio: null,
-            crisis_detected: isCrisis
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+      const data = await response.json();
+      console.log('[gemini-voice-native] Response received');
+
+      // Extract text and audio from response
+      const candidate = data.candidates?.[0]?.content;
+      let textResponse = "";
+      let audioData = null;
+      let mimeType = "audio/L16;rate=24000";
+
+      if (candidate?.parts) {
+        for (const part of candidate.parts) {
+          if (part.text) {
+            textResponse = part.text;
+          }
+          if (part.inlineData) {
+            audioData = part.inlineData.data;
+            mimeType = part.inlineData.mimeType || mimeType;
+          }
        }
-        
-        // Get audio as ArrayBuffer and convert to base64
-        const audioBuffer = await ttsResponse.arrayBuffer();
-        const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
-        
-        console.log('[gemini-voice-native] Audio generated successfully, size:', audioBuffer.byteLength);
-        
+      }
+
+      // Fallback text if no text in response
+      if (!textResponse) {
+        textResponse = "Scusa, non ho capito. Puoi ripetere?";
+      }
+
+      console.log('[gemini-voice-native] Text:', textResponse.substring(0, 50) + '...');
+      console.log('[gemini-voice-native] Audio:', audioData ? 'present' : 'none');
+
        return new Response(JSON.stringify({
-         text: ariaText,
-          audio: audioBase64,
-          mimeType: "audio/mpeg",
+        text: textResponse,
+        audio: audioData,
+        mimeType: mimeType,
          crisis_detected: isCrisis
        }), {
          headers: { ...corsHeaders, "Content-Type": "application/json" },
        });
-        
-      } catch (ttsError) {
-        console.error('[gemini-voice-native] TTS error:', ttsError);
-        return new Response(JSON.stringify({
-          text: ariaText,
-          audio: null,
-          crisis_detected: isCrisis
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
  
    } catch (error) {
      console.error('[gemini-voice-native] Error:', error);
