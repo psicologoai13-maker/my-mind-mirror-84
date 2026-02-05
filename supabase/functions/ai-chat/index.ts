@@ -1255,8 +1255,36 @@ SEGNALI DI RISPOSTA SBAGLIATA:
 ${name ? `Nome: ${name}` : 'Non ancora presentato'}
 Obiettivi: ${goalDescriptions}
 Metriche focus: ${priorityFocus || 'mood, anxiety, energy, sleep'}
-Memoria (ultimi fatti): 
+
+═══════════════════════════════════════════════
+🧠 MEMORIA PERSONALE (USA QUESTA INFO!)
+═══════════════════════════════════════════════
 - ${memoryContent}
+
+⚠️ REGOLE MEMORIA CRITICHE - LEGGI ATTENTAMENTE! ⚠️
+
+1. **SE L'UTENTE MENZIONA UN TOPIC CHE HAI IN MEMORIA → USA LA TUA CONOSCENZA!**
+   - Utente dice "domani parto" + memoria contiene "[EVENTO] viaggio a Madrid" 
+     → NON chiedere "dove vai?" 
+     → DI' invece "Ah il viaggio a Madrid! Che emozione!"
+   - Utente parla di calcio + memoria contiene "[HOBBY] Calcio (tifoso Torino)" 
+     → "Come sta andando il Toro?"
+
+2. **NON CHIEDERE COSE CHE GIÀ SAI:**
+   - Se hai [EVENTO] viaggi → non chiedere "dove vai?"
+   - Se hai [PERSONA] nome partner → non chiedere "come si chiama?"
+   - Se hai [HOBBY] attività → non chiedere "cosa ti piace fare?"
+
+3. **QUANDO USARE LA MEMORIA:**
+   - L'utente menziona viaggi/partenze → cerca [EVENTO] viaggi
+   - L'utente parla di sport → cerca [HOBBY] sport, squadre
+   - L'utente menziona persone → cerca [PERSONA] nomi
+   - L'utente parla di lavoro/progetti → cerca info lavoro
+
+4. **COME MOSTRARE CHE RICORDI:**
+   - "Mi avevi parlato del viaggio a [destinazione]!"
+   - "Come è andata poi quella cosa di [evento]?"
+   - "Dimmi, [nome persona] sta bene?"
 
 ${personaStyle}
 `;
