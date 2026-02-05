@@ -190,3 +190,86 @@ await supabase.functions.invoke('process-session', {
 - 32+ parametri psicologia profonda
 - Aggiornamenti memoria a lungo termine
 - Nuovi obiettivi/habits rilevati
+
+---
+
+# Piano: Pubblicazione App Nativa (Fase B)
+
+## Stato Attuale
+- ✅ Capacitor configurato nel progetto
+- ✅ Android testabile su Windows con Android Studio
+- ⏳ iOS: in attesa di accesso a Mac
+
+## iOS: GitHub Actions + TestFlight
+
+**Quando disponibile un Mac**, configurare:
+
+### Requisiti
+1. **Account Apple Developer** ($99/anno) - https://developer.apple.com
+2. **Certificati e Provisioning Profiles** creati in Apple Developer Portal
+3. **App Store Connect** - creare l'app per TestFlight
+
+### Pipeline CI/CD
+```yaml
+# .github/workflows/ios-testflight.yml
+name: iOS TestFlight Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'src/**'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build web
+        run: npm run build
+      
+      - name: Sync Capacitor
+        run: npx cap sync ios
+      
+      - name: Build & Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: ios/App/build/App.ipa
+          issuer-id: ${{ secrets.APPLE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPLE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+```
+
+### Flusso
+1. Push su GitHub (branch main)
+2. GitHub Actions compila su macOS cloud (gratuito per repo pubblici)
+3. Build iOS automatica
+4. Upload automatico su TestFlight
+5. Tester ricevono notifica nell'app TestFlight
+
+### Secrets da Configurare su GitHub
+- `APPLE_ISSUER_ID` - dal Apple Developer Portal
+- `APPLE_API_KEY_ID` - App Store Connect API Key
+- `APPLE_API_PRIVATE_KEY` - chiave privata .p8
+
+## Android: Play Store
+
+Per pubblicazione su Google Play Store:
+1. Account Google Play Developer ($25 una tantum)
+2. Generare signed APK/AAB con Android Studio
+3. Caricare su Play Console
+
+## Timeline
+- **Fase A (attuale)**: Web/PWA completa al 100%
+- **Fase B (futura)**: 
+  - Android su Play Store
+  - iOS su App Store via TestFlight → produzione
+  - Integrazioni native (Apple Health, Google Fit, Push Notifications)
