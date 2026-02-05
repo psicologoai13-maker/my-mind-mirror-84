@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -226,6 +226,7 @@ interface DailyMetrics {
 interface RecentSession {
   start_time: string;
   ai_summary: string | null;
+  transcript: string | null;
   mood_score_detected: number | null;
 }
 
@@ -285,13 +286,22 @@ function buildUserContextBlock(ctx: VoiceContext): string {
 Nome: ${name || 'Non specificato'}${ageInfo}${occupationInfo}
 Terapia: ${ctx.profile.therapy_status === 'in_therapy' ? 'Segue già un percorso' : ctx.profile.therapy_status === 'seeking' ? 'Sta cercando supporto' : 'Non in terapia'}`);
 
-    // Memory - include ALL items (important for continuity!)
+    // Memory - SMART SELECTION with priority tags (same as ai-chat)
     if (ctx.profile.long_term_memory?.length > 0) {
-      // Take last 30 items to include more context while keeping prompt manageable
-      const recentMemory = ctx.profile.long_term_memory.slice(-30).join('\n- ');
+      const memory = ctx.profile.long_term_memory;
+      // Priority tags that should always be included
+      const priorityTags = ['[EVENTO]', '[PERSONA]', '[HOBBY]', '[PIACE]', '[NON PIACE]', '[VIAGGIO]', '[LAVORO]'];
+      const priorityItems = memory.filter(m => priorityTags.some(tag => m.includes(tag)));
+      const recentItems = memory.slice(-25); // Last 25 items for recency
+      
+      // Combine: all priority items + recent items (deduplicated)
+      const combined = [...new Set([...priorityItems, ...recentItems])];
+      const selectedMemory = combined.slice(0, 50); // Cap at 50 to avoid token overflow
+      
+      const memoryContent = selectedMemory.join('\n- ');
       blocks.push(`
 📝 MEMORIA (cose che sai di ${name || 'questa persona'} - USA QUESTE INFO!):
-- ${recentMemory}`);
+- ${memoryContent}`);
     }
     
     // Goals
@@ -362,11 +372,19 @@ ${interestParts.join('\n')}`);
     }
   }
   
-  // Recent sessions - show more context
+  // Recent sessions - show more context with transcript fallback (same as ai-chat)
   if (ctx.recentSessions?.length > 0) {
-    const sessionsInfo = ctx.recentSessions.slice(0, 3).map((s, i) => {
+    const sessionsInfo = ctx.recentSessions.slice(0, 5).map((s) => {
       const timeAgo = formatTimeSince(s.start_time);
-      return `• ${timeAgo}: ${s.ai_summary || 'conversazione breve'}`;
+      // Use ai_summary if available, otherwise extract from transcript
+      let summary = s.ai_summary?.slice(0, 150);
+      if (!summary && s.transcript) {
+        // Extract meaningful excerpt from transcript (skip greetings, get substance)
+        const transcriptExcerpt = s.transcript.slice(0, 300).replace(/\n+/g, ' ');
+        summary = `Conversazione: "${transcriptExcerpt}..."`;
+      }
+      summary = summary || 'conversazione breve';
+      return `• ${timeAgo}: ${summary}`;
     }).join('\n');
     blocks.push(`
 ⏰ CONVERSAZIONI RECENTI (ricorda questi argomenti!):
@@ -530,13 +548,14 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         .eq('status', 'active')
         .limit(5),
       supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
+      // Get recent sessions (last 5) - includes transcript for memory continuity (same as ai-chat)
       supabase
         .from('sessions')
-        .select('start_time, ai_summary, mood_score_detected')
+        .select('start_time, ai_summary, transcript, mood_score_detected')
         .eq('user_id', user.id)
         .eq('status', 'completed')
         .order('start_time', { ascending: false })
-        .limit(3),
+        .limit(5),
       supabase
         .from('daily_habits')
         .select('habit_type, value, target_value')
