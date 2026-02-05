@@ -1,4 +1,5 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, X, Mic, MicOff } from "lucide-react";
 import { useElevenLabsAgent } from "@/hooks/useElevenLabsAgent";
@@ -191,8 +192,12 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent 
         className="sm:max-w-[380px] border-none p-0 overflow-hidden bg-transparent shadow-none [&>button]:hidden"
+        aria-describedby={undefined}
       >
-        <motion.div 
+        <VisuallyHidden>
+          <DialogTitle>Conversazione vocale con Aria</DialogTitle>
+        </VisuallyHidden>
+        <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
