@@ -10,8 +10,8 @@ const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Gemini 2.5 Flash Live - Native Audio (correct model name from Google docs)
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+// Gemini 2.5 Flash Live - Native Audio (latest stable model)
+const MODEL = "models/gemini-2.5-flash-native-audio-latest";
 
 serve(async (req) => {
   const { headers } = req;
@@ -446,7 +446,7 @@ Inizia con un saluto caldo e chiedi come sta oggi.`;
       clientSocket.onopen = () => {
         console.log("[gemini-voice] Client connected, connecting to Gemini 2.5 Flash Native Audio...");
         
-        const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
+        const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GOOGLE_API_KEY}`;
         
         geminiSocket = new WebSocket(geminiUrl);
         
