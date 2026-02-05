@@ -1,198 +1,192 @@
 
-# Piano: Aria Live con ElevenLabs Conversational AI
+# Piano: ElevenLabs Nativo con Variabili Dinamiche
 
-## Problema Identificato
+## Panoramica
 
-Il modello Gemini Native Audio è stato ritirato. L'utente vuole una **conversazione live bidirezionale** (non semplice TTS), preservando l'intelligenza clinica di Aria (2500+ righe di prompt).
+Convertiamo il sistema vocale da ibrido (STT browser + Gemini + TTS) a **ElevenLabs Nativo** per ottenere latenza <1s. Il prompt comportamentale di Aria è già configurato nella dashboard ElevenLabs con le variabili `user_name` e `user_context`.
 
-## Soluzione: ElevenLabs Conversational AI Agent + Backend Ibrido
+## Architettura
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    ARIA LIVE - ARCHITETTURA                         │
+│  PRIMA (Ibrido - 3-5s latenza)                                      │
+│  STT Browser → Backend Gemini → ElevenLabs TTS → Play Audio         │
 ├─────────────────────────────────────────────────────────────────────┤
+│  DOPO (Nativo - <1s latenza)                                        │
 │                                                                     │
-│   UTENTE PARLA (audio live)                                         │
-│        ↓                                                            │
-│   [ElevenLabs Agent - WebRTC]                                       │
-│   (bassa latenza, voce italiana "Carla")                            │
-│        ↓                                                            │
-│   Trascrizione automatica                                           │
-│        ↓                                                            │
-│   [Client Tool: "aria_respond"]                                     │
-│        ↓                                                            │
-│   [Edge Function: aria-agent-backend]                               │
-│        ↓                                                            │
-│   [Lovable AI Gateway - Gemini 2.5 Flash]                           │
-│   (TUTTE le 2500+ righe di prompt clinico)                          │
-│        ↓                                                            │
-│   Risposta testuale di Aria                                         │
-│        ↓                                                            │
-│   [ElevenLabs Agent - TTS Live]                                     │
-│        ↓                                                            │
-│   UTENTE ASCOLTA (audio live)                                       │
-│                                                                     │
+│  1. Utente preme "Chiama"                                           │
+│     ↓                                                               │
+│  2. Fetch contesto utente (nome, memoria, stato emotivo)            │
+│     ↓                                                               │
+│  3. Avvia sessione ElevenLabs con dynamicVariables:                 │
+│     { user_name: "Marco", user_context: "Memoria: ..." }            │
+│     ↓                                                               │
+│  4. ElevenLabs gestisce TUTTO nativamente (WebRTC):                 │
+│     STT → LLM (con prompt Aria dalla dashboard) → TTS               │
+│     LATENZA: <1 secondo                                             │
+│     ↓                                                               │
+│  5. Fine chiamata → Salva transcript + process-session              │
+│     (estrae 66 metriche cliniche in background)                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Vantaggi
+## File da Creare
 
-| Aspetto | Gemini Native (ritirato) | ElevenLabs Agent |
-|---------|--------------------------|------------------|
-| Disponibilità | Modello non più disponibile | Sempre disponibile |
-| Latenza | Bassa | Ultra-bassa (WebRTC) |
-| Voce italiana | Aoede (generica) | Carla (italiana naturale) |
-| Intelligenza | 578 righe (condensato) | 2500+ righe via backend |
-| Interruzioni | Supportate | Supportate nativamente |
+### 1. Edge Function: `supabase/functions/elevenlabs-context/index.ts`
 
-## File da Creare/Modificare
+Recupera i dati utente per le variabili dinamiche:
 
-### 1. Nuova Edge Function: `supabase/functions/elevenlabs-conversation-token/index.ts`
-Genera token di autenticazione per l'agent ElevenLabs:
-- Chiamata sicura all'API ElevenLabs
-- Restituisce token monouso per la sessione
+- **Nome utente** dal profilo
+- **Memoria a lungo termine** (ultimi 10 punti)
+- **Stato emotivo recente** (metriche giornaliere)
+- **Obiettivi selezionati**
 
-### 2. Nuova Edge Function: `supabase/functions/aria-agent-backend/index.ts`
-Backend che l'agent ElevenLabs chiama come "tool":
-- Riceve la trascrizione dell'utente
-- Carica profilo utente, memoria, contesto real-time
-- Costruisce prompt completo (2500+ righe)
-- Chiama Lovable AI Gateway (Gemini 2.5 Flash)
-- Restituisce risposta testuale
+Formato output:
+```json
+{
+  "user_name": "Marco",
+  "user_context": "Memoria: Ha iniziato nuovo lavoro 2 settimane fa. Dorme male ultimamente. Obiettivi: ridurre ansia, dormire meglio. Stato oggi: mood 6/10, ansia 7/10."
+}
+```
 
-### 3. Nuovo Hook: `src/hooks/useElevenLabsAgent.tsx`
-Usa `@elevenlabs/react` SDK:
-- `useConversation` hook per WebRTC
-- Gestione stati (isConnected, isSpeaking)
-- Client tools per chiamare backend
-- Gestione transcript per salvataggio sessione
+## File da Modificare
 
-### 4. Aggiornamento: `src/components/voice/ZenVoiceModal.tsx`
-- Import da `useElevenLabsAgent` invece di `useGeminiVoice`
-- UI invariata (già perfetta)
+### 2. Hook: `src/hooks/useElevenLabsAgent.tsx`
 
-### 5. Configurazione ElevenLabs Dashboard
-Necessaria creazione agent con:
-- Voce "Carla" (italiano)
-- Tool "aria_respond" configurato
-- Webhook al nostro backend
-
-### 6. Aggiornamento: `supabase/config.toml`
-Aggiungere configurazioni per le nuove edge functions
-
-## Dettaglio Tecnico
-
-### ElevenLabs Conversational AI
+Modifiche:
+- **Rimuovere** il client tool `aria_respond` (non serve più)
+- **Aggiungere** fetch del contesto prima di avviare
+- **Passare** `dynamicVariables` a `startSession()`
+- **Aggiornare** `stop()` per chiamare `process-session` con il transcript
 
 ```typescript
-import { useConversation } from "@elevenlabs/react";
-
-const conversation = useConversation({
-  onConnect: () => console.log("Connesso all'agent"),
-  onDisconnect: () => console.log("Disconnesso"),
-  onMessage: (message) => {
-    // Gestione transcript
-    if (message.type === "user_transcript") {
-      transcriptRef.current.push({
-        role: "user",
-        text: message.user_transcription_event.user_transcript
-      });
-    }
-  },
-  clientTools: {
-    aria_respond: async (params: { user_message: string }) => {
-      // Chiama il nostro backend con Gemini
-      const { data } = await supabase.functions.invoke("aria-agent-backend", {
-        body: { message: params.user_message, user_id, context }
-      });
-      return data.response;
-    }
-  }
-});
+// Prima di avviare
+const { data: contextData } = await supabase.functions.invoke('elevenlabs-context');
 
 // Avvio sessione
-const startConversation = async () => {
-  await navigator.mediaDevices.getUserMedia({ audio: true });
-  const { data } = await supabase.functions.invoke("elevenlabs-conversation-token");
-  await conversation.startSession({
-    conversationToken: data.token,
-    connectionType: "webrtc"
-  });
-};
+await conversation.startSession({
+  signedUrl: data.signed_url,
+  dynamicVariables: {
+    user_name: contextData.user_name,
+    user_context: contextData.user_context
+  }
+});
 ```
 
-### Backend Aria (Preserva 100% Intelligenza)
+### 3. Modal: `src/components/voice/ZenVoiceModal.tsx`
 
-L'edge function `aria-agent-backend` conterrà TUTTO il sistema di prompt esistente:
-- EMOTIONAL_RUBRIC (20 emozioni)
-- ADVANCED_CLINICAL_TECHNIQUES (MI, DBT, SFBT)
-- CLINICAL_KNOWLEDGE_BASE (Enciclopedia condizioni)
-- PSYCHOEDUCATION_LIBRARY (Distorsioni cognitive)
-- INTERVENTION_PROTOCOLS (Mindfulness, Anger, Grief)
-- LIFE_AREAS_INVESTIGATION (9 aree della vita)
-- YOUNG_USER_PROTOCOL (per utenti minori di 18 anni)
-- BEST_FRIEND_PERSONA (Identità Aria)
-- RESPONSE_RULES (Regole d'oro)
-- CRISIS_PROTOCOL (Sicurezza)
+Modifiche:
+- Cambiare import da `useHybridVoice` a `useElevenLabsAgent`
+- L'interfaccia rimane identica (stesso API)
 
-### Flusso Conversazione Live
+### 4. Config: `supabase/config.toml`
 
-1. Utente preme "Inizia" - si connette all'agent ElevenLabs via WebRTC
-2. Utente parla - audio inviato in tempo reale
-3. ElevenLabs trascrive e attiva il tool "aria_respond"
-4. Tool chiama `aria-agent-backend`:
-   - Carica profilo, memoria, contesto
-   - Costruisce prompt completo (2500+ righe)
-   - Chiama Lovable AI Gateway
-5. Risposta restituita all'agent
-6. Agent sintetizza con voce "Carla" in tempo reale
-7. Utente può interrompere in qualsiasi momento
-8. Ciclo continua naturalmente
-
-## Requisiti di Setup
-
-### ElevenLabs Dashboard (una tantum)
-1. Creare nuovo Agent conversazionale
-2. Selezionare voce "Carla" (italiano)
-3. Configurare Tool "aria_respond":
-   - Nome: aria_respond
-   - Descrizione: "Genera risposta di Aria"
-   - Parametri: user_message (string)
-4. Impostare webhook URL al nostro backend
-5. Abilitare trascrizioni utente
-
-### Secret già configurato
-- `ELEVENLABS_API_KEY` - Già presente nel progetto
-
-## Gestione Errori
-
-- Errore connessione WebRTC: riprova automatico con backoff
-- Errore backend Gemini: messaggio fallback dall'agent
-- Rate limit ElevenLabs: toast informativo
-- Disconnessione inattesa: salvataggio transcript parziale
-
-## Dipendenze da Installare
-
-```bash
-npm install @elevenlabs/react
+Aggiungere:
+```toml
+[functions.elevenlabs-context]
+verify_jwt = false
 ```
 
-## Stima Tempi
+## Flusso Dati Dettagliato
 
-| Task | Complessità |
-|------|-------------|
-| Setup agent ElevenLabs Dashboard | Bassa |
-| Edge function token | Bassa |
-| Edge function backend (copia prompt) | Alta |
-| Hook useElevenLabsAgent | Media |
-| Aggiornamento ZenVoiceModal | Minima |
-| Test e debug | Media |
+### Inizio Chiamata
+1. Utente preme "Chiama"
+2. App richiede permesso microfono
+3. App chiama `elevenlabs-context` → recupera dati utente
+4. App chiama `elevenlabs-conversation-token` → ottiene signed URL
+5. App avvia sessione con `dynamicVariables`
+6. ElevenLabs sostituisce `{{user_name}}` e `{{user_context}}` nel prompt
 
-## Risultato Atteso
+### Durante la Chiamata
+- ElevenLabs gestisce tutto internamente (WebRTC)
+- STT → LLM (con prompt Aria) → TTS in tempo reale
+- Latenza: <1 secondo per risposta
+- L'hook raccoglie transcript tramite `onMessage`
 
-- Conversazione live bidirezionale fluida
-- Intelligenza clinica completa (2500+ righe)
-- Voce "Carla" italiana naturale
-- Supporto interruzioni native
-- Latenza ultra-bassa (WebRTC)
-- Nessuna dipendenza da modelli Google specifici
+### Fine Chiamata
+1. Utente preme "Termina"
+2. App salva sessione nel database
+3. App chiama `process-session` con il transcript completo
+4. `process-session` estrae tutte le 66 metriche cliniche
+5. Aggiorna memoria a lungo termine
+6. Rileva nuovi obiettivi/habits menzionati
+
+## Vantaggi
+
+| Aspetto | Prima (Ibrido) | Dopo (Nativo) |
+|---------|----------------|---------------|
+| Latenza | 3-5 secondi | <1 secondo |
+| Chiamate REST | Ogni turno | Solo inizio/fine |
+| Interruzioni | Possibili errori | Native WebRTC |
+| Stabilità | Media | Alta |
+| Voce | ElevenLabs TTS | ElevenLabs Native |
+| Analisi clinica | Non presente | Post-sessione completa |
+
+## Sezione Tecnica
+
+### Struttura Contesto Utente
+
+```typescript
+interface UserContext {
+  user_name: string;
+  user_context: string; // Max ~500 caratteri per efficienza
+}
+
+// Esempio user_context generato:
+// "Memoria: Nuovo lavoro da 2 settimane. Problemi sonno. Ansia pre-riunioni.
+// Obiettivi: ridurre ansia, dormire meglio.
+// Oggi: mood 6/10, ansia 7/10, energia 5/10.
+// Ultimo check-in: si sentiva stressato per deadline."
+```
+
+### API ElevenLabs - Dynamic Variables
+
+Le variabili vengono passate a `startSession()`:
+```typescript
+await conversation.startSession({
+  signedUrl: data.signed_url,
+  dynamicVariables: {
+    user_name: "Marco",
+    user_context: "..."
+  }
+});
+```
+
+ElevenLabs sostituisce `{{user_name}}` e `{{user_context}}` nel prompt configurato nella dashboard.
+
+### Gestione Transcript
+
+```typescript
+// onMessage handler
+if (message?.type === 'user_transcript') {
+  const text = message?.user_transcription_event?.user_transcript;
+  transcriptRef.current.push({ role: 'user', text, timestamp: new Date() });
+}
+
+if (message?.type === 'agent_response') {
+  const text = message?.agent_response_event?.agent_response;
+  transcriptRef.current.push({ role: 'assistant', text, timestamp: new Date() });
+}
+```
+
+### Post-Processing
+
+A fine sessione:
+```typescript
+await supabase.functions.invoke('process-session', {
+  body: {
+    session_id: sessionIdRef.current,
+    user_id: user.id,
+    transcript: fullTranscript,
+    is_voice: true
+  }
+});
+```
+
+`process-session` analizza il transcript ed estrae:
+- 4 vitali (mood, ansia, energia, sonno)
+- 20 emozioni
+- 9 aree della vita
+- 32+ parametri psicologia profonda
+- Aggiornamenti memoria a lungo termine
+- Nuovi obiettivi/habits rilevati
