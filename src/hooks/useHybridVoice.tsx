@@ -41,19 +41,25 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTextRef = useRef<string>('');
   const isIOSRef = useRef(false);
+  const isSafariRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isActiveRef = useRef(false);
-  const intentionalStopRef = useRef(false); // Flag to track intentional stops
+  const intentionalStopRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
+  const recognitionInstanceRef = useRef<number>(0); // Track recognition instance for iOS
 
-  // Detect iOS
+  // Detect iOS and Safari
   useEffect(() => {
-    isIOSRef.current = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    isIOSRef.current = /iPad|iPhone|iPod/.test(ua);
+    isSafariRef.current = /^((?!chrome|android).)*safari/i.test(ua);
+    console.log('[HybridVoice] Platform:', { iOS: isIOSRef.current, Safari: isSafariRef.current });
   }, []);
 
-   // Keep isActiveRef in sync
-   useEffect(() => {
-     isActiveRef.current = isActive;
-   }, [isActive]);
+  // Keep isActiveRef in sync
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
  
   // Cleanup on unmount
   useEffect(() => {
@@ -72,9 +78,27 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
   }, []);
 
-   // Play audio from base64 data or use browser TTS fallback
-   const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
-     console.log('[HybridVoice] Playing audio...');
+  // Unlock audio for iOS Safari - must be called from user gesture
+  const unlockAudioForIOS = useCallback(async () => {
+    if (audioUnlockedRef.current) return;
+    
+    console.log('[HybridVoice] Unlocking audio for iOS...');
+    try {
+      // Create and play a silent audio to unlock audio playback
+      const silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+9DEAAAIAANIAAAAgAADSAAAAATEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+9DEKgAADSAAAAAAAAANIAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+      silentAudio.volume = 0.01;
+      await silentAudio.play();
+      silentAudio.pause();
+      audioUnlockedRef.current = true;
+      console.log('[HybridVoice] Audio unlocked successfully');
+    } catch (e) {
+      console.warn('[HybridVoice] Could not unlock audio:', e);
+    }
+  }, []);
+
+  // Play audio from base64 data or use browser TTS fallback
+  const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
+    console.log('[HybridVoice] Playing audio...');
     setIsSpeaking(true);
     setIsListening(false);
 
@@ -85,48 +109,68 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         audioRef.current = null;
       }
 
-       // If we have audio data, play it
-       if (audioBase64) {
-         // ElevenLabs returns MP3 directly - no conversion needed
-         console.log('[HybridVoice] Playing audio, mime:', mimeType);
-         const audioUrl = `data:${mimeType || 'audio/mpeg'};base64,${audioBase64}`;
-         const audio = new Audio(audioUrl);
-         audioRef.current = audio;
- 
-         return new Promise<void>((resolve, reject) => {
-           audio.onended = () => {
-             console.log('[HybridVoice] Audio playback finished');
-             setIsSpeaking(false);
-             audioRef.current = null;
-             resolve();
-           };
- 
-           audio.onerror = (e) => {
-             console.error('[HybridVoice] Audio playback error:', e);
-             setIsSpeaking(false);
-             audioRef.current = null;
-             reject(e);
-           };
- 
-           audio.play().catch((playError) => {
-             console.error('[HybridVoice] Audio play error:', playError);
-             setIsSpeaking(false);
-             audioRef.current = null;
-             reject(playError);
-           });
-         });
+      // If we have audio data, play it
+      if (audioBase64) {
+        console.log('[HybridVoice] Playing audio, mime:', mimeType);
+        const audioUrl = `data:${mimeType || 'audio/mpeg'};base64,${audioBase64}`;
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        
+        // iOS Safari needs explicit settings
+        if (isIOSRef.current) {
+          audio.setAttribute('playsinline', 'true');
+          audio.setAttribute('webkit-playsinline', 'true');
+        }
+
+        return new Promise<void>((resolve, reject) => {
+          audio.onended = () => {
+            console.log('[HybridVoice] Audio playback finished');
+            setIsSpeaking(false);
+            audioRef.current = null;
+            resolve();
+          };
+
+          audio.onerror = (e) => {
+            console.error('[HybridVoice] Audio playback error:', e);
+            setIsSpeaking(false);
+            audioRef.current = null;
+            reject(e);
+          };
+
+          // For iOS, we need to handle the play promise carefully
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((playError) => {
+              console.error('[HybridVoice] Audio play error:', playError);
+              setIsSpeaking(false);
+              audioRef.current = null;
+              // On iOS, fall back to TTS if audio fails
+              if (isIOSRef.current) {
+                console.log('[HybridVoice] iOS audio failed, using TTS');
+                const utterance = new SpeechSynthesisUtterance(fallbackText);
+                utterance.lang = 'it-IT';
+                utterance.rate = 1.0;
+                utterance.onend = () => resolve();
+                utterance.onerror = () => resolve();
+                window.speechSynthesis.speak(utterance);
+              } else {
+                reject(playError);
+              }
+            });
+          }
+        });
       }
 
-       // Fallback to browser TTS
-       throw new Error('No audio data, using fallback');
+      // Fallback to browser TTS
+      throw new Error('No audio data, using fallback');
     } catch (err) {
-       console.log('[HybridVoice] Using browser TTS fallback');
+      console.log('[HybridVoice] Using browser TTS fallback');
       setIsSpeaking(false);
       
       return new Promise<void>((resolve) => {
-         const utterance = new SpeechSynthesisUtterance(fallbackText);
+        const utterance = new SpeechSynthesisUtterance(fallbackText);
         utterance.lang = 'it-IT';
-         utterance.rate = 1.0;
+        utterance.rate = 1.0;
         utterance.onend = () => {
           setIsSpeaking(false);
           resolve();
@@ -213,14 +257,19 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       throw new Error('Speech recognition not supported');
     }
 
+    recognitionInstanceRef.current += 1;
+    const instanceId = recognitionInstanceRef.current;
+    console.log('[HybridVoice] Setting up recognition instance:', instanceId);
+
     const recognition = new SpeechRecognition();
-    recognition.continuous = !isIOSRef.current; // Disable continuous on iOS
+    // iOS Safari: MUST use non-continuous mode and handle restarts manually
+    recognition.continuous = !(isIOSRef.current || isSafariRef.current);
     recognition.interimResults = true;
     recognition.lang = 'it-IT';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log('[HybridVoice] Recognition started');
+      console.log('[HybridVoice] Recognition started (instance:', instanceId, ')');
       setIsListening(true);
       setAudioLevel(0.3);
     };
@@ -279,21 +328,41 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     recognition.onend = () => {
-      console.log('[HybridVoice] Recognition ended');
+      console.log('[HybridVoice] Recognition ended (instance:', instanceId, ')');
       setAudioLevel(0);
       
-      // Auto-restart if still active and not processing (with delay to avoid conflicts)
+      // On iOS/Safari, we need to be more careful with restarts
+      const isIOSOrSafari = isIOSRef.current || isSafariRef.current;
+      const restartDelay = isIOSOrSafari ? 500 : 300;
+      
+      // Auto-restart if still active and not processing
       if (isActiveRef.current && !isProcessingRef.current && !isSpeaking) {
         setTimeout(() => {
+          // Check if this is still the current instance
+          if (instanceId !== recognitionInstanceRef.current) {
+            console.log('[HybridVoice] Skipping restart for old instance');
+            return;
+          }
+          
           if (isActiveRef.current && recognitionRef.current && !isProcessingRef.current) {
             try {
               intentionalStopRef.current = false;
+              console.log('[HybridVoice] Restarting recognition...');
               recognitionRef.current.start();
             } catch (e) {
-              // Recognition might already be running, ignore
+              // On iOS Safari, we might need to create a new instance
+              if (isIOSOrSafari) {
+                console.log('[HybridVoice] iOS/Safari: Creating new recognition instance');
+                try {
+                  recognitionRef.current = setupSpeechRecognition();
+                  recognitionRef.current.start();
+                } catch (e2) {
+                  console.error('[HybridVoice] Failed to restart recognition:', e2);
+                }
+              }
             }
           }
-        }, 300); // Increased delay to avoid rapid restart conflicts
+        }, restartDelay);
       }
     };
 
@@ -301,7 +370,14 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       // Only log non-intentional aborted errors
       if (event.error === 'aborted' && intentionalStopRef.current) {
         intentionalStopRef.current = false;
-        return; // Ignore intentional aborts
+        return;
+      }
+      
+      // iOS Safari can throw 'not-allowed' if permission was denied
+      if (event.error === 'not-allowed') {
+        console.error('[HybridVoice] Microphone permission denied');
+        setError('Permesso microfono negato. Abilita il microfono nelle impostazioni.');
+        return;
       }
       
       if (event.error !== 'aborted') {
@@ -309,15 +385,24 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       }
       
       if (event.error === 'no-speech') {
-        // Restart listening
+        // Restart listening with longer delay on iOS
+        const restartDelay = (isIOSRef.current || isSafariRef.current) ? 400 : 200;
         if (isActiveRef.current && !isProcessingRef.current) {
           setTimeout(() => {
             try {
               recognition.start();
             } catch (e) {
-              // Ignore
+              // On iOS, might need new instance
+              if (isIOSRef.current || isSafariRef.current) {
+                try {
+                  recognitionRef.current = setupSpeechRecognition();
+                  recognitionRef.current.start();
+                } catch (e2) {
+                  console.error('[HybridVoice] Failed to restart after no-speech:', e2);
+                }
+              }
             }
-          }, 200);
+          }, restartDelay);
         }
       } else if (event.error !== 'aborted') {
         setError(`Errore riconoscimento: ${event.error}`);
@@ -325,7 +410,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     return recognition;
-   }, [isSpeaking, processUserInput]);
+  }, [isSpeaking, processUserInput]);
 
   const start = useCallback(async () => {
     if (!user) {
@@ -339,8 +424,16 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     conversationHistoryRef.current = [];
 
     try {
+      // On iOS/Safari, unlock audio first (must be in user gesture context)
+      if (isIOSRef.current || isSafariRef.current) {
+        await unlockAudioForIOS();
+      }
+
       // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[HybridVoice] Requesting microphone permission...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop the stream immediately, we just needed permission
+      stream.getTracks().forEach(track => track.stop());
       console.log('[HybridVoice] Microphone permission granted');
 
       // Create session in database
@@ -355,18 +448,34 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setIsActive(true);
       setIsConnecting(false);
       
-      // Start listening
-      recognitionRef.current.start();
+      // Start listening with small delay on iOS for stability
+      const startDelay = (isIOSRef.current || isSafariRef.current) ? 100 : 0;
+      setTimeout(() => {
+        try {
+          recognitionRef.current?.start();
+          console.log('[HybridVoice] Recognition started');
+        } catch (e) {
+          console.error('[HybridVoice] Failed to start recognition:', e);
+        }
+      }, startDelay);
       
-       toast.success('Aria è pronta! Parla pure');
+      toast.success('Aria è pronta! Parla pure');
 
     } catch (err) {
       console.error('[HybridVoice] Error starting:', err);
       setIsConnecting(false);
-      setError(err instanceof Error ? err.message : 'Errore di connessione');
-      toast.error('Impossibile avviare la conversazione');
+      const errorMessage = err instanceof Error ? err.message : 'Errore di connessione';
+      
+      // Better error messages for common iOS issues
+      if (errorMessage.includes('Permission denied') || errorMessage.includes('not allowed')) {
+        setError('Permesso microfono negato. Vai in Impostazioni > Safari > Microfono per abilitarlo.');
+        toast.error('Abilita il microfono nelle impostazioni');
+      } else {
+        setError(errorMessage);
+        toast.error('Impossibile avviare la conversazione');
+      }
     }
-  }, [user, startSession, setupSpeechRecognition]);
+  }, [user, startSession, setupSpeechRecognition, unlockAudioForIOS]);
 
   const stop = useCallback(async () => {
     console.log('[HybridVoice] Stopping session...');
