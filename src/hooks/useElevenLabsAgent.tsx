@@ -15,8 +15,9 @@ export const useElevenLabsAgent = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const transcriptRef = useRef<TranscriptEntry[]>([]);
-   const sessionIdRef = useRef<string | null>(null);
-   const sessionStartTimeRef = useRef<Date | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionStartTimeRef = useRef<Date | null>(null);
+  const userContextRef = useRef<{ userName: string; userContext: string }>({ userName: 'Utente', userContext: '' });
 
   // ElevenLabs useConversation hook
   const conversation = useConversation({
@@ -72,41 +73,38 @@ export const useElevenLabsAgent = () => {
     setIsConnecting(true);
     setError(null);
     transcriptRef.current = [];
-     sessionStartTimeRef.current = new Date();
+    sessionStartTimeRef.current = new Date();
 
     try {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('[ElevenLabs] Microphone permission granted');
 
-       // Fetch user context for dynamic variables
-       console.log('[ElevenLabs] Fetching user context...');
-       const { data: contextData, error: contextError } = await supabase.functions.invoke('elevenlabs-context');
-       
-       if (contextError) {
-         console.warn('[ElevenLabs] Context fetch warning:', contextError);
-       }
-       
-       const userName = contextData?.user_name || 'Utente';
-       const userContext = contextData?.user_context || 'Prima conversazione con Aria.';
-       console.log('[ElevenLabs] User context loaded:', { userName, contextLength: userContext.length });
+      // Fetch user context for dynamic variables
+      console.log('[ElevenLabs] Fetching user context...');
+      const { data: contextData, error: contextError } = await supabase.functions.invoke('elevenlabs-context');
+      
+      if (contextError) {
+        console.warn('[ElevenLabs] Context fetch warning:', contextError);
+      }
+      
+      const userName = contextData?.user_name || 'Utente';
+      const userContext = contextData?.user_context || 'Prima conversazione con Aria.';
+      userContextRef.current = { userName, userContext };
+      console.log('[ElevenLabs] User context loaded:', { userName, contextLength: userContext.length });
 
-       // Get signed URL from our edge function
-       const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token');
+      // Get signed URL and agent ID from our edge function
+      const { data, error: tokenError } = await supabase.functions.invoke('elevenlabs-conversation-token');
  
       if (tokenError || !data?.signed_url) {
         throw new Error(tokenError?.message || 'Failed to get conversation token');
       }
 
-      console.log('[ElevenLabs] Got signed URL, starting session...');
+      console.log('[ElevenLabs] Got signed URL, starting session without dynamic variables first...');
 
-       // Start the conversation session with dynamic variables passed directly
+      // Start the conversation session - test without dynamic variables first
       await conversation.startSession({
-        signedUrl: data.signed_url,
-        dynamicVariables: {
-          user_name: userName,
-          user_context: userContext
-        }
+        signedUrl: data.signed_url
       });
 
       console.log('[ElevenLabs] Session started successfully');
