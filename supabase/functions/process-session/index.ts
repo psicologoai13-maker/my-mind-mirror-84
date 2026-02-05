@@ -932,9 +932,11 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
 
 **excitement** (eccitazione/entusiasmo):
 - RILEVA: "sono elettrizzato", "non vedo l'ora", "entusiasta", "gasato", "carico"
-- Nuove opportunità, eventi positivi imminenti → inferisci
+- ✅ DEVI INFERIRE da contesto positivo: viaggi imminenti, feste, eventi, nuove opportunità
+- ALTA (7-10): viaggio in arrivo, festa importante, evento atteso con entusiasmo
+- MEDIA (4-6): piani per il weekend, uscita con amici, piccole occasioni positive
 - Può coesistere con nervosismo (eccitazione nervosa)
-- Se NON menzionato → null
+- Se contesto neutro/negativo → 0
 
 **disappointment** (delusione):
 - RILEVA: "sono deluso", "mi aspettavo di più", "che peccato", "speravo meglio"
@@ -959,15 +961,19 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
 
 **serenity** (calma interiore/pace):
 - RILEVA: "mi sento in pace", "sono sereno", "tranquillo", "calma interiore", "pace mentale"
+- ✅ PUOI INFERIRE da contesto rilassato: vacanza, relax, momento di svago senza stress
+- MEDIA (4-6): vacanza, momento di svago, contesto rilassato
+- ALTA (7-10): esplicita menzione di pace/serenità
 - ⚠️ DIVERSO da bassa ansia! Serenity è uno stato ATTIVO di pace, non assenza di negatività.
-- PUNTEGGIO: 6-10 se esplicito
-- Se NON menzionato → null
+- Se contesto stressante o neutro → 0
 
 **pride** (orgoglio per risultati):
 - RILEVA: "sono fiero di me", "ce l'ho fatta!", "sono orgoglioso", "mi sono superato"
+- ✅ PUOI INFERIRE da successi, obiettivi raggiunti, promozioni, lauree, traguardi
+- ALTA (7-10): promozione, laurea, matrimonio, traguardo importante
+- MEDIA (4-6): piccoli successi, risultati positivi
 - CORRELATO a achievement - cerca celebrazioni di successi
-- PUNTEGGIO: 6-10 se esplicito
-- Se NON menzionato → null
+- Se nessun successo/risultato → 0
 
 **affection** (affetto/tenerezza):
 - RILEVA: "gli/le voglio bene", "mi sta a cuore", "lo/la amo", "tenerezza", "mi manca"
@@ -996,7 +1002,8 @@ Devi leggere TRA LE RIGHE per estrarre pattern psicologici profondi.
 - CERCA: hobby, relax, weekend, vacanze, sport per piacere, film, serie, giochi, svago
 - NEGATIVO (1-3): "non ho tempo per me", "solo lavoro, zero svago", "mai un momento libero"
 - POSITIVO (7-9): "mi sono rilassato", "mi sono divertito", "tempo per i miei hobby"
-- Se NON menzionato → null
+- ✅ PUOI INFERIRE: viaggio/vacanza → leisure: 7-9, uscita con amici → leisure: 6-7
+- Se NON menzionato E nessun contesto svago → null
 
 **finances** (situazione economica) - NUOVO:
 - CERCA: soldi, spese, risparmio, debiti, stipendio, bollette, mutuo, affitto, costi
@@ -1059,12 +1066,12 @@ NON inventare NIENTE basandoti su inferenze generali!
 ⚠️ Per le EMOZIONI: Se NON espressa → 0 (default). MAI inventare intensità non presenti!
 
 **joy** (gioia 0-10):
-- RILEVA: espressioni ESPLICITE di felicità, contentezza
+- RILEVA: espressioni di felicità, contentezza, O CONTESTO CHIARAMENTE POSITIVO
 - ALTA (7-10): "sono felice", "che bello!", "fantastico!", "entusiasta", "evviva!", "sono contentissimo", "gioia immensa"
-- MEDIA (4-6): "sono contento", "soddisfatto", "mi fa piacere", "bene così"
+- MEDIA (4-6): "sono contento", "soddisfatto", "mi fa piacere", "bene così", viaggio programmato, uscita con amici, evento positivo imminente
 - BASSA (1-3): "un po' contento", "niente male"
-- ⚠️ NON inferire gioia da assenza di tristezza! Richiede espressione POSITIVA esplicita.
-- Se NON espressa → 0
+- ✅ PUOI INFERIRE joy da contesto positivo evidente (viaggio, festa, successo, buone notizie)
+- Se contesto neutro/negativo → 0
 
 **sadness** (tristezza 0-10):
 - RILEVA: espressioni di tristezza, abbattimento
@@ -1108,12 +1115,12 @@ NON inventare NIENTE basandoti su inferenze generali!
 - Se NON espressa → 0
 
 **hope** (speranza 0-10):
-- RILEVA: espressioni di speranza, ottimismo per il futuro
+- RILEVA: espressioni di speranza, ottimismo per il futuro, PIANI FUTURI POSITIVI
 - ALTA (7-10): "ho tanta speranza", "sono sicuro che andrà bene", "ce la faremo!", "vedo la luce"
-- MEDIA (4-6): "spero", "forse andrà bene", "ho fiducia", "sono ottimista"
+- MEDIA (4-6): "spero", "forse andrà bene", "ho fiducia", "sono ottimista", viaggi programmati, progetti futuri, obiettivi
 - BASSA (1-3): "un filo di speranza", "magari..."
-- ⚠️ DIVERSO da excitement (eccitazione). Hope = futuro incerto ma positivo.
-- Se NON espressa → 0
+- ✅ PUOI INFERIRE hope se l'utente parla di piani futuri positivi (viaggio, evento, progetto)
+- Se NON espressa e nessun piano futuro → 0
 
 **frustration** (frustrazione 0-10):
 - RILEVA: espressioni di frustrazione, senso di blocco
@@ -1234,12 +1241,50 @@ Utente: "No aspetta, studio informatica, non lavoro ancora"
 ═══════════════════════════════════════════════
 ⚠️ REGOLE ANTI-HALLUCINATION (CRITICHE)
 ═══════════════════════════════════════════════
-- NON INVENTARE DATI completamente. Ma INFERISCI emozioni dal contesto emotivo complessivo.
+REGOLA DIFFERENZIATA PER TIPO DI EMOZIONE:
+
+🔴 EMOZIONI NEGATIVE (tristezza, rabbia, paura, ansia, vergogna, colpa, disperazione):
+   → Richiedi evidenza ESPLICITA! NON inventare problemi!
+   → Se l'utente NON dice esplicitamente di stare male → 0 o null
+
+🟢 EMOZIONI POSITIVE (gioia, eccitazione, speranza, serenità, orgoglio):
+   → PUOI E DEVI INFERIRE dal contesto se chiaramente positivo!
+   → Viaggio + amici = excitement + social + joy
+   → Festa/evento = excitement + anticipation
+   → Obiettivo raggiunto = pride + joy
+   → Vacanza programmata = hope + excitement + leisure
+
+REGOLE SPECIFICHE:
 - APATIA: Assegna > 0 SOLO per frasi esplicite come "non sento niente", "vuoto", "indifferenza totale". 
   Stanchezza fisica o noia NON sono apatia → apathy = 0.
 - SONNO: Assegna valore SOLO se l'utente menziona esplicitamente il sonno/riposo. Altrimenti null.
 - ANSIA: Deriva da sintomi fisici (cuore, respiro) o preoccupazioni esplicite. Tristezza ≠ ansia.
 - BURNOUT: Assegna SOLO se esplicitamente legato a lavoro/doveri. Stanchezza generica ≠ burnout.
+
+═══════════════════════════════════════════════
+🌟 REGOLE DI INFERENZA CONTESTUALE (EMOZIONI POSITIVE)
+═══════════════════════════════════════════════
+Quando il contesto è CHIARAMENTE POSITIVO, DEVI assegnare punteggi:
+
+**VIAGGIO/VACANZA:**
+- "parto per X", "vado a X", "viaggio a X", "vacanza" → excitement: 6-8, leisure: 7-9, hope: 5-7
+- Se con amici/partner → aggiungi social: 7-8 o love: 7-8
+
+**EVENTI POSITIVI:**
+- "festa", "compleanno", "matrimonio", "laurea" → excitement: 7-8, joy: 6-8
+- "promozione", "nuovo lavoro" → pride: 6-8, joy: 6-7, work: 8-9
+
+**SOCIALITÀ:**
+- "con amici", "uscita", "aperitivo", "gruppo" → social: 7-8, joy: 5-6
+
+**TEMPO LIBERO:**
+- "weekend", "relax", "hobby", "sport" → leisure: 6-8
+
+**PIANI FUTURI POSITIVI:**
+- Qualsiasi progetto/piano entusiasmante → hope: 5-7, excitement: 4-6
+
+⚠️ RICORDA: Le emozioni NEGATIVE richiedono ancora parole esplicite.
+Le emozioni POSITIVE DEVONO essere inferite da contesto positivo evidente.
 
 ═══════════════════════════════════════════════
 ⚠️ REGOLE KEY_FACTS (ANTI-ALLUCINAZIONE ESTESE)
@@ -1679,11 +1724,124 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       
       return { ...analysis, emotions };
     };
+
+    // ═══════════════════════════════════════════════
+    // 🌟 POST-PROCESSING CONTESTUALE: Forza emozioni positive da pattern
+    // Cattura pattern ovvi che l'AI potrebbe aver ignorato
+    // ═══════════════════════════════════════════════
+    const forceContextualInferences = (analysis: OmniscientAnalysis, transcriptText: string): OmniscientAnalysis => {
+      const lowerTranscript = transcriptText.toLowerCase();
+      const { emotions, life_areas } = analysis;
+      
+      // 1. Pattern VIAGGIO/VACANZA → excitement, leisure, hope
+      if (/viaggio|vacanza|parto per|vado a|andiamo a|voleremo|volo per|partenza|destinazione|madrid|rio|parigi|londra|berlino|amsterdam|barcellona|ibiza/.test(lowerTranscript)) {
+        if (!emotions.excitement || emotions.excitement < 6) {
+          console.log(`[CONTEXTUAL] Forcing excitement: ${emotions.excitement || 0} → 7 (travel detected)`);
+          emotions.excitement = 7;
+        }
+        if (!life_areas.leisure || life_areas.leisure < 7) {
+          console.log(`[CONTEXTUAL] Forcing leisure: ${life_areas.leisure || 'null'} → 8 (travel detected)`);
+          life_areas.leisure = 8;
+        }
+        if (!emotions.hope || emotions.hope < 5) {
+          console.log(`[CONTEXTUAL] Forcing hope: ${emotions.hope || 0} → 6 (travel detected)`);
+          emotions.hope = 6;
+        }
+        // Se umore alto ma joy bassa, alza joy
+        if (analysis.vitals.mood && analysis.vitals.mood >= 7 && emotions.joy < 5) {
+          console.log(`[CONTEXTUAL] Forcing joy: ${emotions.joy} → 6 (high mood + travel)`);
+          emotions.joy = 6;
+        }
+      }
+      
+      // 2. Pattern AMICI/SOCIALE → social, joy
+      if (/con (?:i |gli |le )?amici|con (?:i )?ragazzi|gruppo|aperitivo|uscita|usciamo|cena fuori|serata|festa|party|circo loco|discoteca|club/.test(lowerTranscript)) {
+        if (!life_areas.social || life_areas.social < 6) {
+          console.log(`[CONTEXTUAL] Forcing social: ${life_areas.social || 'null'} → 7 (friends detected)`);
+          life_areas.social = 7;
+        }
+        if (emotions.joy < 5) {
+          console.log(`[CONTEXTUAL] Boosting joy: ${emotions.joy} → 6 (social context)`);
+          emotions.joy = Math.max(emotions.joy, 6);
+        }
+      }
+      
+      // 3. Pattern EVENTI POSITIVI → excitement, joy, pride
+      if (/matrimonio|laurea|compleanno|promozione|nuovo lavoro|assunto|contratto|celebrazione|festeggiare/.test(lowerTranscript)) {
+        if (!emotions.excitement || emotions.excitement < 7) {
+          console.log(`[CONTEXTUAL] Forcing excitement: ${emotions.excitement || 0} → 8 (positive event)`);
+          emotions.excitement = 8;
+        }
+        if (emotions.joy < 6) {
+          console.log(`[CONTEXTUAL] Forcing joy: ${emotions.joy} → 7 (positive event)`);
+          emotions.joy = 7;
+        }
+        if (/promozione|nuovo lavoro|assunto|laurea/.test(lowerTranscript)) {
+          if (!emotions.pride || emotions.pride < 6) {
+            console.log(`[CONTEXTUAL] Forcing pride: ${emotions.pride || 0} → 7 (achievement)`);
+            emotions.pride = 7;
+          }
+          if (/lavoro|assunto|promozione/.test(lowerTranscript) && (!life_areas.work || life_areas.work < 7)) {
+            console.log(`[CONTEXTUAL] Forcing work: ${life_areas.work || 'null'} → 8 (work success)`);
+            life_areas.work = 8;
+          }
+        }
+      }
+      
+      // 4. Pattern RELAX/TEMPO LIBERO → leisure, serenity
+      if (/weekend|relax|rilassarmi|hobby|sport|palestra|yoga|meditazione|film|serie|netflix|giocando|videogiochi/.test(lowerTranscript)) {
+        if (!life_areas.leisure || life_areas.leisure < 6) {
+          console.log(`[CONTEXTUAL] Forcing leisure: ${life_areas.leisure || 'null'} → 7 (leisure activity)`);
+          life_areas.leisure = 7;
+        }
+        if (/relax|rilassarmi|sereno|tranquillo/.test(lowerTranscript)) {
+          if (!emotions.serenity || emotions.serenity < 5) {
+            console.log(`[CONTEXTUAL] Forcing serenity: ${emotions.serenity || 0} → 6 (relaxation)`);
+            emotions.serenity = 6;
+          }
+        }
+      }
+      
+      // 5. Pattern PARTNER/AMORE → love, affection
+      if (/fidanzat[oa]|ragazz[oa]|partner|marit[oa]|compagn[oa]|insieme a lei|insieme a lui|con lei|con lui|la mia lei|il mio lui/.test(lowerTranscript)) {
+        // Solo se contesto positivo (nessun litigio, problema)
+        if (!/litiga|problem|difficolt|lascia|rottura|crisi/.test(lowerTranscript)) {
+          if (!life_areas.love || life_areas.love < 6) {
+            console.log(`[CONTEXTUAL] Forcing love: ${life_areas.love || 'null'} → 7 (partner mention positive)`);
+            life_areas.love = 7;
+          }
+          if (!emotions.affection || emotions.affection < 5) {
+            console.log(`[CONTEXTUAL] Forcing affection: ${emotions.affection || 0} → 6 (partner context)`);
+            emotions.affection = 6;
+          }
+        }
+      }
+      
+      // 6. Pattern UMORE ALTO senza emozioni → forza joy/excitement
+      if (analysis.vitals.mood && analysis.vitals.mood >= 8) {
+        if (emotions.joy < 5) {
+          console.log(`[CONTEXTUAL] Forcing joy: ${emotions.joy} → 6 (high mood ${analysis.vitals.mood})`);
+          emotions.joy = 6;
+        }
+        if (!emotions.excitement && (!emotions.hope || emotions.hope < 4)) {
+          console.log(`[CONTEXTUAL] Forcing hope: ${emotions.hope || 0} → 5 (high mood)`);
+          emotions.hope = 5;
+        }
+      }
+      
+      return { ...analysis, emotions, life_areas };
+    };
     
-    // Apply forced correlations
+    // Apply forced correlations (negative)
     analysis = forceEmotionCorrelations(analysis);
     
-    console.log('[process-session] Post-processed analysis:', JSON.stringify(analysis.emotions, null, 2));
+    // Apply contextual inferences (positive)
+    analysis = forceContextualInferences(analysis, transcript);
+    
+    console.log('[process-session] Post-processed analysis:', JSON.stringify({
+      emotions: analysis.emotions,
+      life_areas: analysis.life_areas
+    }, null, 2));
 
     const isCrisisAlert = analysis.crisis_risk === 'high';
     const today = new Date().toISOString().split('T')[0];
