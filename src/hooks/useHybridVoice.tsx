@@ -151,8 +151,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     conversationHistoryRef.current.push({ role: 'user', content: userText });
 
     try {
-       // Call Gemini native audio backend with full clinical context
-       const { data, error: backendError } = await supabase.functions.invoke('gemini-voice-native', {
+      // Call Lovable AI Gateway via Edge Function (no external API keys needed)
+      const { data, error: backendError } = await supabase.functions.invoke('aria-voice-chat', {
         body: {
           message: userText,
           conversationHistory: conversationHistoryRef.current.slice(-10).map(m => ({
@@ -166,7 +166,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         throw new Error(backendError.message);
       }
 
-       const assistantText = data?.text || "Scusa, non ho capito. Puoi ripetere?";
+      const assistantText = data?.text || "Scusa, non ho capito. Puoi ripetere?";
       console.log('[HybridVoice] Assistant response:', assistantText);
 
       // Add assistant response to transcript
@@ -174,8 +174,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setTranscript(prev => [...prev, assistantEntry]);
       conversationHistoryRef.current.push({ role: 'assistant', content: assistantText });
 
-       // Play audio (Gemini native audio or browser TTS fallback)
-       await playAudio(data?.audio || null, data?.mimeType || 'audio/mp3', assistantText);
+      // Play response using browser TTS (Lovable Gateway returns text only)
+      await playAudio(null, '', assistantText);
 
       // Resume listening after speaking
        if (isActiveRef.current && recognitionRef.current) {
