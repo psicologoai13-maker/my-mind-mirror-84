@@ -42,12 +42,18 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const pendingTextRef = useRef<string>('');
   const isIOSRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+   const isActiveRef = useRef(false);
 
   // Detect iOS
   useEffect(() => {
     isIOSRef.current = /iPad|iPhone|iPod/.test(navigator.userAgent);
   }, []);
 
+   // Keep isActiveRef in sync
+   useEffect(() => {
+     isActiveRef.current = isActive;
+   }, [isActive]);
+ 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -65,9 +71,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
   }, []);
 
-  // ElevenLabs TTS - voce naturale di Aria (Carla italiana)
-  const playTTS = useCallback(async (text: string): Promise<void> => {
-    console.log('[HybridVoice] Playing ElevenLabs TTS for:', text.substring(0, 50) + '...');
+   // Play audio from base64 data or use browser TTS fallback
+   const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
+     console.log('[HybridVoice] Playing audio...');
     setIsSpeaking(true);
     setIsListening(false);
 
@@ -78,65 +84,46 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         audioRef.current = null;
       }
 
-      // Call ElevenLabs TTS edge function
-      const { data, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: { text, stream: false }
-      });
-
-      if (ttsError) {
-        throw new Error(ttsError.message);
+       // If we have audio data, play it
+       if (audioBase64) {
+         const audioUrl = `data:${mimeType};base64,${audioBase64}`;
+         const audio = new Audio(audioUrl);
+         audioRef.current = audio;
+ 
+         return new Promise<void>((resolve, reject) => {
+           audio.onended = () => {
+             console.log('[HybridVoice] Audio playback finished');
+             setIsSpeaking(false);
+             audioRef.current = null;
+             resolve();
+           };
+ 
+           audio.onerror = (e) => {
+             console.error('[HybridVoice] Audio playback error:', e);
+             setIsSpeaking(false);
+             audioRef.current = null;
+             reject(e);
+           };
+ 
+           audio.play().catch((playError) => {
+             console.error('[HybridVoice] Audio play error:', playError);
+             setIsSpeaking(false);
+             audioRef.current = null;
+             reject(playError);
+           });
+         });
       }
 
-      // Handle the audio response
-      let audioBlob: Blob;
-      
-      if (data instanceof Blob) {
-        audioBlob = data;
-      } else if (data instanceof ArrayBuffer) {
-        audioBlob = new Blob([data], { type: 'audio/mpeg' });
-      } else {
-        throw new Error('Invalid audio response format');
-      }
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      return new Promise<void>((resolve, reject) => {
-        audio.onended = () => {
-          console.log('[HybridVoice] ElevenLabs TTS finished');
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
-          resolve();
-        };
-
-        audio.onerror = (e) => {
-          console.error('[HybridVoice] Audio playback error:', e);
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
-          reject(e);
-        };
-
-        audio.play().catch((playError) => {
-          console.error('[HybridVoice] Audio play error:', playError);
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
-          reject(playError);
-        });
-      });
-
+       // Fallback to browser TTS
+       throw new Error('No audio data, using fallback');
     } catch (err) {
-      console.error('[HybridVoice] ElevenLabs TTS error:', err);
+       console.log('[HybridVoice] Using browser TTS fallback');
       setIsSpeaking(false);
       
-      // Fallback to browser TTS if ElevenLabs fails
-      console.log('[HybridVoice] Falling back to browser TTS');
       return new Promise<void>((resolve) => {
-        const utterance = new SpeechSynthesisUtterance(text);
+         const utterance = new SpeechSynthesisUtterance(fallbackText);
         utterance.lang = 'it-IT';
+         utterance.rate = 1.0;
         utterance.onend = () => {
           setIsSpeaking(false);
           resolve();
@@ -162,8 +149,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     conversationHistoryRef.current.push({ role: 'user', content: userText });
 
     try {
-      // Call our Gemini-powered backend with full Aria personality
-      const { data, error: backendError } = await supabase.functions.invoke('aria-agent-backend', {
+       // Call Gemini native audio backend with full clinical context
+       const { data, error: backendError } = await supabase.functions.invoke('gemini-voice-native', {
         body: {
           message: userText,
           conversationHistory: conversationHistoryRef.current.slice(-10).map(m => ({
@@ -177,7 +164,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         throw new Error(backendError.message);
       }
 
-      const assistantText = data?.response || "Scusa, non ho capito. Puoi ripetere?";
+       const assistantText = data?.text || "Scusa, non ho capito. Puoi ripetere?";
       console.log('[HybridVoice] Assistant response:', assistantText);
 
       // Add assistant response to transcript
@@ -185,11 +172,11 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setTranscript(prev => [...prev, assistantEntry]);
       conversationHistoryRef.current.push({ role: 'assistant', content: assistantText });
 
-      // Play TTS with ElevenLabs voice
-      await playTTS(assistantText);
+       // Play audio (Gemini native audio or browser TTS fallback)
+       await playAudio(data?.audio || null, data?.mimeType || 'audio/mp3', assistantText);
 
       // Resume listening after speaking
-      if (isActive && recognitionRef.current) {
+       if (isActiveRef.current && recognitionRef.current) {
         setIsListening(true);
         try {
           recognitionRef.current.start();
@@ -203,7 +190,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       toast.error('Errore nella risposta');
       
       // Try to resume listening even on error
-      if (isActive && recognitionRef.current) {
+       if (isActiveRef.current && recognitionRef.current) {
         setIsListening(true);
         try {
           recognitionRef.current.start();
@@ -214,7 +201,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [isActive, playTTS]);
+   }, [playAudio]);
 
   const setupSpeechRecognition = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -258,7 +245,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
           clearTimeout(silenceTimeoutRef.current);
         }
         
-        // If browser doesn't fire speechend, process after silence
+         // Process after silence (0.8s for faster response)
         silenceTimeoutRef.current = setTimeout(() => {
           if (pendingTextRef.current && !isProcessingRef.current) {
             console.log('[HybridVoice] Silence timeout, processing:', pendingTextRef.current);
@@ -267,7 +254,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
             recognition.stop();
             processUserInput(textToProcess);
           }
-        }, 1200);
+         }, 800);
       }
 
       if (finalTranscript) {
@@ -291,9 +278,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setAudioLevel(0);
       
       // Auto-restart if still active and not processing
-      if (isActive && !isProcessingRef.current && !isSpeaking) {
+       if (isActiveRef.current && !isProcessingRef.current && !isSpeaking) {
         setTimeout(() => {
-          if (isActive && recognitionRef.current && !isProcessingRef.current) {
+           if (isActiveRef.current && recognitionRef.current && !isProcessingRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
@@ -309,7 +296,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       
       if (event.error === 'no-speech') {
         // Restart listening
-        if (isActive && !isProcessingRef.current) {
+         if (isActiveRef.current && !isProcessingRef.current) {
           setTimeout(() => {
             try {
               recognition.start();
@@ -324,7 +311,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     };
 
     return recognition;
-  }, [isActive, isSpeaking, processUserInput]);
+   }, [isSpeaking, processUserInput]);
 
   const start = useCallback(async () => {
     if (!user) {
@@ -357,7 +344,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       // Start listening
       recognitionRef.current.start();
       
-      toast.success('Aria è pronta! Inizia a parlare');
+       toast.success('Aria è pronta! Parla pure');
 
     } catch (err) {
       console.error('[HybridVoice] Error starting:', err);
@@ -388,7 +375,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       audioRef.current = null;
     }
     
-    // Also stop browser TTS fallback if active
+     // Stop browser TTS if active
     window.speechSynthesis?.cancel();
 
     // Save session
