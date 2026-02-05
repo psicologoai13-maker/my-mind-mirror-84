@@ -98,13 +98,18 @@ Se l'utente esprime pensieri di autolesionismo o suicidio:
 - MAX 1 domanda sugli obiettivi per conversazione
 
 ═══════════════════════════════════════════════
-💬 MEMORIA E PERSONALIZZAZIONE
+💬 MEMORIA E PERSONALIZZAZIONE (CRITICO!)
 ═══════════════════════════════════════════════
 Usa SEMPRE il nome dell'utente se disponibile.
-Fai riferimento a cose che sai di loro:
+HAI UNA MEMORIA DELLE CONVERSAZIONI PASSATE - USALA!
+Fai riferimento ATTIVAMENTE a cose che sai di loro:
 - "Mi avevi detto che [cosa]..."
 - "So che ti piace [interesse]..."
 - "Come sta [nome familiare/amico menzionato]?"
+- "Com'è andato il viaggio a [destinazione]?"
+- "A proposito di [argomento delle sessioni passate]..."
+
+SE HAI INFO SUI LORO VIAGGI, EVENTI, LAVORO - CITALI!
 
 ═══════════════════════════════════════════════
 🌤️ CONTESTO SITUAZIONALE
@@ -280,11 +285,12 @@ function buildUserContextBlock(ctx: VoiceContext): string {
 Nome: ${name || 'Non specificato'}${ageInfo}${occupationInfo}
 Terapia: ${ctx.profile.therapy_status === 'in_therapy' ? 'Segue già un percorso' : ctx.profile.therapy_status === 'seeking' ? 'Sta cercando supporto' : 'Non in terapia'}`);
 
-    // Memory (last 10 items)
+    // Memory - include ALL items (important for continuity!)
     if (ctx.profile.long_term_memory?.length > 0) {
-      const recentMemory = ctx.profile.long_term_memory.slice(-10).join('\n- ');
+      // Take last 30 items to include more context while keeping prompt manageable
+      const recentMemory = ctx.profile.long_term_memory.slice(-30).join('\n- ');
       blocks.push(`
-📝 MEMORIA (cose che sai di ${name || 'questa persona'}):
+📝 MEMORIA (cose che sai di ${name || 'questa persona'} - USA QUESTE INFO!):
 - ${recentMemory}`);
     }
     
@@ -356,13 +362,15 @@ ${interestParts.join('\n')}`);
     }
   }
   
-  // Recent sessions
+  // Recent sessions - show more context
   if (ctx.recentSessions?.length > 0) {
-    const lastSession = ctx.recentSessions[0];
-    const timeAgo = formatTimeSince(lastSession.start_time);
+    const sessionsInfo = ctx.recentSessions.slice(0, 3).map((s, i) => {
+      const timeAgo = formatTimeSince(s.start_time);
+      return `• ${timeAgo}: ${s.ai_summary || 'conversazione breve'}`;
+    }).join('\n');
     blocks.push(`
-⏰ ULTIMA CONVERSAZIONE: ${timeAgo}
-${lastSession.ai_summary ? `Argomento: ${lastSession.ai_summary.substring(0, 100)}...` : ''}`);
+⏰ CONVERSAZIONI RECENTI (ricorda questi argomenti!):
+${sessionsInfo}`);
   }
   
   // Habits today
