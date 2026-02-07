@@ -30,23 +30,23 @@ const Index: React.FC = () => {
   const hasWellnessScore = layout.wellness_score !== null && layout.wellness_score !== undefined;
   const isNewUser = profile?.onboarding_completed && !hasWellnessScore;
 
-  // Show tutorial for new users who haven't seen it
+  // Show tutorial ONLY for new users who haven't seen it - check both keys
   useEffect(() => {
-    if (profile && profile.onboarding_completed) {
-      const tutorialSeen = localStorage.getItem(`tutorial_seen_${profile.user_id}`);
-      if (!tutorialSeen) {
+    if (profile && profile.onboarding_completed && profile.user_id) {
+      // Check both global and user-specific key
+      const globalTutorialSeen = localStorage.getItem('tutorial_completed');
+      const userTutorialSeen = localStorage.getItem(`tutorial_seen_${profile.user_id}`);
+      
+      if (!globalTutorialSeen && !userTutorialSeen) {
         // Small delay to let the page render first
-        const timer = setTimeout(() => setShowTutorial(true), 500);
+        const timer = setTimeout(() => setShowTutorial(true), 600);
         return () => clearTimeout(timer);
       }
     }
-  }, [profile]);
+  }, [profile?.onboarding_completed, profile?.user_id]);
 
   const handleTutorialComplete = () => {
     setShowTutorial(false);
-    if (profile?.user_id) {
-      localStorage.setItem(`tutorial_seen_${profile.user_id}`, 'true');
-    }
   };
 
   // Get AI insights from analysis layout
@@ -101,7 +101,10 @@ const Index: React.FC = () => {
     <MobileLayout>
       {/* Onboarding Tutorial for new users */}
       {showTutorial && (
-        <OnboardingTutorial onComplete={handleTutorialComplete} />
+        <OnboardingTutorial 
+          onComplete={handleTutorialComplete} 
+          userId={profile?.user_id}
+        />
       )}
 
       {/* Header */}
