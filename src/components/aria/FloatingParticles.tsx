@@ -9,19 +9,28 @@ interface Particle {
   duration: number;
   delay: number;
   opacity: number;
+  color: string;
 }
 
 const FloatingParticles: React.FC = () => {
-  // Minimal particles for Zen atmosphere - only 6 very subtle particles
+  // More visible particles with Aurora colors
   const particles = useMemo<Particle[]>(() => {
-    return Array.from({ length: 6 }, (_, i) => ({
+    const colors = [
+      'rgba(155,111,208,0.4)',  // Violet
+      'rgba(167,139,250,0.35)', // Light violet
+      'rgba(129,140,248,0.3)',  // Indigo
+      'rgba(99,102,241,0.25)',  // Deep indigo
+    ];
+    
+    return Array.from({ length: 10 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 2 + 1, // Very small: 1-3px
-      duration: Math.random() * 15 + 20, // Slow: 20-35s
-      delay: Math.random() * 10,
-      opacity: Math.random() * 0.15 + 0.05, // Very subtle: 0.05-0.2
+      size: Math.random() * 4 + 2, // 2-6px
+      duration: Math.random() * 12 + 15, // 15-27s
+      delay: Math.random() * 8,
+      opacity: Math.random() * 0.3 + 0.2, // 0.2-0.5
+      color: colors[Math.floor(Math.random() * colors.length)],
     }));
   }, []);
 
@@ -36,12 +45,14 @@ const FloatingParticles: React.FC = () => {
             top: `${particle.y}%`,
             width: particle.size,
             height: particle.size,
-            background: `radial-gradient(circle, rgba(255,255,255,${particle.opacity}) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${particle.color} 0%, transparent 70%)`,
+            boxShadow: `0 0 ${particle.size * 2}px ${particle.color}`,
           }}
           animate={{
-            y: [0, -30, 0],
-            x: [0, Math.random() * 20 - 10, 0],
-            opacity: [particle.opacity * 0.5, particle.opacity, particle.opacity * 0.5],
+            y: [0, -40, 0],
+            x: [0, Math.random() * 30 - 15, 0],
+            opacity: [particle.opacity * 0.6, particle.opacity, particle.opacity * 0.6],
+            scale: [1, 1.2, 1],
           }}
           transition={{
             duration: particle.duration,

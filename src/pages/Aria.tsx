@@ -122,32 +122,33 @@ const Aria: React.FC = () => {
 
   return (
     <MobileLayout withMesh={false}>
-      {/* Sanctuary Zen Background */}
+      {/* Aurora Portal Background - More vibrant */}
       <div className="min-h-[calc(100vh-80px)] pb-20 flex flex-col relative overflow-hidden">
-        {/* Deep Background Gradient */}
+        {/* Vibrant Aurora Background */}
         <div 
           className="absolute inset-0 z-0"
           style={{
             background: `
-              radial-gradient(ellipse at 50% 30%, rgba(155,111,208,0.06) 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 70%, rgba(99,102,241,0.04) 0%, transparent 40%),
+              radial-gradient(ellipse at 50% 20%, rgba(155,111,208,0.15) 0%, transparent 50%),
+              radial-gradient(ellipse at 30% 70%, rgba(129,140,248,0.1) 0%, transparent 45%),
+              radial-gradient(ellipse at 70% 60%, rgba(167,139,250,0.08) 0%, transparent 40%),
               linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%)
             `,
           }}
         />
         
-        {/* Subtle Floating Particles */}
+        {/* Floating Particles - More visible */}
         <FloatingParticles />
         
         {/* Soft Vignette */}
         <div 
           className="absolute inset-0 pointer-events-none z-0" 
           style={{
-            background: 'radial-gradient(ellipse at center, transparent 30%, hsl(var(--background)/0.6) 100%)',
+            background: 'radial-gradient(ellipse at center, transparent 40%, hsl(var(--background)/0.5) 100%)',
           }}
         />
         
-        {/* Corner History Icon - More Subtle */}
+        {/* Corner History Icon */}
         {recentSessions.length > 0 && (
           <div className="absolute top-5 right-5 z-10">
             <Sheet>
@@ -155,13 +156,14 @@ const Aria: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                  }}
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    "bg-white/5 border border-white/10",
+                    "hover:bg-white/10 hover:border-[hsl(var(--aria-violet)/0.3)]",
+                    "transition-all duration-300"
+                  )}
                 >
-                  <History className="w-4 h-4 text-muted-foreground/30" />
+                  <History className="w-4 h-4 text-muted-foreground/50" />
                 </motion.button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[85vw] sm:w-[400px]">
@@ -183,20 +185,20 @@ const Aria: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content - Zen Centered */}
+        {/* Main Content - Centered */}
         <motion.div 
           className="flex-1 flex flex-col justify-center items-center px-6 relative z-[1]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          {/* Hero Section - Glassmorphic Orb */}
+          {/* Hero Section - Static Glassmorphic Orb */}
           <AriaHeroSection
             onStartChat={handleStartChat}
             onStartVoice={handleStartVoice}
           />
 
-          {/* Diary Icons - Minimal at Bottom */}
+          {/* Diary Icons */}
           <div className="mt-12">
             <DiaryChipsScroll
               activeDiaryIds={activeDiaryIds}
