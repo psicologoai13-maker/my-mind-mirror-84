@@ -1,11 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import AdaptiveVitalsSection from '@/components/home/AdaptiveVitalsSection';
 import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
-import OnboardingTutorial from '@/components/home/OnboardingTutorial';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -16,38 +15,18 @@ import { useCheckinTimer } from '@/hooks/useCheckinTimer';
 import { cn } from '@/lib/utils';
 
 const Index: React.FC = () => {
-  const { profile, isLoading, updateProfile } = useProfile();
-  const { layout, isLoading: isLoadingAI, isRefreshingInBackground } = useAIDashboard();
+  const { profile, isLoading } = useProfile();
+  const { layout, isLoading: isLoadingAI } = useAIDashboard();
   const { layout: analysisLayout } = useAIAnalysis('week');
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
 
   // Check if this is a new user (no wellness score yet - activates after check-in or Aria conversation)
   const hasWellnessScore = layout.wellness_score !== null && layout.wellness_score !== undefined;
   const isNewUser = profile?.onboarding_completed && !hasWellnessScore;
-
-  // Show tutorial ONLY for new users who haven't seen it - check both keys
-  useEffect(() => {
-    if (profile && profile.onboarding_completed && profile.user_id) {
-      // Check both global and user-specific key
-      const globalTutorialSeen = localStorage.getItem('tutorial_completed');
-      const userTutorialSeen = localStorage.getItem(`tutorial_seen_${profile.user_id}`);
-      
-      if (!globalTutorialSeen && !userTutorialSeen) {
-        // Small delay to let the page render first
-        const timer = setTimeout(() => setShowTutorial(true), 600);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [profile?.onboarding_completed, profile?.user_id]);
-
-  const handleTutorialComplete = () => {
-    setShowTutorial(false);
-  };
 
   // Get AI insights from analysis layout
   const aiSummary = analysisLayout.ai_summary || '';
@@ -99,14 +78,6 @@ const Index: React.FC = () => {
 
   return (
     <MobileLayout>
-      {/* Onboarding Tutorial for new users */}
-      {showTutorial && (
-        <OnboardingTutorial 
-          onComplete={handleTutorialComplete} 
-          userId={profile?.user_id}
-        />
-      )}
-
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
         <div className="flex items-start justify-between mb-4">
