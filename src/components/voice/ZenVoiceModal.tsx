@@ -61,6 +61,19 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
   const animationRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
 
+  // Hide/show bottom nav when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
+    } else {
+      window.dispatchEvent(new CustomEvent('show-bottom-nav'));
+    }
+    
+    return () => {
+      window.dispatchEvent(new CustomEvent('show-bottom-nav'));
+    };
+  }, [isOpen]);
+
   // Generate particles only once
   const particles = useMemo(() => 
     Array.from({ length: 12 }, (_, i) => ({
@@ -319,8 +332,8 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative z-10 w-full flex items-center justify-between px-6 pt-safe-top"
-            style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
+            className="relative z-10 w-full flex items-center justify-between px-6"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 16px) + 16px)' }}
           >
             <Button
               variant="ghost"
