@@ -67,10 +67,17 @@ export const useProfile = () => {
     mutationFn: async (updates: Partial<UserProfile>) => {
       if (!user) throw new Error('Not authenticated');
       
+      // Use UPSERT to handle cases where profile doesn't exist yet
       const { data, error } = await supabase
         .from('user_profiles')
-        .update(updates as any)
-        .eq('user_id', user.id)
+        .upsert(
+          { 
+            user_id: user.id, 
+            email: user.email,
+            ...updates 
+          } as any,
+          { onConflict: 'user_id' }
+        )
         .select()
         .single();
       
