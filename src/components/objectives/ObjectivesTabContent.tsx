@@ -29,6 +29,7 @@ import {
 const ObjectivesTabContent: React.FC = () => {
   const [showCreationModal, setShowCreationModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [preselectedObjective, setPreselectedObjective] = useState<typeof activeObjectives[0] | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   
   const {
@@ -38,6 +39,20 @@ const ObjectivesTabContent: React.FC = () => {
     deleteObjective,
     updateObjective,
   } = useObjectives();
+  
+  // Handle update from specific objective card
+  const handleUpdateWithAria = (objective: typeof activeObjectives[0]) => {
+    setPreselectedObjective(objective);
+    setShowUpdateModal(true);
+  };
+  
+  // Reset preselected when modal closes
+  const handleUpdateModalChange = (open: boolean) => {
+    setShowUpdateModal(open);
+    if (!open) {
+      setPreselectedObjective(null);
+    }
+  };
 
   const handleDelete = async () => {
     if (deleteConfirm) {
@@ -145,6 +160,7 @@ const ObjectivesTabContent: React.FC = () => {
               objective={objective}
               onUpdate={(id, updates) => updateObjective.mutate({ id, ...updates })}
               onDelete={(id) => setDeleteConfirm(id)}
+              onUpdateWithAria={handleUpdateWithAria}
             />
           ))}
         </div>
@@ -191,7 +207,8 @@ const ObjectivesTabContent: React.FC = () => {
       {/* Update Modal */}
       <ObjectiveUpdateModal
         open={showUpdateModal}
-        onOpenChange={setShowUpdateModal}
+        onOpenChange={handleUpdateModalChange}
+        preselectedObjective={preselectedObjective}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Target, Sparkles, Trash2, ChevronDown, RefreshCw, Bot } from 'lucide-react';
+import { MoreVertical, Target, Sparkles, Trash2, ChevronDown, RefreshCw, Bot, MessageCircle } from 'lucide-react';
 import { Objective, CATEGORY_CONFIG, calculateProgress, ObjectiveCategory } from '@/hooks/useObjectives';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,7 @@ interface ObjectiveCardProps {
   objective: Objective;
   onUpdate?: (id: string, updates: Partial<Objective>) => void;
   onDelete?: (id: string) => void;
+  onUpdateWithAria?: (objective: Objective) => void;
 }
 
 // Category border colors for the card (full border)
@@ -153,11 +154,13 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
   objective,
   onUpdate,
   onDelete,
+  onUpdateWithAria,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const hasTarget = objective.target_value !== null && objective.target_value !== undefined;
+  const hasStarting = objective.starting_value !== null && objective.starting_value !== undefined;
   const hasProgress = (objective.current_value ?? 0) > (objective.starting_value ?? 0) || 
                       (objective.ai_progress_estimate ?? 0) > 0 ||
                       (objective.ai_milestones && objective.ai_milestones.length > 0);
@@ -167,37 +170,60 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
     ? calculateProgress(objective) 
     : (objective.ai_progress_estimate ?? 0);
 
-  // Generate summary based on state - prioritize AI feedback for current state
+  // Generate smart summary based on actual state
   const getSummary = () => {
-    // If AI feedback exists (dynamic state description), show it as primary
+    // Priority 1: AI feedback (most recent state description)
     if (objective.ai_feedback) {
       return objective.ai_feedback;
     }
     
-    // If custom AI description exists (motivational phrase from creation)
+    // Priority 2: Generate contextual status based on data
+    const current = objective.current_value;
+    const target = objective.target_value;
+    const starting = objective.starting_value;
+    const unit = objective.unit ? ` ${objective.unit}` : '';
+    
+    // Numeric objectives with full data
+    if (hasTarget && hasStarting && current !== null && current !== undefined) {
+      if (progress >= 100) {
+        return `🎉 Traguardo raggiunto! Sei arrivato a ${target}${unit}.`;
+      }
+      const remaining = Math.abs((target ?? 0) - current);
+      const isDecreasing = (target ?? 0) < (starting ?? 0);
+      if (isDecreasing) {
+        return `Sei a ${current}${unit}. Mancano ${remaining}${unit} per raggiungere ${target}${unit}.`;
+      }
+      return `Sei a ${current}${unit} su ${target}${unit}. Continua così!`;
+    }
+    
+    // Has starting but no target
+    if (hasStarting && !hasTarget) {
+      return `Punto di partenza: ${starting}${unit}. Definisci un traguardo per tracciare i progressi.`;
+    }
+    
+    // Has target but no starting (counter objectives)
+    if (hasTarget && !hasStarting) {
+      const currentVal = current ?? 0;
+      return `${currentVal}/${target}${unit} completati. Aggiorna i progressi con Aria.`;
+    }
+    
+    // Qualitative/milestone objectives
+    if (!hasTarget && (objective.ai_progress_estimate ?? 0) > 0) {
+      return `Progresso stimato: ${objective.ai_progress_estimate}%. Racconta i tuoi avanzamenti ad Aria.`;
+    }
+    
+    // Custom AI description from creation
     if (objective.ai_custom_description) {
       return objective.ai_custom_description;
     }
     
-    // Generate contextual default
-    if (hasProgress && progress > 0) {
-      return getProgressComment();
-    }
-    
+    // Description fallback
     if (objective.description) {
       return objective.description;
     }
     
-    return "Parla con Aria per iniziare a tracciare questo obiettivo";
-  };
-
-  const getProgressComment = () => {
-    if (progress >= 100) return "🎉 Obiettivo raggiunto!";
-    if (progress >= 80) return "Quasi al traguardo!";
-    if (progress >= 50) return "Ottimo, più di metà strada!";
-    if (progress >= 25) return "Buon inizio, continua così!";
-    if (progress > 0) return "Hai iniziato il percorso";
-    return "";
+    // Default for new objectives
+    return "Inizia a raccontare i tuoi progressi ad Aria per attivare il tracciamento.";
   };
 
   const handleDelete = () => {
@@ -327,25 +353,10 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="pt-4 mt-2 border-t border-glass-border/50">
-                  {/* AI insight card */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-aria flex items-center justify-center shrink-0 shadow-aria-glow">
-                        <Sparkles className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-primary mb-1">Aria dice:</p>
-                        <p className="text-sm text-foreground leading-relaxed">
-                          {objective.ai_feedback || getDetailedExplanation()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Milestones */}
+                <div className="pt-4 mt-2 border-t border-glass-border/50 space-y-3">
+                  {/* Milestones (if any) */}
                   {objective.ai_milestones && objective.ai_milestones.length > 0 && (
-                    <div className="mt-3 space-y-2">
+                    <div className="space-y-2">
                       <p className="text-xs font-medium text-muted-foreground">Traguardi raggiunti</p>
                       <div className="space-y-1.5">
                         {objective.ai_milestones.slice(-3).map((milestone, index) => (
@@ -356,6 +367,27 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                         ))}
                       </div>
                     </div>
+                  )}
+                  
+                  {/* Update with Aria button */}
+                  {onUpdateWithAria && (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateWithAria(objective);
+                      }}
+                      variant="outline"
+                      className={cn(
+                        "w-full rounded-xl gap-2 h-11",
+                        "bg-gradient-to-r from-emerald-500/10 to-teal-500/10",
+                        "border-emerald-500/30 hover:border-emerald-500/50",
+                        "text-emerald-600 dark:text-emerald-400",
+                        "hover:bg-emerald-500/15"
+                      )}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Aggiorna con Aria
+                    </Button>
                   )}
                 </div>
               </motion.div>
@@ -387,39 +419,6 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
     </>
   );
   
-  function getDetailedExplanation() {
-    if (hasTarget) {
-      const current = objective.current_value ?? 0;
-      const target = objective.target_value!;
-      const unit = objective.unit ? ' ' + objective.unit : '';
-      
-      if (progress >= 100) {
-        return `Complimenti! Hai raggiunto il tuo obiettivo di ${target}${unit}. Un traguardo importante che dimostra il tuo impegno! 🎉`;
-      }
-      if (progress >= 75) {
-        return `Manca poco al traguardo! Continua con questa determinazione per raggiungere ${target}${unit}. Sei sulla strada giusta.`;
-      }
-      if (progress >= 50) {
-        return `Ottimo progresso, sei oltre la metà del percorso! Attualmente a ${current}${unit} su ${target}. Continua così!`;
-      }
-      if (progress > 0) {
-        return `Hai iniziato bene il tuo percorso! Sei a ${current}${unit}, continua a lavorare verso il tuo obiettivo di ${target}.`;
-      }
-      return `Inizia a tracciare i tuoi progressi verso ${target}${unit}. Raccontami come sta andando per ricevere supporto.`;
-    }
-    
-    // Qualitative
-    if (progress >= 75) {
-      return "Stai facendo progressi eccellenti verso questo obiettivo! La tua costanza sta dando i suoi frutti.";
-    }
-    if (progress >= 50) {
-      return "Buoni progressi! Continua così, sei sulla strada giusta verso il raggiungimento del tuo obiettivo.";
-    }
-    if (progress > 0) {
-      return "Hai iniziato il tuo percorso verso questo obiettivo. Raccontami i tuoi progressi per aggiornare la valutazione.";
-    }
-    return "Parla con me per iniziare a tracciare questo obiettivo. Ti aiuterò con feedback e supporto personalizzato.";
-  }
 };
 
 export default ObjectiveCard;

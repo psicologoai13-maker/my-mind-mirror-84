@@ -23,6 +23,7 @@ interface Message {
 interface ObjectiveUpdateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedObjective?: Objective | null;
 }
 
 // Generate a contextual example based on objective category and title
@@ -86,6 +87,7 @@ const generateContextualExample = (objective: Objective): string => {
 export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
   open,
   onOpenChange,
+  preselectedObjective,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -97,20 +99,23 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Generate initial message based on active objectives
-  const getInitialMessage = (): { content: string; showQuickActions: boolean } => {
+  // Generate initial message based on active objectives or preselected
+  const getInitialMessage = (preselected?: Objective | null): { content: string; showQuickActions: boolean } => {
+    // If preselected objective, start directly with that
+    if (preselected) {
+      const example = generateContextualExample(preselected);
+      return {
+        content: `Perfetto! Parliamo di **"${preselected.title}"**.\n\nRaccontami come sta andando. Ad esempio:\n- ${example}\n\nOppure dimmi semplicemente cosa hai fatto o come ti senti riguardo a questo obiettivo.`,
+        showQuickActions: false
+      };
+    }
+    
     if (activeObjectives.length === 0) {
       return { 
         content: "Non hai ancora obiettivi attivi. Vuoi crearne uno nuovo?",
         showQuickActions: false 
       };
     }
-    
-    // List only the objectives (max 5)
-    const objectivesList = activeObjectives
-      .slice(0, 5)
-      .map((obj, i) => `${i + 1}. **${obj.title}**`)
-      .join('\n');
     
     // Generate contextual examples based on actual objectives
     const examples = activeObjectives
@@ -124,15 +129,18 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
     };
   };
 
-  // Track if modal was just opened
+  // Track if modal was just opened and which objective was preselected
   const wasOpenRef = useRef(false);
+  const lastPreselectedRef = useRef<string | null>(null);
 
   // Hide/show bottom nav and reset when modal opens/closes
   useEffect(() => {
-    if (open && !wasOpenRef.current) {
-      // Only reset on first open
+    const preselectedId = preselectedObjective?.id || null;
+    
+    if (open && (!wasOpenRef.current || lastPreselectedRef.current !== preselectedId)) {
+      // Reset on first open OR when preselected objective changes
       window.dispatchEvent(new CustomEvent('hide-bottom-nav'));
-      const initialMsg = getInitialMessage();
+      const initialMsg = getInitialMessage(preselectedObjective);
       setMessages([{
         id: '1',
         role: 'assistant',
@@ -142,11 +150,13 @@ export const ObjectiveUpdateModal: React.FC<ObjectiveUpdateModalProps> = ({
       setInputValue('');
       setTimeout(() => inputRef.current?.focus(), 300);
       wasOpenRef.current = true;
+      lastPreselectedRef.current = preselectedId;
     } else if (!open) {
       window.dispatchEvent(new CustomEvent('show-bottom-nav'));
       wasOpenRef.current = false;
+      lastPreselectedRef.current = null;
     }
-  }, [open, activeObjectives]);
+  }, [open, activeObjectives, preselectedObjective]);
 
   // Auto scroll to bottom
   useEffect(() => {
