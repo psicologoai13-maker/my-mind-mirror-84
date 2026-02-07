@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, BarChart3, Target, User, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useVisualViewport } from '@/hooks/useVisualViewport';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -15,8 +14,8 @@ const navItems = [
 const BottomNav: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isKeyboardOpen } = useVisualViewport();
   const [isHidden, setIsHidden] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Listen for custom event to hide/show nav
   useEffect(() => {
@@ -32,6 +31,34 @@ const BottomNav: React.FC = () => {
     };
   }, []);
 
+  // Simple keyboard detection based on focus events only
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        setIsKeyboardOpen(true);
+      }
+    };
+    
+    const handleFocusOut = () => {
+      // Small delay to prevent flicker between focus changes
+      setTimeout(() => {
+        const active = document.activeElement as HTMLElement;
+        if (active?.tagName !== 'INPUT' && active?.tagName !== 'TEXTAREA' && !active?.isContentEditable) {
+          setIsKeyboardOpen(false);
+        }
+      }, 100);
+    };
+    
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
+
   // Hide navbar when keyboard is open or when explicitly hidden
   if (isKeyboardOpen || isHidden) {
     return null;
@@ -39,8 +66,12 @@ const BottomNav: React.FC = () => {
 
   return (
     <nav 
-      className="fixed left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm"
-      style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+      className={cn(
+        "fixed left-1/2 -translate-x-1/2 z-[9999]",
+        "w-[calc(100%-2rem)] max-w-sm",
+        "bottom-4 pb-[env(safe-area-inset-bottom,0px)]"
+      )}
+      style={{ willChange: 'transform' }}
     >
       {/* Floating Glass Dock */}
       <div className={cn(
