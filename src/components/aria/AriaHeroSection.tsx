@@ -110,18 +110,18 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.8 }}
-        className="space-y-3"
+        className="space-y-2"
       >
         <h1 
-          className="font-display text-3xl text-foreground font-medium tracking-wide"
+          className="font-display text-4xl text-foreground font-semibold tracking-wide"
           style={{
             textShadow: '0 0 30px rgba(167,139,250,0.3)',
           }}
         >
-          Sono qui per te
+          Aria
         </h1>
-        <p className="text-foreground/80 text-base font-light tracking-wider">
-          quando vuoi
+        <p className="text-foreground/70 text-base font-light tracking-wider">
+          Sono qui per te, quando vuoi
         </p>
       </motion.div>
 
