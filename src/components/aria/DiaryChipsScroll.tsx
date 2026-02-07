@@ -39,7 +39,7 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
       className="w-full max-w-sm mx-auto"
     >
       {/* Section Label */}
-      <p className="text-center text-xs text-muted-foreground/30 font-light tracking-widest uppercase mb-4">
+      <p className="text-center text-xs text-foreground/60 font-medium tracking-widest uppercase mb-4">
         I tuoi diari
       </p>
       
@@ -83,9 +83,9 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
                   e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
                 }}
               >
-                <Icon className="w-5 h-5 text-foreground/35 group-hover:text-foreground/60 transition-colors duration-300" />
+                <Icon className="w-5 h-5 text-foreground/60 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
               </div>
-              <span className="text-[10px] text-muted-foreground/30 font-light tracking-wide group-hover:text-muted-foreground/50 transition-colors duration-300">
+              <span className="text-[11px] text-foreground/60 font-medium tracking-wide group-hover:text-foreground transition-colors duration-300">
                 {label}
               </span>
             </motion.button>
@@ -118,9 +118,9 @@ const DiaryChipsScroll: React.FC<DiaryChipsScrollProps> = ({
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <Plus className="w-4 h-4 text-foreground/20 group-hover:text-foreground/40 transition-colors duration-300" />
+              <Plus className="w-4 h-4 text-foreground/50 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
             </div>
-            <span className="text-[10px] text-muted-foreground/20 font-light tracking-wide group-hover:text-muted-foreground/40 transition-colors duration-300">
+            <span className="text-[11px] text-foreground/50 font-medium tracking-wide group-hover:text-foreground transition-colors duration-300">
               Aggiungi
             </span>
           </motion.button>
