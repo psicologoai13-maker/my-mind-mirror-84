@@ -54,11 +54,60 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
   const pendingTextRef = useRef<string>('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isActiveRef = useRef(false);
+  const audioContextUnlockedRef = useRef(false);
+  const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Keep ref in sync
   useEffect(() => {
     isActiveRef.current = isActive;
   }, [isActive]);
+
+  // iOS Safari audio unlock function - MUST be called from user gesture
+  const unlockAudioContext = useCallback(() => {
+    if (audioContextUnlockedRef.current) return;
+    
+    console.log('[HybridVoice] Unlocking audio context for iOS...');
+    
+    // Create and play a silent audio to unlock audio context
+    const silentAudio = new Audio();
+    silentAudio.setAttribute('playsinline', 'true');
+    silentAudio.setAttribute('webkit-playsinline', 'true');
+    
+    // Tiny silent WAV (44 bytes)
+    silentAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    
+    silentAudio.play().then(() => {
+      console.log('[HybridVoice] Audio context unlocked!');
+      audioContextUnlockedRef.current = true;
+      silentAudio.pause();
+    }).catch(err => {
+      console.log('[HybridVoice] Audio unlock attempt:', err.message);
+    });
+
+    // Also try to create/resume AudioContext
+    try {
+      const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(() => {
+            console.log('[HybridVoice] AudioContext resumed');
+            audioContextUnlockedRef.current = true;
+          });
+        } else {
+          audioContextUnlockedRef.current = true;
+        }
+      }
+    } catch (e) {
+      console.log('[HybridVoice] AudioContext not available');
+    }
+
+    // Pre-create an audio element that can be reused
+    preloadedAudioRef.current = new Audio();
+    preloadedAudioRef.current.setAttribute('playsinline', 'true');
+    preloadedAudioRef.current.setAttribute('webkit-playsinline', 'true');
+    preloadedAudioRef.current.preload = 'auto';
+  }, []);
  
   // Cleanup on unmount
   useEffect(() => {
@@ -69,6 +118,10 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (preloadedAudioRef.current) {
+        preloadedAudioRef.current.pause();
+        preloadedAudioRef.current = null;
       }
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
@@ -112,9 +165,9 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     });
   }, []);
 
-  // Play audio with iOS compatibility
+  // Play audio with iOS compatibility - using preloaded element for iOS
   const playAudio = useCallback(async (audioBase64: string | null, mimeType: string, fallbackText: string): Promise<void> => {
-    console.log('[HybridVoice] playAudio called, hasAudio:', !!audioBase64);
+    console.log('[HybridVoice] playAudio called, hasAudio:', !!audioBase64, 'iOS:', PLATFORM.isIOS);
     setIsSpeaking(true);
     setIsListening(false);
 
@@ -123,7 +176,8 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
     }
 
     try {
-      if (audioRef.current) {
+      // Clean up any existing audio
+      if (audioRef.current && audioRef.current !== preloadedAudioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
         audioRef.current = null;
@@ -134,17 +188,34 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       
       console.log('[HybridVoice] Created blob URL, size:', audioBlob.size);
       
-      const audio = new Audio();
-      audio.setAttribute('playsinline', 'true');
-      audio.setAttribute('webkit-playsinline', 'true');
-      audio.preload = 'auto';
+      // For iOS, use the preloaded element if available (it was unlocked with user gesture)
+      let audio: HTMLAudioElement;
+      if ((PLATFORM.isIOS || PLATFORM.isSafari) && preloadedAudioRef.current) {
+        console.log('[HybridVoice] Using preloaded audio element for iOS');
+        audio = preloadedAudioRef.current;
+        // Reset the element
+        audio.pause();
+        audio.currentTime = 0;
+      } else {
+        audio = new Audio();
+        audio.setAttribute('playsinline', 'true');
+        audio.setAttribute('webkit-playsinline', 'true');
+        audio.preload = 'auto';
+      }
       
       audioRef.current = audio;
 
       return new Promise<void>((resolve) => {
+        let resolved = false;
         const cleanup = () => {
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
+          if (!resolved) {
+            resolved = true;
+            URL.revokeObjectURL(audioUrl);
+            // Don't null out preloaded audio ref
+            if (audio !== preloadedAudioRef.current) {
+              audioRef.current = null;
+            }
+          }
         };
 
         audio.onended = () => {
@@ -155,23 +226,43 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
         };
 
         audio.onerror = (e) => {
-          console.log('[HybridVoice] Audio error, using TTS');
+          console.log('[HybridVoice] Audio error:', e, 'falling back to TTS');
           cleanup();
           useBrowserTTS(fallbackText).then(resolve);
         };
 
+        // For iOS, use load() then play() sequence
         audio.src = audioUrl;
-        audio.load();
         
-        const playPromise = audio.play();
-        if (playPromise) {
-          playPromise
-            .then(() => console.log('[HybridVoice] Audio playing'))
-            .catch((err) => {
-              console.log('[HybridVoice] Play failed:', err.message);
-              cleanup();
-              useBrowserTTS(fallbackText).then(resolve);
-            });
+        if (PLATFORM.isIOS || PLATFORM.isSafari) {
+          // iOS needs explicit load
+          audio.load();
+          
+          audio.oncanplaythrough = () => {
+            console.log('[HybridVoice] iOS: canplaythrough, attempting play');
+            const playPromise = audio.play();
+            if (playPromise) {
+              playPromise
+                .then(() => console.log('[HybridVoice] iOS audio playing successfully'))
+                .catch((err) => {
+                  console.log('[HybridVoice] iOS play failed:', err.name, err.message);
+                  cleanup();
+                  useBrowserTTS(fallbackText).then(resolve);
+                });
+            }
+          };
+        } else {
+          audio.load();
+          const playPromise = audio.play();
+          if (playPromise) {
+            playPromise
+              .then(() => console.log('[HybridVoice] Audio playing'))
+              .catch((err) => {
+                console.log('[HybridVoice] Play failed:', err.message);
+                cleanup();
+                useBrowserTTS(fallbackText).then(resolve);
+              });
+          }
         }
       });
     } catch (err) {
@@ -407,6 +498,10 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
 
     console.log('[HybridVoice] === START ===, Platform:', PLATFORM);
     
+    // CRITICAL: Unlock audio context immediately on user tap (before any async operations)
+    // This is required for iOS Safari to allow audio playback later
+    unlockAudioContext();
+    
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       toast.error('Riconoscimento vocale non supportato');
@@ -423,7 +518,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
 
     // For iOS Safari: Start recognition IMMEDIATELY
     if (PLATFORM.isIOS || PLATFORM.isSafari) {
-      console.log('[HybridVoice] iOS/Safari path');
+      console.log('[HybridVoice] iOS/Safari path - audio unlocked');
       
       try {
         setIsActive(true);
@@ -472,7 +567,7 @@ export const useHybridVoice = (): UseHybridVoiceReturn => {
       setIsActive(false);
       toast.error('Impossibile avviare');
     }
-  }, [user, startSession, startRecognition]);
+  }, [user, startSession, startRecognition, unlockAudioContext]);
 
   // STOP
   const stop = useCallback(async () => {
