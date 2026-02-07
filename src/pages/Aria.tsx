@@ -121,16 +121,33 @@ const Aria: React.FC = () => {
   }
 
   return (
-    <MobileLayout>
-      {/* Immersive Portal Background */}
-      <div className="aria-portal-bg min-h-[calc(100vh-80px)] pb-20 flex flex-col relative overflow-hidden">
-        {/* Floating Particles */}
+    <MobileLayout withMesh={false}>
+      {/* Sanctuary Zen Background */}
+      <div className="min-h-[calc(100vh-80px)] pb-20 flex flex-col relative overflow-hidden">
+        {/* Deep Background Gradient */}
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: `
+              radial-gradient(ellipse at 50% 30%, rgba(155,111,208,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 70%, rgba(99,102,241,0.04) 0%, transparent 40%),
+              linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%)
+            `,
+          }}
+        />
+        
+        {/* Subtle Floating Particles */}
         <FloatingParticles />
         
-        {/* Vignette Effect */}
-        <div className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--background)/0.4)_100%)]" />
+        {/* Soft Vignette */}
+        <div 
+          className="absolute inset-0 pointer-events-none z-0" 
+          style={{
+            background: 'radial-gradient(ellipse at center, transparent 30%, hsl(var(--background)/0.6) 100%)',
+          }}
+        />
         
-        {/* Corner History Icon */}
+        {/* Corner History Icon - More Subtle */}
         {recentSessions.length > 0 && (
           <div className="absolute top-5 right-5 z-10">
             <Sheet>
@@ -138,13 +155,13 @@ const Aria: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className={cn(
-                    "w-11 h-11 rounded-2xl flex items-center justify-center",
-                    "bg-glass/40 backdrop-blur-sm border border-glass-border/30",
-                    "shadow-subtle hover:shadow-glass-glow transition-all duration-300"
-                  )}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
                 >
-                  <History className="w-4 h-4 text-muted-foreground/60" />
+                  <History className="w-4 h-4 text-muted-foreground/30" />
                 </motion.button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[85vw] sm:w-[400px]">
@@ -166,26 +183,28 @@ const Aria: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content - Centered Portal */}
+        {/* Main Content - Zen Centered */}
         <motion.div 
-          className="flex-1 flex flex-col justify-center items-center space-y-6 px-5 relative z-[1]"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="flex-1 flex flex-col justify-center items-center px-6 relative z-[1]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, ease: "easeOut" }}
         >
-          {/* Hero Section - Orb + Actions */}
+          {/* Hero Section - Glassmorphic Orb */}
           <AriaHeroSection
             onStartChat={handleStartChat}
             onStartVoice={handleStartVoice}
           />
 
-          {/* Diary Icons - Row at Bottom */}
-          <DiaryChipsScroll
-            activeDiaryIds={activeDiaryIds}
-            diaries={diaries}
-            onOpenDiary={handleOpenDiary}
-            onAddDiary={() => setShowDiaryModal(true)}
-          />
+          {/* Diary Icons - Minimal at Bottom */}
+          <div className="mt-12">
+            <DiaryChipsScroll
+              activeDiaryIds={activeDiaryIds}
+              diaries={diaries}
+              onOpenDiary={handleOpenDiary}
+              onAddDiary={() => setShowDiaryModal(true)}
+            />
+          </div>
         </motion.div>
       </div>
 
