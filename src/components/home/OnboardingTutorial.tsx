@@ -23,6 +23,7 @@ interface TutorialStep {
 
 interface OnboardingTutorialProps {
   onComplete: () => void;
+  userId?: string;
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -44,7 +45,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'focus',
     title: 'I Tuoi Focus',
-    description: 'Qui vedi i parametri più importanti per te. Si riempiono man mano che fai check-in o parli con Aria.',
+    description: 'Qui vedi i parametri più importanti per te. Si aggiornano man mano che fai check-in o parli con Aria.',
     icon: <TrendingUp className="w-6 h-6" />,
     highlightSelector: '[data-tutorial="vitals"]',
     tooltipPosition: 'top',
@@ -55,14 +56,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'Il pulsante centrale ti porta da Aria, la tua compagna AI. Puoi chattare o parlare a voce!',
     icon: <MessageCircle className="w-6 h-6" />,
     highlightSelector: '[data-tutorial="aria-button"]',
-    tooltipPosition: 'top',
-  },
-  {
-    id: 'navigation',
-    title: 'Esplora l\'App',
-    description: 'Usa la barra in basso per navigare tra Home, Analisi, Progressi e il tuo Profilo.',
-    icon: <BarChart3 className="w-6 h-6" />,
-    highlightSelector: 'nav',
     tooltipPosition: 'top',
   },
   {
@@ -81,12 +74,13 @@ interface SpotlightRect {
   height: number;
 }
 
-const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) => {
+const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete, userId }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollYRef = useRef(0);
+  const measureTimeoutRef = useRef<NodeJS.Timeout>();
 
   const step = TUTORIAL_STEPS[currentStep];
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
@@ -94,17 +88,22 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
 
   // Find, scroll to, and measure the highlighted element
   useEffect(() => {
+    // Clear any pending timeouts
+    if (measureTimeoutRef.current) {
+      clearTimeout(measureTimeoutRef.current);
+    }
+
     if (step.highlightSelector) {
       const element = document.querySelector(step.highlightSelector);
       if (element) {
         setIsScrolling(true);
-        setSpotlightRect(null); // Clear while scrolling
+        setSpotlightRect(null);
         
         // Scroll element into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        // Wait for scroll to complete, then measure and lock
-        setTimeout(() => {
+        // Wait for scroll to complete, then measure
+        measureTimeoutRef.current = setTimeout(() => {
           const rect = element.getBoundingClientRect();
           const padding = 12;
           setSpotlightRect({
@@ -114,16 +113,25 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             height: rect.height + padding * 2,
           });
           
-          // Now lock scroll position
           scrollYRef.current = window.scrollY;
           setIsScrolling(false);
-        }, 400);
+        }, 500);
       } else {
+        // Element not found - skip to next step or show centered
+        console.warn(`Tutorial element not found: ${step.highlightSelector}`);
         setSpotlightRect(null);
+        setIsScrolling(false);
       }
     } else {
       setSpotlightRect(null);
+      setIsScrolling(false);
     }
+
+    return () => {
+      if (measureTimeoutRef.current) {
+        clearTimeout(measureTimeoutRef.current);
+      }
+    };
   }, [currentStep, step.highlightSelector]);
 
   // Prevent scroll only after scrolling animation completes
@@ -147,9 +155,18 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
     }
   }, [isVisible, isScrolling]);
 
+  const markTutorialComplete = () => {
+    // Mark tutorial as seen - use multiple keys for redundancy
+    localStorage.setItem('tutorial_completed', 'true');
+    if (userId) {
+      localStorage.setItem(`tutorial_seen_${userId}`, 'true');
+    }
+  };
+
   const handleNext = () => {
     if (isLastStep) {
       setIsVisible(false);
+      markTutorialComplete();
       setTimeout(onComplete, 300);
     } else {
       setCurrentStep(prev => prev + 1);
@@ -158,19 +175,20 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
 
   const handleSkip = () => {
     setIsVisible(false);
+    markTutorialComplete();
     setTimeout(onComplete, 300);
   };
 
   // Calculate tooltip position based on spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 300; // Approximate height of tooltip
-    const gap = 20;
-    const navBarHeight = 120; // Bottom nav + safe area
+    const tooltipHeight = 280;
+    const gap = 24;
+    const navBarHeight = 100;
     const safeBottom = viewportHeight - navBarHeight;
+    const statusBarHeight = 60;
 
     if (!spotlightRect) {
-      // Center position for welcome/ready steps - use inset for true centering
       return {
         position: 'fixed',
         inset: 0,
@@ -181,19 +199,14 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
       };
     }
 
-    // For steps with spotlight, position tooltip avoiding navbar
-    const spaceAbove = spotlightRect.top;
+    const spaceAbove = spotlightRect.top - statusBarHeight;
     const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
     
-    // Determine if tooltip should go above (prefer above when spotlight is low)
-    const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
-    
-    // Center horizontally with padding
+    const shouldGoAbove = spaceAbove > tooltipHeight + gap || spaceBelow < 150;
     const horizontalPadding = 16;
     
     if (shouldGoAbove) {
-      // Position above the spotlight
-      const topPos = Math.max(20, spotlightRect.top - tooltipHeight - gap);
+      const topPos = Math.max(statusBarHeight, spotlightRect.top - tooltipHeight - gap);
       return { 
         position: 'fixed',
         top: `${topPos}px`, 
@@ -201,32 +214,31 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
         right: `${horizontalPadding}px`,
       };
     } else {
-      // Position below the spotlight, but ensure it doesn't go below navbar
       const topPos = spotlightRect.top + spotlightRect.height + gap;
-      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight - gap);
+      const adjustedTop = Math.min(topPos, safeBottom - tooltipHeight);
       return { 
         position: 'fixed',
-        top: `${Math.max(20, adjustedTop)}px`, 
+        top: `${Math.max(statusBarHeight, adjustedTop)}px`, 
         left: `${horizontalPadding}px`,
         right: `${horizontalPadding}px`,
       };
     }
   };
 
-  // Determine arrow direction based on actual positioning
   const isTooltipAbove = (): boolean => {
     if (!spotlightRect) return true;
     
     const viewportHeight = window.innerHeight;
-    const tooltipHeight = 300;
-    const gap = 20;
-    const navBarHeight = 120;
+    const tooltipHeight = 280;
+    const gap = 24;
+    const navBarHeight = 100;
     const safeBottom = viewportHeight - navBarHeight;
+    const statusBarHeight = 60;
     
-    const spaceAbove = spotlightRect.top;
+    const spaceAbove = spotlightRect.top - statusBarHeight;
     const spaceBelow = safeBottom - (spotlightRect.top + spotlightRect.height);
     
-    return spaceAbove > tooltipHeight + gap || spaceBelow < tooltipHeight + gap;
+    return spaceAbove > tooltipHeight + gap || spaceBelow < 150;
   };
 
   return (
@@ -242,7 +254,6 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <defs>
               <mask id="spotlight-mask">
-                {/* White = visible, black = hidden */}
                 <rect x="0" y="0" width="100%" height="100%" fill="white" />
                 {spotlightRect && (
                   <motion.rect
@@ -252,19 +263,18 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                     y={spotlightRect.top}
                     width={spotlightRect.width}
                     height={spotlightRect.height}
-                    rx="16"
+                    rx="20"
                     fill="black"
                   />
                 )}
               </mask>
             </defs>
-            {/* Semi-transparent overlay with hole */}
             <rect
               x="0"
               y="0"
               width="100%"
               height="100%"
-              fill="rgba(0, 0, 0, 0.6)"
+              fill="rgba(0, 0, 0, 0.75)"
               mask="url(#spotlight-mask)"
             />
           </svg>
@@ -274,13 +284,13 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="absolute pointer-events-none rounded-2xl"
+              className="absolute pointer-events-none rounded-[20px]"
               style={{
                 top: spotlightRect.top,
                 left: spotlightRect.left,
                 width: spotlightRect.width,
                 height: spotlightRect.height,
-                boxShadow: '0 0 0 3px hsl(var(--aria-violet)), 0 0 30px hsl(var(--aria-violet) / 0.5)',
+                boxShadow: '0 0 0 3px hsl(var(--aria-violet)), 0 0 40px hsl(var(--aria-violet) / 0.6)',
               }}
             />
           )}
@@ -295,10 +305,8 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
             className="z-10"
             style={getTooltipStyle()}
           >
-            <div className="relative w-full max-w-[340px] mx-auto">
-              {/* Glass card */}
+            <div className="relative w-full max-w-[320px] mx-auto">
               <div className="bg-card/95 backdrop-blur-xl p-5 rounded-3xl border border-border shadow-elevated overflow-hidden">
-                {/* Aurora gradient background */}
                 <div className="absolute inset-0 bg-gradient-aria-subtle opacity-30 pointer-events-none" />
                 
                 <div className="relative z-10">
@@ -316,7 +324,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onComplete }) =
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.1 }}
-                      className="w-12 h-12 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
+                      className="w-11 h-11 rounded-xl bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                     >
                       <div className="text-white">{step.icon}</div>
                     </motion.div>
