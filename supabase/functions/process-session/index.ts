@@ -459,13 +459,16 @@ serve(async (req) => {
     // 🎯 Build objectives tracking instructions for progress extraction
     let objectivesTrackingPrompt = '';
     if (activeObjectives && activeObjectives.length > 0) {
-      // Separate numeric objectives from milestone objectives
+      // Separate numeric objectives from milestone/qualitative objectives
+      // NUMERIC: has target_value OR is body/finance category (these usually need numbers)
       const numericObjectives = activeObjectives.filter(o => 
-        o.target_value !== null || ['body', 'finance'].includes(o.category)
+        o.target_value !== null && (o.starting_value !== null || ['body', 'finance'].includes(o.category))
       );
+      // QUALITATIVE/MILESTONE: NO target_value OR target is null AND not body/finance
+      // This includes ALL objectives without concrete numeric targets
       const milestoneObjectives = activeObjectives.filter(o => 
-        o.target_value === null && !['body', 'finance'].includes(o.category) &&
-        ['milestone', 'session_detected'].includes(o.input_method || '')
+        o.target_value === null || 
+        (!['body', 'finance'].includes(o.category) && o.starting_value === null)
       );
       
       // List for numeric objectives
@@ -476,16 +479,26 @@ serve(async (req) => {
         return `- ID: ${o.id} | "${o.title}" (${o.category}) | Partenza: ${startVal} ${o.unit || ''} | Attuale: ${currVal} ${o.unit || ''} | Target: ${targetVal} ${o.unit || ''}`;
       }).join('\n');
       
-      // List for milestone objectives
+      // List for milestone objectives - with category hints for better matching
       const milestoneList = milestoneObjectives.map(o => {
         const currentDesc = o.ai_custom_description || o.description || 'Nessuna descrizione';
         const currentProgress = o.ai_progress_estimate ?? 0;
         const currentMilestones = (o.ai_milestones as any[]) || [];
+        // Include category-specific hints for better semantic matching
+        const categoryHints: Record<string, string> = {
+          'work': 'lavoro, progetto, app, cliente, carriera, azienda, sviluppo',
+          'study': 'studio, esame, corso, università, voto, tesi',
+          'growth': 'crescita, sviluppo, apprendimento, miglioramento, skill',
+          'relationships': 'relazioni, persone, amici, partner, sociale',
+          'mind': 'mentale, emozioni, benessere, meditazione, ansia'
+        };
+        const hints = categoryHints[o.category] || o.category;
         return `- ID: ${o.id} | "${o.title}" (${o.category})
-    Descrizione attuale: ${currentDesc}
-    Progresso AI stimato: ${currentProgress}%
-    Milestones raggiunte: ${currentMilestones.length > 0 ? currentMilestones.map((m: any) => m.milestone).join(', ') : 'Nessuna'}`;
-      }).join('\n');
+    🔎 Keywords correlate: ${hints}
+    📝 Descrizione attuale: ${currentDesc}
+    📊 Progresso AI stimato: ${currentProgress}%
+    ✅ Milestones raggiunte: ${currentMilestones.length > 0 ? currentMilestones.map((m: any) => m.milestone).join(', ') : 'Nessuna'}`;
+      }).join('\n\n');
       
       objectivesTrackingPrompt = `
 ═══════════════════════════════════════════════
@@ -497,46 +510,67 @@ ${numericList}` : ''}
 
 ${milestoneList ? `
 ═══════════════════════════════════════════════
-🌟 OBIETTIVI MILESTONE/QUALITATIVI (AGGIORNAMENTO AI!)
+🌟 OBIETTIVI QUALITATIVE/MILESTONE (AGGIORNAMENTO AI!)
 ═══════════════════════════════════════════════
 Questi obiettivi NON hanno valori numerici. Il PROGRESSO è stimato SOLO da te in base alla conversazione!
+⚠️ DEVI CERCARE ATTIVAMENTE correlazioni tra la conversazione e questi obiettivi!
 
 ${milestoneList}
 
+═══════════════════════════════════════════════
+📌 REGOLA FONDAMENTALE PER MILESTONE (LEGGI!)
+═══════════════════════════════════════════════
+Se l'utente PARLA di un argomento correlato a uno degli obiettivi sopra, DEVI aggiornare il progresso!
+NON serve che dica esplicitamente "il mio obiettivo" - basta che parli dell'ARGOMENTO.
+
+**ESEMPI DI RILEVAMENTO:**
+- Obiettivo "Sviluppare un'app" + utente dice "sto lavorando all'app" → AGGIORNA ai_progress_estimate!
+- Obiettivo "Sviluppare un'app" + utente dice "ho parlato del progetto" → AGGIORNA ai_progress_estimate!
+- Obiettivo "Costruire personal brand" + utente dice "ho postato sui social" → AGGIORNA!
+- Obiettivo "Migliorare al lavoro" + utente parla di progetti lavorativi → AGGIORNA!
+
 **PER OGNI OBIETTIVO MILESTONE, DEVI:**
 
-1. **RACCOGLIERE DETTAGLI** - Se l'utente menziona dettagli sul suo obiettivo, AGGIORNA la descrizione!
-   Esempio: Se l'obiettivo è "Costruire personal brand" e l'utente dice:
-   - "Il mio brand è di vestiti e si chiama Moda"
-   → ai_custom_description: "Brand di abbigliamento 'Moda' - sviluppo presenza e identità nel settore fashion"
+1. **CERCARE KEYWORDS CORRELATE** nella conversazione:
+   - "app", "sviluppo", "coding", "progetto", "funzionalità" → obiettivi work/tech
+   - "brand", "social", "contenuti", "marketing" → obiettivi marketing
+   - "studio", "esame", "libro", "corso" → obiettivi studio
+   
+2. **RACCOGLIERE DETTAGLI** - Se l'utente menziona dettagli, AGGIORNA ai_custom_description!
+   Esempio: obiettivo "Sviluppare un'app" + utente dice "L'app è per il wellness"
+   → ai_custom_description: "App per il wellness in fase di sviluppo"
 
-2. **STIMARE PROGRESSO (0-100%)** - Basandoti su cosa l'utente ha fatto/raccontato:
-   - 0-20%: Solo idea, nessuna azione concreta
-   - 20-40%: Prime azioni (registrato dominio, creato profili social, iniziato bozze)
-   - 40-60%: Lavoro in corso (contenuti creati, primi post, networking iniziato)
-   - 60-80%: Buoni progressi (community in crescita, prime vendite/risultati, feedback positivi)
-   - 80-100%: Obiettivo quasi/completamente raggiunto
+3. **STIMARE PROGRESSO (0-100%)** - ANCHE per piccoli aggiornamenti:
+   - Parlare dell'obiettivo/argomento = +5-10%
+   - Azione concreta = +10-20%
+   - Risultato tangibile = +15-25%
+   
+   Scala generale:
+   - 0-20%: Solo idea, discussione iniziale
+   - 20-40%: Prime azioni concrete
+   - 40-60%: Lavoro attivo, progressi visibili
+   - 60-80%: Buoni risultati, quasi completo
+   - 80-100%: Obiettivo raggiunto
 
-3. **AGGIUNGERE MILESTONE** - Ogni volta che l'utente racconta un'azione concreta completata:
-   Esempi di milestone:
-   - "Ho creato il profilo Instagram" → milestone: "Creato profilo Instagram"
-   - "Ho fatto il mio primo post" → milestone: "Primo contenuto pubblicato"
-   - "Ho venduto il primo prodotto" → milestone: "Prima vendita"
+4. **AGGIUNGERE MILESTONE** per azioni CONCRETE completate:
+   - "Ho finito il design" → milestone: "Design completato"
+   - "Ho fatto il deploy" → milestone: "Prima release"
+   - "Ho parlato al cliente" → milestone: "Meeting cliente"
 
-**FORMATO milestone_objective_updates:**
+**FORMATO milestone_objective_updates (USA SEMPRE!):**
 "milestone_objective_updates": [
   {
-    "objective_id": "<uuid>",
-    "ai_custom_description": "Descrizione AGGIORNATA con dettagli utente (o null se non cambia)",
-    "ai_progress_estimate": <0-100 basato su azioni concrete>,
-    "new_milestone": {"milestone": "Azione completata", "note": "Dettaglio opzionale"} | null
+    "objective_id": "<UUID ESATTO dalla lista sopra>",
+    "ai_custom_description": "Descrizione AGGIORNATA o null",
+    "ai_progress_estimate": <0-100>,
+    "new_milestone": {"milestone": "Azione", "note": "opzionale"} | null
   }
 ]
 
-⚠️ IMPORTANTE:
-- Se l'utente NON parla dell'obiettivo → NON aggiornare
-- Se parla ma senza nuovi dettagli → puoi aggiornare solo ai_progress_estimate
-- Il progresso deve AUMENTARE solo se ci sono AZIONI CONCRETE, non solo intenzioni
+⚠️ REGOLE CRITICHE:
+- ANCHE SE l'utente non dice "obiettivo", se parla dell'argomento → AGGIORNA
+- Se c'è QUALSIASI correlazione → aumenta almeno di 5%
+- USA l'UUID esatto dalla lista, NON inventare ID
 ` : ''}
 
 **DEVI estrarre aggiornamenti di progresso dalla conversazione:**

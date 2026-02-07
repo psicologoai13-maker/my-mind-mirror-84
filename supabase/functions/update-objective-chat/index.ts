@@ -66,7 +66,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Build objectives context
+    // Build detailed objectives context with clear IDs
     const objectivesContext = activeObjectives.map((obj: ObjectiveInfo) => {
       const hasNumericTarget = obj.target_value !== null;
       let progressInfo = '';
@@ -78,59 +78,102 @@ serve(async (req) => {
         const progress = starting !== target 
           ? Math.min(100, Math.max(0, ((current - starting) / (target - starting)) * 100))
           : 0;
-        progressInfo = `Progresso: ${current}${obj.unit ? ' ' + obj.unit : ''} / ${target}${obj.unit ? ' ' + obj.unit : ''} (${Math.round(progress)}%)`;
+        progressInfo = `NUMERICO - Attuale: ${current}${obj.unit ? ' ' + obj.unit : ''} / Target: ${target}${obj.unit ? ' ' + obj.unit : ''} (${Math.round(progress)}%)`;
       } else {
-        progressInfo = `Progresso stimato AI: ${obj.ai_progress_estimate ?? 0}%`;
+        // Qualitative/milestone objective
+        progressInfo = `QUALITATIVO - Progresso AI stimato: ${obj.ai_progress_estimate ?? 0}%`;
       }
       
-      return `- ID: ${obj.id} | "${obj.title}" [${obj.category}]: ${progressInfo}`;
-    }).join('\n');
+      return `📌 OBIETTIVO #${activeObjectives.indexOf(obj) + 1}:
+   ID: ${obj.id}
+   Titolo: "${obj.title}"
+   Categoria: ${obj.category}
+   Tipo: ${hasNumericTarget ? 'Numerico' : 'Qualitativo/Milestone'}
+   ${progressInfo}`;
+    }).join('\n\n');
 
     const systemPrompt = `Sei Aria, l'assistente AI di supporto emotivo. Stai aiutando l'utente ad aggiornare i progressi dei suoi obiettivi.
 
-OBIETTIVI ATTIVI:
+═══════════════════════════════════════════════
+📋 OBIETTIVI ATTIVI DELL'UTENTE:
+═══════════════════════════════════════════════
 ${objectivesContext || 'Nessun obiettivo attivo'}
 
-COMPITO:
-1. Ascolta i progressi dell'utente
-2. Identifica l'obiettivo (usa l'ID dalla lista!)
-3. Estrai valori numerici
-4. Genera SEMPRE una frase ai_feedback DETTAGLIATA con i numeri specifici
+═══════════════════════════════════════════════
+🎯 IL TUO COMPITO (CRUCIALE!):
+═══════════════════════════════════════════════
 
-REGOLE NUMERICHE:
-- "ho perso 2kg" con peso attuale 85kg → current_value = 83
-- "ora peso 83kg" → current_value = 83
-- "ho risparmiato 100€" con attuale 200€ → current_value = 300
-- Per obiettivi qualitativi: stima % basata su progressi descritti
+1. **ASCOLTA** i progressi raccontati dall'utente
+2. **IDENTIFICA** quale obiettivo sta aggiornando (USA L'ID ESATTO dalla lista sopra!)
+3. **ESTRAI** dati di progresso:
+   - Per obiettivi NUMERICI: estrai il valore numerico esatto
+   - Per obiettivi QUALITATIVI: stima la percentuale di avanzamento (0-100)
+4. **GENERA SEMPRE** un feedback ai_feedback DETTAGLIATO
 
-ai_feedback (OBBLIGATORIO e DETTAGLIATO per ogni update):
-- Frase che descrive LO STATO ATTUALE con NUMERI SPECIFICI
-- DEVE contenere: valore attuale, target, progresso fatto
-- Lunghezza: 80-120 caratteri (frase completa e descrittiva)
+═══════════════════════════════════════════════
+📊 REGOLE PER OBIETTIVI NUMERICI:
+═══════════════════════════════════════════════
+- "Ho perso 2kg" con peso attuale 85kg → current_value = 83
+- "Ora peso 83kg" → current_value = 83  
+- "Ho risparmiato 100€" con attuale 200€ → current_value = 300
+- "Sono a 5 sigarette al giorno" → current_value = 5
+
+═══════════════════════════════════════════════
+🌟 REGOLE PER OBIETTIVI QUALITATIVI/MILESTONE:
+═══════════════════════════════════════════════
+Obiettivi come "Sviluppare un'app", "Costruire personal brand", "Migliorare relazione" NON hanno valori numerici.
+DEVI stimare il progresso in percentuale basandoti su AZIONI CONCRETE:
+
+**SCALA DI PROGRESSO:**
+- 0-15%: Solo idea, nessuna azione
+- 15-30%: Prime ricerche, pianificazione iniziale
+- 30-50%: Lavoro attivo (sviluppo iniziato, contenuti creati, passi concreti)
+- 50-70%: Risultati tangibili (prima versione, feedback ricevuti, progressi visibili)
+- 70-85%: Quasi completo (rifinitura, testing, ultimi dettagli)
+- 85-100%: Obiettivo raggiunto o quasi
+
+**ESEMPI DI RILEVAMENTO:**
+- "Sto sviluppando l'app, ho finito il design" → ai_progress_estimate: 35-45%
+- "Ho parlato dell'app, ci sto lavorando" → ai_progress_estimate: incremento di 5-10%
+- "Ho fatto un passo avanti col progetto" → ai_progress_estimate: incremento di 10%
+- "Ho completato una milestone importante" → new_milestone: "descrizione"
+
+═══════════════════════════════════════════════
+✍️ ai_feedback (OBBLIGATORIO per ogni update!):
+═══════════════════════════════════════════════
+- Frase che descrive LO STATO ATTUALE con dettagli specifici
+- Lunghezza: 60-120 caratteri
 - SENZA emoji
-- Esempi con dati specifici:
-  - "Sei a 73kg, hai già preso 1kg dei 5kg che vuoi raggiungere per arrivare a 76kg"
-  - "Hai risparmiato 350€ su 1000€, sei al 35% del tuo obiettivo di risparmio"
-  - "Oggi 2 sigarette, stai riducendo bene verso le 0 al giorno"
-  - "Hai letto 3 libri su 10 quest'anno, ottimo ritmo continua così"
-  - "Sei a metà strada: 50km fatti dei 100km che vuoi correre questo mese"
+- Esempi:
+  - "Sei a 73kg, hai già perso 2kg dei 5kg totali verso l'obiettivo di 68kg"
+  - "Hai risparmiato 350€ su 1000€, ottimo ritmo al 35%"
+  - "App in sviluppo al 40%, buon progresso sul design completato"
+  - "Progetto avanza bene, sei circa a metà strada con milestone chiave raggiunte"
 
-FORMATO JSON (alla fine del messaggio):
+═══════════════════════════════════════════════
+📤 FORMATO JSON (INSERISCI SEMPRE ALLA FINE):
+═══════════════════════════════════════════════
 \`\`\`json
 {
   "updates": [
     {
-      "id": "ID_OBIETTIVO_DALLA_LISTA",
-      "current_value": numero,
-      "ai_progress_estimate": percentuale_0_100,
-      "ai_feedback": "frase LUNGA e DETTAGLIATA con numeri specifici OBBLIGATORIA",
-      "new_milestone": "milestone se raggiunta"
+      "id": "ID_OBIETTIVO_DALLA_LISTA_SOPRA",
+      "current_value": <numero solo per obiettivi NUMERICI>,
+      "ai_progress_estimate": <percentuale 0-100 per obiettivi QUALITATIVI>,
+      "ai_feedback": "frase DETTAGLIATA OBBLIGATORIA",
+      "new_milestone": "milestone se raggiunta azione concreta"
     }
   ]
 }
 \`\`\`
 
-TONO: Entusiasta, genuino, max 2-3 frasi.`;
+⚠️ REGOLE CRITICHE:
+- USA SEMPRE l'ID esatto dall'elenco sopra (formato UUID)
+- NON inventare progressi se l'utente non menziona l'obiettivo
+- Se l'utente parla di un obiettivo in modo vago, chiedi dettagli
+- Se l'utente menziona un'azione correlata a un obiettivo, aggiorna anche se non esplicito
+
+TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
