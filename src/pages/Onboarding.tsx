@@ -5,7 +5,8 @@ import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
 import NameMoodStep from '@/components/onboarding/NameMoodStep';
 import ProfileStep from '@/components/onboarding/ProfileStep';
-import JourneyStep from '@/components/onboarding/JourneyStep';
+import MotivationsStep from '@/components/onboarding/MotivationsStep';
+import GoalsStep from '@/components/onboarding/GoalsStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
 import ReadyScreen from '@/components/onboarding/ReadyScreen';
 import { Button } from '@/components/ui/button';
@@ -91,7 +92,7 @@ const needsOccupation = (ageRange?: string): boolean => {
   return ageRange === '18-24' || ageRange === '25-34';
 };
 
-type Step = 'welcome' | 'nameMood' | 'profile' | 'journey' | 'interests' | 'ready';
+type Step = 'welcome' | 'nameMood' | 'profile' | 'motivations' | 'goals' | 'interests' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
@@ -112,8 +113,8 @@ const Onboarding: React.FC = () => {
     interests: [],
   });
 
-  // Step order (fixed 5 steps)
-  const stepOrder: Step[] = ['welcome', 'nameMood', 'profile', 'journey', 'interests', 'ready'];
+  // Step order (6 quiz steps now)
+  const stepOrder: Step[] = ['welcome', 'nameMood', 'profile', 'motivations', 'goals', 'interests', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
   
   // Quiz steps (excluding welcome and ready)
@@ -140,8 +141,10 @@ const Onboarding: React.FC = () => {
       case 'profile':
         const occupationValid = needsOccupation(data.ageRange) ? !!data.occupation : true;
         return !!data.gender && !!data.ageRange && !!data.therapyStatus && occupationValid;
-      case 'journey':
-        return data.motivations.length >= 1 && data.primaryGoals.length >= 1;
+      case 'motivations':
+        return data.motivations.length >= 1;
+      case 'goals':
+        return data.primaryGoals.length >= 1;
       case 'interests':
         return true; // Optional
       default:
@@ -350,15 +353,13 @@ const Onboarding: React.FC = () => {
         </>
       )}
 
-      {/* Step 3: Journey (motivations + goals) */}
-      {currentStep === 'journey' && (
+      {/* Step 3: Motivations */}
+      {currentStep === 'motivations' && (
         <>
-          <JourneyStep
+          <MotivationsStep
             userName={data.name}
             selectedMotivations={data.motivations}
             onMotivationsChange={(m) => setData(prev => ({ ...prev, motivations: m }))}
-            selectedGoals={data.primaryGoals}
-            onGoalsChange={(g) => setData(prev => ({ ...prev, primaryGoals: g }))}
             ageRange={data.ageRange}
             gender={data.gender}
           />
@@ -380,7 +381,35 @@ const Onboarding: React.FC = () => {
         </>
       )}
 
-      {/* Step 4: Interests */}
+      {/* Step 4: Goals */}
+      {currentStep === 'goals' && (
+        <>
+          <GoalsStep
+            userName={data.name}
+            selectedGoals={data.primaryGoals}
+            onChange={(g) => setData(prev => ({ ...prev, primaryGoals: g }))}
+            ageRange={data.ageRange}
+            gender={data.gender}
+          />
+          <motion.div 
+            className="px-5 pb-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
+            >
+              Continua
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </motion.div>
+        </>
+      )}
+
+      {/* Step 5: Interests */}
       {currentStep === 'interests' && (
         <>
           <InterestsStep
