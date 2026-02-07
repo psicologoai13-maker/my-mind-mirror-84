@@ -19,12 +19,17 @@ interface Option {
   emoji: string;
 }
 
-// Motivations - "Perché sei qui?"
+// ============================================
+// MOTIVATIONS - "Perché sei qui?"
+// ============================================
+
 const baseMotivations: Option[] = [
   { id: 'vent', label: 'Sfogarmi', emoji: '💨' },
   { id: 'track_mood', label: 'Monitorare umore', emoji: '📊' },
+  { id: 'self_improvement', label: 'Migliorarmi', emoji: '🚀' },
   { id: 'understand_emotions', label: 'Capire emozioni', emoji: '🔍' },
   { id: 'daily_companion', label: 'Compagnia', emoji: '🤗' },
+  { id: 'build_habits', label: 'Creare abitudini', emoji: '🔄' },
   { id: 'reduce_stress', label: 'Ridurre stress', emoji: '🧘' },
   { id: 'journal', label: 'Tenere un diario', emoji: '📝' },
   { id: 'therapy_support', label: 'Supporto terapia', emoji: '🩺' },
@@ -33,32 +38,73 @@ const baseMotivations: Option[] = [
 
 const youthMotivations: Option[] = [
   { id: 'school_stress', label: 'Stress scolastico', emoji: '📚' },
+  { id: 'bullying', label: 'Bullismo', emoji: '🛡️' },
   { id: 'parents', label: 'Rapporto genitori', emoji: '👨‍👩‍👧' },
   { id: 'identity', label: 'Capire chi sono', emoji: '🪞' },
+  { id: 'social_pressure', label: 'Pressione sociale', emoji: '📱' },
 ];
 
 const adultMotivations: Option[] = [
   { id: 'work_stress', label: 'Stress lavorativo', emoji: '💼' },
+  { id: 'career_growth', label: 'Crescita carriera', emoji: '📈' },
+  { id: 'parenting', label: 'Essere genitore', emoji: '👶' },
+  { id: 'relationship_issues', label: 'Problemi coppia', emoji: '💔' },
   { id: 'burnout', label: 'Burnout', emoji: '🔥' },
   { id: 'life_transition', label: 'Cambiamenti vita', emoji: '🔄' },
 ];
 
-// Goals - "Su cosa vuoi lavorare?"
+const matureMotivations: Option[] = [
+  { id: 'empty_nest', label: 'Nido vuoto', emoji: '🏠' },
+  { id: 'aging', label: 'Invecchiare', emoji: '⏳' },
+  { id: 'legacy', label: 'Lasciare un segno', emoji: '🌟' },
+  { id: 'health_concerns', label: 'Preoccupazioni salute', emoji: '❤️‍🩹' },
+];
+
+const femaleMotivations: Option[] = [
+  { id: 'imposter_syndrome', label: 'Sindrome impostora', emoji: '🎭' },
+  { id: 'mental_load', label: 'Carico mentale', emoji: '🧠' },
+  { id: 'body_image', label: 'Rapporto col corpo', emoji: '🪞' },
+  { id: 'cycle_management', label: 'Gestire il ciclo', emoji: '🌙' },
+];
+
+const maleMotivations: Option[] = [
+  { id: 'express_emotions', label: 'Esprimere emozioni', emoji: '💭' },
+  { id: 'provider_pressure', label: 'Pressione economica', emoji: '💰' },
+  { id: 'show_vulnerability', label: 'Mostrarsi vulnerabile', emoji: '🫂' },
+];
+
+const femaleMatureMotivations: Option[] = [
+  { id: 'menopause', label: 'Menopausa', emoji: '🌸' },
+];
+
+// ============================================
+// GOALS - "Su cosa vuoi lavorare?"
+// ============================================
+
 const baseGoals: Option[] = [
   { id: 'anxiety', label: 'Gestire ansia', emoji: '🧘' },
+  { id: 'stress', label: 'Ridurre stress', emoji: '😮‍💨' },
   { id: 'mood', label: 'Migliorare umore', emoji: '😊' },
   { id: 'self_esteem', label: 'Autostima', emoji: '✨' },
   { id: 'sleep', label: 'Dormire meglio', emoji: '😴' },
   { id: 'energy', label: 'Più energia', emoji: '⚡' },
+  { id: 'fitness', label: 'Forma fisica', emoji: '💪' },
+  { id: 'nutrition', label: 'Alimentazione', emoji: '🥗' },
   { id: 'relationships', label: 'Relazioni', emoji: '💕' },
+  { id: 'social', label: 'Vita sociale', emoji: '👥' },
+  { id: 'communication', label: 'Comunicazione', emoji: '💬' },
+  { id: 'boundaries', label: 'Confini sani', emoji: '🛡️' },
   { id: 'growth', label: 'Crescita personale', emoji: '🌱' },
   { id: 'focus', label: 'Concentrazione', emoji: '🧠' },
+  { id: 'mindfulness', label: 'Mindfulness', emoji: '🕊️' },
   { id: 'habits', label: 'Nuove abitudini', emoji: '🔄' },
   { id: 'motivation', label: 'Motivazione', emoji: '🔥' },
 ];
 
 const youthGoals: Option[] = [
   { id: 'school_performance', label: 'Rendimento scuola', emoji: '📊' },
+  { id: 'study_habits', label: 'Abitudini studio', emoji: '📖' },
+  { id: 'peer_pressure', label: 'Pressione sociale', emoji: '👥' },
   { id: 'future_anxiety', label: 'Ansia futuro', emoji: '🔮' },
 ];
 
@@ -66,22 +112,39 @@ const adultGoals: Option[] = [
   { id: 'work_life', label: 'Work-life balance', emoji: '⚖️' },
   { id: 'productivity', label: 'Produttività', emoji: '🎯' },
   { id: 'career', label: 'Carriera', emoji: '💼' },
+  { id: 'financial', label: 'Finanze', emoji: '💰' },
 ];
 
 const matureGoals: Option[] = [
+  { id: 'aging_well', label: 'Invecchiare bene', emoji: '🌅' },
   { id: 'health_focus', label: 'Priorità salute', emoji: '❤️' },
   { id: 'new_chapter', label: 'Nuovo capitolo', emoji: '📖' },
+  { id: 'legacy_goal', label: 'Lasciare un segno', emoji: '🌟' },
 ];
 
 const femaleGoals: Option[] = [
   { id: 'body_positivity', label: 'Accettare il corpo', emoji: '💃' },
   { id: 'me_time', label: 'Tempo per me', emoji: '🛁' },
+  { id: 'mental_load_balance', label: 'Bilanciare carico', emoji: '⚖️' },
 ];
 
 const maleGoals: Option[] = [
   { id: 'emotional_intelligence', label: 'Intelligenza emotiva', emoji: '🫀' },
   { id: 'open_up', label: 'Aprirsi di più', emoji: '🗣️' },
+  { id: 'present_father', label: 'Paternità presente', emoji: '👨‍👧' },
 ];
+
+const youngFemaleGoals: Option[] = [
+  { id: 'social_comparison', label: 'Stop confronti social', emoji: '📵' },
+];
+
+const youngMaleGoals: Option[] = [
+  { id: 'healthy_masculinity', label: 'Mascolinità sana', emoji: '🌟' },
+];
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 const getAgeGroup = (ageRange?: string): 'youth' | 'adult' | 'mature' => {
   if (ageRange === '<18' || ageRange === '18-24') return 'youth';
@@ -95,6 +158,10 @@ const spring = {
   damping: 25
 };
 
+// ============================================
+// COMPONENT
+// ============================================
+
 const JourneyStep: React.FC<JourneyStepProps> = ({
   userName,
   selectedMotivations,
@@ -106,21 +173,54 @@ const JourneyStep: React.FC<JourneyStepProps> = ({
 }) => {
   const ageGroup = getAgeGroup(ageRange);
 
+  // Build motivation options based on age/gender
   const motivationOptions = useMemo(() => {
     const options = [...baseMotivations];
-    if (ageGroup === 'youth') options.push(...youthMotivations);
-    else options.push(...adultMotivations);
+    
+    if (ageGroup === 'youth') {
+      options.push(...youthMotivations);
+    } else if (ageGroup === 'mature') {
+      options.push(...adultMotivations);
+      options.push(...matureMotivations);
+      if (gender === 'female') {
+        options.push(...femaleMatureMotivations);
+      }
+    } else {
+      options.push(...adultMotivations);
+    }
+    
+    if (gender === 'female') {
+      options.push(...femaleMotivations);
+    } else if (gender === 'male') {
+      options.push(...maleMotivations);
+    }
+    
     return options;
-  }, [ageGroup]);
+  }, [ageGroup, gender]);
 
+  // Build goal options based on age/gender
   const goalOptions = useMemo(() => {
     const options = [...baseGoals];
-    if (ageGroup === 'youth') options.push(...youthGoals);
-    else if (ageGroup === 'mature') options.push(...matureGoals);
-    else options.push(...adultGoals);
     
-    if (gender === 'female') options.push(...femaleGoals);
-    else if (gender === 'male') options.push(...maleGoals);
+    if (ageGroup === 'youth') {
+      options.push(...youthGoals);
+      if (gender === 'female') {
+        options.push(...youngFemaleGoals);
+      } else if (gender === 'male') {
+        options.push(...youngMaleGoals);
+      }
+    } else if (ageGroup === 'mature') {
+      options.push(...adultGoals);
+      options.push(...matureGoals);
+    } else {
+      options.push(...adultGoals);
+    }
+    
+    if (gender === 'female') {
+      options.push(...femaleGoals);
+    } else if (gender === 'male') {
+      options.push(...maleGoals);
+    }
     
     return options;
   }, [ageGroup, gender]);
@@ -160,7 +260,7 @@ const JourneyStep: React.FC<JourneyStepProps> = ({
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-2 -mx-1 px-1">
-        {/* Section 1: Motivations */}
+        {/* Section 1: Motivations - Now using Grid like Goals */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -175,44 +275,54 @@ const JourneyStep: React.FC<JourneyStepProps> = ({
             </span>
           </div>
           
-          <div className="flex flex-wrap gap-2">
+          {/* Grid layout uniforme con Goals */}
+          <div className="grid grid-cols-2 gap-2">
             {motivationOptions.map((option, index) => {
               const isSelected = selectedMotivations.includes(option.id);
               return (
                 <motion.button
                   key={option.id}
                   onClick={() => toggleMotivation(option.id)}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 + index * 0.02 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + index * 0.015, ...spring }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-300",
-                    "bg-glass backdrop-blur-xl border text-sm",
+                    "relative p-3 rounded-xl text-left transition-all duration-300",
+                    "bg-glass backdrop-blur-xl border overflow-hidden",
+                    "flex items-center gap-2",
                     isSelected
-                      ? "border-aria-violet/50 shadow-aria-glow selection-glow"
-                      : "border-glass-border shadow-glass hover:border-aria-violet/20"
+                      ? "border-aria-violet/50 shadow-aria-glow ring-1 ring-aria-violet/20 selection-glow"
+                      : "border-glass-border shadow-glass hover:shadow-glass-elevated hover:border-aria-violet/20"
                   )}
                 >
-                  <span className="text-base">{option.emoji}</span>
+                  <AnimatePresence>
+                    {isSelected && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        exit={{ scale: 0, rotate: 180 }}
+                        transition={spring}
+                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow"
+                      >
+                        <Check className="w-3 h-3 text-white" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.span 
+                    className="text-2xl"
+                    animate={{ scale: isSelected ? 1.1 : 1 }}
+                    transition={spring}
+                  >
+                    {option.emoji}
+                  </motion.span>
                   <span className={cn(
-                    "font-medium",
+                    "text-xs font-semibold leading-tight",
                     isSelected ? "text-aria-violet" : "text-foreground"
                   )}>
                     {option.label}
                   </span>
-                  <AnimatePresence>
-                    {isSelected && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        transition={spring}
-                      >
-                        <Check className="w-3.5 h-3.5 text-aria-violet" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </motion.button>
               );
             })}
@@ -252,7 +362,7 @@ const JourneyStep: React.FC<JourneyStepProps> = ({
                   onClick={() => toggleGoal(goal.id)}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 + index * 0.02, ...spring }}
+                  transition={{ delay: 0.2 + index * 0.015, ...spring }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
                     "relative p-3 rounded-xl text-left transition-all duration-300",

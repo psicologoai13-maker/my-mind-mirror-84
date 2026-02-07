@@ -289,6 +289,7 @@ const Onboarding: React.FC = () => {
       <ReadyScreen 
         userName={data.name}
         selectedGoals={data.primaryGoals}
+        selectedMotivations={data.motivations}
         onComplete={handleComplete}
       />
     );

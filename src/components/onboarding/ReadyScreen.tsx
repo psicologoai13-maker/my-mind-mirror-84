@@ -1,15 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sparkles, MessageCircle, Shield, Heart, Target, Loader2 } from 'lucide-react';
+import { Sparkles, MessageCircle, Shield, Heart, Target, Loader2, Compass } from 'lucide-react';
 import FloatingParticles from '@/components/aria/FloatingParticles';
 
 interface ReadyScreenProps {
   userName: string;
   selectedGoals: string[];
+  selectedMotivations?: string[];
   onComplete: (goToAria: boolean) => void;
 }
 
+// Complete mapping of all motivation labels
+const motivationLabels: Record<string, { emoji: string; label: string }> = {
+  // Base motivations
+  vent: { emoji: '💨', label: 'Sfogarmi' },
+  track_mood: { emoji: '📊', label: 'Monitorare umore' },
+  self_improvement: { emoji: '🚀', label: 'Migliorarmi' },
+  understand_emotions: { emoji: '🔍', label: 'Capire emozioni' },
+  daily_companion: { emoji: '🤗', label: 'Compagnia' },
+  build_habits: { emoji: '🔄', label: 'Creare abitudini' },
+  reduce_stress: { emoji: '🧘', label: 'Ridurre stress' },
+  journal: { emoji: '📝', label: 'Tenere un diario' },
+  therapy_support: { emoji: '🩺', label: 'Supporto terapia' },
+  curiosity: { emoji: '✨', label: 'Curiosità' },
+  // Youth motivations
+  school_stress: { emoji: '📚', label: 'Stress scolastico' },
+  bullying: { emoji: '🛡️', label: 'Bullismo' },
+  parents: { emoji: '👨‍👩‍👧', label: 'Rapporto genitori' },
+  identity: { emoji: '🪞', label: 'Capire chi sono' },
+  social_pressure: { emoji: '📱', label: 'Pressione sociale' },
+  // Adult motivations
+  work_stress: { emoji: '💼', label: 'Stress lavorativo' },
+  career_growth: { emoji: '📈', label: 'Crescita carriera' },
+  parenting: { emoji: '👶', label: 'Essere genitore' },
+  relationship_issues: { emoji: '💔', label: 'Problemi coppia' },
+  burnout: { emoji: '🔥', label: 'Burnout' },
+  life_transition: { emoji: '🔄', label: 'Cambiamenti vita' },
+  // Mature motivations
+  empty_nest: { emoji: '🏠', label: 'Nido vuoto' },
+  aging: { emoji: '⏳', label: 'Invecchiare' },
+  legacy: { emoji: '🌟', label: 'Lasciare un segno' },
+  health_concerns: { emoji: '❤️‍🩹', label: 'Preoccupazioni salute' },
+  // Female motivations
+  imposter_syndrome: { emoji: '🎭', label: 'Sindrome impostora' },
+  mental_load: { emoji: '🧠', label: 'Carico mentale' },
+  body_image: { emoji: '🪞', label: 'Rapporto col corpo' },
+  cycle_management: { emoji: '🌙', label: 'Gestire il ciclo' },
+  // Male motivations
+  express_emotions: { emoji: '💭', label: 'Esprimere emozioni' },
+  provider_pressure: { emoji: '💰', label: 'Pressione economica' },
+  show_vulnerability: { emoji: '🫂', label: 'Mostrarsi vulnerabile' },
+  // Female mature
+  menopause: { emoji: '🌸', label: 'Menopausa' },
+};
+
+// Complete mapping of all goal labels
 const goalLabels: Record<string, { emoji: string; label: string }> = {
   // Base goals
   anxiety: { emoji: '🧘', label: 'Gestire ansia' },
@@ -43,15 +89,18 @@ const goalLabels: Record<string, { emoji: string; label: string }> = {
   aging_well: { emoji: '🌅', label: 'Invecchiare bene' },
   health_focus: { emoji: '❤️', label: 'Priorità salute' },
   new_chapter: { emoji: '📖', label: 'Nuovo capitolo' },
-  legacy: { emoji: '🌟', label: 'Lasciare un segno' },
-  // Gender-specific goals
+  legacy_goal: { emoji: '🌟', label: 'Lasciare un segno' },
+  // Female goals
   body_positivity: { emoji: '💃', label: 'Accettare il corpo' },
   me_time: { emoji: '🛁', label: 'Tempo per me' },
   mental_load_balance: { emoji: '⚖️', label: 'Bilanciare il carico' },
+  // Male goals
   emotional_intelligence: { emoji: '🫀', label: 'Intelligenza emotiva' },
   open_up: { emoji: '🗣️', label: 'Aprirsi di più' },
   present_father: { emoji: '👨‍👧', label: 'Paternità presente' },
+  // Young female goals
   social_comparison: { emoji: '📵', label: 'Stop confronti social' },
+  // Young male goals
   healthy_masculinity: { emoji: '🌟', label: 'Mascolinità sana' },
 };
 
@@ -61,7 +110,12 @@ const benefitItems = [
   { icon: Shield, text: 'Dati sempre al sicuro', subtext: 'Privacy garantita' },
 ];
 
-const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onComplete }) => {
+const ReadyScreen: React.FC<ReadyScreenProps> = ({ 
+  userName, 
+  selectedGoals, 
+  selectedMotivations = [],
+  onComplete 
+}) => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
 
@@ -86,6 +140,9 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
     };
   }, []);
 
+  const hasMotivations = selectedMotivations.length > 0;
+  const hasGoals = selectedGoals.length > 0;
+
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-5 relative overflow-hidden">
       {/* Aurora Background */}
@@ -109,16 +166,12 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
           >
             {/* Animated Loader with Rings */}
             <div className="relative mb-6">
-              {/* Outer ring */}
               <motion.div 
                 className="absolute inset-[-12px] rounded-full border border-aria-violet/20 ring-concentric-2"
               />
-              
-              {/* Middle ring */}
               <motion.div 
                 className="absolute inset-[-6px] rounded-full border border-aria-violet/30 ring-concentric-1"
               />
-              
               <motion.div
                 className="w-20 h-20 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow"
                 animate={{ 
@@ -161,32 +214,28 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
             className="relative z-10 w-full max-w-sm"
           >
             {/* Glass Card */}
-            <div className="card-glass p-6 rounded-3xl overflow-hidden relative">
+            <div className="card-glass p-6 rounded-3xl overflow-hidden relative max-h-[85vh] flex flex-col">
               {/* Inner aurora glow */}
               <div className="absolute inset-0 bg-gradient-aria-subtle opacity-40 pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent pointer-events-none" />
               
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col overflow-hidden">
                 {/* Aria Avatar with Rings */}
-                <div className="flex justify-center mb-5">
+                <div className="flex justify-center mb-4">
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", delay: 0.1, stiffness: 200 }}
                     className="relative"
                   >
-                    {/* Outer ring */}
                     <motion.div 
                       className="absolute inset-[-10px] rounded-full border border-aria-violet/20 ring-concentric-2"
                     />
-                    
-                    {/* Middle ring */}
                     <motion.div 
                       className="absolute inset-[-5px] rounded-full border border-aria-violet/30 ring-concentric-1"
                     />
-                    
-                    <div className="w-16 h-16 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow">
-                      <Sparkles className="w-8 h-8 text-white" />
+                    <div className="w-14 h-14 rounded-full bg-gradient-aria flex items-center justify-center shadow-aria-glow">
+                      <Sparkles className="w-7 h-7 text-white" />
                     </div>
                   </motion.div>
                 </div>
@@ -196,9 +245,9 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 }}
-                  className="text-center mb-5"
+                  className="text-center mb-4"
                 >
-                  <h1 className="text-2xl font-bold text-foreground mb-1">
+                  <h1 className="text-xl font-bold text-foreground mb-1">
                     Ciao {userName}! 🎉
                   </h1>
                   <p className="text-muted-foreground text-sm">
@@ -206,76 +255,124 @@ const ReadyScreen: React.FC<ReadyScreenProps> = ({ userName, selectedGoals, onCo
                   </p>
                 </motion.div>
 
-                {/* Why talk to Aria - Benefits */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="mb-5 space-y-3"
-                >
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider text-center font-medium">
-                    Aiutami a conoscerti meglio
-                  </p>
-                  
-                  <div className="space-y-2">
-                    {benefitItems.map((item, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.25 + index * 0.1 }}
-                        className="flex items-center gap-3 p-2.5 rounded-xl bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-aria-violet/20 flex items-center justify-center flex-shrink-0">
-                          <item.icon className="w-4 h-4 text-aria-violet" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{item.text}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.subtext}</p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* Selected Goals */}
-                {selectedGoals.length > 0 && (
+                {/* Scrollable content area */}
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
+                  {/* Why talk to Aria - Benefits */}
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="mb-5"
+                    transition={{ delay: 0.2 }}
                   >
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-2 text-center font-medium">
-                      I tuoi obiettivi
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider text-center font-medium mb-2">
+                      Aiutami a conoscerti meglio
                     </p>
-                    <div className="flex flex-wrap justify-center gap-1.5">
-                      {selectedGoals.map((goalId) => {
-                        const goal = goalLabels[goalId];
-                        if (!goal) return null;
-                        
-                        return (
-                          <motion.div
-                            key={goalId}
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-glass backdrop-blur-xl border border-aria-violet/20 shadow-glass"
-                          >
-                            <span className="text-sm">{goal.emoji}</span>
-                            <span className="text-[11px] font-medium text-foreground/80">{goal.label}</span>
-                          </motion.div>
-                        );
-                      })}
+                    
+                    <div className="space-y-2">
+                      {benefitItems.map((item, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.25 + index * 0.1 }}
+                          className="flex items-center gap-3 p-2 rounded-xl bg-glass backdrop-blur-xl border border-glass-border shadow-glass"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-aria-violet/20 flex items-center justify-center flex-shrink-0">
+                            <item.icon className="w-4 h-4 text-aria-violet" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">{item.text}</p>
+                            <p className="text-[11px] text-muted-foreground">{item.subtext}</p>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </motion.div>
-                )}
+
+                  {/* Selected Motivations */}
+                  {hasMotivations && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <div className="flex items-center justify-center gap-1.5 mb-2">
+                        <Compass className="w-3 h-3 text-muted-foreground" />
+                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                          Perché sei qui
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-1.5">
+                        {selectedMotivations.slice(0, 6).map((motivId) => {
+                          const motiv = motivationLabels[motivId];
+                          if (!motiv) return null;
+                          
+                          return (
+                            <motion.div
+                              key={motivId}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="flex items-center gap-1 px-2 py-1 rounded-full bg-glass backdrop-blur-xl border border-aria-violet/20 shadow-glass"
+                            >
+                              <span className="text-xs">{motiv.emoji}</span>
+                              <span className="text-[10px] font-medium text-foreground/80">{motiv.label}</span>
+                            </motion.div>
+                          );
+                        })}
+                        {selectedMotivations.length > 6 && (
+                          <span className="text-[10px] text-muted-foreground py-1">
+                            +{selectedMotivations.length - 6}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Selected Goals */}
+                  {hasGoals && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                    >
+                      <div className="flex items-center justify-center gap-1.5 mb-2">
+                        <Target className="w-3 h-3 text-muted-foreground" />
+                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                          I tuoi obiettivi
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-1.5">
+                        {selectedGoals.slice(0, 6).map((goalId) => {
+                          const goal = goalLabels[goalId];
+                          if (!goal) return null;
+                          
+                          return (
+                            <motion.div
+                              key={goalId}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="flex items-center gap-1 px-2 py-1 rounded-full bg-glass backdrop-blur-xl border border-aria-violet/20 shadow-glass"
+                            >
+                              <span className="text-xs">{goal.emoji}</span>
+                              <span className="text-[10px] font-medium text-foreground/80">{goal.label}</span>
+                            </motion.div>
+                          );
+                        })}
+                        {selectedGoals.length > 6 && (
+                          <span className="text-[10px] text-muted-foreground py-1">
+                            +{selectedGoals.length - 6}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
 
                 {/* CTA Buttons */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="space-y-3"
+                  transition={{ delay: 0.7 }}
+                  className="space-y-2 pt-4 mt-auto"
                 >
                   {/* Main CTA */}
                   <Button
