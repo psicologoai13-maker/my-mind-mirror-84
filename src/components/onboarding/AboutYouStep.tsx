@@ -173,66 +173,11 @@ const AboutYouStep: React.FC<AboutYouStepProps> = ({
         </div>
       </motion.div>
 
-      {/* Age Range Section - NOW SECOND */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
-        <div className="flex flex-wrap gap-2">
-          {ageRanges.map((age) => (
-            <motion.button
-              key={age}
-              onClick={() => onAgeChange(age)}
-              whileTap={{ scale: 0.95 }}
-              className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
-                ageRange === age
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
-              )}
-            >
-              {age}
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Gender Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="mb-6"
-      >
-        <p className="text-sm font-medium text-foreground mb-3">Come ti identifichi?</p>
-        <div className="flex flex-wrap gap-2">
-          {genderOptions.map((option) => (
-            <motion.button
-              key={option.id}
-              onClick={() => onGenderChange(option.id)}
-              whileTap={{ scale: 0.95 }}
-              className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
-                gender === option.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
-              )}
-            >
-              {option.label}
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
       {/* Age Range Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.4 }}
       >
         <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
         <div className="flex flex-wrap gap-2">
