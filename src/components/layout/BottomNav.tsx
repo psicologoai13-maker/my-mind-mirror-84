@@ -68,10 +68,12 @@ const BottomNav: React.FC = () => {
     <nav 
       className={cn(
         "fixed left-1/2 -translate-x-1/2 z-[9999]",
-        "w-[calc(100%-2rem)] max-w-sm",
-        "bottom-4 pb-[env(safe-area-inset-bottom,0px)]"
+        "w-[calc(100%-1.5rem)] max-w-sm"
       )}
-      style={{ willChange: 'transform' }}
+      style={{ 
+        bottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))',
+        willChange: 'transform' 
+      }}
     >
       {/* Floating Glass Dock */}
       <div className={cn(
