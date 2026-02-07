@@ -347,16 +347,23 @@ export const usePersonalizedCheckins = () => {
     refetchOnWindowFocus: false,
   });
 
-  // 🎯 STEP 3: Trigger background refresh
+  // 🎯 STEP 3: Trigger background refresh - ALWAYS fetch if no valid cache for today
   useEffect(() => {
-    if (!user || !session?.access_token || backgroundRefreshTriggered.current) return;
+    if (!user || !session?.access_token) return;
     
-    const hasValidCache = cachedData && cachedData.cachedDate === today;
+    const hasValidCache = cachedData && cachedData.cachedDate === today && cachedData.fixedDailyList && cachedData.fixedDailyList.length > 0;
     
-    if (!profileLoading) {
+    // Reset the flag at the start of each new day (when cache date doesn't match)
+    if (cachedData && cachedData.cachedDate !== today) {
+      backgroundRefreshTriggered.current = false;
+    }
+    
+    if (!profileLoading && !backgroundRefreshTriggered.current) {
       backgroundRefreshTriggered.current = true;
       
+      // If no valid cache, fetch immediately; otherwise delay to avoid flicker
       const timer = setTimeout(() => {
+        console.log('[usePersonalizedCheckins] Triggering AI refresh, hasValidCache:', hasValidCache);
         refetchAI();
       }, hasValidCache ? 2000 : 100);
       
@@ -638,7 +645,8 @@ export const usePersonalizedCheckins = () => {
   // All completed = all items in fixed list are in completedToday
   const allCompleted = totalItemsInFixedList > 0 && dailyCheckins.length === 0;
   const aiGenerated = aiData?.aiGenerated || false;
-  const isLoading = !cachedData && profileLoading && !freshAIData;
+  // Fixed: isLoading should be true when we have NO data yet (either from cache or fresh)
+  const isLoading = !cachedData && !freshAIData && (profileLoading || aiLoading);
 
   return {
     dailyCheckins,
