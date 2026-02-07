@@ -1,43 +1,53 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-const PARTICLES = [
-  { id: 1, size: 'w-1.5 h-1.5', top: '15%', left: '10%', delay: 0, duration: 8 },
-  { id: 2, size: 'w-2 h-2', top: '25%', left: '85%', delay: 1.5, duration: 10 },
-  { id: 3, size: 'w-1 h-1', top: '60%', left: '15%', delay: 0.5, duration: 9 },
-  { id: 4, size: 'w-1.5 h-1.5', top: '70%', left: '80%', delay: 2, duration: 7 },
-  { id: 5, size: 'w-2 h-2', top: '40%', left: '5%', delay: 3, duration: 11 },
-  { id: 6, size: 'w-1 h-1', top: '20%', left: '70%', delay: 1, duration: 8 },
-  { id: 7, size: 'w-1.5 h-1.5', top: '80%', left: '25%', delay: 2.5, duration: 10 },
-  { id: 8, size: 'w-1 h-1', top: '50%', left: '90%', delay: 0, duration: 9 },
-];
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  duration: number;
+  delay: number;
+  opacity: number;
+}
 
 const FloatingParticles: React.FC = () => {
+  // Minimal particles for Zen atmosphere - only 6 very subtle particles
+  const particles = useMemo<Particle[]>(() => {
+    return Array.from({ length: 6 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 1, // Very small: 1-3px
+      duration: Math.random() * 15 + 20, // Slow: 20-35s
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.15 + 0.05, // Very subtle: 0.05-0.2
+    }));
+  }, []);
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {PARTICLES.map((particle) => (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((particle) => (
         <motion.div
           key={particle.id}
-          className={`
-            absolute rounded-full
-            ${particle.size}
-            bg-gradient-to-br from-[hsl(var(--aria-violet)/0.25)] to-[hsl(var(--aria-indigo)/0.15)]
-          `}
+          className="absolute rounded-full"
           style={{
-            top: particle.top,
-            left: particle.left,
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            width: particle.size,
+            height: particle.size,
+            background: `radial-gradient(circle, rgba(255,255,255,${particle.opacity}) 0%, transparent 70%)`,
           }}
-          initial={{ opacity: 0 }}
           animate={{
-            opacity: [0.1, 0.3, 0.15, 0.25, 0.1],
-            y: [0, -20, -10, -25, 0],
-            x: [0, 10, -5, 15, 0],
+            y: [0, -30, 0],
+            x: [0, Math.random() * 20 - 10, 0],
+            opacity: [particle.opacity * 0.5, particle.opacity, particle.opacity * 0.5],
           }}
           transition={{
             duration: particle.duration,
-            delay: particle.delay,
             repeat: Infinity,
-            ease: 'easeInOut',
+            delay: particle.delay,
+            ease: "easeInOut",
           }}
         />
       ))}
