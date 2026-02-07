@@ -105,17 +105,22 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
         </div>
       </motion.div>
 
-      {/* Text - More visible */}
+      {/* Text - Bright and visible */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.8 }}
-        className="space-y-2"
+        className="space-y-3"
       >
-        <h1 className="font-display text-3xl text-foreground font-light tracking-wide">
+        <h1 
+          className="font-display text-3xl text-foreground font-medium tracking-wide"
+          style={{
+            textShadow: '0 0 30px rgba(167,139,250,0.3)',
+          }}
+        >
           Sono qui per te
         </h1>
-        <p className="text-muted-foreground/70 text-base font-light">
+        <p className="text-foreground/80 text-base font-light tracking-wider">
           quando vuoi
         </p>
       </motion.div>
@@ -143,9 +148,9 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
               "transition-all duration-300"
             )}
           >
-            <PenLine className="w-5 h-5 text-foreground/50 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
+            <PenLine className="w-5 h-5 text-foreground/70 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
           </div>
-          <span className="text-sm text-muted-foreground/50 font-medium tracking-widest uppercase group-hover:text-foreground/80 transition-colors duration-300">
+          <span className="text-sm text-foreground/70 font-semibold tracking-widest uppercase group-hover:text-foreground transition-colors duration-300">
             scrivi
           </span>
         </motion.button>
@@ -170,9 +175,9 @@ const AriaHeroSection: React.FC<AriaHeroSectionProps> = ({
               "transition-all duration-300"
             )}
           >
-            <AudioLines className="w-5 h-5 text-foreground/50 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
+            <AudioLines className="w-5 h-5 text-foreground/70 group-hover:text-[hsl(var(--aria-violet))] transition-colors duration-300" />
           </div>
-          <span className="text-sm text-muted-foreground/50 font-medium tracking-widest uppercase group-hover:text-foreground/80 transition-colors duration-300">
+          <span className="text-sm text-foreground/70 font-semibold tracking-widest uppercase group-hover:text-foreground transition-colors duration-300">
             parla
           </span>
         </motion.button>
