@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
-import NameInputStep from '@/components/onboarding/NameInputStep';
-import MotivationStep from '@/components/onboarding/MotivationStep';
-import GoalsStep from '@/components/onboarding/GoalsStep';
-import AboutYouStep from '@/components/onboarding/AboutYouStep';
+import NameMoodStep from '@/components/onboarding/NameMoodStep';
+import ProfileStep from '@/components/onboarding/ProfileStep';
+import JourneyStep from '@/components/onboarding/JourneyStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
-import OccupationStep from '@/components/onboarding/OccupationStep';
 import ReadyScreen from '@/components/onboarding/ReadyScreen';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -18,15 +16,15 @@ import { toast } from 'sonner';
 
 interface OnboardingData {
   name: string;
-  motivations: string[];
-  primaryGoals: string[];
   currentMood: number;
   moodSelected: boolean;
+  gender?: string;
   ageRange?: string;
   therapyStatus?: string;
-  gender?: string;
-  interests: string[];
   occupation?: string;
+  motivations: string[];
+  primaryGoals: string[];
+  interests: string[];
 }
 
 interface DashboardConfig {
@@ -63,6 +61,12 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
         priorityMetrics.push('mood');
         secondaryMetrics.push('self_efficacy');
         break;
+      case 'focus':
+        priorityMetrics.push('focus', 'energy');
+        break;
+      case 'motivation':
+        priorityMetrics.push('motivation', 'energy');
+        break;
     }
   });
 
@@ -82,48 +86,37 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
   };
 };
 
-// Check if age needs occupation question (18-27)
-const needsOccupationStep = (ageRange?: string): boolean => {
+// Check if age needs occupation question (18-34)
+const needsOccupation = (ageRange?: string): boolean => {
   return ageRange === '18-24' || ageRange === '25-34';
 };
 
-type BaseStep = 'welcome' | 'name' | 'aboutYou' | 'occupation' | 'motivation' | 'goals' | 'interests' | 'ready';
+type Step = 'welcome' | 'nameMood' | 'profile' | 'journey' | 'interests' | 'ready';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const { updateProfile } = useProfile();
   const { updateInterests } = useUserInterests();
   
-  const [currentStep, setCurrentStep] = useState<BaseStep>('welcome');
+  const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [data, setData] = useState<OnboardingData>({
     name: '',
-    motivations: [],
-    primaryGoals: [],
     currentMood: 2,
     moodSelected: false,
+    gender: undefined,
     ageRange: undefined,
     therapyStatus: undefined,
-    gender: undefined,
-    interests: [],
     occupation: undefined,
+    motivations: [],
+    primaryGoals: [],
+    interests: [],
   });
 
-  // Dynamic step order based on age
-  const stepOrder = useMemo((): BaseStep[] => {
-    const baseSteps: BaseStep[] = ['welcome', 'name', 'aboutYou'];
-    
-    // Add occupation step only for 18-34 age range
-    if (needsOccupationStep(data.ageRange)) {
-      baseSteps.push('occupation');
-    }
-    
-    baseSteps.push('motivation', 'goals', 'interests', 'ready');
-    return baseSteps;
-  }, [data.ageRange]);
-
+  // Step order (fixed 5 steps)
+  const stepOrder: Step[] = ['welcome', 'nameMood', 'profile', 'journey', 'interests', 'ready'];
   const currentIndex = stepOrder.indexOf(currentStep);
   
-  // Calculate quiz steps (excluding welcome and ready)
+  // Quiz steps (excluding welcome and ready)
   const quizSteps = stepOrder.filter(s => s !== 'welcome' && s !== 'ready').length;
 
   const handleNext = () => {
@@ -142,27 +135,23 @@ const Onboarding: React.FC = () => {
 
   const canProceed = () => {
     switch (currentStep) {
-      case 'name':
-        return data.name.trim().length >= 2;
-      case 'motivation':
-        return data.motivations.length >= 1;
-      case 'goals':
-        return data.primaryGoals.length >= 1;
-      case 'aboutYou':
-        // All fields are required (mood, gender, age)
-        return data.moodSelected && !!data.gender && !!data.ageRange;
-      case 'occupation':
-        return !!data.occupation;
+      case 'nameMood':
+        return data.name.trim().length >= 2 && data.moodSelected;
+      case 'profile':
+        const occupationValid = needsOccupation(data.ageRange) ? !!data.occupation : true;
+        return !!data.gender && !!data.ageRange && !!data.therapyStatus && occupationValid;
+      case 'journey':
+        return data.motivations.length >= 1 && data.primaryGoals.length >= 1;
       case 'interests':
-        return true; // interests are optional
+        return true; // Optional
       default:
         return true;
     }
   };
 
   const getProgressStep = () => {
-    const quizStepsOnly = stepOrder.filter(s => s !== 'welcome' && s !== 'ready');
-    const idx = quizStepsOnly.indexOf(currentStep as any);
+    const quizStepsOnly = stepOrder.filter(s => s !== 'welcome' && s !== 'ready') as Step[];
+    const idx = quizStepsOnly.indexOf(currentStep);
     return idx >= 0 ? idx + 1 : 0;
   };
 
@@ -186,7 +175,6 @@ const Onboarding: React.FC = () => {
       // Determine occupation_context based on age and selection
       let occupationContext = data.occupation;
       if (!occupationContext) {
-        // Default based on age if not explicitly asked
         if (data.ageRange === '<18') {
           occupationContext = 'student';
         } else if (data.ageRange && ['35-44', '45-54', '55+'].includes(data.ageRange)) {
@@ -194,11 +182,10 @@ const Onboarding: React.FC = () => {
         }
       }
       
-      // Save profile with dedicated columns for Aria's brain
+      // Save profile
       await updateProfile.mutateAsync({
         name: data.name,
         onboarding_completed: true,
-        // Save to dedicated columns so Aria can access them
         therapy_status: data.therapyStatus || 'none',
         gender: data.gender,
         occupation_context: occupationContext,
@@ -212,7 +199,6 @@ const Onboarding: React.FC = () => {
           gender: data.gender,
           interests: data.interests,
           occupation: data.occupation,
-          // Keep empty for legacy compatibility
           lifeSituation: null,
           vices: [],
           lifestyle: [],
@@ -224,9 +210,9 @@ const Onboarding: React.FC = () => {
         selected_goals: legacyGoals,
       } as any);
       
-      // Save interests to user_interests table
+      // Save interests
       if (data.interests.length > 0) {
-        const interestMappings: Record<string, Partial<{ 
+        const interestMappings: Record<string, Partial<{
           sports_followed: string[];
           music_genres: string[];
           learning_interests: string[];
@@ -275,13 +261,11 @@ const Onboarding: React.FC = () => {
           await updateInterests(interestsUpdate);
         } catch (err) {
           console.error('Error saving interests:', err);
-          // Non-blocking - continue anyway
         }
       }
       
       toast.success(`Benvenuto/a, ${data.name}! 🎉`);
       
-      // Navigate based on user choice
       if (goToAria) {
         navigate('/aria', { replace: true });
       } else {
@@ -310,7 +294,7 @@ const Onboarding: React.FC = () => {
     );
   }
 
-  const showBackButton = currentStep !== 'name';
+  const showBackButton = currentStep !== 'nameMood';
 
   return (
     <OnboardingLayout 
@@ -319,53 +303,33 @@ const Onboarding: React.FC = () => {
       onBack={handleBack}
       showBack={showBackButton}
     >
-      {/* Name Step */}
-      {currentStep === 'name' && (
-        <NameInputStep
-          value={data.name}
-          onChange={(name) => setData(prev => ({ ...prev, name }))}
+      {/* Step 1: Name + Mood */}
+      {currentStep === 'nameMood' && (
+        <NameMoodStep
+          name={data.name}
+          onNameChange={(name) => setData(prev => ({ ...prev, name }))}
+          mood={data.currentMood}
+          onMoodChange={(mood) => setData(prev => ({ ...prev, currentMood: mood }))}
+          moodSelected={data.moodSelected}
+          onMoodSelected={(selected) => setData(prev => ({ ...prev, moodSelected: selected }))}
           onNext={handleNext}
         />
       )}
 
-      {/* About You Step */}
-      {currentStep === 'aboutYou' && (
+      {/* Step 2: Profile (gender, age, therapy, occupation) */}
+      {currentStep === 'profile' && (
         <>
-          <AboutYouStep
-            currentMood={data.currentMood}
-            onMoodChange={(mood) => setData(prev => ({ ...prev, currentMood: mood }))}
-            ageRange={data.ageRange}
-            onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
+          <ProfileStep
+            userName={data.name}
             gender={data.gender}
             onGenderChange={(gender) => setData(prev => ({ ...prev, gender }))}
-            moodSelected={data.moodSelected}
-            onMoodSelected={(selected) => setData(prev => ({ ...prev, moodSelected: selected }))}
-          />
-          <motion.div 
-            className="px-5 pb-8 pt-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
-            >
-              Continua
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </motion.div>
-        </>
-      )}
-
-      {/* Occupation Step - Only for 18-34 */}
-      {currentStep === 'occupation' && (
-        <>
-          <OccupationStep
-            userName={data.name}
+            ageRange={data.ageRange}
+            onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
+            therapyStatus={data.therapyStatus}
+            onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
             occupation={data.occupation}
-            onChange={(occupation) => setData(prev => ({ ...prev, occupation }))}
+            onOccupationChange={(occ) => setData(prev => ({ ...prev, occupation: occ }))}
+            showOccupation={needsOccupation(data.ageRange)}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -385,41 +349,15 @@ const Onboarding: React.FC = () => {
         </>
       )}
 
-      {/* Motivation Step */}
-      {currentStep === 'motivation' && (
+      {/* Step 3: Journey (motivations + goals) */}
+      {currentStep === 'journey' && (
         <>
-          <MotivationStep
+          <JourneyStep
             userName={data.name}
             selectedMotivations={data.motivations}
-            onChange={(motivations) => setData(prev => ({ ...prev, motivations }))}
-            ageRange={data.ageRange}
-            gender={data.gender}
-          />
-          <motion.div 
-            className="px-5 pb-8 pt-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className="w-full h-14 rounded-full text-base font-semibold bg-gradient-aria text-white shadow-aria-glow hover:shadow-elevated transition-all duration-300 disabled:opacity-40 disabled:shadow-none"
-            >
-              Continua
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </motion.div>
-        </>
-      )}
-
-      {/* Goals Step */}
-      {currentStep === 'goals' && (
-        <>
-          <GoalsStep
-            userName={data.name}
+            onMotivationsChange={(m) => setData(prev => ({ ...prev, motivations: m }))}
             selectedGoals={data.primaryGoals}
-            onChange={(goals) => setData(prev => ({ ...prev, primaryGoals: goals }))}
+            onGoalsChange={(g) => setData(prev => ({ ...prev, primaryGoals: g }))}
             ageRange={data.ageRange}
             gender={data.gender}
           />
@@ -441,7 +379,7 @@ const Onboarding: React.FC = () => {
         </>
       )}
 
-      {/* Interests Step */}
+      {/* Step 4: Interests */}
       {currentStep === 'interests' && (
         <>
           <InterestsStep
