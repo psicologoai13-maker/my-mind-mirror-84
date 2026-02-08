@@ -550,24 +550,25 @@ const Chat: React.FC = () => {
     );
   }
 
-  // Use CSS-based approach for iOS keyboard - svh adapts to visual viewport
+  // Use dvh (dynamic viewport height) which automatically adjusts for iOS keyboard
+  // Unlike svh which stays constant, dvh shrinks when keyboard appears
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    // Use dvh for dynamic keyboard handling - bottom: 0 as fallback
+    height: '100dvh',
     backgroundColor: 'hsl(var(--background))',
     display: 'flex',
     flexDirection: 'column',
     paddingTop: 'env(safe-area-inset-top, 0px)',
-    // Override height with svh for iOS keyboard support
-    height: '100svh',
+    overflow: 'hidden', // Prevent any content overflow
   };
 
   return (
     <div 
-      className="flex flex-col bg-background chat-container-stable"
+      className="flex flex-col bg-background"
       style={containerStyle}
     >
       {/* Crisis Emergency Modal */}
@@ -633,17 +634,17 @@ const Chat: React.FC = () => {
         </div>
       </header>
 
-      {/* Messages - Flex grow with overflow scroll */}
-      {/* GOLDEN RULE: If messages.length > 0, NEVER show loading spinner - always keep messages visible */}
+      {/* Messages area - CRITICAL: flex-1 + min-h-0 + overflow-auto for proper sizing */}
+      {/* min-h-0 is essential to allow flex-1 to shrink below content size */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-4 py-4 space-y-3 bg-background"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
         style={{ 
           WebkitOverflowScrolling: 'touch',
-          // CRITICAL: Fixed background to prevent transparency during resize
           backgroundColor: 'hsl(var(--background))',
         }}
       >
+        <div className="px-4 py-4 space-y-3">
         {/* Show skeleton ONLY if loading AND no messages yet AND no initial greeting (first load) */}
         {isLoadingMessages && messages.length === 0 && !initialGreeting ? (
           <div className="space-y-3">
@@ -718,6 +719,7 @@ const Chat: React.FC = () => {
           </>
         )}
         <div ref={messagesEndRef} className="h-1" />
+        </div>
       </div>
 
       {/* Input Area - Always visible above keyboard */}
