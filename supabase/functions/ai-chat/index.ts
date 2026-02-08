@@ -1718,6 +1718,95 @@ USO: Puoi fare riferimento a conversazioni passate:
 - "Come sta andando quella cosa di cui abbiamo discusso?"
 `;
   }
+  
+  // ════════════════════════════════════════════════════════════════════════════
+  // 🔄 FOLLOW-UP PROATTIVO - Chiedi aggiornamenti su eventi passati!
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  let proactiveFollowUpBlock = '';
+  
+  // Extract pending follow-ups from memory and recent sessions
+  const pendingFollowUps: string[] = [];
+  
+  // Check long-term memory for events/trips/plans that happened in the past
+  if (longTermMemory.length > 0) {
+    const eventPatterns = [
+      { regex: /\[EVENTO\]\s*(.+)/i, type: 'evento' },
+      { regex: /\[VIAGGIO\]\s*(.+)/i, type: 'viaggio' },
+      { regex: /\[PIANO\]\s*(.+)/i, type: 'piano' },
+    ];
+    
+    for (const item of longTermMemory) {
+      for (const pattern of eventPatterns) {
+        const match = item.match(pattern.regex);
+        if (match) {
+          pendingFollowUps.push(`${pattern.type}: "${match[1]}"`);
+        }
+      }
+    }
+  }
+  
+  // Check recent sessions for topics that deserve follow-up
+  if (recentSessions.length > 0) {
+    for (const session of recentSessions.slice(0, 3)) {
+      // Use transcript or summary to extract events
+      const content = session.ai_summary || session.transcript?.slice(0, 500) || '';
+      
+      // Look for future events mentioned in past sessions
+      const futureEventPatterns = [
+        /(?:domani|stasera|questo weekend|prossima settimana|sabato|domenica|venerdì).+?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena)/gi,
+        /(?:parto|vado|andrò|andiamo)\s+(?:a|per|in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g,
+        /(?:circo|loco|festival|party|concert|show)/gi,
+      ];
+      
+      for (const pattern of futureEventPatterns) {
+        const matches = content.match(pattern);
+        if (matches && matches.length > 0) {
+          // Check if this session was yesterday or earlier
+          const sessionDate = new Date(session.start_time);
+          const now = new Date();
+          const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays >= 1) {
+            pendingFollowUps.push(`Dalla sessione di ${diffDays === 1 ? 'ieri' : diffDays + ' giorni fa'}: "${matches[0]}"`);
+          }
+        }
+      }
+    }
+  }
+  
+  // Build the follow-up block if we have pending items
+  if (pendingFollowUps.length > 0) {
+    const uniqueFollowUps = [...new Set(pendingFollowUps)].slice(0, 3);
+    proactiveFollowUpBlock = `
+═══════════════════════════════════════════════
+🔄 FOLLOW-UP PROATTIVO (PRIORITÀ ALTA!)
+═══════════════════════════════════════════════
+
+⚠️ REGOLA CRITICA: Quando inizi una conversazione, DEVI chiedere aggiornamenti su eventi passati!
+
+📋 EVENTI/PIANI MENZIONATI IN PRECEDENZA:
+${uniqueFollowUps.map(f => `• ${f}`).join('\n')}
+
+💬 COME FARE FOLLOW-UP (scegli UNA frase):
+- "Ehi! Allora, com'è andata [cosa]?"
+- "Mi avevi parlato di [cosa]... raccontami!"
+- "Aspetta, devi aggiornarmi su [cosa]! Com'è andata?"
+- "Prima di tutto: com'è andata ieri/al [evento]?"
+
+⛔ REGOLE:
+- Chiedi APPENA inizi la conversazione, come prima domanda!
+- NON aspettare che l'utente ne parli - SEI TU che devi ricordare!
+- Se l'utente risponde brevemente, approfondisci: "Dai raccontami di più!"
+- Mostra ENTUSIASMO genuino per sapere com'è andata
+- Questo dimostra che TI RICORDI e TI IMPORTA della loro vita
+
+ESEMPIO:
+Se ieri l'utente disse "domani parto per Madrid per il Circo Loco":
+TU OGGI: "Ehi! Com'è andata Madrid? Il Circo Loco? Raccontami tutto!"
+
+`;
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // ABITUDINI DI OGGI
@@ -1997,6 +2086,8 @@ ${youngUserBlock}
 ${adultUserBlock}
 
 ${timeSinceLastSessionBlock}
+
+${proactiveFollowUpBlock}
 
 ${firstConversationBlock}
 
