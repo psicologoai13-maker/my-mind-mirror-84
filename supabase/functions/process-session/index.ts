@@ -386,6 +386,56 @@ Quando l'utente dice:
 - CELEBRA sempre i progressi!
 `);
 
+  // 📅 EVENT DETECTION: Extract future events from conversation
+  instructions.push(`
+═══════════════════════════════════════════════
+📅 ESTRAZIONE EVENTI FUTURI (CRUCIALE!)
+═══════════════════════════════════════════════
+DEVI identificare e estrarre TUTTI gli eventi futuri menzionati nella conversazione.
+
+**TIPI DI EVENTI DA RILEVARE:**
+- **travel**: "Parto per Madrid", "Vado a Roma", "Viaggio a Londra", "Vacanza in Spagna"
+- **medical**: "Ho il medico", "Visita dal dottore", "Appuntamento all'ospedale", "Controllo"
+- **work**: "Colloquio di lavoro", "Riunione", "Presentazione", "Meeting"
+- **social**: "Cena con amici", "Festa", "Aperitivo", "Uscita"
+- **celebration**: "Matrimonio", "Compleanno", "Laurea", "Anniversario"
+- **appointment**: "Appuntamento dal dentista", "Parrucchiere", "Meccanico"
+- **generic**: Altri eventi non categorizzabili
+
+**COME ESTRARRE DATA/ORA:**
+- "Domani" → data di domani
+- "Dopodomani" → data +2 giorni
+- "Lunedì prossimo" → calcola la data
+- "Il 15" → giorno 15 del mese corrente (o prossimo se già passato)
+- "alle 15" / "alle 3" → 15:00 / 15:00 (PM assumido se ambiguo)
+- "la mattina" → event_time: "09:00" (approssimativo)
+- "la sera" → event_time: "20:00"
+- Se SOLO data senza ora → event_time: null, is_all_day: true
+
+**CONTESTO TEMPORALE:**
+Data di oggi: ${new Date().toISOString().split('T')[0]}
+
+**ESEMPI:**
+1. "Domani alle 10 ho un colloquio" 
+   → title: "Colloquio", event_type: "work", event_date: [domani], event_time: "10:00"
+
+2. "Domenica parto per Madrid con amici per il Circo Loco"
+   → title: "Viaggio a Madrid - Circo Loco", event_type: "travel", location: "Madrid", tags: ["amici", "evento"]
+
+3. "Il 20 febbraio ho la visita dal medico"
+   → title: "Visita medica", event_type: "medical", event_date: "2026-02-20"
+
+4. "Questo weekend vado a sciare"
+   → title: "Sciata", event_type: "travel", event_date: [sabato prossimo], is_all_day: true
+
+**REGOLE:**
+- Estrai SOLO eventi FUTURI (oggi incluso)
+- NON eventi passati (già accaduti)
+- Includi extracted_from_text con la frase originale
+- Se non riesci a determinare la data esatta → NON estrarre (meglio nulla che sbagliato)
+- Se l'utente menziona durata (es: "3 giorni a Roma") → usa end_date
+`);
+
   return instructions.length > 0 
     ? `\n═══════════════════════════════════════════════
 🎯 ANALISI PERSONALIZZATA (BASATA SU OBIETTIVI UTENTE)
@@ -1508,6 +1558,20 @@ deve avere fear >= 3 e sadness >= 2 come minimo.
       "date": "YYYY-MM-DD (oggi o data menzionata)",
       "note": "nota opzionale"
     }
+  ],
+  "events_detected": [
+    {
+      "title": "Titolo breve dell'evento (es: Colloquio di lavoro, Viaggio a Madrid)",
+      "event_type": "travel|medical|work|social|celebration|appointment|generic",
+      "event_date": "YYYY-MM-DD",
+      "event_time": "HH:MM o null se non specificato",
+      "end_date": "YYYY-MM-DD o null",
+      "is_all_day": true/false,
+      "location": "Luogo se menzionato o null",
+      "description": "Dettagli aggiuntivi o null",
+      "tags": ["tag1", "tag2"],
+      "extracted_from_text": "Frase originale dell'utente"
+    }
   ]
 }
 
@@ -2422,6 +2486,71 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               console.log(`[process-session] ✨ Updated milestone objective ${update.objective_id}`);
             }
           }
+        }
+      }
+    }
+
+    // 📅 NEW: Save events detected by AI to user_events table
+    const eventsDetected = (analysis as any).events_detected || [];
+    if (eventsDetected.length > 0) {
+      console.log('[process-session] AI detected events:', eventsDetected);
+      
+      for (const event of eventsDetected) {
+        if (!event.title || !event.event_date) continue;
+        
+        // Validate date format
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(event.event_date)) {
+          console.log(`[process-session] Skipping event with invalid date: ${event.event_date}`);
+          continue;
+        }
+        
+        // Check if event is in the future (or today)
+        const eventDate = new Date(event.event_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (eventDate < today) {
+          console.log(`[process-session] Skipping past event: ${event.title} on ${event.event_date}`);
+          continue;
+        }
+        
+        // Check if similar event already exists (avoid duplicates)
+        const { data: existingEvent } = await supabase
+          .from('user_events')
+          .select('id')
+          .eq('user_id', user_id)
+          .eq('event_date', event.event_date)
+          .ilike('title', `%${event.title.substring(0, 20)}%`)
+          .maybeSingle();
+        
+        if (!existingEvent) {
+          const { error: eventError } = await supabase
+            .from('user_events')
+            .insert({
+              user_id: user_id,
+              title: event.title,
+              event_type: event.event_type || 'generic',
+              event_date: event.event_date,
+              event_time: event.event_time || null,
+              end_date: event.end_date || null,
+              is_all_day: event.is_all_day ?? (event.event_time === null),
+              location: event.location || null,
+              description: event.description || null,
+              tags: event.tags || [],
+              extracted_from_text: event.extracted_from_text || null,
+              source_session_id: session_id,
+              status: 'upcoming',
+              follow_up_done: false
+            });
+          
+          if (eventError) {
+            console.error('[process-session] Error creating event:', eventError);
+          } else {
+            console.log(`[process-session] 📅 Created event: ${event.title} on ${event.event_date}`);
+          }
+        } else {
+          console.log(`[process-session] Event already exists: ${event.title} on ${event.event_date}`);
         }
       }
     }
