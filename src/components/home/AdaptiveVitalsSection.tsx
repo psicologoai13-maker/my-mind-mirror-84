@@ -126,14 +126,12 @@ const AdaptiveVitalsSection: React.FC = () => {
     return metrics.slice(0, 4); // Exactly 4 for 2x2 grid
   }, [layout]);
 
+  // CRITICAL: Wait for BOTH sources to be ready before showing any cards
+  // This prevents the staggered loading effect where some cards appear before others
   const isLoading = isLoadingAI || isLoadingMetrics;
   
-  // Show silent skeleton loader only if we truly have no data
-  // Use global cache presence to avoid flicker on remount
-  const hasAnyData = primaryMetrics.length > 0;
-
-  // Silent skeleton loader - no "AI" messaging since values are calculated locally
-  if (isLoading && !hasAnyData) {
+  // Show skeleton until ALL data sources are ready - unified loading experience
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2.5 px-1">
