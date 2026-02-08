@@ -1107,6 +1107,67 @@ ${interestParts.join('\n')}`);
     blocks.push(`
 ⏰ CONVERSAZIONI RECENTI (ricorda questi argomenti!):
 ${sessionsInfo}`);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🔄 FOLLOW-UP PROATTIVO - Chiedi aggiornamenti su eventi passati!
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const pendingFollowUps: string[] = [];
+    
+    // Check long-term memory for events/trips/plans
+    if (ctx.profile?.long_term_memory?.length > 0) {
+      const eventPatterns = [
+        { regex: /\[EVENTO\]\s*(.+)/i, type: 'evento' },
+        { regex: /\[VIAGGIO\]\s*(.+)/i, type: 'viaggio' },
+        { regex: /\[PIANO\]\s*(.+)/i, type: 'piano' },
+      ];
+      
+      for (const item of ctx.profile.long_term_memory) {
+        for (const pattern of eventPatterns) {
+          const match = item.match(pattern.regex);
+          if (match) {
+            pendingFollowUps.push(`${pattern.type}: "${match[1]}"`);
+          }
+        }
+      }
+    }
+    
+    // Check recent sessions for topics that deserve follow-up
+    for (const session of ctx.recentSessions.slice(0, 3)) {
+      const content = session.ai_summary || session.transcript?.slice(0, 500) || '';
+      
+      // Look for future events mentioned in past sessions
+      const futureEventPatterns = [
+        /(?:domani|stasera|questo weekend|prossima settimana|sabato|domenica|venerdì).+?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena)/gi,
+        /(?:parto|vado|andrò|andiamo)\s+(?:a|per|in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g,
+        /(?:circo|loco|festival|party|concert|show)/gi,
+      ];
+      
+      for (const pattern of futureEventPatterns) {
+        const matches = content.match(pattern);
+        if (matches && matches.length > 0) {
+          const sessionDate = new Date(session.start_time);
+          const now = new Date();
+          const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays >= 1) {
+            pendingFollowUps.push(`Dalla sessione di ${diffDays === 1 ? 'ieri' : diffDays + ' giorni fa'}: "${matches[0]}"`);
+          }
+        }
+      }
+    }
+    
+    // Add follow-up block if we have pending items
+    if (pendingFollowUps.length > 0) {
+      const uniqueFollowUps = [...new Set(pendingFollowUps)].slice(0, 3);
+      blocks.push(`
+🔄 FOLLOW-UP PROATTIVO (PRIORITÀ ALTA!):
+⚠️ APPENA INIZI, CHIEDI AGGIORNAMENTI SU:
+${uniqueFollowUps.map(f => `• ${f}`).join('\n')}
+
+💬 ESEMPIO: "Ehi! Allora, com'è andata [cosa]? Raccontami!"
+⛔ NON aspettare che l'utente ne parli - SEI TU che devi ricordare!`);
+    }
   }
   
   // Habits today
