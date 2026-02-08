@@ -1752,10 +1752,45 @@ USO: Puoi fare riferimento a conversazioni passate:
   const currentDate = now.getDate();
   const currentYear = now.getFullYear();
   
-  // Helper: Parse Italian temporal reference to target date
-  function parseTemporalReference(text: string, sessionDate: Date): { targetDate: Date | null; description: string } {
+  // Helper: Parse Italian temporal reference to target date AND time
+  function parseTemporalReference(text: string, sessionDate: Date): { targetDate: Date | null; targetHour: number | null; description: string } {
     const lowerText = text.toLowerCase();
     const refDate = new Date(sessionDate);
+    let targetHour: number | null = null;
+    
+    // Italian word-to-number mapping for hours
+    const italianNumbers: Record<string, number> = {
+      'una': 1, 'due': 2, 'tre': 3, 'quattro': 4, 'cinque': 5, 'sei': 6,
+      'sette': 7, 'otto': 8, 'nove': 9, 'dieci': 10, 'undici': 11, 'dodici': 12,
+      'tredici': 13, 'quattordici': 14, 'quindici': 15, 'sedici': 16, 'diciassette': 17,
+      'diciotto': 18, 'diciannove': 19, 'venti': 20, 'ventuno': 21, 'ventidue': 22,
+      'ventitre': 23, 'ventiquattro': 24, 'mezzanotte': 0, 'mezzogiorno': 12
+    };
+    
+    // Parse specific time: "alle 15", "alle 10:30", "alle otto", "alle 15.30"
+    const timePatterns = [
+      /alle?\s+(\d{1,2})(?:[:\.](\d{2}))?/i,  // "alle 15", "alle 10:30", "alle 15.30"
+      /alle?\s+(una|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|undici|dodici|tredici|quattordici|quindici|sedici|diciassette|diciotto|diciannove|venti|ventuno|ventidue|ventitre|mezzanotte|mezzogiorno)(?:\s+e\s+(?:mezza|trenta|quindici))?/i,
+      /per\s+le\s+(\d{1,2})(?:[:\.](\d{2}))?/i,  // "per le 15"
+      /verso\s+le\s+(\d{1,2})(?:[:\.](\d{2}))?/i,  // "verso le 15"
+    ];
+    
+    for (const pattern of timePatterns) {
+      const timeMatch = lowerText.match(pattern);
+      if (timeMatch) {
+        if (timeMatch[1] && isNaN(parseInt(timeMatch[1]))) {
+          // Word number
+          targetHour = italianNumbers[timeMatch[1].toLowerCase()] || null;
+        } else {
+          targetHour = parseInt(timeMatch[1]);
+        }
+        // Handle "e mezza" (half past)
+        if (lowerText.includes('e mezza') || lowerText.includes('e trenta')) {
+          // Keep the hour, the :30 is implicit
+        }
+        break;
+      }
+    }
     
     // "tra X giorni/settimane"
     const traMatch = lowerText.match(/tra\s+(\d+)\s+(giorn[oi]|settiman[ae]|mes[ei])/);
@@ -1764,14 +1799,25 @@ USO: Puoi fare riferimento a conversazioni passate:
       const unit = traMatch[2];
       if (unit.startsWith('giorn')) {
         refDate.setDate(refDate.getDate() + num);
-        return { targetDate: refDate, description: `tra ${num} giorni` };
+        return { targetDate: refDate, targetHour, description: `tra ${num} giorni` };
       } else if (unit.startsWith('settiman')) {
         refDate.setDate(refDate.getDate() + num * 7);
-        return { targetDate: refDate, description: `tra ${num} settimane` };
+        return { targetDate: refDate, targetHour, description: `tra ${num} settimane` };
       } else if (unit.startsWith('mes')) {
         refDate.setMonth(refDate.getMonth() + num);
-        return { targetDate: refDate, description: `tra ${num} mesi` };
+        return { targetDate: refDate, targetHour, description: `tra ${num} mesi` };
       }
+    }
+    
+    // "oggi" - same day with possible time
+    if (/\boggi\b/.test(lowerText)) {
+      return { targetDate: refDate, targetHour, description: targetHour ? `oggi alle ${targetHour}` : 'oggi' };
+    }
+    
+    // "domani" - tomorrow with possible time
+    if (/\bdomani\b/.test(lowerText)) {
+      refDate.setDate(refDate.getDate() + 1);
+      return { targetDate: refDate, targetHour, description: targetHour ? `domani alle ${targetHour}` : 'domani' };
     }
     
     // Specific days: "lunedì", "venerdì prossimo", etc.
@@ -1783,7 +1829,7 @@ USO: Puoi fare riferimento a conversazioni passate:
         if (daysUntil <= 0) daysUntil += 7; // Next week
         if (lowerText.includes('prossimo')) daysUntil += 7; // Explicit next week
         refDate.setDate(sessionDate.getDate() + daysUntil);
-        return { targetDate: refDate, description: italianDays[i] };
+        return { targetDate: refDate, targetHour, description: targetHour ? `${italianDays[i]} alle ${targetHour}` : italianDays[i] };
       }
     }
     
@@ -1800,6 +1846,7 @@ USO: Puoi fare riferimento a conversazioni passate:
         }
         return { 
           targetDate: new Date(targetYear, targetMonth, 15), 
+          targetHour,
           description: `${italianMonths[i]} ${targetYear}`
         };
       }
@@ -1828,7 +1875,7 @@ USO: Puoi fare riferimento a conversazioni passate:
       }
       
       if (day >= 1 && day <= 31) {
-        return { targetDate: new Date(year, month, day), description: `il ${day}` };
+        return { targetDate: new Date(year, month, day), targetHour, description: `il ${day}` };
       }
     }
     
@@ -1850,31 +1897,67 @@ USO: Puoi fare riferimento a conversazioni passate:
             (date.month === sessionDate.getMonth() && date.day < sessionDate.getDate())) {
           year++;
         }
-        return { targetDate: new Date(year, date.month, date.day), description: holiday };
+        return { targetDate: new Date(year, date.month, date.day), targetHour, description: holiday };
       }
     }
     
-    return { targetDate: null, description: '' };
+    // If only time was found but no date, assume today
+    if (targetHour !== null) {
+      return { targetDate: refDate, targetHour, description: `alle ${targetHour}` };
+    }
+    
+    return { targetDate: null, targetHour: null, description: '' };
   }
   
-  // Helper: Check if target date matches "now" context
-  function isEventTimeRelevant(targetDate: Date, referenceText: string): 'happening_now' | 'just_passed' | 'upcoming' | null {
+  // Helper: Check if target date/time matches "now" context
+  function isEventTimeRelevant(targetDate: Date, targetHour: number | null, referenceText: string): 'happening_now' | 'just_passed' | 'upcoming' | null {
     const diffMs = targetDate.getTime() - now.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const lowerRef = referenceText.toLowerCase();
+    const currentMinutes = currentHour * 60 + now.getMinutes();
     
-    // Check for specific time of day
+    // Check for specific time of day (general)
     const isEveningEvent = /stasera|sera|notte/.test(lowerRef);
     const isMorningEvent = /mattina|stamattina/.test(lowerRef);
     const isAfternoonEvent = /pomeriggio/.test(lowerRef);
     
-    // Same day
-    if (diffDays === 0 || (diffDays === -1 && Math.abs(diffMs) < 12 * 60 * 60 * 1000)) {
+    // Check if same day
+    const isSameDay = targetDate.toDateString() === now.toDateString();
+    const isYesterday = diffDays >= -1 && diffDays < 0;
+    
+    // If specific hour is set, check time-based relevance
+    if (targetHour !== null && isSameDay) {
+      const eventMinutes = targetHour * 60;
+      const minutesDiff = currentMinutes - eventMinutes;
+      
+      // Event is happening now (within 30 min before to 90 min after start)
+      if (minutesDiff >= -30 && minutesDiff <= 90) {
+        return 'happening_now';
+      }
+      
+      // Event just passed (30 min to 3 hours ago)
+      if (minutesDiff > 90 && minutesDiff <= 180) {
+        return 'just_passed';
+      }
+      
+      // Event is upcoming today (within next 3 hours)
+      if (minutesDiff >= -180 && minutesDiff < -30) {
+        return 'upcoming';
+      }
+    }
+    
+    // Same day without specific time
+    if (isSameDay && targetHour === null) {
       // Check time slot
       if (isEveningEvent && isEvening) return 'happening_now';
       if (isMorningEvent && isMorning) return 'happening_now';
       if (isAfternoonEvent && isAfternoon) return 'happening_now';
       if (!isEveningEvent && !isMorningEvent && !isAfternoonEvent) return 'happening_now';
+    }
+    
+    // Yesterday with specific time - event passed
+    if (isYesterday && targetHour !== null) {
+      return 'just_passed';
     }
     
     // Just passed (yesterday or 1-3 days ago)
@@ -1913,7 +1996,7 @@ USO: Puoi fare riferimento a conversazioni passate:
           const parsed = parseTemporalReference(eventText, new Date()); // Use now as reference for memory
           
           if (parsed.targetDate) {
-            const relevance = isEventTimeRelevant(parsed.targetDate, eventText);
+            const relevance = isEventTimeRelevant(parsed.targetDate, parsed.targetHour, eventText);
             if (relevance === 'happening_now') {
               eventsHappeningNow.push(`🎉 DALLA MEMORIA: "${eventText}" - STA SUCCEDENDO ORA/OGGI!`);
             } else if (relevance === 'just_passed') {
@@ -1930,8 +2013,12 @@ USO: Puoi fare riferimento a conversazioni passate:
     }
   }
   
-  // Extended temporal patterns for session scanning
+  // Extended temporal patterns for session scanning (including specific times)
   const extendedTemporalPatterns = [
+    // Specific times with events: "alle 15 ho il medico", "alle 10 devo andare"
+    /(?:alle?\s+\d{1,2}(?:[:.]\d{2})?|alle?\s+(?:una|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|undici|dodici|tredici|quattordici|quindici|sedici|diciassette|diciotto|diciannove|venti|ventuno|ventidue|ventitre)).{0,60}?(?:ho|devo|c'è|abbiamo|vado|esco|appuntamento|medico|dentista|colloquio|esame|riunione|meeting|call|visita|lezione|allenamento|palestra)/gi,
+    // Events with times: "il medico alle 15", "colloquio alle 10"
+    /(?:medico|dentista|colloquio|esame|riunione|meeting|call|visita|lezione|allenamento|palestra|appuntamento).{0,40}?(?:alle?\s+\d{1,2}(?:[:.]\d{2})?)/gi,
     // Short term (today/tomorrow)
     /(?:stasera|stanotte|oggi|domani).{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|party|club|discoteca|circo|festival|aperitivo|parto|vado|andiamo|esco)/gi,
     // Weekend
@@ -1969,7 +2056,7 @@ USO: Puoi fare riferimento a conversazioni passate:
             const parsed = parseTemporalReference(match, sessionDate);
             
             if (parsed.targetDate) {
-              const relevance = isEventTimeRelevant(parsed.targetDate, match);
+              const relevance = isEventTimeRelevant(parsed.targetDate, parsed.targetHour, match);
               
               if (relevance === 'happening_now') {
                 eventsHappeningNow.push(`🎉 ${diffDays === 0 ? 'Oggi hai detto' : diffDays === 1 ? 'Ieri hai detto' : diffDays + ' giorni fa hai detto'}: "${match}" - È ORA!`);
@@ -2056,6 +2143,8 @@ ESEMPI ARCO TEMPORALE:
 - Una settimana fa disse "venerdì ho un colloquio" + oggi è venerdì → "In bocca al lupo per il colloquio!"
 - 2 settimane fa disse "ad agosto vado a Ibiza" + è agosto → "Sei a Ibiza! Com'è? Raccontami tutto!"
 - Disse "il 15 parto" + oggi è il 16 → "Com'è andata la partenza ieri?"
+- Disse "alle 15 ho il medico" + sono le 15:30 → "Ehi! Sei dal medico? Tutto bene?"
+- Disse "alle otto ho lezione" + sono le 8:45 → "Come va la lezione?"
 `;
   }
 
