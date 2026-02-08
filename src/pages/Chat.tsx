@@ -8,7 +8,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
-import { useVisualViewport } from '@/hooks/useVisualViewport';
+
 import { useRealTimeContext } from '@/hooks/useRealTimeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,8 +39,6 @@ const Chat: React.FC = () => {
   const queryClient = useQueryClient();
   const { context: realTimeContext } = useRealTimeContext();
   
-  // VisualViewport for iOS keyboard handling
-  const viewport = useVisualViewport();
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -312,10 +310,10 @@ const Chat: React.FC = () => {
     });
   }, []);
 
-  // Scroll when messages change, streaming updates, or keyboard opens
+  // Scroll when messages change or streaming updates
   useEffect(() => {
     scrollToBottom();
-  }, [messages.length, streamingContent, viewport.isKeyboardOpen, scrollToBottom]);
+  }, [messages.length, streamingContent, scrollToBottom]);
 
   // Prevent rubber-banding on header touch
   useEffect(() => {
@@ -552,29 +550,17 @@ const Chat: React.FC = () => {
     );
   }
 
-  // Container style for iOS keyboard handling
-  // CRITICAL: Always provide stable dimensions to prevent flicker
+  // Container style - simplified for better iOS keyboard handling
+  // Uses 100dvh which automatically adjusts for keyboard on modern iOS
   const containerStyle: React.CSSProperties = {
-    // Always use fixed background to prevent transparency flash
     backgroundColor: 'hsl(var(--background))',
-    // Prevent iOS rubber-banding
     overscrollBehavior: 'none',
-    // Hardware acceleration for smoother transitions
     transform: 'translateZ(0)',
     WebkitTransform: 'translateZ(0)',
-    // Ensure safe area padding on top
     paddingTop: 'env(safe-area-inset-top, 0px)',
-    ...(viewport.isKeyboardOpen ? { 
-      height: `${viewport.height}px`,
-      position: 'fixed' as const,
-      top: 0,
-      left: 0,
-      right: 0,
-      overflow: 'hidden',
-    } : {
-      minHeight: '100dvh',
-      height: '100dvh',
-    }),
+    height: '100dvh',
+    display: 'flex',
+    flexDirection: 'column',
   };
 
   return (
@@ -732,14 +718,12 @@ const Chat: React.FC = () => {
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input Area - Fixed at bottom, respects keyboard */}
+      {/* Input Area - Always visible above keyboard */}
       <div 
         ref={inputContainerRef}
         className="shrink-0 bg-background/95 backdrop-blur-lg border-t border-border/50 px-4 pt-3 z-50"
         style={{
-          paddingBottom: viewport.isKeyboardOpen 
-            ? '12px' 
-            : `calc(12px + env(safe-area-inset-bottom, 0px))`,
+          paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
         }}
       >
         <div className="flex items-end gap-3 bg-muted/80 rounded-2xl p-1.5 border border-border/30">
