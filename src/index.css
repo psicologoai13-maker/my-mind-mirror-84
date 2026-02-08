@@ -83,7 +83,14 @@
     -webkit-transform: translateZ(0);
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-    will-change: height;
+  }
+  
+  /* iOS Safari keyboard fix - use visual viewport */
+  @supports (height: 100dvh) {
+    .chat-container-stable {
+      height: 100dvh;
+      height: 100svh; /* Small viewport height - excludes keyboard */
+    }
   }
 
   :root {
