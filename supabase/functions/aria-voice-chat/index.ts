@@ -1109,9 +1109,14 @@ ${interestParts.join('\n')}`);
 ${sessionsInfo}`);
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // 🔄 FOLLOW-UP PROATTIVO - Chiedi aggiornamenti su eventi passati!
+    // 🔄 FOLLOW-UP PROATTIVO + ARCO TEMPORALE
     // ═══════════════════════════════════════════════════════════════════════════
     
+    const now = new Date();
+    const currentHour = now.getHours();
+    const isEvening = currentHour >= 18 && currentHour <= 23;
+    
+    const eventsHappeningNow: string[] = [];
     const pendingFollowUps: string[] = [];
     
     // Check long-term memory for events/trips/plans
@@ -1132,41 +1137,61 @@ ${sessionsInfo}`);
       }
     }
     
-    // Check recent sessions for topics that deserve follow-up
-    for (const session of ctx.recentSessions.slice(0, 3)) {
-      const content = session.ai_summary || session.transcript?.slice(0, 500) || '';
+    // Check recent sessions for temporal events
+    for (const session of ctx.recentSessions.slice(0, 5)) {
+      const content = (session.ai_summary || '') + ' ' + (session.transcript?.slice(0, 800) || '');
+      const sessionDate = new Date(session.start_time);
+      const diffMs = now.getTime() - sessionDate.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+      const isSameDay = sessionDate.toDateString() === now.toDateString();
+      const isYesterday = diffDays === 1 || (diffDays === 0 && sessionDate.getDate() !== now.getDate());
       
-      // Look for future events mentioned in past sessions
-      const futureEventPatterns = [
-        /(?:domani|stasera|questo weekend|prossima settimana|sabato|domenica|venerdì).+?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena)/gi,
-        /(?:parto|vado|andrò|andiamo)\s+(?:a|per|in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g,
-        /(?:circo|loco|festival|party|concert|show)/gi,
-      ];
+      // "stasera" events from earlier today
+      if (isSameDay && diffHours >= 1) {
+        const eveningMentions = content.match(/stasera.{0,50}?(?:viaggio|vacanza|festa|evento|concerto|uscita|cena|party|club|discoteca|circo|festival|aperitivo)/gi);
+        const tonightMentions = content.match(/(?:vado|andiamo|esco|usciamo).{0,30}?(?:stasera|sera)/gi);
+        
+        if ((eveningMentions || tonightMentions) && isEvening) {
+          const eventText = eveningMentions?.[0] || tonightMentions?.[0] || 'evento';
+          eventsHappeningNow.push(`🎉 EVENTO IN CORSO: "${eventText}" - È SERA!`);
+        }
+      }
       
-      for (const pattern of futureEventPatterns) {
-        const matches = content.match(pattern);
-        if (matches && matches.length > 0) {
-          const sessionDate = new Date(session.start_time);
-          const now = new Date();
-          const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diffDays >= 1) {
-            pendingFollowUps.push(`Dalla sessione di ${diffDays === 1 ? 'ieri' : diffDays + ' giorni fa'}: "${matches[0]}"`);
-          }
+      // "domani" events from yesterday
+      if (isYesterday) {
+        const tomorrowMentions = content.match(/domani.{0,80}?(?:viaggio|vacanza|festa|evento|concerto|uscita|cena|party|club|discoteca|circo|festival|parto|vado|andiamo)/gi);
+        if (tomorrowMentions) {
+          pendingFollowUps.push(`Ieri: "${tomorrowMentions[0]}" - OGGI È IL GIORNO!`);
+        }
+      }
+      
+      // Past events
+      if (diffDays >= 1) {
+        const futureEventMatches = content.match(/(?:domani|stasera|questo weekend).{0,60}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|parto|vado|circo|festival)/gi);
+        const tripMentions = content.match(/(?:parto|vado|andrò|andiamo)\s+(?:a|per|in)\s+[A-Z][a-z]+/gi);
+        const clubMentions = content.match(/circo\s*loco|festival|party|discoteca|club/gi);
+        
+        const allMatches = [...(futureEventMatches || []), ...(tripMentions || []), ...(clubMentions || [])];
+        for (const match of allMatches) {
+          pendingFollowUps.push(`${diffDays === 1 ? 'Ieri' : diffDays + 'gg fa'}: "${match}"`);
         }
       }
     }
     
-    // Add follow-up block if we have pending items
-    if (pendingFollowUps.length > 0) {
+    // Add follow-up block
+    const hasEventsNow = eventsHappeningNow.length > 0;
+    const hasPendingFollowUps = pendingFollowUps.length > 0;
+    
+    if (hasEventsNow || hasPendingFollowUps) {
+      const uniqueEventsNow = [...new Set(eventsHappeningNow)].slice(0, 2);
       const uniqueFollowUps = [...new Set(pendingFollowUps)].slice(0, 3);
+      
       blocks.push(`
-🔄 FOLLOW-UP PROATTIVO (PRIORITÀ ALTA!):
-⚠️ APPENA INIZI, CHIEDI AGGIORNAMENTI SU:
-${uniqueFollowUps.map(f => `• ${f}`).join('\n')}
-
-💬 ESEMPIO: "Ehi! Allora, com'è andata [cosa]? Raccontami!"
-⛔ NON aspettare che l'utente ne parli - SEI TU che devi ricordare!`);
+🔄 CONSAPEVOLEZZA TEMPORALE (PRIORITÀ!):
+${hasEventsNow ? `🎉 ORA: ${uniqueEventsNow.join(', ')} → "Ehi! Sei al [evento]? Com'è?"` : ''}
+${hasPendingFollowUps ? `📋 FOLLOW-UP: ${uniqueFollowUps.join(' | ')} → "Com'è andata [cosa]?"` : ''}
+⛔ CHIEDI SUBITO! Non aspettare che l'utente ne parli!`);
     }
   }
   
