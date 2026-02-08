@@ -5,15 +5,32 @@ import AdaptiveVitalCard, { MetricKey, METRIC_CONFIG } from './AdaptiveVitalCard
 import { cn } from '@/lib/utils';
 
 const AdaptiveVitalsSection: React.FC = () => {
-  // 🎯 AI-DRIVEN: Layout deciso dall'AI in base al focus utente
+  // 🎯 AI-DRIVEN: Layout deciso dall'AI in base al focus utente - includes CACHED values!
   const { layout, isLoading: isLoadingAI, error: aiError } = useAIDashboard();
   // 🎯 TIME-WEIGHTED: Valori calcolati con pesatura temporale (30 giorni, half-life 10 giorni)
   const { vitals, vitalsTrends, emotions, lifeAreas, lifeAreasTrends, deepPsychology, daysWithData, isLoading: isLoadingMetrics } = useTimeWeightedMetrics(30, 10);
   const [showSecondary, setShowSecondary] = React.useState(false);
 
-  // Build metric values and trends from time-weighted source
-  // CRITICAL: Return undefined for null values to indicate "no data"
-  const metricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
+  // CRITICAL FIX: Use AI cache values FIRST if available (from primary_metrics)
+  // This enables INSTANT render without waiting for useTimeWeightedMetrics DB queries
+  const cachedMetricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
+    const values: Partial<Record<MetricKey, number | undefined>> = {};
+    
+    // Extract values from AI layout cache - these are pre-computed!
+    if (layout.primary_metrics) {
+      layout.primary_metrics.forEach(metric => {
+        if (metric.value && metric.value > 0) {
+          // AI cache stores 0-10 scale, convert to 0-100 percentage
+          values[metric.key as MetricKey] = Math.min(100, Math.max(0, metric.value * 10));
+        }
+      });
+    }
+    
+    return values;
+  }, [layout.primary_metrics]);
+
+  // Build metric values from time-weighted source (fresh data when available)
+  const freshMetricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
     const toPercentage = (val: number | null | undefined): number | undefined => 
       val !== null && val !== undefined && val > 0 
         ? Math.min(100, Math.max(0, val * 10)) 
@@ -54,6 +71,20 @@ const AdaptiveVitalsSection: React.FC = () => {
       sense_of_purpose: toPercentage(deepPsychology.sense_of_purpose),
     };
   }, [vitals, emotions, lifeAreas, deepPsychology]);
+
+  // MERGE: Use fresh values when available, fallback to cached values
+  const metricValues = React.useMemo((): Partial<Record<MetricKey, number | undefined>> => {
+    const merged: Partial<Record<MetricKey, number | undefined>> = { ...cachedMetricValues };
+    
+    // Override with fresh values when available
+    Object.entries(freshMetricValues).forEach(([key, value]) => {
+      if (value !== undefined) {
+        merged[key as MetricKey] = value;
+      }
+    });
+    
+    return merged;
+  }, [cachedMetricValues, freshMetricValues]);
 
   // Build trend mapping for each metric key
   const metricTrends = React.useMemo((): Partial<Record<MetricKey, TrendInfo>> => {
@@ -126,11 +157,14 @@ const AdaptiveVitalsSection: React.FC = () => {
     return metrics.slice(0, 4); // Exactly 4 for 2x2 grid
   }, [layout]);
 
-  // CRITICAL: Wait for BOTH sources to be ready before showing any cards
-  // This prevents the staggered loading effect where some cards appear before others
-  const isLoading = isLoadingAI || isLoadingMetrics;
+  // CRITICAL FIX: Check if we have CACHED values to show immediately
+  // Only show loading skeleton if:
+  // 1. AI layout is loading AND we have no cached metrics
+  // 2. This prevents 3-4 second delay when cache exists
+  const hasCachedValues = Object.values(cachedMetricValues).some(v => v !== undefined);
+  const isLoading = isLoadingAI && !hasCachedValues;
   
-  // Show skeleton until ALL data sources are ready - unified loading experience
+  // Show skeleton only if truly loading with no cached data
   if (isLoading) {
     return (
       <div className="space-y-4">
