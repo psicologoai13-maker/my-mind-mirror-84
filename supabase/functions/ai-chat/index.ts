@@ -555,7 +555,8 @@ function buildPersonalizedSystemPrompt(
   recentSessions: RecentSession[] = [],
   todayHabits: HabitData[] = [],
   bodyMetrics: BodyMetricsData | null = null,
-  profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null; occupation_context: string | null } | null = null
+  profileExtras: { gender: string | null; birth_date: string | null; height: number | null; therapy_status: string | null; occupation_context: string | null } | null = null,
+  userEvents: UserEvent[] = []
 ): string {
   const name = userName?.split(' ')[0] || null;
   
@@ -1740,7 +1741,65 @@ USO: Puoi fare riferimento a conversazioni passate:
   const pendingFollowUps: string[] = [];
   
   // ════════════════════════════════════════════════════════════════════════════
-  // EXTENDED TEMPORAL DETECTION - Covers all time frames
+  // STEP 1: PROCESS STRUCTURED EVENTS FROM user_events TABLE (HIGHEST PRIORITY)
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  if (userEvents && userEvents.length > 0) {
+    const todayStr = now.toISOString().split('T')[0];
+    const currentMinutes = currentHour * 60 + now.getMinutes();
+    
+    for (const event of userEvents) {
+      const eventDate = new Date(event.event_date);
+      const diffMs = eventDate.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const isSameDay = event.event_date === todayStr;
+      const locationStr = event.location ? ` a ${event.location}` : '';
+      
+      // Parse event time if present
+      let eventMinutes: number | null = null;
+      if (event.event_time) {
+        const [hours, minutes] = event.event_time.split(':').map(Number);
+        eventMinutes = hours * 60 + minutes;
+      }
+      
+      // Check if event is happening NOW (with time)
+      if (isSameDay && eventMinutes !== null) {
+        const minutesDiff = currentMinutes - eventMinutes;
+        if (minutesDiff >= -30 && minutesDiff <= 90) {
+          eventsHappeningNow.push(`🎉 [DB] ${event.title}${locationStr} - STA ACCADENDO ORA!`);
+          continue;
+        } else if (minutesDiff > 90 && minutesDiff <= 180 && !event.follow_up_done) {
+          pendingFollowUps.push(`⏰ [DB] ${event.title}${locationStr} - appena terminato, CHIEDI COM'È ANDATA!`);
+          continue;
+        }
+      }
+      
+      // Same day without specific time
+      if (isSameDay && eventMinutes === null) {
+        eventsHappeningNow.push(`🎉 [DB] OGGI: ${event.title}${locationStr}!`);
+        continue;
+      }
+      
+      // Event passed (yesterday or within 3 days) - need follow-up
+      if (diffDays >= -3 && diffDays < 0 && !event.follow_up_done) {
+        const daysAgo = Math.abs(diffDays);
+        const label = daysAgo === 1 ? 'ieri' : `${daysAgo} giorni fa`;
+        pendingFollowUps.push(`📋 [DB] ${event.title}${locationStr} (${label}) - CHIEDI COM'È ANDATA!`);
+        continue;
+      }
+      
+      // Upcoming soon (within 3 days)
+      if (diffDays > 0 && diffDays <= 3) {
+        const label = diffDays === 1 ? 'domani' : `tra ${diffDays} giorni`;
+        eventsHappeningNow.push(`📅 [DB] ${event.title}${locationStr} - ${label}!`);
+      }
+    }
+    
+    console.log(`[ai-chat] Processed ${userEvents.length} structured events: ${eventsHappeningNow.length} now, ${pendingFollowUps.length} follow-ups`);
+  }
+  
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 2: EXTENDED TEMPORAL DETECTION FROM TEXT (Fallback for legacy data)
   // ════════════════════════════════════════════════════════════════════════════
   
   // Italian day names for matching
@@ -2563,6 +2622,18 @@ interface BodyMetricsData {
   resting_heart_rate: number | null;
 }
 
+interface UserEvent {
+  id: string;
+  title: string;
+  event_type: string;
+  location: string | null;
+  event_date: string;
+  event_time: string | null;
+  status: string;
+  follow_up_done: boolean;
+  extracted_from_text: string | null;
+}
+
 interface UserProfile {
   name: string | null;
   long_term_memory: string[];
@@ -2578,6 +2649,8 @@ interface UserProfile {
   recent_sessions: RecentSession[];
   today_habits: HabitData[];
   body_metrics: BodyMetricsData | null;
+  // Structured events from user_events table
+  user_events: UserEvent[];
   // Additional profile data
   gender: string | null;
   birth_date: string | null;
@@ -2602,6 +2675,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     recent_sessions: [],
     today_habits: [],
     body_metrics: null,
+    user_events: [],
     gender: null,
     birth_date: null,
     height: null,
@@ -2637,6 +2711,14 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     const today = new Date().toISOString().split('T')[0];
     
+    // Calculate date range for events (past 7 days to future 30 days)
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 7);
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+    const pastDateStr = pastDate.toISOString().split('T')[0];
+    const futureDateStr = futureDate.toISOString().split('T')[0];
+    
     // Fetch ALL user data in parallel for complete context
     const [
       profileResult, 
@@ -2645,7 +2727,8 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       dailyMetricsResult,
       recentSessionsResult,
       todayHabitsResult,
-      bodyMetricsResult
+      bodyMetricsResult,
+      userEventsResult
     ] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -2685,7 +2768,17 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
         .eq('user_id', user.id)
         .order('date', { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(),
+      // Get user events (past 7 days to future 30 days)
+      supabase
+        .from('user_events')
+        .select('id, title, event_type, location, event_date, event_time, status, follow_up_done, extracted_from_text')
+        .eq('user_id', user.id)
+        .gte('event_date', pastDateStr)
+        .lte('event_date', futureDateStr)
+        .in('status', ['upcoming', 'happening', 'passed'])
+        .order('event_date', { ascending: true })
+        .limit(20)
     ]);
     
     const profile = profileResult.data;
@@ -2695,6 +2788,12 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     const recentSessions = (recentSessionsResult.data || []) as RecentSession[];
     const todayHabits = (todayHabitsResult.data || []) as HabitData[];
     const bodyMetrics = bodyMetricsResult.data as BodyMetricsData | null;
+    const userEvents = userEventsResult.data || [];
+    
+    // Log events for debugging
+    if (userEvents.length > 0) {
+      console.log(`[ai-chat] Loaded ${userEvents.length} structured events from user_events table`);
+    }
     
     if (profileResult.error) {
       console.log('[ai-chat] Failed to get profile:', profileResult.error.message);
@@ -2764,6 +2863,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       recent_sessions: recentSessions,
       today_habits: todayHabits,
       body_metrics: bodyMetrics,
+      user_events: userEvents as UserEvent[],
       gender: profile?.gender || null,
       birth_date: profile?.birth_date || null,
       height: profile?.height || null,
@@ -2771,7 +2871,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       occupation_context: profile?.occupation_context || null,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}, user_events=${userEvents.length}`);
     
     return result;
   } catch (error) {
@@ -2899,7 +2999,8 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
         height: userProfile.height, 
         therapy_status: userProfile.therapy_status,
         occupation_context: userProfile.occupation_context 
-      }
+      },
+      userProfile.user_events
     );
     
     // Inject real-time context if provided

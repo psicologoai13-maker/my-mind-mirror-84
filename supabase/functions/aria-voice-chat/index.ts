@@ -950,6 +950,16 @@ interface VoiceContext {
   recentSessions: RecentSession[];
   todayHabits: Array<{ habit_type: string; value: number; target_value: number | null }>;
   bodyMetrics: { weight: number | null; sleep_hours: number | null; steps: number | null } | null;
+  userEvents: Array<{
+    id: string;
+    title: string;
+    event_type: string;
+    location: string | null;
+    event_date: string;
+    event_time: string | null;
+    status: string;
+    follow_up_done: boolean;
+  }>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1121,6 +1131,66 @@ ${sessionsInfo}`);
     
     const eventsHappeningNow: string[] = [];
     const pendingFollowUps: string[] = [];
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 1: PROCESS STRUCTURED EVENTS FROM user_events TABLE (HIGHEST PRIORITY)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    if (ctx.userEvents && ctx.userEvents.length > 0) {
+      const todayStr = now.toISOString().split('T')[0];
+      const currentMinutes = currentHour * 60 + now.getMinutes();
+      
+      for (const event of ctx.userEvents) {
+        const eventDate = new Date(event.event_date);
+        const diffMs = eventDate.getTime() - now.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const isSameDay = event.event_date === todayStr;
+        const locationStr = event.location ? ` a ${event.location}` : '';
+        
+        // Parse event time if present
+        let eventMinutes: number | null = null;
+        if (event.event_time) {
+          const [hours, minutes] = event.event_time.split(':').map(Number);
+          eventMinutes = hours * 60 + minutes;
+        }
+        
+        // Check if event is happening NOW (with time)
+        if (isSameDay && eventMinutes !== null) {
+          const minutesDiff = currentMinutes - eventMinutes;
+          if (minutesDiff >= -30 && minutesDiff <= 90) {
+            eventsHappeningNow.push(`🎉 [DB] ${event.title}${locationStr} - ORA!`);
+            continue;
+          } else if (minutesDiff > 90 && minutesDiff <= 180 && !event.follow_up_done) {
+            pendingFollowUps.push(`⏰ [DB] ${event.title}${locationStr} - CHIEDI!`);
+            continue;
+          }
+        }
+        
+        // Same day without specific time
+        if (isSameDay && eventMinutes === null) {
+          eventsHappeningNow.push(`🎉 [DB] OGGI: ${event.title}${locationStr}!`);
+          continue;
+        }
+        
+        // Event passed - need follow-up
+        if (diffDays >= -3 && diffDays < 0 && !event.follow_up_done) {
+          const daysAgo = Math.abs(diffDays);
+          const label = daysAgo === 1 ? 'ieri' : `${daysAgo}gg fa`;
+          pendingFollowUps.push(`📋 [DB] ${event.title}${locationStr} (${label}) - CHIEDI!`);
+          continue;
+        }
+        
+        // Upcoming soon
+        if (diffDays > 0 && diffDays <= 3) {
+          const label = diffDays === 1 ? 'domani' : `tra ${diffDays}gg`;
+          eventsHappeningNow.push(`📅 [DB] ${event.title}${locationStr} - ${label}!`);
+        }
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 2: EXTENDED TEMPORAL DETECTION FROM TEXT (Fallback for legacy data)
+    // ═══════════════════════════════════════════════════════════════════════════
     
     // Italian day/month names
     const italianDays = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -1565,7 +1635,8 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     dailyMetrics: null,
     recentSessions: [],
     todayHabits: [],
-    bodyMetrics: null
+    bodyMetrics: null,
+    userEvents: []
   };
 
   if (!authHeader) {
@@ -1595,6 +1666,14 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     console.log('[aria-voice-chat] User authenticated:', user.id);
 
     const today = new Date().toISOString().split('T')[0];
+    
+    // Calculate date range for events (past 7 days to future 30 days)
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 7);
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+    const pastDateStr = pastDate.toISOString().split('T')[0];
+    const futureDateStr = futureDate.toISOString().split('T')[0];
 
     // Fetch ALL user data in parallel (same as ai-chat)
     const [
@@ -1604,7 +1683,8 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       dailyMetricsResult,
       recentSessionsResult,
       todayHabitsResult,
-      bodyMetricsResult
+      bodyMetricsResult,
+      userEventsResult
     ] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -1640,7 +1720,17 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         .eq('user_id', user.id)
         .order('date', { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(),
+      // Get user events (past 7 days to future 30 days)
+      supabase
+        .from('user_events')
+        .select('id, title, event_type, location, event_date, event_time, status, follow_up_done')
+        .eq('user_id', user.id)
+        .gte('event_date', pastDateStr)
+        .lte('event_date', futureDateStr)
+        .in('status', ['upcoming', 'happening', 'passed'])
+        .order('event_date', { ascending: true })
+        .limit(20)
     ]);
 
     const profile = profileResult.data;
@@ -1650,9 +1740,14 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     const recentSessions = recentSessionsResult.data || [];
     const todayHabits = todayHabitsResult.data || [];
     const bodyMetrics = bodyMetricsResult.data;
+    const userEvents = userEventsResult.data || [];
 
     if (profileResult.error) {
       console.log('[aria-voice-chat] Failed to get profile:', profileResult.error.message);
+    }
+    
+    if (userEvents.length > 0) {
+      console.log(`[aria-voice-chat] Loaded ${userEvents.length} structured events from user_events table`);
     }
 
     const result: VoiceContext = {
@@ -1696,10 +1791,20 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         value: h.value,
         target_value: h.target_value
       })),
-      bodyMetrics: bodyMetrics
+      bodyMetrics: bodyMetrics,
+      userEvents: userEvents.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        event_type: e.event_type,
+        location: e.location,
+        event_date: e.event_date,
+        event_time: e.event_time,
+        status: e.status,
+        follow_up_done: e.follow_up_done
+      }))
     };
 
-    console.log(`[aria-voice-chat] Context loaded: name="${result.profile?.name}", memory=${result.profile?.long_term_memory?.length || 0}, objectives=${result.objectives.length}, sessions=${result.recentSessions.length}`);
+    console.log(`[aria-voice-chat] Context loaded: name="${result.profile?.name}", memory=${result.profile?.long_term_memory?.length || 0}, objectives=${result.objectives.length}, sessions=${result.recentSessions.length}, events=${result.userEvents.length}`);
 
     return result;
   } catch (error) {
