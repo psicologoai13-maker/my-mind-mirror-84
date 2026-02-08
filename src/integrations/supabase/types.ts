@@ -742,6 +742,105 @@ export type Database = {
         }
         Relationships: []
       }
+      user_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          end_time: string | null
+          event_date: string
+          event_time: string | null
+          event_type: string
+          extracted_from_text: string | null
+          follow_up_at: string | null
+          follow_up_done: boolean | null
+          follow_up_session_id: string | null
+          id: string
+          is_all_day: boolean | null
+          is_recurring: boolean | null
+          location: string | null
+          metadata: Json | null
+          recurrence_pattern: string | null
+          reminder_enabled: boolean | null
+          reminder_minutes_before: number | null
+          source_session_id: string | null
+          status: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_date: string
+          event_time?: string | null
+          event_type?: string
+          extracted_from_text?: string | null
+          follow_up_at?: string | null
+          follow_up_done?: boolean | null
+          follow_up_session_id?: string | null
+          id?: string
+          is_all_day?: boolean | null
+          is_recurring?: boolean | null
+          location?: string | null
+          metadata?: Json | null
+          recurrence_pattern?: string | null
+          reminder_enabled?: boolean | null
+          reminder_minutes_before?: number | null
+          source_session_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_date?: string
+          event_time?: string | null
+          event_type?: string
+          extracted_from_text?: string | null
+          follow_up_at?: string | null
+          follow_up_done?: boolean | null
+          follow_up_session_id?: string | null
+          id?: string
+          is_all_day?: boolean | null
+          is_recurring?: boolean | null
+          location?: string | null
+          metadata?: Json | null
+          recurrence_pattern?: string | null
+          reminder_enabled?: boolean | null
+          reminder_minutes_before?: number | null
+          source_session_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_events_follow_up_session_id_fkey"
+            columns: ["follow_up_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_events_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_habits_config: {
         Row: {
           auto_sync_enabled: boolean | null
