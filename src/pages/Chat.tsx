@@ -562,24 +562,24 @@ const Chat: React.FC = () => {
     // Hardware acceleration for smoother transitions
     transform: 'translateZ(0)',
     WebkitTransform: 'translateZ(0)',
+    // Ensure safe area padding on top
+    paddingTop: 'env(safe-area-inset-top, 0px)',
     ...(viewport.isKeyboardOpen ? { 
       height: `${viewport.height}px`,
       position: 'fixed' as const,
-      top: `${viewport.offsetTop}px`,
+      top: 0,
       left: 0,
       right: 0,
       overflow: 'hidden',
     } : {
       minHeight: '100dvh',
+      height: '100dvh',
     }),
   };
 
   return (
     <div 
-      className={cn(
-        "flex flex-col bg-background chat-container-stable",
-        !viewport.isKeyboardOpen && "h-[100dvh]"
-      )}
+      className="flex flex-col bg-background chat-container-stable"
       style={containerStyle}
     >
       {/* Crisis Emergency Modal */}
