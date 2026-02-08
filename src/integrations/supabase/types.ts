@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      aria_response_feedback: {
+        Row: {
+          context_appropriateness: number | null
+          created_at: string
+          explicit_feedback: string | null
+          id: string
+          response_length: number | null
+          response_text: string
+          response_type: string | null
+          session_id: string | null
+          user_id: string
+          user_reaction: string | null
+          was_helpful: boolean | null
+        }
+        Insert: {
+          context_appropriateness?: number | null
+          created_at?: string
+          explicit_feedback?: string | null
+          id?: string
+          response_length?: number | null
+          response_text: string
+          response_type?: string | null
+          session_id?: string | null
+          user_id: string
+          user_reaction?: string | null
+          was_helpful?: boolean | null
+        }
+        Update: {
+          context_appropriateness?: number | null
+          created_at?: string
+          explicit_feedback?: string | null
+          id?: string
+          response_length?: number | null
+          response_text?: string
+          response_type?: string | null
+          session_id?: string | null
+          user_id?: string
+          user_reaction?: string | null
+          was_helpful?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aria_response_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       body_metrics: {
         Row: {
           active_minutes: number | null
@@ -112,6 +162,54 @@ export type Database = {
           },
         ]
       }
+      conversation_topics: {
+        Row: {
+          avoid_unless_introduced: boolean | null
+          created_at: string
+          first_mentioned_at: string
+          id: string
+          is_sensitive: boolean | null
+          last_mentioned_at: string
+          mention_count: number
+          related_topics: string[] | null
+          sentiment_avg: number | null
+          session_ids: string[] | null
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avoid_unless_introduced?: boolean | null
+          created_at?: string
+          first_mentioned_at?: string
+          id?: string
+          is_sensitive?: boolean | null
+          last_mentioned_at?: string
+          mention_count?: number
+          related_topics?: string[] | null
+          sentiment_avg?: number | null
+          session_ids?: string[] | null
+          topic: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avoid_unless_introduced?: boolean | null
+          created_at?: string
+          first_mentioned_at?: string
+          id?: string
+          is_sensitive?: boolean | null
+          last_mentioned_at?: string
+          mention_count?: number
+          related_topics?: string[] | null
+          sentiment_avg?: number | null
+          session_ids?: string[] | null
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           created_at: string
@@ -160,6 +258,7 @@ export type Database = {
           nostalgia: number | null
           overwhelm: number | null
           pride: number | null
+          recorded_at: string | null
           sadness: number | null
           serenity: number | null
           session_id: string | null
@@ -189,6 +288,7 @@ export type Database = {
           nostalgia?: number | null
           overwhelm?: number | null
           pride?: number | null
+          recorded_at?: string | null
           sadness?: number | null
           serenity?: number | null
           session_id?: string | null
@@ -218,6 +318,7 @@ export type Database = {
           nostalgia?: number | null
           overwhelm?: number | null
           pride?: number | null
+          recorded_at?: string | null
           sadness?: number | null
           serenity?: number | null
           session_id?: string | null
@@ -526,6 +627,51 @@ export type Database = {
         }
         Relationships: []
       }
+      emotion_patterns: {
+        Row: {
+          confidence: number
+          created_at: string
+          data_points: number
+          description: string
+          detected_at: string
+          id: string
+          is_active: boolean | null
+          last_validated_at: string | null
+          pattern_type: string
+          recommendations: string[] | null
+          trigger_factors: string[] | null
+          user_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          data_points?: number
+          description: string
+          detected_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_validated_at?: string | null
+          pattern_type: string
+          recommendations?: string[] | null
+          trigger_factors?: string[] | null
+          user_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          data_points?: number
+          description?: string
+          detected_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_validated_at?: string | null
+          pattern_type?: string
+          recommendations?: string[] | null
+          trigger_factors?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       global_context_cache: {
         Row: {
           cache_key: string
@@ -547,6 +693,45 @@ export type Database = {
           expires_at?: string
           fetched_at?: string
           id?: string
+        }
+        Relationships: []
+      }
+      habit_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          habit_type: string
+          id: string
+          last_completion_date: string | null
+          longest_streak: number
+          streak_broken_count: number
+          total_completions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          habit_type: string
+          id?: string
+          last_completion_date?: string | null
+          longest_streak?: number
+          streak_broken_count?: number
+          total_completions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          habit_type?: string
+          id?: string
+          last_completion_date?: string | null
+          longest_streak?: number
+          streak_broken_count?: number
+          total_completions?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -579,6 +764,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      session_context_snapshots: {
+        Row: {
+          action_items: string[] | null
+          context_summary: string | null
+          created_at: string
+          dominant_emotion: string | null
+          emotional_state: Json | null
+          follow_up_needed: boolean | null
+          id: string
+          key_topics: string[] | null
+          session_id: string
+          session_quality_score: number | null
+          unresolved_issues: string[] | null
+          user_id: string
+        }
+        Insert: {
+          action_items?: string[] | null
+          context_summary?: string | null
+          created_at?: string
+          dominant_emotion?: string | null
+          emotional_state?: Json | null
+          follow_up_needed?: boolean | null
+          id?: string
+          key_topics?: string[] | null
+          session_id: string
+          session_quality_score?: number | null
+          unresolved_issues?: string[] | null
+          user_id: string
+        }
+        Update: {
+          action_items?: string[] | null
+          context_summary?: string | null
+          created_at?: string
+          dominant_emotion?: string | null
+          emotional_state?: Json | null
+          follow_up_needed?: boolean | null
+          id?: string
+          key_topics?: string[] | null
+          session_id?: string
+          session_quality_score?: number | null
+          unresolved_issues?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_context_snapshots_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sessions: {
         Row: {
@@ -688,6 +926,57 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_notifications: {
+        Row: {
+          action_taken: string | null
+          content: string
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          priority: string
+          read_at: string | null
+          scheduled_for: string
+          sent_at: string | null
+          source_id: string | null
+          source_type: string | null
+          title: string | null
+          trigger_type: string
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string | null
+          content: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          priority?: string
+          read_at?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          title?: string | null
+          trigger_type: string
+          user_id: string
+        }
+        Update: {
+          action_taken?: string | null
+          content?: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          priority?: string
+          read_at?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          title?: string | null
+          trigger_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       thematic_diaries: {
         Row: {
           created_at: string
@@ -738,6 +1027,54 @@ export type Database = {
           id?: string
           metadata?: Json | null
           unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_correlations: {
+        Row: {
+          correlation_type: string
+          created_at: string
+          id: string
+          insight_text: string | null
+          is_significant: boolean | null
+          last_calculated_at: string
+          metric_a: string
+          metric_b: string
+          p_value: number | null
+          sample_size: number
+          strength: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          correlation_type: string
+          created_at?: string
+          id?: string
+          insight_text?: string | null
+          is_significant?: boolean | null
+          last_calculated_at?: string
+          metric_a: string
+          metric_b: string
+          p_value?: number | null
+          sample_size?: number
+          strength: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          correlation_type?: string
+          created_at?: string
+          id?: string
+          insight_text?: string | null
+          is_significant?: boolean | null
+          last_calculated_at?: string
+          metric_a?: string
+          metric_b?: string
+          p_value?: number | null
+          sample_size?: number
+          strength?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1047,6 +1384,56 @@ export type Database = {
           work_schedule?: string | null
         }
         Relationships: []
+      }
+      user_memories: {
+        Row: {
+          category: string
+          created_at: string
+          extracted_at: string
+          fact: string
+          id: string
+          importance: number
+          is_active: boolean
+          last_referenced_at: string | null
+          metadata: Json | null
+          source_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          extracted_at?: string
+          fact: string
+          id?: string
+          importance?: number
+          is_active?: boolean
+          last_referenced_at?: string | null
+          metadata?: Json | null
+          source_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          extracted_at?: string
+          fact?: string
+          id?: string
+          importance?: number
+          is_active?: boolean
+          last_referenced_at?: string | null
+          metadata?: Json | null
+          source_session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_memories_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_objectives: {
         Row: {
