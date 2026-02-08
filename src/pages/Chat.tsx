@@ -550,17 +550,19 @@ const Chat: React.FC = () => {
     );
   }
 
-  // Container style - simplified for better iOS keyboard handling
-  // Uses 100dvh which automatically adjusts for keyboard on modern iOS
+  // Use CSS-based approach for iOS keyboard - svh adapts to visual viewport
   const containerStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'hsl(var(--background))',
-    overscrollBehavior: 'none',
-    transform: 'translateZ(0)',
-    WebkitTransform: 'translateZ(0)',
-    paddingTop: 'env(safe-area-inset-top, 0px)',
-    height: '100dvh',
     display: 'flex',
     flexDirection: 'column',
+    paddingTop: 'env(safe-area-inset-top, 0px)',
+    // Override height with svh for iOS keyboard support
+    height: '100svh',
   };
 
   return (
