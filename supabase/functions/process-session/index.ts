@@ -2049,6 +2049,11 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     // 5. Update user's profile
     console.log('[process-session] Updating user profile...');
     
+    // 🔍 DEBUG: Log key_facts e personal_details estratti dall'AI
+    console.log('[process-session] 📝 KEY_FACTS EXTRACTED:', JSON.stringify(analysis.key_facts || []));
+    console.log('[process-session] 📝 PERSONAL_DETAILS EXTRACTED:', JSON.stringify((analysis as any).personal_details || {}));
+    console.log('[process-session] 📝 KEY_EVENTS EXTRACTED:', JSON.stringify(analysis.key_events || []));
+    
     // Merge life balance scores
     const mergedLifeScores = { ...currentLifeScores };
     if (analysis.life_areas.love !== null) mergedLifeScores.love = analysis.life_areas.love;
@@ -2059,6 +2064,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
 
     // Update long-term memory - include personal details for "friend memory"
     const existingMemory = profileData?.long_term_memory || [];
+    console.log('[process-session] 📝 EXISTING MEMORY LENGTH:', existingMemory.length);
     
     // Extract personal details from analysis if present
     const personalDetails = (analysis as any).personal_details || {};
@@ -2133,6 +2139,13 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     // Combine cleaned key_facts with personal memory items
     const newMemoryItems = [...filteredKeyFacts, ...personalMemoryItems];
     const updatedMemory = [...cleanedMemory, ...newMemoryItems].slice(-60); // Increased to 60 for richer memory
+    
+    // 🔍 DEBUG: Log what's being saved to memory
+    console.log('[process-session] 📝 FILTERED_KEY_FACTS:', JSON.stringify(filteredKeyFacts));
+    console.log('[process-session] 📝 PERSONAL_MEMORY_ITEMS:', JSON.stringify(personalMemoryItems));
+    console.log('[process-session] 📝 NEW_MEMORY_ITEMS COUNT:', newMemoryItems.length);
+    console.log('[process-session] 📝 UPDATED_MEMORY TOTAL:', updatedMemory.length);
+    console.log('[process-session] 📝 UPDATED_MEMORY CONTENT:', JSON.stringify(updatedMemory));
 
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
