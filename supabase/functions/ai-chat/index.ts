@@ -1739,43 +1739,221 @@ USO: Puoi fare riferimento a conversazioni passate:
   // Events that happened in the past (need follow-up)
   const pendingFollowUps: string[] = [];
   
-  // Time slot patterns
-  const timeSlotPatterns = {
-    morning: /(?:stamattina|questa mattina|mattina)/gi,
-    afternoon: /(?:oggi pomeriggio|pomeriggio|nel pomeriggio)/gi,
-    evening: /(?:stasera|questa sera|sera|stanotte)/gi,
-    today: /(?:oggi)/gi,
-    tonight: /(?:stanotte)/gi,
-    tomorrow: /(?:domani)/gi,
-    thisWeekend: /(?:questo weekend|sabato|domenica)/gi,
-    nextWeek: /(?:prossima settimana|settimana prossima)/gi,
-  };
+  // ════════════════════════════════════════════════════════════════════════════
+  // EXTENDED TEMPORAL DETECTION - Covers all time frames
+  // ════════════════════════════════════════════════════════════════════════════
   
-  // Event keywords
-  const eventKeywords = /(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena|party|club|discoteca|circo\s*loco|festival|aperitivo|cinema|teatro)/gi;
+  // Italian day names for matching
+  const italianDays = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+  const italianMonths = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
+                         'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  const currentDayOfWeek = now.getDay(); // 0 = Sunday
+  const currentMonth = now.getMonth(); // 0 = January
+  const currentDate = now.getDate();
+  const currentYear = now.getFullYear();
   
-  // Check long-term memory for events
+  // Helper: Parse Italian temporal reference to target date
+  function parseTemporalReference(text: string, sessionDate: Date): { targetDate: Date | null; description: string } {
+    const lowerText = text.toLowerCase();
+    const refDate = new Date(sessionDate);
+    
+    // "tra X giorni/settimane"
+    const traMatch = lowerText.match(/tra\s+(\d+)\s+(giorn[oi]|settiman[ae]|mes[ei])/);
+    if (traMatch) {
+      const num = parseInt(traMatch[1]);
+      const unit = traMatch[2];
+      if (unit.startsWith('giorn')) {
+        refDate.setDate(refDate.getDate() + num);
+        return { targetDate: refDate, description: `tra ${num} giorni` };
+      } else if (unit.startsWith('settiman')) {
+        refDate.setDate(refDate.getDate() + num * 7);
+        return { targetDate: refDate, description: `tra ${num} settimane` };
+      } else if (unit.startsWith('mes')) {
+        refDate.setMonth(refDate.getMonth() + num);
+        return { targetDate: refDate, description: `tra ${num} mesi` };
+      }
+    }
+    
+    // Specific days: "lunedì", "venerdì prossimo", etc.
+    for (let i = 0; i < italianDays.length; i++) {
+      const dayPattern = new RegExp(`(?:${italianDays[i]}|${italianDays[i]}\\s+prossimo)`, 'i');
+      if (dayPattern.test(lowerText)) {
+        // Calculate next occurrence of this day
+        let daysUntil = i - sessionDate.getDay();
+        if (daysUntil <= 0) daysUntil += 7; // Next week
+        if (lowerText.includes('prossimo')) daysUntil += 7; // Explicit next week
+        refDate.setDate(sessionDate.getDate() + daysUntil);
+        return { targetDate: refDate, description: italianDays[i] };
+      }
+    }
+    
+    // Specific months: "a/ad agosto", "in settembre", "a marzo"
+    for (let i = 0; i < italianMonths.length; i++) {
+      const monthPattern = new RegExp(`(?:a|ad|in|per)\\s+${italianMonths[i]}`, 'i');
+      if (monthPattern.test(lowerText)) {
+        const targetMonth = i;
+        let targetYear = sessionDate.getFullYear();
+        // If month already passed this year, use next year
+        if (targetMonth < sessionDate.getMonth() || 
+            (targetMonth === sessionDate.getMonth() && sessionDate.getDate() > 15)) {
+          targetYear++;
+        }
+        return { 
+          targetDate: new Date(targetYear, targetMonth, 15), 
+          description: `${italianMonths[i]} ${targetYear}`
+        };
+      }
+    }
+    
+    // "il X" (specific date in current/next month)
+    const dateMatch = lowerText.match(/il\s+(\d{1,2})(?:\s+(?:di\s+)?(\w+))?/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      let month = sessionDate.getMonth();
+      let year = sessionDate.getFullYear();
+      
+      // Check if month is specified
+      if (dateMatch[2]) {
+        const monthIndex = italianMonths.findIndex(m => dateMatch[2].toLowerCase().startsWith(m.slice(0, 3)));
+        if (monthIndex !== -1) {
+          month = monthIndex;
+          if (month < sessionDate.getMonth()) year++;
+        }
+      } else {
+        // If date already passed this month, assume next month
+        if (day < sessionDate.getDate()) {
+          month++;
+          if (month > 11) { month = 0; year++; }
+        }
+      }
+      
+      if (day >= 1 && day <= 31) {
+        return { targetDate: new Date(year, month, day), description: `il ${day}` };
+      }
+    }
+    
+    // Holidays/periods
+    const holidays: Record<string, { month: number; day: number }> = {
+      'natale': { month: 11, day: 25 },
+      'capodanno': { month: 0, day: 1 },
+      'pasqua': { month: 3, day: 20 }, // Approximate
+      'ferragosto': { month: 7, day: 15 },
+      'san valentino': { month: 1, day: 14 },
+      'halloween': { month: 9, day: 31 },
+      'epifania': { month: 0, day: 6 },
+    };
+    
+    for (const [holiday, date] of Object.entries(holidays)) {
+      if (lowerText.includes(holiday)) {
+        let year = sessionDate.getFullYear();
+        if (date.month < sessionDate.getMonth() || 
+            (date.month === sessionDate.getMonth() && date.day < sessionDate.getDate())) {
+          year++;
+        }
+        return { targetDate: new Date(year, date.month, date.day), description: holiday };
+      }
+    }
+    
+    return { targetDate: null, description: '' };
+  }
+  
+  // Helper: Check if target date matches "now" context
+  function isEventTimeRelevant(targetDate: Date, referenceText: string): 'happening_now' | 'just_passed' | 'upcoming' | null {
+    const diffMs = targetDate.getTime() - now.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const lowerRef = referenceText.toLowerCase();
+    
+    // Check for specific time of day
+    const isEveningEvent = /stasera|sera|notte/.test(lowerRef);
+    const isMorningEvent = /mattina|stamattina/.test(lowerRef);
+    const isAfternoonEvent = /pomeriggio/.test(lowerRef);
+    
+    // Same day
+    if (diffDays === 0 || (diffDays === -1 && Math.abs(diffMs) < 12 * 60 * 60 * 1000)) {
+      // Check time slot
+      if (isEveningEvent && isEvening) return 'happening_now';
+      if (isMorningEvent && isMorning) return 'happening_now';
+      if (isAfternoonEvent && isAfternoon) return 'happening_now';
+      if (!isEveningEvent && !isMorningEvent && !isAfternoonEvent) return 'happening_now';
+    }
+    
+    // Just passed (yesterday or 1-3 days ago)
+    if (diffDays >= -3 && diffDays < 0) {
+      return 'just_passed';
+    }
+    
+    // Upcoming (within next 2 weeks - for awareness)
+    if (diffDays > 0 && diffDays <= 14) {
+      return 'upcoming';
+    }
+    
+    return null;
+  }
+  
+  // Event keywords (expanded)
+  const eventKeywords = /(?:viaggio|vacanza|ferie|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena|party|club|discoteca|circo\s*loco|festival|aperitivo|cinema|teatro|volo|aereo|treno|partenza|ritorno|compleanno|anniversario|visita|medico|dentista|intervento|operazione|trasloco|trasferimento)/gi;
+  
+  // Destination patterns
+  const destinationPattern = /(?:a|ad|in|per)\s+([A-Z][a-zA-Zà-ü]+(?:\s+[A-Z][a-zA-Zà-ü]+)?)/g;
+  
+  // Check long-term memory for events with temporal context
   if (longTermMemory.length > 0) {
     const eventPatterns = [
       { regex: /\[EVENTO\]\s*(.+)/i, type: 'evento' },
       { regex: /\[VIAGGIO\]\s*(.+)/i, type: 'viaggio' },
       { regex: /\[PIANO\]\s*(.+)/i, type: 'piano' },
+      { regex: /\[VACANZA\]\s*(.+)/i, type: 'vacanza' },
     ];
     
     for (const item of longTermMemory) {
       for (const pattern of eventPatterns) {
         const match = item.match(pattern.regex);
         if (match) {
-          pendingFollowUps.push(`${pattern.type}: "${match[1]}"`);
+          const eventText = match[1];
+          const parsed = parseTemporalReference(eventText, new Date()); // Use now as reference for memory
+          
+          if (parsed.targetDate) {
+            const relevance = isEventTimeRelevant(parsed.targetDate, eventText);
+            if (relevance === 'happening_now') {
+              eventsHappeningNow.push(`🎉 DALLA MEMORIA: "${eventText}" - STA SUCCEDENDO ORA/OGGI!`);
+            } else if (relevance === 'just_passed') {
+              pendingFollowUps.push(`${pattern.type}: "${eventText}" (${parsed.description}) - CHIEDI COM'È ANDATA!`);
+            } else if (relevance === 'upcoming') {
+              eventsHappeningNow.push(`📅 IMMINENTE: "${eventText}" - tra poco!`);
+            }
+          } else {
+            // No parseable date, but still relevant
+            pendingFollowUps.push(`${pattern.type}: "${eventText}"`);
+          }
         }
       }
     }
   }
   
+  // Extended temporal patterns for session scanning
+  const extendedTemporalPatterns = [
+    // Short term (today/tomorrow)
+    /(?:stasera|stanotte|oggi|domani).{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|party|club|discoteca|circo|festival|aperitivo|parto|vado|andiamo|esco)/gi,
+    // Weekend
+    /(?:questo\s+weekend|sabato|domenica).{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|party|club|discoteca|circo|festival|aperitivo|parto|vado|andiamo)/gi,
+    // Specific days
+    /(?:lunedì|martedì|mercoledì|giovedì|venerdì)(?:\s+prossimo)?.{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena|parto|vado)/gi,
+    // Relative time
+    /(?:tra\s+\d+\s+(?:giorn[oi]|settiman[ae]|mes[ei])).{0,80}?(?:viaggio|vacanza|festa|evento|parto|vado|torno|andiamo)/gi,
+    // Specific dates
+    /(?:il\s+\d{1,2}(?:\s+(?:di\s+)?\w+)?).{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|parto|vado)/gi,
+    // Months
+    /(?:a|ad|in|per)\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre).{0,80}?(?:viaggio|vacanza|ferie|festa|evento|parto|vado|andiamo|torno)/gi,
+    // Holidays
+    /(?:a|per)\s+(?:natale|pasqua|capodanno|ferragosto|san\s+valentino).{0,80}?(?:viaggio|vacanza|festa|evento|parto|vado|andiamo|stiamo)/gi,
+    // Destinations with timing
+    /(?:parto|vado|andrò|andiamo|voler(?:e|ei)\s+andare)\s+(?:a|ad|in|per)\s+[A-Z][a-zA-Zà-ü]+/gi,
+  ];
+  
   // Check recent sessions for temporal events
   if (recentSessions.length > 0) {
-    for (const session of recentSessions.slice(0, 5)) {
-      const content = (session.ai_summary || '') + ' ' + (session.transcript?.slice(0, 800) || '');
+    for (const session of recentSessions.slice(0, 10)) { // Extended to 10 sessions for longer planning
+      const content = (session.ai_summary || '') + ' ' + (session.transcript?.slice(0, 1200) || '');
       const sessionDate = new Date(session.start_time);
       const diffMs = now.getTime() - sessionDate.getTime();
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -1783,37 +1961,51 @@ USO: Puoi fare riferimento a conversazioni passate:
       const isSameDay = sessionDate.toDateString() === now.toDateString();
       const isYesterday = diffDays === 1 || (diffDays === 0 && sessionDate.getDate() !== now.getDate());
       
-      // Look for "stasera" events from earlier today
-      if (isSameDay && diffHours >= 1) {
-        // Session was earlier today
+      // Apply all extended patterns
+      for (const pattern of extendedTemporalPatterns) {
+        const matches = content.match(pattern);
+        if (matches) {
+          for (const match of matches) {
+            const parsed = parseTemporalReference(match, sessionDate);
+            
+            if (parsed.targetDate) {
+              const relevance = isEventTimeRelevant(parsed.targetDate, match);
+              
+              if (relevance === 'happening_now') {
+                eventsHappeningNow.push(`🎉 ${diffDays === 0 ? 'Oggi hai detto' : diffDays === 1 ? 'Ieri hai detto' : diffDays + ' giorni fa hai detto'}: "${match}" - È ORA!`);
+              } else if (relevance === 'just_passed') {
+                pendingFollowUps.push(`${diffDays === 1 ? 'Ieri' : diffDays + ' giorni fa'}: "${match}" - CHIEDI COM'È ANDATA!`);
+              } else if (relevance === 'upcoming' && diffDays >= 3) {
+                // Only show upcoming for sessions from at least 3 days ago (to avoid repetition)
+                eventsHappeningNow.push(`📅 Ricorda: "${match}" - si avvicina!`);
+              }
+            } else {
+              // No parseable date but still relevant match from past sessions
+              if (diffDays >= 1) {
+                pendingFollowUps.push(`Dalla sessione di ${diffDays === 1 ? 'ieri' : diffDays + ' giorni fa'}: "${match}"`);
+              }
+            }
+          }
+        }
+      }
+      
+      // Special case: "stasera" events from earlier today
+      if (isSameDay && diffHours >= 1 && isEvening) {
         const eveningMentions = content.match(/stasera.{0,50}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|party|club|discoteca|circo|festival|aperitivo)/gi);
         const tonightMentions = content.match(/(?:vado|andiamo|esco|usciamo).{0,30}?(?:stasera|sera)/gi);
         
-        if ((eveningMentions || tonightMentions) && isEvening) {
+        if (eveningMentions || tonightMentions) {
           const eventText = eveningMentions?.[0] || tonightMentions?.[0] || 'evento';
           eventsHappeningNow.push(`🎉 EVENTO IN CORSO: Stamattina hai detto "${eventText}" - ORA È SERA!`);
         }
       }
       
-      // Look for "domani" events from yesterday
+      // Special case: "domani" events from yesterday
       if (isYesterday) {
         const tomorrowMentions = content.match(/domani.{0,80}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|uscita|cena|party|club|discoteca|circo|festival|aperitivo|parto|vado|andiamo)/gi);
         
         if (tomorrowMentions) {
-          pendingFollowUps.push(`Ieri hai detto: "${tomorrowMentions[0]}" - OGGI È QUEL GIORNO!`);
-        }
-      }
-      
-      // Look for general future events mentioned in past
-      if (diffDays >= 1) {
-        const futureEventMatches = content.match(/(?:domani|stasera|questo weekend|prossima settimana|sabato|domenica).{0,60}?(?:viaggio|vacanza|festa|evento|concerto|matrimonio|laurea|colloquio|esame|appuntamento|uscita|cena|parto|vado|circo|festival)/gi);
-        const tripMentions = content.match(/(?:parto|vado|andrò|andiamo)\s+(?:a|per|in)\s+[A-Z][a-z]+/gi);
-        const clubMentions = content.match(/circo\s*loco|festival|party|discoteca|club/gi);
-        
-        const allMatches = [...(futureEventMatches || []), ...(tripMentions || []), ...(clubMentions || [])];
-        
-        for (const match of allMatches) {
-          pendingFollowUps.push(`Dalla sessione di ${diffDays === 1 ? 'ieri' : diffDays + ' giorni fa'}: "${match}"`);
+          eventsHappeningNow.push(`🎉 Ieri hai detto: "${tomorrowMentions[0]}" - OGGI È QUEL GIORNO!`);
         }
       }
     }
@@ -1858,9 +2050,12 @@ ${uniqueFollowUps.map(f => `• ${f}`).join('\n')}
 4. Se evento è PASSATO → chiedi com'è andata
 5. Mostra ENTUSIASMO genuino - questo crea connessione!
 
-ESEMPI:
+ESEMPI ARCO TEMPORALE:
 - Stamattina disse "stasera Circo Loco" + ora è sera → "Sei al Circo Loco? Com'è?"
 - Ieri disse "domani parto per Madrid" + oggi → "Com'è Madrid? Raccontami!"
+- Una settimana fa disse "venerdì ho un colloquio" + oggi è venerdì → "In bocca al lupo per il colloquio!"
+- 2 settimane fa disse "ad agosto vado a Ibiza" + è agosto → "Sei a Ibiza! Com'è? Raccontami tutto!"
+- Disse "il 15 parto" + oggi è il 16 → "Com'è andata la partenza ieri?"
 `;
   }
 
