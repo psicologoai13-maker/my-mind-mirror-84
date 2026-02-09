@@ -1,271 +1,161 @@
-
 # Piano Integrazione Completa: Database Avanzato Aria
 
-## Analisi Situazione Attuale
-
-Ho analizzato l'intero ecosistema e ho identificato lo stato di ogni tabella creata:
+## Stato Attuale (Aggiornato: 2026-02-09)
 
 | Tabella | Stato DB | Integrazione |
 |---------|----------|--------------|
-| `user_memories` | ✅ Creata | ✅ Integrata in ai-chat, aria-voice-chat, process-session |
-| `session_context_snapshots` | ✅ Creata | ❌ **NON POPOLATA** - Nessuna funzione la usa |
-| `emotion_patterns` | ✅ Creata | ❌ **NON POPOLATA** - Nessun rilevamento pattern |
-| `user_correlations` | ✅ Creata | ❌ **NON POPOLATA** - Nessun calcolo correlazioni |
-| `habit_streaks` | ✅ Creata + Trigger | ⚠️ Trigger presente ma **NON LETTA** da Aria |
-| `smart_notifications` | ✅ Creata | ❌ **NON POPOLATA** - Nessun engine notifiche |
-| `conversation_topics` | ✅ Creata | ❌ **NON POPOLATA** - Nessun tracking argomenti |
-| `aria_response_feedback` | ✅ Creata | ❌ **NON POPOLATA** - Nessun feedback loop |
+| `user_memories` | ✅ Creata | ✅ **INTEGRATA** in ai-chat, aria-voice-chat, process-session |
+| `session_context_snapshots` | ✅ Creata | ✅ **INTEGRATA** - Popolata in process-session, iniettata in ai-chat/voice |
+| `emotion_patterns` | ✅ Creata | ✅ **INTEGRATA** - Edge Function detect-emotion-patterns creata |
+| `user_correlations` | ✅ Creata | ✅ **INTEGRATA** - Edge Function calculate-correlations creata |
+| `habit_streaks` | ✅ Creata + Trigger | ✅ **INTEGRATA** - Letta da UI e iniettata in chat context |
+| `smart_notifications` | ✅ Creata | ⏳ **FASE 3** - Engine da implementare (cron job) |
+| `conversation_topics` | ✅ Creata | ✅ **INTEGRATA** - Popolata in process-session, usata per sensitivity |
+| `aria_response_feedback` | ✅ Creata | ⏳ **FASE 3** - Feedback loop da implementare |
 
-## Piano di Implementazione Completo
+## Implementazioni Completate
 
-### FASE 1: Integrazioni CRITICHE (Alta Priorità)
+### FASE 1: Integrazioni CRITICHE ✅
 
-**1.1 Popolare `session_context_snapshots` in `process-session`**
-- A fine elaborazione sessione, salvare automaticamente:
-  - `key_topics`: Argomenti principali discussi (da `emotion_tags`)
-  - `unresolved_issues`: Problemi lasciati aperti (da analisi AI)
-  - `action_items`: Cose da fare menzionate
-  - `emotional_state`: Stato emotivo snapshot (vitals + emozioni dominanti)
-  - `follow_up_needed`: Flag se richiede follow-up
-  - `context_summary`: Riassunto breve per continuità
-  - `dominant_emotion`: Emozione più intensa
-  - `session_quality_score`: Valutazione 1-10
+**1.1 session_context_snapshots in process-session** ✅
+- Salva automaticamente: key_topics, unresolved_issues, action_items
+- Calcola emotional_state con mood, anxiety, dominant_emotion
+- Determina follow_up_needed basato su crisis_risk e hopelessness
+- Calcola session_quality_score (1-10)
 
-**1.2 Iniettare `session_context_snapshots` in `ai-chat` e `aria-voice-chat`**
-- Recuperare gli snapshot delle ultime 3-5 sessioni
-- Iniettare nel prompt: "L'ultima volta stavamo parlando di X, come è andata?"
-- Usare `unresolved_issues` per follow-up proattivo
+**1.2 Iniezione in ai-chat e aria-voice-chat** ✅
+- Recupera ultimi 3-5 snapshot
+- Inietta nel prompt per continuità narrativa
+- Usa unresolved_issues per follow-up proattivo
 
-**1.3 Tracking `conversation_topics` in `process-session`**
-- Estrarre argomenti dalla conversazione
-- Tracciare sentiment medio per ogni argomento
-- Marcare argomenti sensibili (`is_sensitive: true`)
-- Iniettare in ai-chat per evitare argomenti delicati
+**1.3 conversation_topics tracking** ✅
+- Estrae argomenti da emotion_tags
+- Marca argomenti sensibili (trauma, abuso, lutto, etc.)
+- Traccia mention_count e avoid_unless_introduced
+- Iniettato nel prompt per rispetto sensibilità
 
-### FASE 2: Analytics Avanzati (Media Priorità)
+### FASE 2: Analytics Avanzati ✅
 
-**2.1 Creare Edge Function `calculate-correlations`**
-- Calcola correlazioni tra metriche (sonno vs umore, esercizio vs ansia)
-- Usa formula Pearson per calcolo statistico
-- Genera insight testuale automatico
-- Esegue settimanalmente o su richiesta
+**2.1 Edge Function calculate-correlations** ✅
+- Calcola correlazioni Pearson tra metriche
+- Coppie: sleep↔mood, exercise↔anxiety, meditation↔mental_clarity, etc.
+- Genera insight testuali automatici
+- Salva in user_correlations con is_significant flag
 
-**2.2 Creare Edge Function `detect-emotion-patterns`**
-- Analizza emozioni per rilevare pattern temporali:
+**2.2 Edge Function detect-emotion-patterns** ✅
+- Rileva pattern temporali:
   - `morning_dip`: Umore basso al mattino
-  - `weekend_boost`: Umore migliore nel weekend
+  - `weekend_boost`: Miglioramento nel weekend
   - `monday_blues`: Lunedì problematici
-  - `seasonal_affect`: Variazioni stagionali
-- Salva pattern in `emotion_patterns` con confidence score
+  - `anxiety_spikes`: Picchi di ansia ricorrenti
+- Salva in emotion_patterns con confidence e recommendations
 
-**2.3 Integrare `habit_streaks` cache in UI**
-- Usare la tabella cache invece di calcolare dinamicamente
-- Mostrare "record personale" e "streak a rischio"
-- Far celebrare Aria gli streak importanti
+**2.3 habit_streaks cache integrata** ✅
+- UI (StreakCounter, ProfileStatsRow) legge dalla cache
+- Contesto chat riceve streak significativi (≥3 giorni)
+- Aria celebra streak importanti
 
-### FASE 3: Personalizzazione Avanzata (Bassa Priorità)
+### FASE 3: Personalizzazione Avanzata (TODO)
 
-**3.1 Engine `smart_notifications`**
-- Generare notifiche contestuali:
-  - `event_reminder`: "Tra 30 min hai il medico"
-  - `streak_at_risk`: "Manca solo X per oggi!"
-  - `mood_follow_up`: "Com'è andato l'evento di ieri?"
-  - `habit_check`: "Hai fatto la meditazione?"
-- Cron job per schedulazione
+**3.1 Engine smart_notifications** ⏳
+- Cron job per schedulazione notifiche contestuali
+- Tipi: event_reminder, streak_at_risk, mood_follow_up
 
-**3.2 Feedback Loop `aria_response_feedback`**
-- Tracciare implicitamente reazioni utente:
-  - Cambio topic rapido → risposta non gradita
-  - Continuazione conversazione → risposta efficace
-  - Correzione esplicita → risposta errata
-- Usare per personalizzare stile risposte
+**3.2 Feedback Loop aria_response_feedback** ⏳
+- Tracking implicito reazioni utente
+- Cambio topic rapido → risposta non gradita
+- Continuazione → risposta efficace
 
 ---
 
-## Dettaglio Tecnico per Fase 1
+## File Modificati/Creati
 
-### 1.1 Modifiche a `process-session/index.ts`
+| File | Stato |
+|------|-------|
+| `supabase/functions/process-session/index.ts` | ✅ Modificato: salvataggio snapshot + topics |
+| `supabase/functions/ai-chat/index.ts` | ✅ Modificato: fetch + inject snapshots, topics, streaks |
+| `supabase/functions/aria-voice-chat/index.ts` | ✅ Modificato: stessa logica di ai-chat |
+| `supabase/functions/calculate-correlations/index.ts` | ✅ **CREATO** |
+| `supabase/functions/detect-emotion-patterns/index.ts` | ✅ **CREATO** |
+| `supabase/config.toml` | ✅ Aggiornato con nuove funzioni |
+| `src/components/home/StreakCounter.tsx` | ✅ Modificato: usa cache habit_streaks |
+| `src/components/profile/ProfileStatsRow.tsx` | ✅ Modificato: usa cache habit_streaks |
 
-Dopo il salvataggio in `daily_psychology`, aggiungere:
+---
 
-```text
-// ═══════════════════════════════════════════════
-// 📸 SESSION CONTEXT SNAPSHOT
-// ═══════════════════════════════════════════════
+## Architettura Memoria Aria (Completa)
 
-// Determina emozione dominante
-const emotionScores = Object.entries(analysis.emotions)
-  .filter(([k, v]) => v !== null && v > 0)
-  .sort((a, b) => (b[1] as number) - (a[1] as number));
-const dominantEmotion = emotionScores[0]?.[0] || null;
-
-// Calcola session quality score
-const qualityFactors = [
-  analysis.vitals.mood ? analysis.vitals.mood : 5,
-  analysis.deep_psychology.mental_clarity || 5,
-  10 - (analysis.vitals.anxiety || 5),
-];
-const sessionQualityScore = Math.round(
-  qualityFactors.reduce((a, b) => a + b, 0) / qualityFactors.length
-);
-
-// Determina se serve follow-up
-const needsFollowUp = 
-  analysis.crisis_risk !== 'low' ||
-  analysis.key_events?.length > 0 ||
-  (analysis.deep_psychology.hopelessness || 0) >= 6;
-
-const snapshot = {
-  session_id: session_id,
-  user_id: user_id,
-  key_topics: analysis.emotion_tags?.slice(0, 5) || [],
-  emotional_state: {
-    mood: analysis.vitals.mood,
-    anxiety: analysis.vitals.anxiety,
-    dominant_emotion: dominantEmotion,
-    crisis_risk: analysis.crisis_risk
-  },
-  unresolved_issues: analysis.key_events?.filter(e => 
-    /problem|difficolt|crisi|stress/i.test(e)
-  ) || [],
-  action_items: analysis.key_events?.filter(e => 
-    /devo|dovrei|voglio|obiettivo/i.test(e)
-  ) || [],
-  follow_up_needed: needsFollowUp,
-  context_summary: analysis.summary,
-  dominant_emotion: dominantEmotion,
-  session_quality_score: sessionQualityScore
-};
-
-await supabase.from('session_context_snapshots').insert(snapshot);
 ```
-
-### 1.2 Modifiche a `ai-chat/index.ts`
-
-Nella funzione `getUserProfile`:
-
-```text
-// Fetch session context snapshots
-supabase
-  .from('session_context_snapshots')
-  .select('key_topics, unresolved_issues, action_items, context_summary, dominant_emotion, follow_up_needed')
-  .eq('user_id', user.id)
-  .order('created_at', { ascending: false })
-  .limit(3)
-```
-
-Nel prompt system, iniettare:
-
-```text
-═══════════════════════════════════════════════
-📝 CONTESTO SESSIONI PRECEDENTI
-═══════════════════════════════════════════════
-
-${snapshots.map((s, i) => `
-SESSIONE ${i+1}:
-- Argomenti: ${s.key_topics.join(', ')}
-- Emozione dominante: ${s.dominant_emotion}
-- Problemi aperti: ${s.unresolved_issues.join('; ') || 'Nessuno'}
-- Da fare: ${s.action_items.join('; ') || 'Niente'}
-${s.follow_up_needed ? '⚠️ RICHIEDE FOLLOW-UP' : ''}
-`).join('\n')}
-
-USA QUESTI DATI PER:
-- Continuare discorsi lasciati aperti
-- Chiedere "Com'è andata quella cosa di cui parlavamo?"
-- Ricordare problemi irrisolti e offrire supporto
-```
-
-### 1.3 Tracking `conversation_topics` in `process-session`
-
-```text
-// ═══════════════════════════════════════════════
-// 🏷️ CONVERSATION TOPICS TRACKING
-// ═══════════════════════════════════════════════
-
-const topics = analysis.emotion_tags || [];
-const sensitivePatterns = /trauma|abuso|lutto|morte|suicid|autolesion/i;
-
-for (const topic of topics) {
-  const isSensitive = sensitivePatterns.test(topic);
-  
-  // Upsert topic
-  const { data: existing } = await supabase
-    .from('conversation_topics')
-    .select('id, mention_count, sentiment_avg, session_ids')
-    .eq('user_id', user_id)
-    .eq('topic', topic.toLowerCase())
-    .maybeSingle();
-
-  if (existing) {
-    // Update existing
-    await supabase.from('conversation_topics').update({
-      mention_count: existing.mention_count + 1,
-      last_mentioned_at: new Date().toISOString(),
-      session_ids: [...existing.session_ids, session_id],
-      is_sensitive: isSensitive || existing.is_sensitive
-    }).eq('id', existing.id);
-  } else {
-    // Insert new
-    await supabase.from('conversation_topics').insert({
-      user_id: user_id,
-      topic: topic.toLowerCase(),
-      session_ids: [session_id],
-      is_sensitive: isSensitive,
-      mention_count: 1
-    });
-  }
-}
+┌─────────────────────────────────────────────────────────────────┐
+│                    ARIA INTELLIGENCE SYSTEM                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐    │
+│  │ user_       │   │ session_    │   │ conversation_       │    │
+│  │ memories    │   │ context_    │   │ topics              │    │
+│  │             │   │ snapshots   │   │                     │    │
+│  │ • Facts     │   │ • Topics    │   │ • Sensitivity       │    │
+│  │ • Category  │   │ • Issues    │   │ • Frequency         │    │
+│  │ • Importance│   │ • Actions   │   │ • Avoid flags       │    │
+│  └──────┬──────┘   └──────┬──────┘   └──────────┬──────────┘    │
+│         │                 │                      │               │
+│         └────────────────┬┴─────────────────────┘               │
+│                          ▼                                       │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                    PROMPT INJECTION                        │  │
+│  │   ai-chat / aria-voice-chat                                │  │
+│  │   • Formatted memories by category                         │  │
+│  │   • Session continuity context                             │  │
+│  │   • Sensitive topics awareness                             │  │
+│  │   • Habit streaks celebration                              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐    │
+│  │ user_       │   │ emotion_    │   │ habit_              │    │
+│  │ correlations│   │ patterns    │   │ streaks             │    │
+│  │             │   │             │   │                     │    │
+│  │ • Pearson r │   │ • morning_  │   │ • Current           │    │
+│  │ • Insights  │   │   dip       │   │ • Longest           │    │
+│  │ • Signific. │   │ • weekend_  │   │ • Broken count      │    │
+│  │             │   │   boost     │   │                     │    │
+│  └──────┬──────┘   └──────┬──────┘   └──────────┬──────────┘    │
+│         │                 │                      │               │
+│         └────────────────┬┴─────────────────────┘               │
+│                          ▼                                       │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 ANALYTICS EDGE FUNCTIONS                   │  │
+│  │   calculate-correlations / detect-emotion-patterns         │  │
+│  │   • Weekly/on-demand execution                             │  │
+│  │   • Actionable insights                                    │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Nuove Edge Functions da Creare
+## Come Usare le Nuove Funzioni
 
-### `calculate-correlations/index.ts`
+### Calcolare Correlazioni (manuale o schedulato)
+```javascript
+// Call from frontend or cron
+await supabase.functions.invoke('calculate-correlations', {
+  body: { user_id: 'uuid-here' }
+});
+```
 
-Calcola correlazioni statistiche tra metriche salvandole in `user_correlations`.
-
-**Correlazioni da calcolare:**
-- `sleep` vs `mood` (sonno → umore)
-- `exercise` vs `anxiety` (esercizio → ansia)
-- `social` vs `loneliness` (socialità → solitudine)
-- `meditation` (habit) vs `anxiety`
-- `water` (habit) vs `energy`
-
-### `detect-emotion-patterns/index.ts`
-
-Rileva pattern emozionali temporali e li salva in `emotion_patterns`.
-
-**Pattern da rilevare:**
-- `morning_dip`: Analisi metriche mattutine vs serali
-- `weekend_boost`: Confronto weekend vs giorni feriali
-- `monday_blues`: Specifico per lunedì
-- `work_stress_cycle`: Pattern settimanale legato a lavoro
+### Rilevare Pattern Emotivi
+```javascript
+await supabase.functions.invoke('detect-emotion-patterns', {
+  body: { user_id: 'uuid-here' }
+});
+```
 
 ---
 
-## Riepilogo File da Modificare/Creare
+## Prossimi Step (Fase 3)
 
-| File | Azione |
-|------|--------|
-| `supabase/functions/process-session/index.ts` | Modificare: aggiungere salvataggio snapshot, topics |
-| `supabase/functions/ai-chat/index.ts` | Modificare: fetch e inject snapshots, topics nel prompt |
-| `supabase/functions/aria-voice-chat/index.ts` | Modificare: stesso di ai-chat |
-| `supabase/functions/calculate-correlations/index.ts` | Creare: Edge Function correlazioni |
-| `supabase/functions/detect-emotion-patterns/index.ts` | Creare: Edge Function pattern |
-| `supabase/config.toml` | Aggiornare: nuove funzioni |
-| `.lovable/plan.md` | Aggiornare: tracking progresso |
-
----
-
-## Ordine di Esecuzione
-
-1. **process-session** - Popolare `session_context_snapshots` e `conversation_topics`
-2. **ai-chat** - Iniettare snapshots e topics nel contesto
-3. **aria-voice-chat** - Stessa logica di ai-chat
-4. **calculate-correlations** - Nuova Edge Function
-5. **detect-emotion-patterns** - Nuova Edge Function
-6. **Aggiornare plan.md**
-
-Questa implementazione darà ad Aria una memoria strutturata completa, continuità narrativa tra sessioni, e intelligenza avanzata per personalizzare l'esperienza utente al massimo.
+1. **smart_notifications engine**: Cron job per push notifiche contestuali
+2. **aria_response_feedback**: Tracking implicito qualità risposte
+3. **UI per visualizzare correlazioni e pattern**: Dashboard analitica
+4. **Trigger automatico analytics**: Post-session o settimanale

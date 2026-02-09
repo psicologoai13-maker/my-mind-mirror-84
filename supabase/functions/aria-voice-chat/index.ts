@@ -1685,7 +1685,10 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       todayHabitsResult,
       bodyMetricsResult,
       userEventsResult,
-      userMemoriesResult  // NEW: Structured memories
+      userMemoriesResult,  // NEW: Structured memories
+      sessionSnapshotsResult,  // NEW: Session context snapshots
+      conversationTopicsResult,  // NEW: Conversation topics
+      habitStreaksResult  // NEW: Habit streaks cache
     ] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -1740,7 +1743,26 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         .eq('is_active', true)
         .order('importance', { ascending: false })
         .order('last_referenced_at', { ascending: false })
-        .limit(80)
+        .limit(80),
+      // NEW: Get session context snapshots for narrative continuity
+      supabase
+        .from('session_context_snapshots')
+        .select('key_topics, unresolved_issues, action_items, context_summary, dominant_emotion, follow_up_needed, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3),
+      // NEW: Get conversation topics with sensitivity info
+      supabase
+        .from('conversation_topics')
+        .select('topic, mention_count, is_sensitive, avoid_unless_introduced')
+        .eq('user_id', user.id)
+        .order('mention_count', { ascending: false })
+        .limit(20),
+      // NEW: Get habit streaks from cache table
+      supabase
+        .from('habit_streaks')
+        .select('habit_type, current_streak, longest_streak')
+        .eq('user_id', user.id)
     ]);
 
     const profile = profileResult.data;
@@ -1752,6 +1774,9 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     const bodyMetrics = bodyMetricsResult.data;
     const userEvents = userEventsResult.data || [];
     const userMemories = userMemoriesResult.data || [];
+    const sessionSnapshots = sessionSnapshotsResult.data || [];
+    const conversationTopics = conversationTopicsResult.data || [];
+    const habitStreaks = habitStreaksResult.data || [];
 
     if (profileResult.error) {
       console.log('[aria-voice-chat] Failed to get profile:', profileResult.error.message);
@@ -1762,6 +1787,9 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     }
     if (userMemories.length > 0) {
       console.log(`[aria-voice-chat] Loaded ${userMemories.length} structured memories from user_memories table`);
+    }
+    if (sessionSnapshots.length > 0) {
+      console.log(`[aria-voice-chat] Loaded ${sessionSnapshots.length} session context snapshots`);
     }
     
     // Convert structured memories to formatted strings for prompt injection
@@ -1793,6 +1821,34 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       for (const fact of facts) {
         formattedMemory.push(prefix ? `${prefix} ${fact}` : fact);
       }
+    }
+    
+    // Add session context for narrative continuity
+    if (sessionSnapshots.length > 0) {
+      let sessionContextBlock = '\n📝 SESSIONI PRECEDENTI:\n';
+      sessionSnapshots.slice(0, 2).forEach((snapshot: any, i: number) => {
+        sessionContextBlock += `- Argomenti: ${(snapshot.key_topics || []).join(', ') || 'N/A'}`;
+        if (snapshot.unresolved_issues?.length > 0) {
+          sessionContextBlock += ` | Problemi aperti: ${snapshot.unresolved_issues.join('; ')}`;
+        }
+        if (snapshot.follow_up_needed) {
+          sessionContextBlock += ' ⚠️ FOLLOW-UP';
+        }
+        sessionContextBlock += '\n';
+      });
+      formattedMemory.push(sessionContextBlock);
+    }
+    
+    // Add sensitive topics awareness
+    const sensTopics = conversationTopics.filter((t: any) => t.is_sensitive);
+    if (sensTopics.length > 0) {
+      formattedMemory.push(`⚠️ ARGOMENTI SENSIBILI (non introdurre per primo): ${sensTopics.map((t: any) => t.topic).join(', ')}`);
+    }
+    
+    // Add significant habit streaks
+    const significantStreaks = habitStreaks.filter((s: any) => s.current_streak >= 3);
+    if (significantStreaks.length > 0) {
+      formattedMemory.push(`🔥 STREAK: ${significantStreaks.map((s: any) => `${s.habit_type}: ${s.current_streak} giorni`).join(', ')}`);
     }
 
     const result: VoiceContext = {

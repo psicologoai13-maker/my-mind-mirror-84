@@ -2729,7 +2729,10 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       todayHabitsResult,
       bodyMetricsResult,
       userEventsResult,
-      userMemoriesResult  // NEW: Structured memories
+      userMemoriesResult,  // NEW: Structured memories
+      sessionSnapshotsResult,  // NEW: Session context snapshots
+      conversationTopicsResult,  // NEW: Conversation topics
+      habitStreaksResult  // NEW: Habit streaks cache
     ] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -2788,7 +2791,26 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
         .eq('is_active', true)
         .order('importance', { ascending: false })
         .order('last_referenced_at', { ascending: false })
-        .limit(80)
+        .limit(80),
+      // NEW: Get session context snapshots for narrative continuity
+      supabase
+        .from('session_context_snapshots')
+        .select('key_topics, unresolved_issues, action_items, context_summary, dominant_emotion, follow_up_needed, session_quality_score, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5),
+      // NEW: Get conversation topics with sensitivity info
+      supabase
+        .from('conversation_topics')
+        .select('topic, mention_count, is_sensitive, avoid_unless_introduced, last_mentioned_at')
+        .eq('user_id', user.id)
+        .order('mention_count', { ascending: false })
+        .limit(30),
+      // NEW: Get habit streaks from cache table
+      supabase
+        .from('habit_streaks')
+        .select('habit_type, current_streak, longest_streak, last_completion_date')
+        .eq('user_id', user.id)
     ]);
     
     const profile = profileResult.data;
@@ -2800,6 +2822,9 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     const bodyMetrics = bodyMetricsResult.data as BodyMetricsData | null;
     const userEvents = userEventsResult.data || [];
     const userMemories = userMemoriesResult.data || [];
+    const sessionSnapshots = sessionSnapshotsResult.data || [];
+    const conversationTopics = conversationTopicsResult.data || [];
+    const habitStreaks = habitStreaksResult.data || [];
     
     // Log events and memories for debugging
     if (userEvents.length > 0) {
@@ -2807,6 +2832,15 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     }
     if (userMemories.length > 0) {
       console.log(`[ai-chat] Loaded ${userMemories.length} structured memories from user_memories table`);
+    }
+    if (sessionSnapshots.length > 0) {
+      console.log(`[ai-chat] Loaded ${sessionSnapshots.length} session context snapshots for continuity`);
+    }
+    if (conversationTopics.length > 0) {
+      console.log(`[ai-chat] Loaded ${conversationTopics.length} conversation topics`);
+    }
+    if (habitStreaks.length > 0) {
+      console.log(`[ai-chat] Loaded ${habitStreaks.length} habit streaks from cache`);
     }
     
     // Convert structured memories to formatted strings for prompt injection
@@ -2840,6 +2874,58 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       for (const fact of facts) {
         formattedMemory.push(prefix ? `${prefix} ${fact}` : fact);
       }
+    }
+    
+    // Build session context block for narrative continuity
+    let sessionContextBlock = '';
+    if (sessionSnapshots.length > 0) {
+      sessionContextBlock = `
+═══════════════════════════════════════════════
+📝 CONTESTO SESSIONI PRECEDENTI (Continuità Narrativa)
+═══════════════════════════════════════════════
+`;
+      sessionSnapshots.slice(0, 3).forEach((snapshot: any, i: number) => {
+        const sessionDate = new Date(snapshot.created_at).toLocaleDateString('it-IT');
+        sessionContextBlock += `
+SESSIONE ${i + 1} (${sessionDate}):
+- Argomenti: ${(snapshot.key_topics || []).join(', ') || 'Nessuno'}
+- Emozione dominante: ${snapshot.dominant_emotion || 'Non rilevata'}
+- Problemi aperti: ${(snapshot.unresolved_issues || []).join('; ') || 'Nessuno'}
+- Cose da fare: ${(snapshot.action_items || []).join('; ') || 'Nessuna'}
+${snapshot.follow_up_needed ? '⚠️ RICHIEDE FOLLOW-UP' : ''}
+`;
+      });
+      
+      sessionContextBlock += `
+USA QUESTI DATI PER:
+- Continuare discorsi lasciati aperti naturalmente
+- Chiedere "Com'è andata quella cosa di cui parlavamo?"
+- Ricordare problemi irrisolti e offrire supporto proattivo
+- NON ripetere info già discusse se l'utente non le menziona
+`;
+      formattedMemory.push(sessionContextBlock);
+    }
+    
+    // Build sensitive topics awareness
+    const sensTopics = conversationTopics.filter((t: any) => t.is_sensitive || t.avoid_unless_introduced);
+    if (sensTopics.length > 0) {
+      const sensitiveBlock = `
+⚠️ ARGOMENTI SENSIBILI (NON introdurre MAI per primo):
+${sensTopics.map((t: any) => `- ${t.topic}`).join('\n')}
+Se l'utente li introduce, procedi con delicatezza.
+`;
+      formattedMemory.push(sensitiveBlock);
+    }
+    
+    // Build habit streaks celebration context
+    const significantStreaks = habitStreaks.filter((s: any) => s.current_streak >= 3);
+    if (significantStreaks.length > 0) {
+      const streaksBlock = `
+🔥 STREAK DA CELEBRARE:
+${significantStreaks.map((s: any) => `- ${s.habit_type}: ${s.current_streak} giorni consecutivi${s.current_streak >= 7 ? ' 🎉' : ''}${s.current_streak === s.longest_streak && s.current_streak > 1 ? ' (Record personale!)' : ''}`).join('\n')}
+Celebra questi risultati quando appropriato!
+`;
+      formattedMemory.push(streaksBlock);
     }
     
     if (profileResult.error) {
