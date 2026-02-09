@@ -15,7 +15,7 @@ const ProfileStatsRow: React.FC = () => {
 
       const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd');
       
-      const [checkinsResult, sessionsResult, allSessionsResult] = await Promise.all([
+      const [checkinsResult, sessionsResult, allSessionsResult, habitStreaksResult] = await Promise.all([
         supabase
           .from('daily_checkins')
           .select('created_at')
@@ -32,6 +32,11 @@ const ProfileStatsRow: React.FC = () => {
           .select('id', { count: 'exact' })
           .eq('user_id', user.id)
           .eq('status', 'completed'),
+        // Get cached habit streaks for longest streak check
+        supabase
+          .from('habit_streaks')
+          .select('longest_streak')
+          .eq('user_id', user.id),
       ]);
 
       // Combine dates for streak calculation
@@ -80,10 +85,16 @@ const ProfileStatsRow: React.FC = () => {
       }
       longestStreak = Math.max(longestStreak, tempStreak);
 
+      // Also check cached habit streaks for max longest
+      const habitStreaks = habitStreaksResult.data || [];
+      const maxHabitLongest = habitStreaks.reduce((max, h) => 
+        Math.max(max, h.longest_streak || 0), 0
+      );
+
       return {
         currentStreak,
         totalSessions: allSessionsResult.count || 0,
-        longestStreak,
+        longestStreak: Math.max(longestStreak, maxHabitLongest),
       };
     },
     enabled: !!user,

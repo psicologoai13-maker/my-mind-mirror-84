@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Flame, Calendar } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, subDays, differenceInCalendarDays } from 'date-fns';
 
@@ -14,10 +14,14 @@ const StreakCounter: React.FC = () => {
     queryFn: async () => {
       if (!user) return { currentStreak: 0, longestStreak: 0, activeDays: 0 };
 
+      // Try to get from habit_streaks cache first (for app usage streak)
+      // But since app streak is check-ins + sessions, we still calculate it
+      // The habit_streaks table is for individual habits
+      
       // Get last 60 days of activity (check-ins + sessions)
       const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd');
       
-      const [checkinsResult, sessionsResult] = await Promise.all([
+      const [checkinsResult, sessionsResult, habitStreaksResult] = await Promise.all([
         supabase
           .from('daily_checkins')
           .select('created_at')
@@ -29,9 +33,14 @@ const StreakCounter: React.FC = () => {
           .eq('user_id', user.id)
           .eq('status', 'completed')
           .gte('start_time', sixtyDaysAgo),
+        // Also get cached habit streaks for any individual habit achievements
+        supabase
+          .from('habit_streaks')
+          .select('habit_type, current_streak, longest_streak')
+          .eq('user_id', user.id),
       ]);
 
-      // Combine all dates
+      // Combine all dates for app usage streak
       const allDates = new Set<string>();
       
       checkinsResult.data?.forEach(c => {
@@ -78,10 +87,17 @@ const StreakCounter: React.FC = () => {
       }
       longestStreak = Math.max(longestStreak, tempStreak);
 
+      // Also check if any habit has a higher longest streak from cache
+      const habitStreaks = habitStreaksResult.data || [];
+      const maxHabitStreak = habitStreaks.reduce((max, h) => 
+        Math.max(max, h.longest_streak || 0), 0
+      );
+
       return {
         currentStreak,
-        longestStreak,
+        longestStreak: Math.max(longestStreak, maxHabitStreak),
         activeDays: allDates.size,
+        habitStreaks, // Include habit streaks for potential future use
       };
     },
     enabled: !!user,

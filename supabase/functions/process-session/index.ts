@@ -2278,6 +2278,134 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     console.log('[process-session] 📝 NEW_MEMORIES_TOTAL:', newMemoriesToInsert.length);
     console.log('[process-session] 📝 CORRECTIONS_PROCESSED:', corrections.length);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 📸 SESSION CONTEXT SNAPSHOT - Save for continuity between sessions
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.log('[process-session] 📸 Creating session context snapshot...');
+    
+    // Determine dominant emotion
+    const emotionScores = Object.entries(analysis.emotions || {})
+      .filter(([k, v]) => v !== null && (v as number) > 0)
+      .sort((a, b) => (b[1] as number) - (a[1] as number));
+    const dominantEmotion = emotionScores[0]?.[0] || null;
+    
+    // Calculate session quality score (1-10)
+    const qualityFactors = [
+      analysis.vitals.mood ? analysis.vitals.mood : 5,
+      analysis.deep_psychology?.mental_clarity || 5,
+      10 - (analysis.vitals.anxiety || 5),
+    ];
+    const sessionQualityScore = Math.round(
+      qualityFactors.reduce((a, b) => a + b, 0) / qualityFactors.length
+    );
+    
+    // Determine if follow-up is needed
+    const needsFollowUp = 
+      analysis.crisis_risk !== 'low' ||
+      (analysis.key_events?.length || 0) > 0 ||
+      (analysis.deep_psychology?.hopelessness || 0) >= 6 ||
+      (analysis.deep_psychology?.suicidal_ideation || 0) >= 3;
+    
+    // Extract unresolved issues (problems mentioned but not solved)
+    const problemPatterns = /problem|difficolt|crisi|stress|ansia|preoccup|paur|triste|male|dolore|non riesco/i;
+    const unresolvedIssues = (analysis.key_events || []).filter((e: string) => 
+      problemPatterns.test(e)
+    ).slice(0, 5);
+    
+    // Extract action items (things the user wants to do)
+    const actionPatterns = /devo|dovrei|voglio|vorrei|obiettivo|farò|proverò|inizier/i;
+    const actionItems = (analysis.key_events || []).filter((e: string) => 
+      actionPatterns.test(e)
+    ).slice(0, 5);
+    
+    const snapshot = {
+      session_id: session_id,
+      user_id: user_id,
+      key_topics: (analysis.emotion_tags || []).slice(0, 5),
+      emotional_state: {
+        mood: analysis.vitals.mood,
+        anxiety: analysis.vitals.anxiety,
+        energy: analysis.vitals.energy,
+        dominant_emotion: dominantEmotion,
+        crisis_risk: analysis.crisis_risk
+      },
+      unresolved_issues: unresolvedIssues,
+      action_items: actionItems,
+      follow_up_needed: needsFollowUp,
+      context_summary: analysis.summary,
+      dominant_emotion: dominantEmotion,
+      session_quality_score: sessionQualityScore
+    };
+    
+    const { error: snapshotError } = await supabase
+      .from('session_context_snapshots')
+      .insert(snapshot);
+    
+    if (snapshotError) {
+      console.error('[process-session] Error saving session snapshot:', snapshotError);
+    } else {
+      console.log('[process-session] 📸 Session context snapshot saved successfully');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🏷️ CONVERSATION TOPICS TRACKING - Track and learn topic patterns
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.log('[process-session] 🏷️ Tracking conversation topics...');
+    
+    const topics = (analysis.emotion_tags || []) as string[];
+    const sensitivePatterns = /trauma|abuso|lutto|morte|suicid|autolesion|violenza|stupro|molest/i;
+    
+    let topicsTracked = 0;
+    for (const topic of topics) {
+      if (!topic || topic.length < 2) continue;
+      
+      const topicLower = topic.toLowerCase().trim();
+      const isSensitive = sensitivePatterns.test(topicLower);
+      
+      // Check if topic already exists for user
+      const { data: existingTopic } = await supabase
+        .from('conversation_topics')
+        .select('id, mention_count, session_ids, is_sensitive')
+        .eq('user_id', user_id)
+        .eq('topic', topicLower)
+        .maybeSingle();
+      
+      if (existingTopic) {
+        // Update existing topic
+        const currentSessionIds = (existingTopic.session_ids as string[]) || [];
+        if (!currentSessionIds.includes(session_id)) {
+          const { error: updateError } = await supabase
+            .from('conversation_topics')
+            .update({
+              mention_count: existingTopic.mention_count + 1,
+              last_mentioned_at: new Date().toISOString(),
+              session_ids: [...currentSessionIds, session_id],
+              is_sensitive: isSensitive || existingTopic.is_sensitive,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingTopic.id);
+          
+          if (!updateError) topicsTracked++;
+        }
+      } else {
+        // Insert new topic
+        const { error: insertError } = await supabase
+          .from('conversation_topics')
+          .insert({
+            user_id: user_id,
+            topic: topicLower,
+            session_ids: [session_id],
+            is_sensitive: isSensitive,
+            mention_count: 1,
+            avoid_unless_introduced: isSensitive
+          });
+        
+        if (!insertError) topicsTracked++;
+      }
+    }
+    
+    console.log(`[process-session] 🏷️ Tracked ${topicsTracked} conversation topics`);
+
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
     
