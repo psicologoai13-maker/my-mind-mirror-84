@@ -2126,90 +2126,157 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     if (analysis.life_areas.health !== null) mergedLifeScores.wellness = analysis.life_areas.health;
     if (analysis.life_areas.growth !== null) mergedLifeScores.growth = analysis.life_areas.growth;
 
-    // Update long-term memory - include personal details for "friend memory"
-    const existingMemory = profileData?.long_term_memory || [];
-    console.log('[process-session] 📝 EXISTING MEMORY LENGTH:', existingMemory.length);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🧠 STRUCTURED MEMORY SYSTEM - Save to user_memories table
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    console.log('[process-session] 📝 Processing structured memories...');
     
     // Extract personal details from analysis if present
     const personalDetails = (analysis as any).personal_details || {};
-    const personalMemoryItems: string[] = [];
+    
+    // Helper to determine category and importance for a memory
+    const categorizeMemory = (fact: string, source: 'key_fact' | 'persona' | 'hobby' | 'piace' | 'evento'): { category: string; importance: number } => {
+      const lowerFact = fact.toLowerCase();
+      
+      // High importance patterns
+      const highImportancePatterns = /partner|fidanzat|marit|moglie|figli|genitor|famiglia|lavoro|professione|malattia|trauma|obiettivo|sogno/i;
+      const mediumImportancePatterns = /amici|hobby|sport|viaggio|vacanza|studio|università|scuola/i;
+      
+      let importance = 5; // Default medium
+      if (highImportancePatterns.test(lowerFact)) importance = 8;
+      else if (mediumImportancePatterns.test(lowerFact)) importance = 6;
+      
+      // Determine category based on source and content
+      let category = 'generale';
+      if (source === 'persona') category = 'persona';
+      else if (source === 'hobby') category = 'hobby';
+      else if (source === 'piace') category = 'preferenza';
+      else if (source === 'evento') category = 'evento';
+      else {
+        // Infer from content
+        if (/lavoro|ufficio|carriera|professione|azienda/i.test(lowerFact)) category = 'lavoro';
+        else if (/viaggio|vacanza|destinazione|volo|partenza/i.test(lowerFact)) category = 'viaggio';
+        else if (/famiglia|genitor|figli|frat|sorell/i.test(lowerFact)) category = 'famiglia';
+        else if (/salute|medico|malattia|farmac/i.test(lowerFact)) category = 'salute';
+        else if (/obiettivo|goal|voglio|desider/i.test(lowerFact)) category = 'obiettivo';
+      }
+      
+      return { category, importance };
+    };
+    
+    // Collect all new memories to insert
+    const newMemoriesToInsert: Array<{ fact: string; category: string; importance: number }> = [];
+    
+    // Add key_facts from AI analysis
+    const filteredKeyFacts = analysis.key_facts.filter((fact: string) => {
+      const corrections = analysis.corrections || [];
+      return !corrections.some((c: MemoryCorrection) => 
+        c.wrong_fact?.toLowerCase().includes(fact.toLowerCase()) ||
+        fact.toLowerCase().includes(c.wrong_fact?.toLowerCase() || '')
+      );
+    });
+    
+    for (const fact of filteredKeyFacts) {
+      const { category, importance } = categorizeMemory(fact, 'key_fact');
+      newMemoriesToInsert.push({ fact, category, importance });
+    }
     
     // Add mentioned names
     if (personalDetails.mentioned_names?.length > 0) {
-      personalDetails.mentioned_names.forEach((name: string) => {
-        if (name && !existingMemory.includes(name)) {
-          personalMemoryItems.push(`[PERSONA] ${name}`);
+      for (const name of personalDetails.mentioned_names) {
+        if (name) {
+          newMemoriesToInsert.push({ fact: name, category: 'persona', importance: 7 });
         }
-      });
+      }
     }
     
     // Add hobbies/interests
     if (personalDetails.hobbies_interests?.length > 0) {
-      personalDetails.hobbies_interests.forEach((hobby: string) => {
-        if (hobby && !existingMemory.some((m: string) => m.includes(hobby))) {
-          personalMemoryItems.push(`[HOBBY] ${hobby}`);
+      for (const hobby of personalDetails.hobbies_interests) {
+        if (hobby) {
+          newMemoriesToInsert.push({ fact: hobby, category: 'hobby', importance: 6 });
         }
-      });
+      }
     }
     
     // Add likes
     if (personalDetails.likes?.length > 0) {
-      personalDetails.likes.forEach((like: string) => {
-        if (like && !existingMemory.some((m: string) => m.includes(like))) {
-          personalMemoryItems.push(`[PIACE] ${like}`);
+      for (const like of personalDetails.likes) {
+        if (like) {
+          newMemoriesToInsert.push({ fact: like, category: 'preferenza', importance: 5 });
         }
-      });
+      }
     }
     
     // Add life events
     if (personalDetails.life_events?.length > 0) {
-      personalDetails.life_events.forEach((event: string) => {
-        if (event && !existingMemory.some((m: string) => m.includes(event))) {
-          personalMemoryItems.push(`[EVENTO] ${event}`);
+      for (const event of personalDetails.life_events) {
+        if (event) {
+          newMemoriesToInsert.push({ fact: event, category: 'evento', importance: 7 });
         }
-      });
-    }
-    
-    // 🔄 NEW: Handle corrections - clean memory of wrong facts
-    const corrections = analysis.corrections || [];
-    
-    // Remove facts from existing memory that contain keywords from corrections
-    const cleanedMemory = existingMemory.filter((fact: string) => {
-      const isWrongFact = corrections.some((c: MemoryCorrection) => 
-        c.keywords_to_remove?.some((kw: string) => 
-          fact.toLowerCase().includes(kw.toLowerCase())
-        )
-      );
-      if (isWrongFact) {
-        console.log('[process-session] 🔄 Removing corrected fact from memory:', fact);
       }
-      return !isWrongFact;
-    });
-    
-    // Filter key_facts to exclude any that match wrong_fact descriptions
-    const filteredKeyFacts = analysis.key_facts.filter((fact: string) => 
-      !corrections.some((c: MemoryCorrection) => 
-        c.wrong_fact?.toLowerCase().includes(fact.toLowerCase()) ||
-        fact.toLowerCase().includes(c.wrong_fact?.toLowerCase() || '')
-      )
-    );
-    
-    if (corrections.length > 0) {
-      console.log('[process-session] 🔄 Processed', corrections.length, 'corrections');
-      console.log('[process-session] 🔄 Cleaned memory items removed:', existingMemory.length - cleanedMemory.length);
-      console.log('[process-session] 🔄 Filtered key_facts:', analysis.key_facts.length - filteredKeyFacts.length, 'removed');
     }
     
-    // Combine cleaned key_facts with personal memory items
-    const newMemoryItems = [...filteredKeyFacts, ...personalMemoryItems];
-    const updatedMemory = [...cleanedMemory, ...newMemoryItems].slice(-60); // Increased to 60 for richer memory
+    // 🔄 Handle corrections - deactivate wrong memories
+    const corrections = analysis.corrections || [];
+    if (corrections.length > 0) {
+      console.log('[process-session] 🔄 Processing', corrections.length, 'memory corrections');
+      
+      for (const correction of corrections) {
+        if (correction.keywords_to_remove?.length > 0) {
+          // Deactivate memories matching these keywords
+          for (const keyword of correction.keywords_to_remove) {
+            const { error: deactivateError } = await supabase
+              .from('user_memories')
+              .update({ is_active: false })
+              .eq('user_id', user_id)
+              .ilike('fact', `%${keyword}%`);
+            
+            if (deactivateError) {
+              console.error('[process-session] Error deactivating memory:', deactivateError);
+            } else {
+              console.log('[process-session] 🔄 Deactivated memories containing:', keyword);
+            }
+          }
+        }
+      }
+    }
     
-    // 🔍 DEBUG: Log what's being saved to memory
-    console.log('[process-session] 📝 FILTERED_KEY_FACTS:', JSON.stringify(filteredKeyFacts));
-    console.log('[process-session] 📝 PERSONAL_MEMORY_ITEMS:', JSON.stringify(personalMemoryItems));
-    console.log('[process-session] 📝 NEW_MEMORY_ITEMS COUNT:', newMemoryItems.length);
-    console.log('[process-session] 📝 UPDATED_MEMORY TOTAL:', updatedMemory.length);
-    console.log('[process-session] 📝 UPDATED_MEMORY CONTENT:', JSON.stringify(updatedMemory));
+    // Insert new memories (avoid duplicates)
+    let insertedCount = 0;
+    for (const memory of newMemoriesToInsert) {
+      // Check if similar memory already exists
+      const { data: existing } = await supabase
+        .from('user_memories')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('is_active', true)
+        .ilike('fact', `%${memory.fact.substring(0, 30)}%`)
+        .maybeSingle();
+      
+      if (!existing) {
+        const { error: insertError } = await supabase
+          .from('user_memories')
+          .insert({
+            user_id: user_id,
+            category: memory.category,
+            fact: memory.fact,
+            importance: memory.importance,
+            source_session_id: session_id
+          });
+        
+        if (insertError) {
+          console.error('[process-session] Error inserting memory:', insertError);
+        } else {
+          insertedCount++;
+        }
+      }
+    }
+    
+    console.log(`[process-session] 📝 Inserted ${insertedCount} new structured memories`);
+    console.log('[process-session] 📝 NEW_MEMORIES_TOTAL:', newMemoriesToInsert.length);
+    console.log('[process-session] 📝 CORRECTIONS_PROCESSED:', corrections.length);
 
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
@@ -2558,7 +2625,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
       .update({ 
-        long_term_memory: updatedMemory,
+        // NOTE: long_term_memory is now deprecated - memories are stored in user_memories table
         life_areas_scores: mergedLifeScores,
         active_dashboard_metrics: validFinalMetrics,
         selected_goals: updatedGoals // 🎯 Save AI-updated goals
@@ -2568,7 +2635,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     if (profileUpdateError) {
       console.error('[process-session] Error updating profile:', profileUpdateError);
     } else {
-      console.log('[process-session] Profile updated with', analysis.key_facts.length, 'new facts');
+      console.log('[process-session] Profile updated. Memories now stored in user_memories table.');
       if (suggestedNewGoals.length > 0) {
         console.log('[process-session] Added', suggestedNewGoals.length, 'new AI-detected goals');
       }

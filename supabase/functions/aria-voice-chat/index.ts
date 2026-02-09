@@ -1684,11 +1684,12 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       recentSessionsResult,
       todayHabitsResult,
       bodyMetricsResult,
-      userEventsResult
+      userEventsResult,
+      userMemoriesResult  // NEW: Structured memories
     ] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('name, long_term_memory, selected_goals, occupation_context, gender, birth_date, therapy_status, onboarding_answers')
+        .select('name, selected_goals, occupation_context, gender, birth_date, therapy_status, onboarding_answers')
         .eq('user_id', user.id)
         .single(),
       supabase
@@ -1730,7 +1731,16 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         .lte('event_date', futureDateStr)
         .in('status', ['upcoming', 'happening', 'passed'])
         .order('event_date', { ascending: true })
-        .limit(20)
+        .limit(20),
+      // NEW: Get structured memories with smart selection
+      supabase
+        .from('user_memories')
+        .select('id, category, fact, importance, last_referenced_at')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('importance', { ascending: false })
+        .order('last_referenced_at', { ascending: false })
+        .limit(80)
     ]);
 
     const profile = profileResult.data;
@@ -1741,6 +1751,7 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     const todayHabits = todayHabitsResult.data || [];
     const bodyMetrics = bodyMetricsResult.data;
     const userEvents = userEventsResult.data || [];
+    const userMemories = userMemoriesResult.data || [];
 
     if (profileResult.error) {
       console.log('[aria-voice-chat] Failed to get profile:', profileResult.error.message);
@@ -1749,11 +1760,45 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     if (userEvents.length > 0) {
       console.log(`[aria-voice-chat] Loaded ${userEvents.length} structured events from user_events table`);
     }
+    if (userMemories.length > 0) {
+      console.log(`[aria-voice-chat] Loaded ${userMemories.length} structured memories from user_memories table`);
+    }
+    
+    // Convert structured memories to formatted strings for prompt injection
+    const memoryByCategory: Record<string, string[]> = {};
+    for (const mem of userMemories) {
+      const category = mem.category || 'generale';
+      if (!memoryByCategory[category]) {
+        memoryByCategory[category] = [];
+      }
+      memoryByCategory[category].push(mem.fact);
+    }
+    
+    const categoryLabels: Record<string, string> = {
+      'persona': '[PERSONA]',
+      'hobby': '[HOBBY]',
+      'viaggio': '[VIAGGIO]',
+      'lavoro': '[LAVORO]',
+      'evento': '[EVENTO]',
+      'preferenza': '[PIACE]',
+      'famiglia': '[FAMIGLIA]',
+      'salute': '[SALUTE]',
+      'obiettivo': '[OBIETTIVO]',
+      'generale': ''
+    };
+    
+    const formattedMemory: string[] = [];
+    for (const [category, facts] of Object.entries(memoryByCategory)) {
+      const prefix = categoryLabels[category] || `[${category.toUpperCase()}]`;
+      for (const fact of facts) {
+        formattedMemory.push(prefix ? `${prefix} ${fact}` : fact);
+      }
+    }
 
     const result: VoiceContext = {
       profile: profile ? {
         name: profile.name,
-        long_term_memory: profile.long_term_memory || [],
+        long_term_memory: formattedMemory, // Use structured memories
         selected_goals: profile.selected_goals || [],
         occupation_context: profile.occupation_context,
         gender: profile.gender,

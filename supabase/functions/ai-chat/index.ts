@@ -2728,11 +2728,12 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       recentSessionsResult,
       todayHabitsResult,
       bodyMetricsResult,
-      userEventsResult
+      userEventsResult,
+      userMemoriesResult  // NEW: Structured memories
     ] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('long_term_memory, name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context')
+        .select('name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context')
         .eq('user_id', user.id)
         .single(),
       supabase
@@ -2778,7 +2779,16 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
         .lte('event_date', futureDateStr)
         .in('status', ['upcoming', 'happening', 'passed'])
         .order('event_date', { ascending: true })
-        .limit(20)
+        .limit(20),
+      // NEW: Get structured memories with smart selection (priority by importance and recency)
+      supabase
+        .from('user_memories')
+        .select('id, category, fact, importance, last_referenced_at')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('importance', { ascending: false })
+        .order('last_referenced_at', { ascending: false })
+        .limit(80)
     ]);
     
     const profile = profileResult.data;
@@ -2789,10 +2799,47 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     const todayHabits = (todayHabitsResult.data || []) as HabitData[];
     const bodyMetrics = bodyMetricsResult.data as BodyMetricsData | null;
     const userEvents = userEventsResult.data || [];
+    const userMemories = userMemoriesResult.data || [];
     
-    // Log events for debugging
+    // Log events and memories for debugging
     if (userEvents.length > 0) {
       console.log(`[ai-chat] Loaded ${userEvents.length} structured events from user_events table`);
+    }
+    if (userMemories.length > 0) {
+      console.log(`[ai-chat] Loaded ${userMemories.length} structured memories from user_memories table`);
+    }
+    
+    // Convert structured memories to formatted strings for prompt injection
+    // Group by category for better context
+    const memoryByCategory: Record<string, string[]> = {};
+    for (const mem of userMemories) {
+      const category = mem.category || 'generale';
+      if (!memoryByCategory[category]) {
+        memoryByCategory[category] = [];
+      }
+      memoryByCategory[category].push(mem.fact);
+    }
+    
+    // Build formatted memory array (maintain backwards compatibility with old format)
+    const formattedMemory: string[] = [];
+    const categoryLabels: Record<string, string> = {
+      'persona': '[PERSONA]',
+      'hobby': '[HOBBY]',
+      'viaggio': '[VIAGGIO]',
+      'lavoro': '[LAVORO]',
+      'evento': '[EVENTO]',
+      'preferenza': '[PIACE]',
+      'famiglia': '[FAMIGLIA]',
+      'salute': '[SALUTE]',
+      'obiettivo': '[OBIETTIVO]',
+      'generale': ''
+    };
+    
+    for (const [category, facts] of Object.entries(memoryByCategory)) {
+      const prefix = categoryLabels[category] || `[${category.toUpperCase()}]`;
+      for (const fact of facts) {
+        formattedMemory.push(prefix ? `${prefix} ${fact}` : fact);
+      }
     }
     
     if (profileResult.error) {
@@ -2851,7 +2898,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     
     const result: UserProfile = {
       name: profile?.name || null,
-      long_term_memory: profile?.long_term_memory || [],
+      long_term_memory: formattedMemory, // Use structured memories converted to formatted strings
       life_areas_scores: (profile?.life_areas_scores as Record<string, number | null>) || {},
       selected_goals: (profile?.selected_goals as string[]) || [],
       onboarding_answers: profile?.onboarding_answers as OnboardingAnswers | null,
@@ -2871,7 +2918,7 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       occupation_context: profile?.occupation_context || null,
     };
     
-    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, memory=${result.long_term_memory.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}, user_events=${userEvents.length}`);
+    console.log(`[ai-chat] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, structured_memories=${userMemories.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}, user_events=${userEvents.length}`);
     
     return result;
   } catch (error) {
