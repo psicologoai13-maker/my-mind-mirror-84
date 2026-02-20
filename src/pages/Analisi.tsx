@@ -44,7 +44,14 @@ const Analisi: React.FC = () => {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-  const [autoExpandStep, setAutoExpandStep] = useState(0); // 0=none, 1=tried month, 2=tried all
+  const [autoExpandStep, setAutoExpandStep] = useState(0);
+  const [userManuallyChanged, setUserManuallyChanged] = useState(false);
+
+  // Wrap setTimeRange to track manual changes
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setUserManuallyChanged(true);
+    setTimeRange(range);
+  };
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -223,7 +230,7 @@ const Analisi: React.FC = () => {
 
   // Smart auto-expand: week → month → all (gradual, not jumping straight to 'all')
   useEffect(() => {
-    if (!isLoading && !hasAnyData) {
+    if (!isLoading && !hasAnyData && !userManuallyChanged) {
       if (autoExpandStep === 0 && timeRange === 'week') {
         setAutoExpandStep(1);
         setTimeRange('month');
@@ -232,7 +239,7 @@ const Analisi: React.FC = () => {
         setTimeRange('all');
       }
     }
-  }, [isLoading, hasAnyData, autoExpandStep, timeRange]);
+  }, [isLoading, hasAnyData, autoExpandStep, timeRange, userManuallyChanged]);
 
   // Calculate lookback days for AbitudiniTab
   const lookbackDays = useMemo(() => {
@@ -296,7 +303,7 @@ const Analisi: React.FC = () => {
             <div className="px-4 pb-4">
               <CompactTimeSelector
                 value={timeRange}
-                onChange={setTimeRange}
+                onChange={handleTimeRangeChange}
                 hasTodayData={hasTodayData}
               />
             </div>
