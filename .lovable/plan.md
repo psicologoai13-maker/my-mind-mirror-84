@@ -1,161 +1,205 @@
-# Piano Integrazione Completa: Database Avanzato Aria
 
-## Stato Attuale (Aggiornato: 2026-02-09)
+# Analisi Completa Pre-Lancio: Serenity / Aria
 
-| Tabella | Stato DB | Integrazione |
-|---------|----------|--------------|
-| `user_memories` | ✅ Creata | ✅ **INTEGRATA** in ai-chat, aria-voice-chat, process-session |
-| `session_context_snapshots` | ✅ Creata | ✅ **INTEGRATA** - Popolata in process-session, iniettata in ai-chat/voice |
-| `emotion_patterns` | ✅ Creata | ✅ **INTEGRATA** - Edge Function detect-emotion-patterns creata |
-| `user_correlations` | ✅ Creata | ✅ **INTEGRATA** - Edge Function calculate-correlations creata |
-| `habit_streaks` | ✅ Creata + Trigger | ✅ **INTEGRATA** - Letta da UI e iniettata in chat context |
-| `smart_notifications` | ✅ Creata | ⏳ **FASE 3** - Engine da implementare (cron job) |
-| `conversation_topics` | ✅ Creata | ✅ **INTEGRATA** - Popolata in process-session, usata per sensitivity |
-| `aria_response_feedback` | ✅ Creata | ⏳ **FASE 3** - Feedback loop da implementare |
+## Stato Attuale dell'App
 
-## Implementazioni Completate
-
-### FASE 1: Integrazioni CRITICHE ✅
-
-**1.1 session_context_snapshots in process-session** ✅
-- Salva automaticamente: key_topics, unresolved_issues, action_items
-- Calcola emotional_state con mood, anxiety, dominant_emotion
-- Determina follow_up_needed basato su crisis_risk e hopelessness
-- Calcola session_quality_score (1-10)
-
-**1.2 Iniezione in ai-chat e aria-voice-chat** ✅
-- Recupera ultimi 3-5 snapshot
-- Inietta nel prompt per continuità narrativa
-- Usa unresolved_issues per follow-up proattivo
-
-**1.3 conversation_topics tracking** ✅
-- Estrae argomenti da emotion_tags
-- Marca argomenti sensibili (trauma, abuso, lutto, etc.)
-- Traccia mention_count e avoid_unless_introduced
-- Iniettato nel prompt per rispetto sensibilità
-
-### FASE 2: Analytics Avanzati ✅
-
-**2.1 Edge Function calculate-correlations** ✅
-- Calcola correlazioni Pearson tra metriche
-- Coppie: sleep↔mood, exercise↔anxiety, meditation↔mental_clarity, etc.
-- Genera insight testuali automatici
-- Salva in user_correlations con is_significant flag
-
-**2.2 Edge Function detect-emotion-patterns** ✅
-- Rileva pattern temporali:
-  - `morning_dip`: Umore basso al mattino
-  - `weekend_boost`: Miglioramento nel weekend
-  - `monday_blues`: Lunedì problematici
-  - `anxiety_spikes`: Picchi di ansia ricorrenti
-- Salva in emotion_patterns con confidence e recommendations
-
-**2.3 habit_streaks cache integrata** ✅
-- UI (StreakCounter, ProfileStatsRow) legge dalla cache
-- Contesto chat riceve streak significativi (≥3 giorni)
-- Aria celebra streak importanti
-
-### FASE 3: Personalizzazione Avanzata (TODO)
-
-**3.1 Engine smart_notifications** ⏳
-- Cron job per schedulazione notifiche contestuali
-- Tipi: event_reminder, streak_at_risk, mood_follow_up
-
-**3.2 Feedback Loop aria_response_feedback** ⏳
-- Tracking implicito reazioni utente
-- Cambio topic rapido → risposta non gradita
-- Continuazione → risposta efficace
+L'app e' funzionalmente ricca con un ecosistema completo: chat AI, voice, check-in, analisi, obiettivi, diari tematici, sistema premium, doctor dashboard. Tuttavia, ci sono diverse aree critiche da sistemare prima del lancio.
 
 ---
 
-## File Modificati/Creati
+## PROBLEMI CRITICI (Bloccanti per il Lancio)
 
-| File | Stato |
-|------|-------|
-| `supabase/functions/process-session/index.ts` | ✅ Modificato: salvataggio snapshot + topics |
-| `supabase/functions/ai-chat/index.ts` | ✅ Modificato: fetch + inject snapshots, topics, streaks |
-| `supabase/functions/aria-voice-chat/index.ts` | ✅ Modificato: stessa logica di ai-chat |
-| `supabase/functions/calculate-correlations/index.ts` | ✅ **CREATO** |
-| `supabase/functions/detect-emotion-patterns/index.ts` | ✅ **CREATO** |
-| `supabase/config.toml` | ✅ Aggiornato con nuove funzioni |
-| `src/components/home/StreakCounter.tsx` | ✅ Modificato: usa cache habit_streaks |
-| `src/components/profile/ProfileStatsRow.tsx` | ✅ Modificato: usa cache habit_streaks |
+### 1. Nessun "Password Dimenticata"
+La pagina Auth non ha alcun meccanismo di recupero password. Un utente che dimentica la password non puo' piu' accedere.
+
+**Soluzione:** Aggiungere link "Password dimenticata?" che invoca `supabase.auth.resetPasswordForEmail()` con redirect a una pagina di reset.
+
+### 2. Nessun Error Boundary
+Se un componente React crasha, l'intera app diventa bianca senza feedback. Nessun `ErrorBoundary` e' implementato.
+
+**Soluzione:** Creare un `ErrorBoundary` globale che mostri un messaggio user-friendly con opzione di ricaricare.
+
+### 3. Chat: Riferimento Legacy a `long_term_memory`
+`Chat.tsx` (riga 66) ancora legge `profile?.long_term_memory` per mostrare il badge memoria nell'header. Dopo la migrazione a `user_memories`, questo array non viene piu' aggiornato, quindi il badge mostra dati obsoleti o "Nuova".
+
+**Soluzione:** Sostituire con una query a `user_memories` (conteggio memorie attive) per mostrare il numero reale di ricordi.
+
+### 4. Termini di Servizio e Privacy Policy non funzionanti
+I link "Termini di Servizio" e "Privacy Policy" nella pagina Auth sono `<span>` senza `href` ne' `onClick`. Cliccandoli non succede nulla.
+
+**Soluzione:** Creare pagine `/terms` e `/privacy` con contenuto legale, oppure linkare a URL esterni.
+
+### 5. Pagina Plus: Pagamenti Non Implementati
+Il bottone "Abbonati" mostra solo un toast "Pagamenti in arrivo presto!". Per il lancio serve almeno una soluzione funzionante.
+
+**Soluzione:** Integrare Stripe per pagamenti reali, oppure rimuovere la sezione abbonamento e mantenere solo il riscatto punti.
 
 ---
 
-## Architettura Memoria Aria (Completa)
+## PROBLEMI IMPORTANTI (Alta Priorita')
 
+### 6. Nessun Social Login (Google)
+Solo email/password. Google Sign-In e' ormai standard e riduce drasticamente la friction di registrazione.
+
+**Soluzione:** Abilitare Google OAuth tramite il sistema di autenticazione, aggiungere bottone "Continua con Google".
+
+### 7. Auth: Nessuna Conferma Email Visibile
+Dopo la registrazione, l'utente non vede un messaggio chiaro che deve verificare l'email. Il flusso post-signup e' confuso.
+
+**Soluzione:** Dopo `signUp`, mostrare una schermata "Controlla la tua email" con istruzioni chiare.
+
+### 8. Sessioni: Paginazione Assente
+`Sessions.tsx` mostra solo le prime 8 sessioni con un bottone "Mostra altre" che non fa nulla (`<button>` senza handler).
+
+**Soluzione:** Implementare la paginazione o "load more" funzionante.
+
+### 9. ProfilePrivacy: Link Privacy Policy Non Funzionante
+Il bottone "Privacy Policy" nella pagina privacy non ha un `onClick` handler.
+
+### 10. Nessun Feedback di Rate Limiting
+Le Edge Functions hanno rate limiting ma il feedback all'utente e' generico. Servono messaggi piu' chiari.
+
+---
+
+## MIGLIORAMENTI UX (Media Priorita')
+
+### 11. Splash Screen / Loading State Migliorato
+Lo screenshot mostra che la pagina Auth ha un momento "bianco" durante il caricamento delle animazioni. Serve un loading state piu' fluido.
+
+### 12. Onboarding: Manca Step "Conferma Dati"
+L'onboarding salta direttamente dalla selezione interessi alla schermata "Ready". Un riepilogo dei dati inseriti migliorerebbe la fiducia dell'utente.
+
+### 13. Home: Messaggio Personalizzato per Ora del Giorno
+"Come ti senti oggi?" e' statico. Personalizzarlo con l'ora (Buongiorno/Buon pomeriggio/Buonasera) e con dati contestuali.
+
+### 14. Analisi: Sezione Correlazioni e Pattern
+Le tabelle `user_correlations` e `emotion_patterns` sono popolate dalle Edge Functions ma non c'e' nessun componente UI per visualizzarle. L'utente non vede mai questi dati.
+
+**Soluzione:** Aggiungere sezione "Insight Personali" nella pagina Analisi con:
+- Card correlazioni ("Il sonno migliora il tuo umore del 40%")  
+- Card pattern ("Noto che i lunedi' sono piu' difficili per te")
+
+### 15. Pull-to-Refresh
+Nessuna pagina supporta pull-to-refresh, un pattern mobile fondamentale.
+
+---
+
+## MIGLIORAMENTI TECNICI (Bassa Priorita')
+
+### 16. Service Worker / PWA
+L'app non ha un service worker. Per un'esperienza mobile ottimale, servirebbero:
+- Caching offline delle pagine
+- Manifest.json per installazione
+- Push notifications (preparazione)
+
+### 17. Cleanup Dati Legacy
+La colonna `long_term_memory` in `user_profiles` non e' piu' usata dopo la migrazione a `user_memories`. Andrebbe rimossa o ignorata esplicitamente.
+
+### 18. Accessibilita' (a11y)
+- Mancano `aria-label` su molti bottoni icon-only
+- Il contrasto dei testi `text-muted-foreground` potrebbe non superare WCAG AA su sfondi chiari
+- Manca `role="alert"` sui messaggi di errore
+
+---
+
+## PIANO DI IMPLEMENTAZIONE PROPOSTO
+
+### Fase 1: Bloccanti (1-2 iterazioni)
+1. Aggiungere "Password dimenticata" alla pagina Auth
+2. Creare ErrorBoundary globale
+3. Fixare badge memoria in Chat.tsx (query `user_memories`)
+4. Creare pagine Terms/Privacy o link esterni
+5. Decidere strategia pagamenti (Stripe o rimuovere sezione)
+
+### Fase 2: Alta Priorita' (2-3 iterazioni)
+6. Schermata "Controlla email" post-registrazione
+7. Fix paginazione sessioni
+8. Fix link Privacy Policy in ProfilePrivacy
+9. Aggiungere Google OAuth (opzionale)
+
+### Fase 3: UX Polish (2-3 iterazioni)
+10. Saluto personalizzato per ora del giorno
+11. Sezione Correlazioni e Pattern nella pagina Analisi
+12. Pull-to-refresh sulle pagine principali
+
+### Fase 4: Tecnico (1-2 iterazioni)
+13. Error Boundary con reporting
+14. Cleanup `long_term_memory` column
+15. Miglioramenti a11y di base
+
+---
+
+## Dettaglio Tecnico
+
+### Password Reset
+```text
+// In Auth.tsx, aggiungere sotto il form:
+<button onClick={handleForgotPassword}>Password dimenticata?</button>
+
+// Handler:
+const handleForgotPassword = async () => {
+  if (!email) { toast.error('Inserisci la tua email'); return; }
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth?type=recovery`
+  });
+  if (!error) toast.success('Email di recupero inviata!');
+};
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    ARIA INTELLIGENCE SYSTEM                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐    │
-│  │ user_       │   │ session_    │   │ conversation_       │    │
-│  │ memories    │   │ context_    │   │ topics              │    │
-│  │             │   │ snapshots   │   │                     │    │
-│  │ • Facts     │   │ • Topics    │   │ • Sensitivity       │    │
-│  │ • Category  │   │ • Issues    │   │ • Frequency         │    │
-│  │ • Importance│   │ • Actions   │   │ • Avoid flags       │    │
-│  └──────┬──────┘   └──────┬──────┘   └──────────┬──────────┘    │
-│         │                 │                      │               │
-│         └────────────────┬┴─────────────────────┘               │
-│                          ▼                                       │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    PROMPT INJECTION                        │  │
-│  │   ai-chat / aria-voice-chat                                │  │
-│  │   • Formatted memories by category                         │  │
-│  │   • Session continuity context                             │  │
-│  │   • Sensitive topics awareness                             │  │
-│  │   • Habit streaks celebration                              │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐    │
-│  │ user_       │   │ emotion_    │   │ habit_              │    │
-│  │ correlations│   │ patterns    │   │ streaks             │    │
-│  │             │   │             │   │                     │    │
-│  │ • Pearson r │   │ • morning_  │   │ • Current           │    │
-│  │ • Insights  │   │   dip       │   │ • Longest           │    │
-│  │ • Signific. │   │ • weekend_  │   │ • Broken count      │    │
-│  │             │   │   boost     │   │                     │    │
-│  └──────┬──────┘   └──────┬──────┘   └──────────┬──────────┘    │
-│         │                 │                      │               │
-│         └────────────────┬┴─────────────────────┘               │
-│                          ▼                                       │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                 ANALYTICS EDGE FUNCTIONS                   │  │
-│  │   calculate-correlations / detect-emotion-patterns         │  │
-│  │   • Weekly/on-demand execution                             │  │
-│  │   • Actionable insights                                    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+
+### ErrorBoundary
+```text
+// src/components/ErrorBoundary.tsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) return <ErrorFallbackUI />;
+    return this.props.children;
+  }
+}
+// Wrappare in App.tsx: <ErrorBoundary><BrowserRouter>...</BrowserRouter></ErrorBoundary>
 ```
 
----
-
-## Come Usare le Nuove Funzioni
-
-### Calcolare Correlazioni (manuale o schedulato)
-```javascript
-// Call from frontend or cron
-await supabase.functions.invoke('calculate-correlations', {
-  body: { user_id: 'uuid-here' }
+### Fix Badge Memoria Chat
+```text
+// Chat.tsx - sostituire riga 66-70 con:
+const { data: memoryCount } = useQuery({
+  queryKey: ['memory-count', user?.id],
+  queryFn: async () => {
+    const { count } = await supabase
+      .from('user_memories')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_active', true);
+    return count || 0;
+  },
+  enabled: !!user?.id,
 });
+const hasMemory = (memoryCount || 0) > 0;
 ```
 
-### Rilevare Pattern Emotivi
-```javascript
-await supabase.functions.invoke('detect-emotion-patterns', {
-  body: { user_id: 'uuid-here' }
-});
+### UI Correlazioni (Analisi)
+```text
+// Nuovo componente: src/components/analisi/CorrelationsInsightSection.tsx
+// Query user_correlations WHERE is_significant = true
+// Mostra card con insight_text e strength indicator
+// Query emotion_patterns WHERE is_active = true
+// Mostra card con description e recommendations
 ```
 
 ---
 
-## Prossimi Step (Fase 3)
+## Riepilogo Priorita'
 
-1. **smart_notifications engine**: Cron job per push notifiche contestuali
-2. **aria_response_feedback**: Tracking implicito qualità risposte
-3. **UI per visualizzare correlazioni e pattern**: Dashboard analitica
-4. **Trigger automatico analytics**: Post-session o settimanale
+| # | Issue | Tipo | Impatto Lancio |
+|---|-------|------|----------------|
+| 1 | Password dimenticata | Critico | Bloccante |
+| 2 | ErrorBoundary | Critico | Bloccante |
+| 3 | Badge memoria legacy | Bug | Alto |
+| 4 | Terms/Privacy links | Legale | Bloccante |
+| 5 | Pagamenti Plus | Business | Alto |
+| 6 | Conferma email UX | UX | Alto |
+| 7 | Paginazione sessioni | Bug | Medio |
+| 8 | Correlazioni UI | Feature | Medio |
+| 9 | Saluto personalizzato | UX | Basso |
+| 10 | Google OAuth | Feature | Medio |
