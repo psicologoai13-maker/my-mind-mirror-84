@@ -173,25 +173,27 @@ serve(async (req) => {
     const previousCache = profile?.ai_dashboard_cache as DashboardLayout | null;
     const previousFocusKeys = previousCache?.primary_metrics?.map(m => m.key) || [];
 
-    // Fetch last 7 days of daily metrics
+    // Fetch last 30 days of daily metrics (expanded from 7 to prevent "ghost reset" after inactivity)
     const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const [emotionsRes, lifeAreasRes, psychologyRes, sessionsRes] = await Promise.all([
-      supabase.from('daily_emotions').select('*').eq('user_id', user.id).gte('date', weekAgo).order('date', { ascending: false }),
-      supabase.from('daily_life_areas').select('*').eq('user_id', user.id).gte('date', weekAgo).order('date', { ascending: false }),
-      supabase.from('daily_psychology').select('*').eq('user_id', user.id).gte('date', weekAgo).order('date', { ascending: false }),
-      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected').eq('user_id', user.id).gte('start_time', weekAgo).order('start_time', { ascending: false }).limit(10),
+    const [emotionsRes, lifeAreasRes, psychologyRes, sessionsRes, totalSessionsRes] = await Promise.all([
+      supabase.from('daily_emotions').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('daily_life_areas').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('daily_psychology').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected').eq('user_id', user.id).gte('start_time', monthAgo).order('start_time', { ascending: false }).limit(10),
+      // ALL-TIME check: prevents treating returning users as new
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     ]);
 
-    // Calculate averages
     const emotions = emotionsRes.data || [];
     const lifeAreas = lifeAreasRes.data || [];
     const psychology = psychologyRes.data || [];
     const sessions = sessionsRes.data || [];
+    const totalSessionCount = totalSessionsRes.count || 0;
 
-    // CRITICAL: Check if user has ANY real data
-    const hasRealData = sessions.length > 0 || emotions.length > 0 || lifeAreas.length > 0 || psychology.length > 0;
+    // CRITICAL: Check if user has ANY real data (all-time, not just recent window)
+    const hasRealData = sessions.length > 0 || emotions.length > 0 || lifeAreas.length > 0 || psychology.length > 0 || totalSessionCount > 0;
     const userGoals = profile?.selected_goals || [];
 
     // If NO DATA exists, return empty state layout immediately (don't generate AI score)
