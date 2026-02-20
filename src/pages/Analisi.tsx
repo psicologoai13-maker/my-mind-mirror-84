@@ -41,7 +41,7 @@ export interface MetricData {
 
 const Analisi: React.FC = () => {
   const { user } = useAuth();
-  const [timeRange, setTimeRange] = useState<TimeRange>('week');
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   // Calculate date range based on selection
