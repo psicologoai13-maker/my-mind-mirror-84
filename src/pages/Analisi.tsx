@@ -42,9 +42,9 @@ export interface MetricData {
 
 const Analisi: React.FC = () => {
   const { user } = useAuth();
-  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-  const [autoExpanded, setAutoExpanded] = useState(false);
+  const [autoExpandStep, setAutoExpandStep] = useState(0); // 0=none, 1=tried month, 2=tried all
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -221,13 +221,18 @@ const Analisi: React.FC = () => {
   const isDataStale = daysSinceLastData !== null && daysSinceLastData >= 3;
   const navigate = useNavigate();
 
-  // Auto-expand time range if current range has no data but older data exists
+  // Smart auto-expand: week → month → all (gradual, not jumping straight to 'all')
   useEffect(() => {
-    if (!isLoading && !hasAnyData && !autoExpanded && timeRange !== 'all') {
-      setAutoExpanded(true);
-      setTimeRange('all');
+    if (!isLoading && !hasAnyData) {
+      if (autoExpandStep === 0 && timeRange === 'week') {
+        setAutoExpandStep(1);
+        setTimeRange('month');
+      } else if (autoExpandStep === 1 && timeRange === 'month') {
+        setAutoExpandStep(2);
+        setTimeRange('all');
+      }
     }
-  }, [isLoading, hasAnyData, autoExpanded, timeRange]);
+  }, [isLoading, hasAnyData, autoExpandStep, timeRange]);
 
   // Calculate lookback days for AbitudiniTab
   const lookbackDays = useMemo(() => {
@@ -247,9 +252,20 @@ const Analisi: React.FC = () => {
             <h1 className="font-display text-2xl font-bold text-foreground">Analisi</h1>
             <p className="text-muted-foreground text-sm mt-1">Il tuo benessere psicologico</p>
           </div>
-          {isLoading && (
-            <Loader2 className="w-5 h-5 text-primary animate-spin" />
-          )}
+          <div className="flex items-center gap-2">
+            {daysSinceLastData !== null && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                isDataStale 
+                  ? 'bg-destructive/10 text-destructive' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {daysSinceLastData === 0 ? 'Aggiornato oggi' : `${daysSinceLastData}g fa`}
+              </span>
+            )}
+            {isLoading && (
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            )}
+          </div>
         </div>
       </header>
 
@@ -358,18 +374,18 @@ const Analisi: React.FC = () => {
 
         {/* Stale data warning */}
         {isDataStale && hasAnyData && (
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/30">
-            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-destructive/5 border border-destructive/20">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              <p className="text-sm font-medium text-foreground">
                 Dati non aggiornati da {daysSinceLastData} giorni
               </p>
-              <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Fai un check-in o parla con Aria per aggiornare le tue analisi
               </p>
               <button
                 onClick={() => navigate('/chat')}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 Parla con Aria
