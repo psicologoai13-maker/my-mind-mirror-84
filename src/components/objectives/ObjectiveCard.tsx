@@ -84,47 +84,48 @@ const TrackingBadge: React.FC<{ type: 'auto' | 'aria' }> = ({ type }) => {
   );
 };
 
-// Circular progress component - Always positive gradient (violet → teal → emerald)
+// Circular progress component - Prominent centered design
 const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ 
   progress, 
-  size = 48 
+  size = 64 
 }) => {
-  const strokeWidth = 4;
+  const strokeWidth = 5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
   
-  // Positive gradient: indigo → primary → teal → emerald as progress increases
   const getStrokeColor = () => {
-    if (progress >= 75) return '#10b981'; // emerald-500
-    if (progress >= 50) return '#14b8a6'; // teal-500
-    if (progress >= 25) return '#8b5cf6'; // violet-500 (primary)
-    return '#a78bfa'; // violet-400 (soft start)
+    if (progress >= 75) return '#10b981';
+    if (progress >= 50) return '#14b8a6';
+    if (progress >= 25) return '#8b5cf6';
+    return '#a78bfa';
   };
 
-  const getGlowIntensity = () => {
-    // Glow increases with progress
-    const intensity = Math.max(0.2, progress / 100 * 0.6);
-    if (progress >= 75) return `drop-shadow(0 0 ${4 + progress/20}px rgba(16,185,129,${intensity}))`;
-    if (progress >= 50) return `drop-shadow(0 0 ${4 + progress/25}px rgba(20,184,166,${intensity}))`;
-    if (progress >= 25) return `drop-shadow(0 0 ${3 + progress/30}px rgba(139,92,246,${intensity}))`;
-    return `drop-shadow(0 0 2px rgba(167,139,250,0.2))`;
+  const getBgGlow = () => {
+    if (progress >= 75) return 'rgba(16,185,129,0.15)';
+    if (progress >= 50) return 'rgba(20,184,166,0.12)';
+    if (progress >= 25) return 'rgba(139,92,246,0.12)';
+    return 'rgba(167,139,250,0.08)';
   };
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      {/* Soft glow background */}
+      <div 
+        className="absolute inset-0 rounded-full blur-md"
+        style={{ backgroundColor: getBgGlow() }}
+      />
       <svg
         className="transform -rotate-90 relative z-10"
         width={size}
         height={size}
-        style={{ filter: getGlowIntensity() }}
       >
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           strokeWidth={strokeWidth}
-          className="fill-none stroke-muted/20"
+          className="fill-none stroke-muted/30"
         />
         <circle
           cx={size / 2}
@@ -142,7 +143,7 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({
       </svg>
       
       <div className="absolute inset-0 flex items-center justify-center z-20">
-        <span className="text-sm font-bold text-foreground">
+        <span className="text-base font-bold text-foreground">
           {Math.round(progress)}%
         </span>
       </div>
@@ -243,51 +244,53 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           "shadow-glass hover:shadow-glass-elevated",
           "transition-all duration-300 ease-out",
           "cursor-pointer",
-          // Category color border
-          "border-2",
+          "border",
           CATEGORY_BORDER_COLORS[objective.category as ObjectiveCategory] || 'border-primary/50'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Ambient gradient - always positive vibes */}
+        {/* Ambient gradient */}
         <div className={cn(
-          "absolute inset-0 opacity-10 transition-opacity duration-500",
-          progress >= 75 ? "bg-gradient-to-br from-emerald-500/30 to-teal-500/10" :
-          progress >= 50 ? "bg-gradient-to-br from-teal-500/25 to-primary/10" :
-          progress >= 25 ? "bg-gradient-to-br from-primary/20 to-violet-500/10" :
-          "bg-gradient-to-br from-violet-400/15 to-primary/5"
+          "absolute inset-0 opacity-20 transition-opacity duration-500",
+          progress >= 75 ? "bg-gradient-to-r from-emerald-500/30 via-transparent to-emerald-500/5" :
+          progress >= 50 ? "bg-gradient-to-r from-teal-500/25 via-transparent to-teal-500/5" :
+          progress >= 25 ? "bg-gradient-to-r from-primary/20 via-transparent to-primary/5" :
+          "bg-gradient-to-r from-violet-400/15 via-transparent to-violet-400/5"
         )} />
         
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
         
-        <div className="relative z-10 p-3">
-          {/* Main row: Title + Circle */}
-          <div className="flex items-start gap-2.5">
-            {/* Title and summary */}
+        <div className="relative z-10 p-4">
+          {/* Main layout: Ring left + Content right */}
+          <div className="flex items-center gap-4">
+            {/* Circular progress - prominent on the left */}
+            <CircularProgress progress={progress} size={64} />
+            
+            {/* Content */}
             <div className="flex-1 min-w-0">
-              {/* Title with category badge inline */}
-              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+              {/* Category + Tracking badges */}
+              <div className="flex items-center gap-1.5 mb-1">
                 <CategoryBadge category={objective.category as ObjectiveCategory} />
-                <h3 className="font-semibold text-foreground text-sm leading-tight">
-                  {objective.title}
-                </h3>
+                <TrackingBadge type={getTrackingType(objective)} />
               </div>
-              <p className="text-xs text-muted-foreground leading-[1.4] h-[3.15rem] overflow-hidden pr-1">
+              
+              {/* Title */}
+              <h3 className="font-semibold text-foreground text-sm leading-tight mb-1 truncate">
+                {objective.title}
+              </h3>
+              
+              {/* Summary - 2 lines max */}
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                 {getSummary()}
               </p>
-            </div>
-            
-            {/* Circular progress */}
-            <div className="shrink-0">
-              <CircularProgress progress={progress} size={44} />
             </div>
             
             {/* Menu button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg shrink-0 -mr-0.5 -mt-0.5">
-                  <MoreVertical className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg shrink-0 self-start">
+                  <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl bg-card/95 backdrop-blur-xl border-glass-border min-w-[160px]">
@@ -334,7 +337,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
           </div>
           
           {/* Expand indicator */}
-          <div className="flex justify-center mt-2">
+          <div className="flex justify-center mt-2 -mb-1">
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ duration: 0.2 }}
@@ -353,7 +356,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="pt-4 mt-2 border-t border-glass-border/50 space-y-3">
+                <div className="pt-3 mt-2 border-t border-glass-border/50 space-y-3">
                   {/* Milestones (if any) */}
                   {objective.ai_milestones && objective.ai_milestones.length > 0 && (
                     <div className="space-y-2">
@@ -378,7 +381,7 @@ export const ObjectiveCard: React.FC<ObjectiveCardProps> = ({
                       }}
                       variant="outline"
                       className={cn(
-                        "w-full rounded-xl gap-2 h-11",
+                        "w-full rounded-xl gap-2 h-10",
                         "bg-gradient-to-r from-emerald-500/10 to-teal-500/10",
                         "border-emerald-500/30 hover:border-emerald-500/50",
                         "text-emerald-600 dark:text-emerald-400",
