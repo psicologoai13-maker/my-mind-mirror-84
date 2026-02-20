@@ -1,13 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { subDays, startOfDay, format } from 'date-fns';
+import { subDays, startOfDay, format, differenceInDays } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDailyMetricsRange } from '@/hooks/useDailyMetrics';
 import { useBodyMetrics } from '@/hooks/useBodyMetrics';
 import { useHabits } from '@/hooks/useHabits';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import CompactTimeSelector from '@/components/analisi/CompactTimeSelector';
 import ClinicalDomainSection, { MetricData as ClinicalMetricData } from '@/components/analisi/ClinicalDomainSection';
 import MetricDetailSheet from '@/components/analisi/MetricDetailSheet';
@@ -43,6 +44,7 @@ const Analisi: React.FC = () => {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [autoExpanded, setAutoExpanded] = useState(false);
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -206,6 +208,27 @@ const Analisi: React.FC = () => {
   const hasAbitudiniData = (habits || []).length > 0;
   const hasAnyData = hasMenteData || hasCorpoData || hasAbitudiniData;
 
+  // Calculate days since last data point
+  const daysSinceLastData = useMemo(() => {
+    const daysWithData = metricsRange.filter(m => 
+      m.has_checkin || m.has_sessions || m.has_emotions || m.has_life_areas || m.has_psychology
+    );
+    if (daysWithData.length === 0) return null;
+    const lastDate = daysWithData.reduce((latest, m) => m.date > latest ? m.date : latest, daysWithData[0].date);
+    return differenceInDays(new Date(), new Date(lastDate));
+  }, [metricsRange]);
+
+  const isDataStale = daysSinceLastData !== null && daysSinceLastData >= 3;
+  const navigate = useNavigate();
+
+  // Auto-expand time range if current range has no data but older data exists
+  useEffect(() => {
+    if (!isLoading && !hasAnyData && !autoExpanded && timeRange !== 'all') {
+      setAutoExpanded(true);
+      setTimeRange('all');
+    }
+  }, [isLoading, hasAnyData, autoExpanded, timeRange]);
+
   // Calculate lookback days for AbitudiniTab
   const lookbackDays = useMemo(() => {
     switch (timeRange) {
@@ -332,6 +355,28 @@ const Analisi: React.FC = () => {
 
         {/* Correlations & Patterns Insights */}
         <CorrelationsInsightSection />
+
+        {/* Stale data warning */}
+        {isDataStale && hasAnyData && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/30">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Dati non aggiornati da {daysSinceLastData} giorni
+              </p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-1">
+                Fai un check-in o parla con Aria per aggiornare le tue analisi
+              </p>
+              <button
+                onClick={() => navigate('/chat')}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Parla con Aria
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Empty state */}
         {!hasAnyData && (

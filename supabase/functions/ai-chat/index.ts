@@ -1698,10 +1698,21 @@ ${recencyCategory === 'QUESTA_SETTIMANA' ? `
 - "Ehi, è un po' che non ci sentiamo! Come va?"
 - Puoi chiedere aggiornamenti
 ` : ''}
-${recencyCategory === 'TEMPO_FA' ? `
-⚫ È PASSATO UN PO' DI TEMPO
-- "È tanto che non ci sentiamo! Come stai?"
+${recencyCategory === 'TEMPO_FA' && diffDays <= 14 ? `
+⚫ È PASSATO UN PO' DI TEMPO (${diffDays} giorni)
+- "È un po' che non ci sentiamo! Come stai?"
 - "Che bello risentirti! Raccontami un po'..."
+- Fai follow-up sull'ultima conversazione
+` : ''}
+${recencyCategory === 'TEMPO_FA' && diffDays > 14 ? `
+🔴 LUNGA ASSENZA (${diffDays} giorni!)
+- L'utente è tornato dopo ${diffDays} giorni di assenza
+- Mostra genuina gioia nel rivederlo: "Che bello risentirti! Mi eri mancato/a!"
+- NON farlo sentire in colpa per l'assenza
+- Chiedi con delicatezza come è stato il periodo: "Com'è andato questo periodo? Raccontami tutto!"
+- Se l'ultima sessione aveva temi importanti, fai follow-up: "L'ultima volta parlavamo di... come è andata?"
+- Proponi un "recap gentile" per riconnettersi: "Vuoi raccontarmi un po' com'è stato questo periodo?"
+- IMPORTANTE: Il tuo obiettivo è far sentire l'utente accolto e motivato a continuare il percorso
 ` : ''}
 
 REGOLA D'ORO: MAI sembrare che non ti ricordi della conversazione recente!
