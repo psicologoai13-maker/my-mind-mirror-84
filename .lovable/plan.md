@@ -1,205 +1,122 @@
 
-# Analisi Completa Pre-Lancio: Serenity / Aria
 
-## Stato Attuale dell'App
+# Analisi Alternative e Piano Implementazione Voce Aria
 
-L'app e' funzionalmente ricca con un ecosistema completo: chat AI, voice, check-in, analisi, obiettivi, diari tematici, sistema premium, doctor dashboard. Tuttavia, ci sono diverse aree critiche da sistemare prima del lancio.
+## Ricerca: Panorama Voice AI nel 2026
 
----
+Ho analizzato le principali piattaforme disponibili per conversazioni vocali in tempo reale:
 
-## PROBLEMI CRITICI (Bloccanti per il Lancio)
+### 1. ElevenLabs Conversational AI (gia integrato)
+- **Latenza:** ~800ms-1.2s (WebRTC)
+- **Qualita voce:** Eccellente, specialmente in italiano con voce custom gia configurata
+- **Punti di forza:** Overrides completi del system prompt, first message, lingua e voce. React SDK (`useConversation`) gia installato. Supporta Dynamic Variables per contesto strutturato
+- **Limite:** Il system prompt puo essere lungo ma va ottimizzato (ElevenLabs consiglia prompt concisi per latenza migliore)
+- **Costo:** Piano gia attivo con API key configurata
 
-### 1. Nessun "Password Dimenticata"
-La pagina Auth non ha alcun meccanismo di recupero password. Un utente che dimentica la password non puo' piu' accedere.
+### 2. OpenAI Realtime API (GPT-4o / gpt-realtime-mini)
+- **Latenza:** ~500-800ms (nativa speech-to-speech)
+- **Qualita voce:** Buona ma limitata a voci preset OpenAI (nessuna voce italiana custom)
+- **Punti di forza:** Speech-to-speech nativo (no pipeline separata), reasoning integrato nel modello
+- **Limiti:** 
+  - Nessun supporto per voci custom/clonate
+  - Le voci italiane suonano con accento inglese
+  - Costo molto alto (~$0.06/min input + $0.24/min output per il modello standard)
+  - Richiede WebSocket custom, nessun React SDK pronto
+  - Richiederebbe OPENAI_API_KEY separata o passare tramite Lovable Gateway (che non supporta WebSocket realtime)
 
-**Soluzione:** Aggiungere link "Password dimenticata?" che invoca `supabase.auth.resetPasswordForEmail()` con redirect a una pagina di reset.
+### 3. Google Gemini Live API
+- **Latenza:** 4-11 secondi riportati dalla community (molto variabile)
+- **Qualita voce:** Media, voci sintetiche
+- **Limiti:** Latenza troppo alta per conversazione naturale, API ancora instabile
 
-### 2. Nessun Error Boundary
-Se un componente React crasha, l'intera app diventa bianca senza feedback. Nessun `ErrorBoundary` e' implementato.
+### 4. Cartesia AI (Sonic-3)
+- **Latenza:** ~100-200ms (solo TTS, non end-to-end)
+- **Qualita voce:** Eccellente
+- **Limiti:** Solo TTS, non e una piattaforma conversazionale completa. Bisognerebbe costruire l'intera pipeline STT + LLM + TTS
 
-**Soluzione:** Creare un `ErrorBoundary` globale che mostri un messaggio user-friendly con opzione di ricaricare.
+### 5. Smallest.ai (Lightning)
+- **Latenza:** Molto bassa (TTS)
+- **Limiti:** Come Cartesia, solo TTS. Non una soluzione conversazionale end-to-end
 
-### 3. Chat: Riferimento Legacy a `long_term_memory`
-`Chat.tsx` (riga 66) ancora legge `profile?.long_term_memory` per mostrare il badge memoria nell'header. Dopo la migrazione a `user_memories`, questo array non viene piu' aggiornato, quindi il badge mostra dati obsoleti o "Nuova".
+## Verdetto
 
-**Soluzione:** Sostituire con una query a `user_memories` (conteggio memorie attive) per mostrare il numero reale di ricordi.
+**ElevenLabs resta la scelta migliore** per questo progetto perche:
+1. E gia integrato (SDK, API key, voce italiana custom, agent ID)
+2. Gestisce l'intera pipeline STT + LLM + TTS in un unico flusso WebRTC
+3. Supporta overrides completi del system prompt (il pezzo mancante)
+4. La voce italiana custom e gia configurata e di alta qualita
+5. Nessun costo aggiuntivo di setup
 
-### 4. Termini di Servizio e Privacy Policy non funzionanti
-I link "Termini di Servizio" e "Privacy Policy" nella pagina Auth sono `<span>` senza `href` ne' `onClick`. Cliccandoli non succede nulla.
-
-**Soluzione:** Creare pagine `/terms` e `/privacy` con contenuto legale, oppure linkare a URL esterni.
-
-### 5. Pagina Plus: Pagamenti Non Implementati
-Il bottone "Abbonati" mostra solo un toast "Pagamenti in arrivo presto!". Per il lancio serve almeno una soluzione funzionante.
-
-**Soluzione:** Integrare Stripe per pagamenti reali, oppure rimuovere la sezione abbonamento e mantenere solo il riscatto punti.
-
----
-
-## PROBLEMI IMPORTANTI (Alta Priorita')
-
-### 6. Nessun Social Login (Google)
-Solo email/password. Google Sign-In e' ormai standard e riduce drasticamente la friction di registrazione.
-
-**Soluzione:** Abilitare Google OAuth tramite il sistema di autenticazione, aggiungere bottone "Continua con Google".
-
-### 7. Auth: Nessuna Conferma Email Visibile
-Dopo la registrazione, l'utente non vede un messaggio chiaro che deve verificare l'email. Il flusso post-signup e' confuso.
-
-**Soluzione:** Dopo `signUp`, mostrare una schermata "Controlla la tua email" con istruzioni chiare.
-
-### 8. Sessioni: Paginazione Assente
-`Sessions.tsx` mostra solo le prime 8 sessioni con un bottone "Mostra altre" che non fa nulla (`<button>` senza handler).
-
-**Soluzione:** Implementare la paginazione o "load more" funzionante.
-
-### 9. ProfilePrivacy: Link Privacy Policy Non Funzionante
-Il bottone "Privacy Policy" nella pagina privacy non ha un `onClick` handler.
-
-### 10. Nessun Feedback di Rate Limiting
-Le Edge Functions hanno rate limiting ma il feedback all'utente e' generico. Servono messaggi piu' chiari.
+OpenAI Realtime sarebbe l'unica vera alternativa ma manca di voci italiane custom ed e significativamente piu costoso.
 
 ---
 
-## MIGLIORAMENTI UX (Media Priorita')
+## Cosa serve su ElevenLabs Dashboard
 
-### 11. Splash Screen / Loading State Migliorato
-Lo screenshot mostra che la pagina Auth ha un momento "bianco" durante il caricamento delle animazioni. Serve un loading state piu' fluido.
+Si, serve una modifica nel dashboard ElevenLabs (non nel codice):
 
-### 12. Onboarding: Manca Step "Conferma Dati"
-L'onboarding salta direttamente dalla selezione interessi alla schermata "Ready". Un riepilogo dei dati inseriti migliorerebbe la fiducia dell'utente.
+1. Andare su **elevenlabs.io/app/agents** e selezionare l'agente
+2. Tab **Security** -> abilitare gli override per:
+   - "System prompt" 
+   - "First message"
+   - "Language"
+3. Nient'altro. La voce, il modello LLM e le altre impostazioni restano quelle del dashboard
 
-### 13. Home: Messaggio Personalizzato per Ora del Giorno
-"Come ti senti oggi?" e' statico. Personalizzarlo con l'ora (Buongiorno/Buon pomeriggio/Buonasera) e con dati contestuali.
-
-### 14. Analisi: Sezione Correlazioni e Pattern
-Le tabelle `user_correlations` e `emotion_patterns` sono popolate dalle Edge Functions ma non c'e' nessun componente UI per visualizzarle. L'utente non vede mai questi dati.
-
-**Soluzione:** Aggiungere sezione "Insight Personali" nella pagina Analisi con:
-- Card correlazioni ("Il sonno migliora il tuo umore del 40%")  
-- Card pattern ("Noto che i lunedi' sono piu' difficili per te")
-
-### 15. Pull-to-Refresh
-Nessuna pagina supporta pull-to-refresh, un pattern mobile fondamentale.
+Senza abilitare questi override, il codice passera il prompt completo di Aria ma ElevenLabs lo ignorera silenziosamente.
 
 ---
 
-## MIGLIORAMENTI TECNICI (Bassa Priorita')
+## Preservazione del Flusso Attuale
 
-### 16. Service Worker / PWA
-L'app non ha un service worker. Per un'esperienza mobile ottimale, servirebbero:
-- Caching offline delle pagine
-- Manifest.json per installazione
-- Push notifications (preparazione)
+Il flusso attuale (useHybridVoice + aria-voice-chat) **non verra toccato**:
 
-### 17. Cleanup Dati Legacy
-La colonna `long_term_memory` in `user_profiles` non e' piu' usata dopo la migrazione a `user_memories`. Andrebbe rimossa o ignorata esplicitamente.
+| File | Azione |
+|------|--------|
+| `src/hooks/useHybridVoice.tsx` | **NON MODIFICATO** - resta intatto |
+| `supabase/functions/aria-voice-chat/index.ts` | **NON MODIFICATO** - resta intatto |
+| `src/hooks/useElevenLabsAgent.tsx` | **MODIFICATO** - aggiunta overrides e WebRTC |
+| `supabase/functions/elevenlabs-context/index.ts` | **MODIFICATO** - costruisce il prompt completo di Aria |
+| `supabase/functions/elevenlabs-conversation-token/index.ts` | **MODIFICATO** - aggiunta token WebRTC |
+| `src/components/voice/ZenVoiceModal.tsx` | **MODIFICATO** - switch a useElevenLabsAgent |
 
-### 18. Accessibilita' (a11y)
-- Mancano `aria-label` su molti bottoni icon-only
-- Il contrasto dei testi `text-muted-foreground` potrebbe non superare WCAG AA su sfondi chiari
-- Manca `role="alert"` sui messaggi di errore
-
----
-
-## PIANO DI IMPLEMENTAZIONE PROPOSTO
-
-### Fase 1: Bloccanti (1-2 iterazioni)
-1. Aggiungere "Password dimenticata" alla pagina Auth
-2. Creare ErrorBoundary globale
-3. Fixare badge memoria in Chat.tsx (query `user_memories`)
-4. Creare pagine Terms/Privacy o link esterni
-5. Decidere strategia pagamenti (Stripe o rimuovere sezione)
-
-### Fase 2: Alta Priorita' (2-3 iterazioni)
-6. Schermata "Controlla email" post-registrazione
-7. Fix paginazione sessioni
-8. Fix link Privacy Policy in ProfilePrivacy
-9. Aggiungere Google OAuth (opzionale)
-
-### Fase 3: UX Polish (2-3 iterazioni)
-10. Saluto personalizzato per ora del giorno
-11. Sezione Correlazioni e Pattern nella pagina Analisi
-12. Pull-to-refresh sulle pagine principali
-
-### Fase 4: Tecnico (1-2 iterazioni)
-13. Error Boundary con reporting
-14. Cleanup `long_term_memory` column
-15. Miglioramenti a11y di base
+Per tornare al flusso precedente bastera cambiare una sola riga in ZenVoiceModal: da `useElevenLabsAgent()` a `useHybridVoice()`.
 
 ---
 
-## Dettaglio Tecnico
+## Piano di Implementazione
 
-### Password Reset
-```text
-// In Auth.tsx, aggiungere sotto il form:
-<button onClick={handleForgotPassword}>Password dimenticata?</button>
+### Step 1: Arricchire `elevenlabs-context` con il cervello completo di Aria
 
-// Handler:
-const handleForgotPassword = async () => {
-  if (!email) { toast.error('Inserisci la tua email'); return; }
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth?type=recovery`
-  });
-  if (!error) toast.success('Email di recupero inviata!');
-};
-```
+Riscrivere la Edge Function per:
+- Eseguire le stesse 12+ query parallele di `aria-voice-chat` (profilo, memorie strutturate, obiettivi, metriche giornaliere, sessioni recenti, abitudini, interessi, eventi, body metrics, snapshot, conversation topics, habit streaks)
+- Costruire il system prompt completo usando le stesse istruzioni cliniche (Golden Rules, Personalita, Protocolli, Rubrica Emotiva, Tecniche Cliniche) gia presenti in `aria-voice-chat`
+- Adattare per il formato vocale (risposte brevi)
+- Ritornare `{ user_name, system_prompt, first_message }`
 
-### ErrorBoundary
-```text
-// src/components/ErrorBoundary.tsx
-class ErrorBoundary extends React.Component {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
-  render() {
-    if (this.state.hasError) return <ErrorFallbackUI />;
-    return this.props.children;
-  }
-}
-// Wrappare in App.tsx: <ErrorBoundary><BrowserRouter>...</BrowserRouter></ErrorBoundary>
-```
+### Step 2: Aggiornare `elevenlabs-conversation-token` per WebRTC
 
-### Fix Badge Memoria Chat
-```text
-// Chat.tsx - sostituire riga 66-70 con:
-const { data: memoryCount } = useQuery({
-  queryKey: ['memory-count', user?.id],
-  queryFn: async () => {
-    const { count } = await supabase
-      .from('user_memories')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_active', true);
-    return count || 0;
-  },
-  enabled: !!user?.id,
-});
-const hasMemory = (memoryCount || 0) > 0;
-```
+- Aggiungere chiamata all'endpoint `/v1/convai/conversation/token` per ottenere un token WebRTC (latenza inferiore rispetto a WebSocket)
+- Mantenere compatibilita con signed URL come fallback
 
-### UI Correlazioni (Analisi)
-```text
-// Nuovo componente: src/components/analisi/CorrelationsInsightSection.tsx
-// Query user_correlations WHERE is_significant = true
-// Mostra card con insight_text e strength indicator
-// Query emotion_patterns WHERE is_active = true
-// Mostra card con description e recommendations
-```
+### Step 3: Aggiornare `useElevenLabsAgent.tsx` con overrides e audio reali
+
+- Fetch parallelo di token WebRTC + contesto completo all'avvio
+- Passare il system prompt come override nella `startSession()`
+- Usare `getInputVolume()` / `getOutputVolume()` per livelli audio reali
+- Gestione transcript e salvataggio sessione + process-session a fine conversazione
+
+### Step 4: Collegare `ZenVoiceModal.tsx` al nuovo hook
+
+- Sostituire `useHybridVoice()` con `useElevenLabsAgent()`
+- Collegare livelli audio reali all'animazione canvas
+- Aggiornare anteprima transcript
 
 ---
 
-## Riepilogo Priorita'
+## Prerequisito Manuale (Dashboard ElevenLabs)
 
-| # | Issue | Tipo | Impatto Lancio |
-|---|-------|------|----------------|
-| 1 | Password dimenticata | Critico | Bloccante |
-| 2 | ErrorBoundary | Critico | Bloccante |
-| 3 | Badge memoria legacy | Bug | Alto |
-| 4 | Terms/Privacy links | Legale | Bloccante |
-| 5 | Pagamenti Plus | Business | Alto |
-| 6 | Conferma email UX | UX | Alto |
-| 7 | Paginazione sessioni | Bug | Medio |
-| 8 | Correlazioni UI | Feature | Medio |
-| 9 | Saluto personalizzato | UX | Basso |
-| 10 | Google OAuth | Feature | Medio |
+Prima di testare, dovrai abilitare gli override nell'agente ElevenLabs:
+1. Vai su elevenlabs.io/app/agents
+2. Seleziona il tuo agente
+3. Tab Security -> abilita override per: System prompt, First message, Language
+
