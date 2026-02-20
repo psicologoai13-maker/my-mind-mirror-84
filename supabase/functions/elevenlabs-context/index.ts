@@ -581,7 +581,7 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       recentSessionsResult, todayHabitsResult, bodyMetricsResult, userEventsResult,
       userMemoriesResult, sessionSnapshotsResult, conversationTopicsResult, habitStreaksResult
     ] = await Promise.all([
-      supabase.from('user_profiles').select('name, selected_goals, occupation_context, gender, birth_date, therapy_status, onboarding_answers').eq('user_id', user.id).single(),
+      supabase.from('user_profiles').select('name, long_term_memory, selected_goals, occupation_context, gender, birth_date, therapy_status, onboarding_answers').eq('user_id', user.id).single(),
       supabase.from('user_interests').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_objectives').select('title, category, target_value, current_value, starting_value, unit').eq('user_id', user.id).eq('status', 'active'),
       supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
@@ -601,7 +601,7 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
     const conversationTopics = conversationTopicsResult.data || [];
     const habitStreaks = habitStreaksResult.data || [];
 
-    // Format structured memories
+    // Format structured memories from user_memories table
     const memoryByCategory: Record<string, string[]> = {};
     for (const mem of userMemories) {
       const cat = mem.category || 'generale';
@@ -613,11 +613,21 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       evento: '[EVENTO]', preferenza: '[PIACE]', famiglia: '[FAMIGLIA]', salute: '[SALUTE]',
       obiettivo: '[OBIETTIVO]', generale: ''
     };
-    const formattedMemory: string[] = [];
+    const structuredMemory: string[] = [];
     for (const [category, facts] of Object.entries(memoryByCategory)) {
       const prefix = categoryLabels[category] || `[${category.toUpperCase()}]`;
-      for (const fact of facts) formattedMemory.push(prefix ? `${prefix} ${fact}` : fact);
+      for (const fact of facts) structuredMemory.push(prefix ? `${prefix} ${fact}` : fact);
     }
+
+    // Merge legacy long_term_memory (from user_profiles) with structured memories
+    const legacyMemory: string[] = profile?.long_term_memory || [];
+    const structuredFacts = new Set(structuredMemory.map(m => m.toLowerCase()));
+    const dedupedLegacy = legacyMemory.filter(m => !structuredFacts.has(m.toLowerCase()));
+    
+    // Structured first (tagged, higher quality), then legacy, cap at 60
+    const formattedMemory: string[] = [...structuredMemory, ...dedupedLegacy].slice(0, 60);
+    
+    console.log(`[elevenlabs-context] Memory merge: ${structuredMemory.length} structured + ${dedupedLegacy.length} legacy = ${formattedMemory.length} total`);
 
     // Session context for narrative continuity
     if (sessionSnapshots.length > 0) {
