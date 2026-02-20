@@ -15,6 +15,7 @@ import CorpoTab from '@/components/analisi/CorpoTab';
 import AbitudiniTab from '@/components/analisi/AbitudiniTab';
 import EmotionalSpectrumSection from '@/components/analisi/EmotionalSpectrumSection';
 import LifeAreasSection from '@/components/analisi/LifeAreasSection';
+import CorrelationsInsightSection from '@/components/analisi/CorrelationsInsightSection';
 // VitalsSection removed - integrated into clinical domains
 import { 
   CLINICAL_DOMAINS, 
@@ -328,6 +329,9 @@ const Analisi: React.FC = () => {
             <AbitudiniTab lookbackDays={lookbackDays} />
           </section>
         )}
+
+        {/* Correlations & Patterns Insights */}
+        <CorrelationsInsightSection />
 
         {/* Empty state */}
         {!hasAnyData && (

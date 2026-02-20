@@ -24,6 +24,15 @@ const Index: React.FC = () => {
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
 
+  // Personalized greeting based on time of day
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 6) return 'Buonanotte';
+    if (hour < 12) return 'Buongiorno';
+    if (hour < 18) return 'Buon pomeriggio';
+    return 'Buonasera';
+  }, []);
+
   // Check if this is a new user (no wellness score yet - activates after check-in or Aria conversation)
   const hasWellnessScore = layout.wellness_score !== null && layout.wellness_score !== undefined;
   const isNewUser = profile?.onboarding_completed && !hasWellnessScore;
@@ -83,7 +92,7 @@ const Index: React.FC = () => {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">
-              {isLoading ? '...' : `Ciao ${userName}`}
+              {isLoading ? '...' : `${greeting}, ${userName}`}
             </h1>
             <p className="text-muted-foreground text-sm mt-1">Come ti senti oggi?</p>
           </div>
