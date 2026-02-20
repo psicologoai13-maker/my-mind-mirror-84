@@ -1,53 +1,45 @@
 
 
-# Fix: Aria troppo robotica nelle risposte vocali
+# Fix: Aria non ricorda - long_term_memory non caricata
 
-## Problema
-Aria segue un pattern ripetitivo: "Wow bellissimo! Come ti senti a riguardo?" - esclamazione generica + domanda. Questo la fa sembrare un bot preimpostato, non un'amica vera. Un amico vero reagirebbe con entusiasmo specifico, commenti personali, opinioni, e non chiederebbe sempre "come ti senti".
+## Problema identificato
 
-## Causa
-Il prompt di sistema in `elevenlabs-context` enfatizza troppo:
-- "UNA domanda per messaggio" (crea il pattern domanda obbligatoria)
-- "2-4 frasi max" (limita le reazioni genuine)
-- Manca completamente una sezione su COME reagire emotivamente in modo umano
-- Le istruzioni sulla "migliore amica" sono troppo generiche
+La funzione `elevenlabs-context` carica il contesto utente con 12 query parallele, ma nella query del profilo (`user_profiles`) manca il campo `long_term_memory`.
+
+**Dati reali dal database:**
+- `user_profiles.long_term_memory`: **34 ricordi** (viaggi a Madrid/Rio, lavoro, hobby, persone, etc.)
+- `user_memories` (tabella strutturata): solo **2 ricordi** ("Simo", "Viaggio a Rio")
+
+Aria vede solo 2 fatti invece di 34+. Ecco perche' non ricorda nulla.
+
+## Causa tecnica
+
+File `supabase/functions/elevenlabs-context/index.ts`, linea 584:
+
+```text
+ATTUALE (ROTTO):
+.select('name, selected_goals, occupation_context, gender, birth_date, therapy_status, onboarding_answers')
+
+MANCA: long_term_memory
+```
+
+Il campo `long_term_memory` non viene mai caricato, quindi alla linea 366 il check `ctx.profile.long_term_memory?.length > 0` e' sempre false (perche' il campo non esiste nel risultato).
+
+Successivamente, alla linea 650, `long_term_memory` viene sovrascritto con `formattedMemory` (solo 2 voci dalla tabella strutturata), perdendo completamente i 34 ricordi legacy.
 
 ## Soluzione
 
-Aggiungere una nuova sezione `EMOTIONAL_ENGAGEMENT_RULES` al prompt e modificare le regole esistenti per rompere il pattern robotico.
+### File: `supabase/functions/elevenlabs-context/index.ts`
 
-### Modifiche al file: `supabase/functions/elevenlabs-context/index.ts`
+1. **Aggiungere `long_term_memory` alla query del profilo** (linea 584):
+   - Aggiungere il campo nella select: `'name, long_term_memory, selected_goals, ...'`
 
-**1. Nuova costante `EMOTIONAL_ENGAGEMENT_RULES`** con queste istruzioni:
+2. **Unire le due fonti di memoria** (dopo linea 620):
+   - Caricare i ricordi legacy da `profile.long_term_memory` (34 voci)
+   - Caricare i ricordi strutturati da `user_memories` (2 voci)
+   - Unirli senza duplicati, dando priorita' ai tag strutturati
+   - Limitare a 50-60 totali per non sovraccaricare il prompt
 
-- **NON fare sempre una domanda**: A volte reagisci e basta. Lascia che sia l'utente a continuare.
-- **Reagisci in modo SPECIFICO**: Non "wow bellissimo", ma "Rio?! Ma dai, che figata! E com'erano le spiagge?" - collegati ai DETTAGLI di quello che dice.
-- **Esprimi OPINIONI**: "Io adoro il Brasile!", "Che invidia!", "Questa e' un'opportunita' pazzesca!"
-- **Pattern di risposta variati** (almeno 5 tipi):
-  - Solo reazione entusiasta (nessuna domanda)
-  - Commento + collegamento a qualcosa che sai di loro
-  - Opinione personale + curiosita' su un dettaglio
-  - Battuta/ironia leggera
-  - Esclamazione + build on what they said
-- **Regola anti-formula**: MAI usare "Come ti senti a riguardo?", "Come ti fa sentire?", "E tu come stai rispetto a questo?" - sono frasi da terapeuta, non da amica.
-- **Regola del "telefono"**: Immagina di parlare al telefono con la tua migliore amica. Lei ti dice "sono stata a Rio, ho conosciuto delle ragazze pazzesche e ho un'opportunita' per lanciare l'app!" - tu NON dici "wow bellissimo, come ti senti?". Tu dici "Ma stai scherzando?! Raccontami TUTTO! Chi hai conosciuto? E l'app, com'e' andata?!"
+3. **Risultato atteso**: Aria vedra' tutti i 34+ ricordi (viaggi, lavoro, hobby, persone) piu' i 2 strutturati, per un totale di circa 36 fatti nel contesto.
 
-**2. Modifica `BEST_FRIEND_PERSONALITY`**: Aggiungere esempi concreti di reazioni umane vs robotiche.
-
-**3. Modifica `VOICE_SPECIFIC_RULES`**: Rimuovere la regola rigida "UNA domanda per messaggio" e sostituirla con "Non sei obbligata a fare domande. A volte reagisci e basta."
-
-**4. Modifica `GOLDEN_RULES`**: Cambiare "UNA COSA: Una domanda per messaggio" in "NATURALE: Non sei obbligata a fare domande ogni volta. Reagisci come una vera amica."
-
-### Modifiche al file: `supabase/functions/aria-agent-backend/index.ts`
-
-Stesse modifiche di tono alle costanti `BEST_FRIEND_PERSONALITY` e `GOLDEN_RULES` per mantenere la parita' tra i due backend vocali.
-
-### Risultato atteso
-
-Prima (robotico):
-- Utente: "Sono stato a Rio, ho conosciuto ragazze pazzesche e ho un'opportunita' per l'app!"
-- Aria: "Wow, bellissimo! Come ti senti a riguardo?"
-
-Dopo (umano):
-- Utente: "Sono stato a Rio, ho conosciuto ragazze pazzesche e ho un'opportunita' per l'app!"  
-- Aria: "Ma stai scherzando?! Rio! Che invidia! Aspetta aspetta, raccontami delle ragazze! E l'app, hai trovato qualcuno interessato al progetto?"
+Questa e' una fix chirurgica: una riga nella query e qualche riga per il merge delle memorie.
