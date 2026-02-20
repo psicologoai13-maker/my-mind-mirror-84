@@ -103,35 +103,60 @@ export const useElevenLabsAgent = () => {
       
       console.log('[ElevenLabs] Context loaded:', contextData.user_name, `(${contextData.system_prompt?.length || 0} chars prompt)`);
 
-      // Build session options with overrides
-      const sessionOptions: any = {};
+      // Build overrides from context
+      const overrides = contextData.system_prompt ? {
+        agent: {
+          prompt: { prompt: contextData.system_prompt },
+          firstMessage: contextData.first_message || undefined,
+          language: 'it',
+        },
+      } : undefined;
 
-      if (tokenData.token) {
-        sessionOptions.conversationToken = tokenData.token;
-        sessionOptions.connectionType = 'webrtc';
-        console.log('[ElevenLabs] Using WebRTC connection');
-      } else if (tokenData.signed_url) {
-        sessionOptions.signedUrl = tokenData.signed_url;
-        sessionOptions.connectionType = 'websocket';
-        console.log('[ElevenLabs] Using WebSocket connection (fallback)');
-      } else {
-        throw new Error('No token or signed URL received');
+      // Strategy: try signedUrl + overrides first, then fallback to token without overrides
+      let started = false;
+
+      // Attempt 1: signedUrl (WebSocket) + overrides
+      if (tokenData.signed_url) {
+        try {
+          const opts: any = { signedUrl: tokenData.signed_url };
+          if (overrides) opts.overrides = overrides;
+          console.log('[ElevenLabs] Attempting WebSocket + overrides');
+          await conversation.startSession(opts);
+          started = true;
+          console.log('[ElevenLabs] Session started (WebSocket + overrides)');
+        } catch (wsError) {
+          console.warn('[ElevenLabs] WebSocket + overrides failed:', wsError);
+        }
       }
 
-      // Inject full Aria brain as override
-      if (contextData.system_prompt) {
-        sessionOptions.overrides = {
-          agent: {
-            prompt: { prompt: contextData.system_prompt },
-            firstMessage: contextData.first_message || undefined,
-            language: 'it',
-          },
-        };
-        console.log('[ElevenLabs] System prompt override injected');
+      // Attempt 2: token (WebRTC) without overrides
+      if (!started && tokenData.token) {
+        try {
+          console.log('[ElevenLabs] Attempting WebRTC without overrides (fallback)');
+          await conversation.startSession({ conversationToken: tokenData.token });
+          started = true;
+          console.log('[ElevenLabs] Session started (WebRTC, dashboard prompt)');
+        } catch (rtcError) {
+          console.error('[ElevenLabs] WebRTC fallback also failed:', rtcError);
+        }
       }
 
-      await conversation.startSession(sessionOptions);
-      console.log('[ElevenLabs] Session started successfully');
+      // Attempt 3: signedUrl without overrides
+      if (!started && tokenData.signed_url) {
+        try {
+          console.log('[ElevenLabs] Attempting WebSocket without overrides (last resort)');
+          await conversation.startSession({ signedUrl: tokenData.signed_url });
+          started = true;
+          console.log('[ElevenLabs] Session started (WebSocket, no overrides)');
+        } catch (lastError) {
+          console.error('[ElevenLabs] All connection attempts failed:', lastError);
+          throw lastError;
+        }
+      }
+
+      if (!started) {
+        throw new Error('No valid connection method available');
+      }
 
     } catch (err) {
       console.error('[ElevenLabs] Failed to start:', err);
