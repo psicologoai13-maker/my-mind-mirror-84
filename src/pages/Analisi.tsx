@@ -298,16 +298,14 @@ const Analisi: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Time Selector */}
-          {hasMenteData && (
-            <div className="px-4 pb-4">
-              <CompactTimeSelector
-                value={timeRange}
-                onChange={handleTimeRangeChange}
-                hasTodayData={hasTodayData}
-              />
-            </div>
-          )}
+          {/* Time Selector - always visible */}
+          <div className="px-4 pb-4">
+            <CompactTimeSelector
+              value={timeRange}
+              onChange={handleTimeRangeChange}
+              hasTodayData={hasTodayData}
+            />
+          </div>
 
           {/* Clinical Domains */}
           <div className="px-4 pb-8 space-y-6">
