@@ -304,11 +304,17 @@ const ProfilePrivacy: React.FC = () => {
 
         {/* Legal Links */}
         <div className="pt-4 space-y-2">
-          <button className="w-full text-left p-3 rounded-xl hover:bg-muted/50 flex items-center gap-3">
+          <button
+            onClick={() => navigate('/terms')}
+            className="w-full text-left p-3 rounded-xl hover:bg-muted/50 flex items-center gap-3"
+          >
             <FileText className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">Termini di Servizio</span>
           </button>
-          <button className="w-full text-left p-3 rounded-xl hover:bg-muted/50 flex items-center gap-3">
+          <button
+            onClick={() => navigate('/privacy')}
+            className="w-full text-left p-3 rounded-xl hover:bg-muted/50 flex items-center gap-3"
+          >
             <Lock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">Privacy Policy</span>
           </button>
