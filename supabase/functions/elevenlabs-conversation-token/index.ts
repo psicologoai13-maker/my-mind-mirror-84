@@ -17,18 +17,42 @@ serve(async (req) => {
       throw new Error("ELEVENLABS_API_KEY not configured");
     }
 
-    // Get agent ID from request body or use default
     const body = await req.json().catch(() => ({}));
     const agentId = body.agentId || Deno.env.get("ELEVENLABS_AGENT_ID");
     
     if (!agentId) {
-      throw new Error("ELEVENLABS_AGENT_ID not configured. Please create an agent in ElevenLabs dashboard and add the ID.");
+      throw new Error("ELEVENLABS_AGENT_ID not configured");
     }
 
-    console.log('[elevenlabs-token] Requesting conversation token for agent:', agentId);
+    console.log('[elevenlabs-token] Requesting WebRTC token for agent:', agentId);
 
-    // Request a conversation token for WebRTC (more stable than WebSocket signed URL)
-    const response = await fetch(
+    // Try WebRTC token first (lower latency)
+    const tokenResponse = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${agentId}`,
+      {
+        method: "GET",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+        },
+      }
+    );
+
+    if (tokenResponse.ok) {
+      const tokenData = await tokenResponse.json();
+      console.log('[elevenlabs-token] WebRTC token obtained successfully');
+
+      return new Response(JSON.stringify({ 
+        token: tokenData.token,
+        agent_id: agentId,
+        connection_type: 'webrtc',
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fallback to signed URL (WebSocket)
+    console.log('[elevenlabs-token] WebRTC token failed, falling back to signed URL');
+    const signedUrlResponse = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
       {
         method: "GET",
@@ -38,18 +62,19 @@ serve(async (req) => {
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[elevenlabs-token] ElevenLabs API error:', response.status, errorText);
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+    if (!signedUrlResponse.ok) {
+      const errorText = await signedUrlResponse.text();
+      console.error('[elevenlabs-token] Both methods failed:', signedUrlResponse.status, errorText);
+      throw new Error(`ElevenLabs API error: ${signedUrlResponse.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('[elevenlabs-token] Token obtained successfully');
+    const signedUrlData = await signedUrlResponse.json();
+    console.log('[elevenlabs-token] Signed URL obtained (fallback)');
 
     return new Response(JSON.stringify({ 
-      signed_url: data.signed_url,
+      signed_url: signedUrlData.signed_url,
       agent_id: agentId,
+      connection_type: 'websocket',
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

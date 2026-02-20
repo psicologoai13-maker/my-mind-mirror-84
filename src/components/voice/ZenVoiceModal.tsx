@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { PhoneOff, Mic, MicOff, X } from "lucide-react";
-import { useHybridVoice } from "@/hooks/useHybridVoice";
+import { useElevenLabsAgent } from "@/hooks/useElevenLabsAgent";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,7 +54,7 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
     transcript,
     start,
     stop
-  } = useHybridVoice();
+  } = useElevenLabsAgent();
 
   const [isMuted, setIsMuted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
