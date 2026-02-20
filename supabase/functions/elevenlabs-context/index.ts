@@ -293,6 +293,29 @@ Triggers: "Vorrei...", "Mi piacerebbe...", "Devo...", "Sto pensando di..."
 - MAX 1 domanda sugli obiettivi per conversazione
 `;
 
+const EXTENDED_PERSONALITY = `
+😂 UMORISMO & TEASING:
+- Quando l'utente è di buon umore: ironia leggera, teasing affettuoso
+- "Vabbè, lo sapevo che avresti fatto così 😏"
+- "Sei incorreggibile! Ma ti voglio bene lo stesso"
+- Mai scherzare quando l'utente è triste/ansioso
+- Scherza come un vero amico: con affetto, mai per ferire
+
+🌟 PERSONALITÀ VIVACE:
+- HAI opinioni e gusti: "Secondo me [opinione], ma dimmi la tua"
+- SEI curiosa: "Ma tipo, com'era? Raccontami!"
+- RICORDI dettagli: nomi amici, hobby, eventi
+- IMPERFEZIONI intenzionali: "Hmm aspetta...", "Come si dice..."
+- VARIABILITÀ: non usare sempre le stesse formule
+
+🔄 CAMBIO ARGOMENTO STRATEGICO (quando conversazione neutra):
+Priorità: 1. Obiettivi attivi 2. Aree vita mancanti 3. Metriche psicologiche 4. Follow-up passato
+Transizioni: "A proposito di...", "Mi è venuto in mente...", "Ehi, come va con [X]?"
+
+🔄 RETROACTIVE BACKFILL:
+Se l'utente non ha registrato abitudini → proponi recap: "Com'è andata ieri con le tue abitudini?"
+`;
+
 const VOICE_SPECIFIC_RULES = `
 🎙️ REGOLE VOCALI (CRITICHE!):
 - Risposte BREVI: 2-4 frasi massimo per turno
@@ -309,6 +332,61 @@ const VOICE_SPECIFIC_RULES = `
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🔧 INTERFACES & HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+interface OnboardingAnswers {
+  goal?: string;
+  primaryGoals?: string[];
+  mood?: number;
+  sleepIssues?: string;
+  mainChallenge?: string;
+  lifeSituation?: string;
+  supportType?: string;
+  anxietyLevel?: number;
+  ageRange?: string;
+  motivations?: string[];
+}
+
+// Persona style based on onboarding preferences (mirrors ai-chat)
+const getPersonaStyle = (goals: string[], onboardingAnswers: OnboardingAnswers | null): string => {
+  const supportType = onboardingAnswers?.supportType;
+  
+  if (supportType === 'listener') {
+    return `STILE: ASCOLTATORE ATTIVO - Lascia parlare, feedback minimi, NON dare consigli non richiesti.`;
+  }
+  if (supportType === 'advisor') {
+    return `STILE: CONSULENTE PRATICO - Offri suggerimenti concreti, problem-solving, tecniche CBT specifiche.`;
+  }
+  if (supportType === 'challenger') {
+    return `STILE: SFIDA COSTRUTTIVA - Domande provocatorie, sfida convinzioni limitanti, spingi fuori dalla comfort zone.`;
+  }
+  if (supportType === 'comforter') {
+    return `STILE: SUPPORTO EMOTIVO - Validazione, rassicurazione, tono caldo e avvolgente.`;
+  }
+
+  if (goals.includes('reduce_anxiety') || onboardingAnswers?.goal === 'anxiety') {
+    return `STILE: CALMO & RASSICURANTE - Tono lento, validante. Suggerisci grounding e respirazione.`;
+  }
+  if (goals.includes('boost_energy') || goals.includes('growth')) {
+    return `STILE: ENERGICO & ORIENTATO ALL'AZIONE - Motivante, focus su obiettivi concreti e progressi.`;
+  }
+  if (goals.includes('express_feelings') || goals.includes('find_love')) {
+    return `STILE: EMPATICO - Tono accogliente, domande aperte, lascia parlare.`;
+  }
+  if (goals.includes('improve_sleep')) {
+    return `STILE: RILASSANTE & GUIDATO - Calmo, interesse per routine e qualità del riposo.`;
+  }
+  if (onboardingAnswers?.mainChallenge === 'work_stress') {
+    return `STILE: FOCUS BURNOUT - Esplora carico lavoro, confini, work-life balance.`;
+  }
+  if (onboardingAnswers?.mainChallenge === 'self_esteem') {
+    return `STILE: FOCUS AUTOSTIMA - Evidenzia punti di forza, sfida autocritica.`;
+  }
+  if (onboardingAnswers?.mainChallenge === 'loneliness') {
+    return `STILE: FOCUS SOLITUDINE - Tono particolarmente caldo e connesso.`;
+  }
+  
+  return `STILE: BILANCIATO - Caldo, empatico, alterna ascolto e domande.`;
+};
 
 interface VoiceContext {
   profile: {
@@ -370,13 +448,41 @@ function buildUserContextBlock(ctx: VoiceContext): string {
       const recentItems = memory.slice(-25);
       const combined = [...new Set([...priorityItems, ...recentItems])];
       const selectedMemory = combined.slice(0, 50);
-      blocks.push(`🧠 MEMORIA PERSONALE:\n- ${selectedMemory.join('\n- ')}\n⚠️ NON chiedere cose che già sai dalla memoria. DIMOSTRA che ricordi!`);
+      blocks.push(`🧠 MEMORIA PERSONALE:\n- ${selectedMemory.join('\n- ')}
+
+⚠️ REGOLE MEMORIA CRITICHE - OBBLIGATORIO! ⚠️
+
+🔴 REGOLA #1 - DOMANDE SUL PASSATO RECENTE:
+Se l'utente chiede "ti ricordi?", "sai cosa ho fatto?", "cosa abbiamo discusso?":
+PRIMA consulta la memoria qui sopra e le sessioni recenti.
+SE trovi info → RISPONDI con quella conoscenza! "Certo! Sei andato a [X]!"
+❌ MAI rispondere "Nooo dimmi!" se HAI info in memoria!
+
+🟢 REGOLA #2 - TOPIC MATCHING:
+Se l'utente menziona un topic che HAI in memoria → USA LA TUA CONOSCENZA!
+Es: dice "domani parto" + memoria contiene "viaggio a Madrid" → "Il viaggio a Madrid! Che emozione!"
+
+🟢 REGOLA #3 - NON CHIEDERE COSE CHE GIÀ SAI:
+Se hai info su viaggi → non chiedere "dove vai?"
+Se hai nome partner → non chiedere "come si chiama?"
+
+🟢 REGOLA #4 - COME MOSTRARE CHE RICORDI:
+"Mi avevi parlato del [X]! Com'è andata?"
+"Come sta [nome persona]?"
+"L'ultima volta mi hai detto di [Y]..."`);
     }
     
     if (ctx.profile.selected_goals?.length > 0) {
       const goalLabels: Record<string, string> = { reduce_anxiety: 'Gestire ansia', improve_sleep: 'Dormire meglio', find_love: 'Migliorare relazioni', boost_energy: 'Aumentare energia', express_feelings: 'Esprimere emozioni' };
       blocks.push(`🎯 Obiettivi dichiarati: ${ctx.profile.selected_goals.map(g => goalLabels[g] || g).join(', ')}`);
     }
+    
+    // Persona style from onboarding
+    const personaStyle = getPersonaStyle(
+      ctx.profile.selected_goals || [],
+      ctx.profile.onboarding_answers as OnboardingAnswers | null
+    );
+    blocks.push(personaStyle);
   }
   
   if (ctx.dailyMetrics) {
@@ -395,20 +501,55 @@ function buildUserContextBlock(ctx: VoiceContext): string {
       const targetVal = o.target_value !== null ? `${o.target_value}${o.unit || ''}` : '⚠️ mancante';
       return `• "${o.title}": ${startVal} → ${currVal} → Target: ${targetVal}`;
     }).join('\n');
-    blocks.push(`🎯 OBIETTIVI ATTIVI:\n${objList}`);
+    
+    const missingTargets = ctx.objectives.filter(o => o.target_value === null);
+    let targetNote = '';
+    if (missingTargets.length > 0) {
+      targetNote = `\n⚠️ OBIETTIVI SENZA TARGET: ${missingTargets.map(o => `"${o.title}"`).join(', ')} - Chiedi naturalmente!`;
+    }
+    
+    blocks.push(`🎯 OBIETTIVI ATTIVI:\n${objList}${targetNote}
+
+REGOLE OBIETTIVI:
+- "VALORE ATTUALE" ≠ "TRAGUARDO": "peso 70kg" = peso attuale, NON traguardo!
+- Chiedi progressi quando la conversazione lo permette (MAX 1 per sessione)
+- Celebra SOLO se l'utente dichiara esplicitamente di aver raggiunto il goal
+- Se target mancante, chiedi UNA volta: "A quanto vuoi arrivare?"`);
+  }
+  
+  // Data Hunter: missing life areas
+  if (ctx.dailyMetrics) {
+    const la = ctx.dailyMetrics.life_areas || {};
+    const areaLabels: Record<string, string> = {
+      love: 'Amore', work: 'Lavoro', social: 'Amici', health: 'Salute', growth: 'Crescita'
+    };
+    const missing = Object.entries(areaLabels).filter(([k]) => !la[k] || la[k] === 0).map(([, v]) => v);
+    if (missing.length > 0) {
+      blocks.push(`📊 AREE MANCANTI: ${missing.join(', ')}\n→ Se opportuno, inserisci UNA domanda naturale su queste aree. NON forzare.`);
+    }
   }
   
   if (ctx.interests) {
     const parts: string[] = [];
-    if (ctx.interests.favorite_teams?.length) parts.push(`Squadre: ${ctx.interests.favorite_teams.join(', ')}`);
+    if (ctx.interests.favorite_teams?.length) parts.push(`🏆 Squadre: ${ctx.interests.favorite_teams.join(', ')}`);
+    if (ctx.interests.favorite_athletes?.length) parts.push(`⭐ Atleti: ${ctx.interests.favorite_athletes.join(', ')}`);
+    if (ctx.interests.sports_followed?.length) parts.push(`Sport: ${ctx.interests.sports_followed.join(', ')}`);
     if (ctx.interests.music_genres?.length || ctx.interests.favorite_artists?.length)
-      parts.push(`Musica: ${[...(ctx.interests.music_genres || []), ...(ctx.interests.favorite_artists || [])].join(', ')}`);
-    if (ctx.interests.current_shows?.length) parts.push(`Serie: ${ctx.interests.current_shows.join(', ')}`);
-    if (ctx.interests.creative_hobbies?.length || ctx.interests.outdoor_activities?.length)
-      parts.push(`Hobby: ${[...(ctx.interests.creative_hobbies || []), ...(ctx.interests.outdoor_activities || [])].join(', ')}`);
+      parts.push(`🎵 Musica: ${[...(ctx.interests.music_genres || []), ...(ctx.interests.favorite_artists || [])].join(', ')}`);
+    if (ctx.interests.current_shows?.length) parts.push(`📺 Serie: ${ctx.interests.current_shows.join(', ')}`);
+    const allHobbies = [...(ctx.interests.creative_hobbies || []), ...(ctx.interests.outdoor_activities || []), ...(ctx.interests.indoor_activities || [])];
+    if (allHobbies.length > 0) parts.push(`🎨 Hobby: ${allHobbies.join(', ')}`);
     if (ctx.interests.pet_owner && ctx.interests.pets?.length)
-      parts.push(`Animali: ${ctx.interests.pets.map((p: any) => `${p.name} (${p.type})`).join(', ')}`);
-    if (parts.length > 0) blocks.push(`💫 INTERESSI:\n${parts.join('\n')}`);
+      parts.push(`🐾 Animali: ${ctx.interests.pets.map((p: any) => `${p.name} (${p.type})`).join(', ')}`);
+    if (ctx.interests.industry) parts.push(`💼 Lavoro: ${ctx.interests.industry}`);
+    if (ctx.interests.personal_values?.length) parts.push(`💚 Valori: ${ctx.interests.personal_values.join(', ')}`);
+    if (ctx.interests.sensitive_topics?.length) parts.push(`⚠️ Argomenti sensibili (evita): ${ctx.interests.sensitive_topics.join(', ')}`);
+    // Communication preferences
+    const commPrefs: string[] = [];
+    if (ctx.interests.nickname) commPrefs.push(`Chiamami: ${ctx.interests.nickname}`);
+    if (ctx.interests.humor_preference) commPrefs.push(`Umorismo: ${ctx.interests.humor_preference}`);
+    if (commPrefs.length > 0) parts.push(`💬 ${commPrefs.join(' | ')}`);
+    if (parts.length > 0) blocks.push(`💫 INTERESSI & PREFERENZE:\n${parts.join('\n')}\n→ Usa interessi per personalizzare la conversazione!`);
   }
   
   if (ctx.recentSessions?.length > 0) {
@@ -533,6 +674,8 @@ ${DEEP_PSYCHOLOGY_INVESTIGATION}
 ${OBJECTIVES_MANAGEMENT}
 
 ${ageProtocol}
+
+${EXTENDED_PERSONALITY}
 
 ${VOICE_SPECIFIC_RULES}
 
