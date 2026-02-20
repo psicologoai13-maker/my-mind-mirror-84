@@ -260,13 +260,20 @@ const Analisi: React.FC = () => {
             <p className="text-muted-foreground text-sm mt-1">Il tuo benessere psicologico</p>
           </div>
           <div className="flex items-center gap-2">
-            {daysSinceLastData !== null && (
+            {daysSinceLastData !== null && daysSinceLastData > 0 && (
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 isDataStale 
                   ? 'bg-destructive/10 text-destructive' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {daysSinceLastData === 0 ? 'Aggiornato oggi' : `${daysSinceLastData}g fa`}
+                {isDataStale 
+                  ? `Non aggiornato da ${daysSinceLastData}g`
+                  : `${daysSinceLastData}g fa`}
+              </span>
+            )}
+            {daysSinceLastData === 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                Aggiornato oggi
               </span>
             )}
             {isLoading && (
@@ -377,27 +384,6 @@ const Analisi: React.FC = () => {
         {/* Correlations & Patterns Insights */}
         <CorrelationsInsightSection />
 
-        {/* Stale data warning */}
-        {isDataStale && hasAnyData && (
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-destructive/5 border border-destructive/20">
-            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Dati non aggiornati da {daysSinceLastData} giorni
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Fai un check-in o parla con Aria per aggiornare le tue analisi
-              </p>
-              <button
-                onClick={() => navigate('/chat')}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Parla con Aria
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Empty state */}
         {!hasAnyData && (
