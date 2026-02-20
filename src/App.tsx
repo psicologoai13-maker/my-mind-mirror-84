@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import Analisi from "./pages/Analisi";
@@ -24,6 +25,9 @@ import DoctorPatientView from "./pages/DoctorPatientView";
 import Aria from "./pages/Aria";
 import Objectives from "./pages/Objectives";
 import Plus from "./pages/Plus";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -114,33 +118,37 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<OnboardingRoute><Onboarding /></OnboardingRoute>} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-            <Route path="/analisi" element={<ProtectedRoute><Analisi /></ProtectedRoute>} />
-            <Route path="/progress" element={<Navigate to="/analisi" replace />} />
-            <Route path="/aria" element={<ProtectedRoute><Aria /></ProtectedRoute>} />
-            <Route path="/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
-            {/* Habits route removed - now part of Objectives page */}
-            <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/profile/personal" element={<ProtectedRoute><ProfilePersonal /></ProtectedRoute>} />
-            <Route path="/profile/privacy" element={<ProtectedRoute><ProfilePrivacy /></ProtectedRoute>} />
-            <Route path="/profile/help" element={<ProtectedRoute><ProfileHelp /></ProtectedRoute>} />
-            <Route path="/profile/interests" element={<ProtectedRoute><ProfileInterests /></ProtectedRoute>} />
-            <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
-            <Route path="/plus" element={<ProtectedRoute><Plus /></ProtectedRoute>} />
-            <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
-            <Route path="/doctor-view-patient/:patientId" element={<DoctorRoute><DoctorPatientView /></DoctorRoute>} />
-            <Route path="/doctor-view/:token" element={<DoctorView />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <ErrorBoundary>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/onboarding" element={<OnboardingRoute><Onboarding /></OnboardingRoute>} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+              <Route path="/analisi" element={<ProtectedRoute><Analisi /></ProtectedRoute>} />
+              <Route path="/progress" element={<Navigate to="/analisi" replace />} />
+              <Route path="/aria" element={<ProtectedRoute><Aria /></ProtectedRoute>} />
+              <Route path="/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
+              <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/profile/personal" element={<ProtectedRoute><ProfilePersonal /></ProtectedRoute>} />
+              <Route path="/profile/privacy" element={<ProtectedRoute><ProfilePrivacy /></ProtectedRoute>} />
+              <Route path="/profile/help" element={<ProtectedRoute><ProfileHelp /></ProtectedRoute>} />
+              <Route path="/profile/interests" element={<ProtectedRoute><ProfileInterests /></ProtectedRoute>} />
+              <Route path="/profile/clinical" element={<ProtectedRoute><ClinicalArea /></ProtectedRoute>} />
+              <Route path="/plus" element={<ProtectedRoute><Plus /></ProtectedRoute>} />
+              <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
+              <Route path="/doctor-view-patient/:patientId" element={<DoctorRoute><DoctorPatientView /></DoctorRoute>} />
+              <Route path="/doctor-view/:token" element={<DoctorView />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ErrorBoundary>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>

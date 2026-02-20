@@ -63,10 +63,21 @@ const Chat: React.FC = () => {
   const { messages, addMessage, addOptimisticMessage, confirmMessage, removeOptimisticMessage, isLoading: isLoadingMessages } = useChatMessages(sessionId);
   
   const userName = profile?.name?.split(' ')[0] || 'Amico';
-  const memoryFacts = profile?.long_term_memory || [];
-  const hasMemory = memoryFacts.length > 0;
+  
+  // Use user_memories table instead of legacy long_term_memory
+  const [memoryCount, setMemoryCount] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('user_memories')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .then(({ count }) => setMemoryCount(count || 0));
+  }, [user?.id]);
+  const hasMemory = memoryCount > 0;
   const memoryPreview = hasMemory 
-    ? memoryFacts.slice(0, 3).join(' • ').substring(0, 100) + '...'
+    ? `${memoryCount} ricordi attivi`
     : 'Nessun ricordo ancora';
 
   // Finalize session with AI analysis
@@ -613,7 +624,7 @@ const Chat: React.FC = () => {
                     )}>
                       <Brain className="w-3 h-3" />
                       <span className="text-[10px] font-medium">
-                        {hasMemory ? `${memoryFacts.length} ricordi` : 'Nuova'}
+                        {hasMemory ? `${memoryCount} ricordi` : 'Nuova'}
                       </span>
                     </div>
                   </TooltipTrigger>

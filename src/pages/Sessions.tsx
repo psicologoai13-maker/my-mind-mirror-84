@@ -15,6 +15,38 @@ import SessionDetailModal from '@/components/sessions/SessionDetailModal';
 import DiaryNotebookCard from '@/components/diary/DiaryNotebookCard';
 import ThematicChatInterface from '@/components/diary/ThematicChatInterface';
 
+const PAGE_SIZE = 8;
+
+const SessionsList: React.FC<{
+  sessions: Session[];
+  onSessionClick: (s: Session) => void;
+}> = ({ sessions, onSessionClick }) => {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const visible = sessions.slice(0, visibleCount);
+  const remaining = sessions.length - visibleCount;
+
+  return (
+    <div className="space-y-2">
+      {visible.map((session, index) => (
+        <JournalEntryCard
+          key={session.id}
+          session={session}
+          onClick={() => onSessionClick(session)}
+          index={index}
+        />
+      ))}
+      {remaining > 0 && (
+        <button
+          onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+          className="w-full text-center text-xs text-primary font-medium py-3 hover:bg-muted/50 rounded-xl transition-colors"
+        >
+          Mostra altre {Math.min(remaining, PAGE_SIZE)} di {remaining} sessioni
+        </button>
+      )}
+    </div>
+  );
+};
+
 const Sessions: React.FC = () => {
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -225,21 +257,10 @@ const Sessions: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {journalSessions.slice(0, 8).map((session, index) => (
-                <JournalEntryCard
-                  key={session.id}
-                  session={session}
-                  onClick={() => handleSessionClick(session)}
-                  index={index}
-                />
-              ))}
-              {journalSessions.length > 8 && (
-                <button className="w-full text-center text-xs text-primary font-medium py-3">
-                  Mostra altre {journalSessions.length - 8} sessioni
-                </button>
-              )}
-            </div>
+            <SessionsList 
+              sessions={journalSessions}
+              onSessionClick={handleSessionClick}
+            />
           )}
         </section>
       </div>

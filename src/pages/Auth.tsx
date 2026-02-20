@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Sparkles, Mail, Lock, User, Stethoscope, Loader2, ArrowRight } from 'lucide-react';
+import { Sparkles, Mail, Lock, User, Stethoscope, Loader2, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 import FloatingParticles from '@/components/aria/FloatingParticles';
 
@@ -23,6 +24,9 @@ const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const { role, isLoading: roleLoading, setUserRole, refetch: refetchRole } = useUserRole();
   const { profile, isLoading: profileLoading } = useProfile();
@@ -86,14 +90,127 @@ const Auth: React.FC = () => {
             const roleToSet = isDoctor ? 'doctor' : 'patient';
             await setUserRole(roleToSet);
             await refetchRole();
-            toast.success(isDoctor ? 'Account Medico creato!' : 'Account creato! Benvenuto in Serenity.');
           }, 500);
+          setShowEmailConfirmation(true);
         }
       }
     } finally {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error('Inserisci la tua email prima');
+      return;
+    }
+    try {
+      emailSchema.parse(email);
+    } catch {
+      toast.error('Email non valida');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Email di recupero inviata! Controlla la tua casella.');
+        setShowForgotPassword(false);
+      }
+    } catch {
+      toast.error('Errore nell\'invio dell\'email');
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  // Email confirmation screen after signup
+  if (showEmailConfirmation) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-mesh" />
+        <FloatingParticles />
+        <motion.div
+          className="relative z-10 card-glass p-8 max-w-sm w-full text-center"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-6">
+            <CheckCircle className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">Controlla la tua email!</h2>
+          <p className="text-sm text-muted-foreground mb-2">
+            Abbiamo inviato un link di conferma a:
+          </p>
+          <p className="text-sm font-medium text-foreground mb-6">{email}</p>
+          <p className="text-xs text-muted-foreground mb-6">
+            Clicca sul link nell'email per attivare il tuo account. Controlla anche la cartella spam.
+          </p>
+          <Button
+            variant="outline"
+            className="w-full rounded-full"
+            onClick={() => {
+              setShowEmailConfirmation(false);
+              setIsLogin(true);
+            }}
+          >
+            Torna al Login
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Forgot password screen
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-mesh" />
+        <FloatingParticles />
+        <motion.div
+          className="relative z-10 card-glass p-8 max-w-sm w-full"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <button
+            onClick={() => setShowForgotPassword(false)}
+            className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Torna al login
+          </button>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+              <Mail className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold text-foreground">Password dimenticata?</h2>
+            <p className="text-sm text-muted-foreground mt-2">Inserisci la tua email e ti invieremo un link per reimpostarla.</p>
+          </div>
+          <div className="space-y-4">
+            <Input
+              type="email"
+              placeholder="La tua email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-14 rounded-2xl"
+            />
+            <Button
+              onClick={handleForgotPassword}
+              className="w-full h-14 rounded-full bg-gradient-aria text-white shadow-aria-glow"
+              disabled={forgotPasswordLoading}
+            >
+              {forgotPasswordLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Invia link di recupero'}
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Loading screen during redirect
   if (isRedirecting || (user && (authLoading || roleLoading || profileLoading))) {
@@ -365,9 +482,18 @@ const Auth: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
           >
+            {isLogin && (
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-aria-violet/80 hover:text-aria-violet transition-colors"
+              >
+                Password dimenticata?
+              </button>
+            )}
+
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors block mx-auto"
             >
               {isLogin ? 'Non hai un account? ' : 'Hai già un account? '}
               <span className="text-aria-violet font-medium">
@@ -407,13 +533,13 @@ const Auth: React.FC = () => {
           transition={{ delay: 0.9 }}
         >
           Accedendo accetti i nostri{' '}
-          <span className="text-aria-violet/80 hover:text-aria-violet cursor-pointer transition-colors">
+          <Link to="/terms" className="text-aria-violet/80 hover:text-aria-violet transition-colors">
             Termini di Servizio
-          </span>
+          </Link>
           {' '}e{' '}
-          <span className="text-aria-violet/80 hover:text-aria-violet cursor-pointer transition-colors">
+          <Link to="/privacy" className="text-aria-violet/80 hover:text-aria-violet transition-colors">
             Privacy Policy
-          </span>
+          </Link>
         </motion.p>
       </div>
     </div>
