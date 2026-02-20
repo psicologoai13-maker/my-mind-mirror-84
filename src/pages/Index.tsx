@@ -5,6 +5,7 @@ import SmartCheckinSection from '@/components/home/SmartCheckinSection';
 import EmotionalMixBar from '@/components/home/EmotionalMixBar';
 import CheckinSummaryModal from '@/components/home/CheckinSummaryModal';
 import WellnessScoreBox from '@/components/home/WellnessScoreBox';
+import WelcomeBackBanner from '@/components/home/WelcomeBackBanner';
 import { ClipboardCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -12,15 +13,47 @@ import { useAIDashboard } from '@/hooks/useAIDashboard';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { usePersonalizedCheckins } from '@/hooks/usePersonalizedCheckins';
 import { useCheckinTimer } from '@/hooks/useCheckinTimer';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { AnimatePresence } from 'framer-motion';
 
 const Index: React.FC = () => {
+  const { user } = useAuth();
   const { profile, isLoading } = useProfile();
   const { layout, isLoading: isLoadingAI } = useAIDashboard();
   const { layout: analysisLayout } = useAIAnalysis('week');
   const { completedCount, allCompleted, dailyCheckins } = usePersonalizedCheckins();
   const { checkinStartedAt, startCheckinTimer } = useCheckinTimer();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [welcomeBannerDismissed, setWelcomeBannerDismissed] = useState(false);
+
+  // Query last session date for welcome-back banner
+  const { data: lastSessionDate } = useQuery({
+    queryKey: ['last-session-date', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('sessions')
+        .select('start_time')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('start_time', { ascending: false })
+        .limit(1);
+      return data?.[0]?.start_time || null;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const daysSinceLastSession = useMemo(() => {
+    if (!lastSessionDate) return null;
+    const diffMs = Date.now() - new Date(lastSessionDate).getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [lastSessionDate]);
+
+  const showWelcomeBack = daysSinceLastSession !== null && daysSinceLastSession >= 3 && !welcomeBannerDismissed;
   
   const userName = profile?.name?.split(' ')[0] || 'Utente';
 
@@ -120,6 +153,19 @@ const Index: React.FC = () => {
             )}
           </Button>
         </div>
+
+        {/* Welcome Back Banner - shown after 3+ days of inactivity */}
+        <AnimatePresence>
+          {showWelcomeBack && (
+            <div className="mb-4">
+              <WelcomeBackBanner
+                daysSinceLastSession={daysSinceLastSession!}
+                userName={userName}
+                onDismiss={() => setWelcomeBannerDismissed(true)}
+              />
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Wellness Score Box with expandable AI insights */}
         <div className="mb-5">
