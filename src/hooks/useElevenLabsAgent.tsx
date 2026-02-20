@@ -217,14 +217,17 @@ export const useElevenLabsAgent = () => {
     }
   }, [conversation, user]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount only
+  const conversationRef = useRef(conversation);
+  conversationRef.current = conversation;
+  
   useEffect(() => {
     return () => {
-      if (conversation.status === 'connected') {
-        conversation.endSession().catch(console.error);
+      if (conversationRef.current.status === 'connected') {
+        conversationRef.current.endSession().catch(console.error);
       }
     };
-  }, [conversation]);
+  }, []);
 
   return {
     isActive: conversation.status === 'connected',
