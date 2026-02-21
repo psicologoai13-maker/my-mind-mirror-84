@@ -1,7 +1,7 @@
-# PROMPT PER RORK MAX - Integrazione Completa Backend Supabase
+# PROMPT PER RORK MAX - Integrazione iOS Nativa (Swift/SwiftUI)
 
-## PROBLEMA
-L'app iOS legge campi raw del database (es. `user_profiles.wellness_score` che è sempre 0) invece di usare le Edge Functions e le RPC che calcolano i dati reali. Inoltre Aria (chat e voce) non funziona.
+## PROBLEMA CRITICO
+Le funzionalità di Aria (chat e voce) e le metriche non funzionano perché il codice iOS usa API web (React SDK, browser APIs) che **NON ESISTONO** in Swift nativo. Questo prompt fornisce le implementazioni **native iOS** corrette.
 
 ## CONFIGURAZIONE SUPABASE
 ```
@@ -9,560 +9,768 @@ URL: https://yzlszvvhbcasbzsaastq.supabase.co
 Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4
 ```
 
-**REGOLA CRITICA**: Ogni chiamata alle Edge Functions DEVE includere l'header:
+**REGOLA CRITICA**: Ogni chiamata alle Edge Functions DEVE includere questi header:
 ```
 Authorization: Bearer <access_token dalla sessione Supabase>
+apikey: <anon_key>
+Content-Type: application/json
 ```
 
 ---
 
-## 1. DASHBOARD & WELLNESS SCORE
+## INCOMPATIBILITÀ WEB → iOS NATIVO
+
+| Funzionalità | Web (React) - NON USARE | iOS Nativo (Swift) - USARE |
+|---|---|---|
+| **Aria Chat streaming** | `fetch()` + `ReadableStream` | `URLSession` + `AsyncBytes` |
+| **Aria Voce** | `@elevenlabs/react` (useConversation) | **WebSocket nativo** (`URLSessionWebSocketTask`) |
+| **Speech Recognition** | `webkitSpeechRecognition` | `Speech.framework` (`SFSpeechRecognizer`) |
+| **Speech Synthesis** | `window.speechSynthesis` | `AVSpeechSynthesizer` |
+| **Audio playback** | `new Audio(url)` | `AVAudioPlayer` / `AVAudioEngine` |
+
+---
+
+## 1. ARIA CHAT (Streaming SSE con URLSession)
+
+### Implementazione Swift CORRETTA
+
+```swift
+import Foundation
+
+class AriaChatService {
+    private let baseURL = "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1"
+    
+    /// Invia messaggio e ricevi risposta in streaming SSE
+    func sendMessage(
+        message: String,
+        sessionId: String,
+        conversationHistory: [[String: String]],
+        accessToken: String,
+        onChunk: @escaping (String) -> Void,
+        onComplete: @escaping (String) -> Void,
+        onError: @escaping (Error) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/ai-chat") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+        
+        let body: [String: Any] = [
+            "message": message,
+            "sessionId": sessionId,
+            "conversationHistory": conversationHistory
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        // IMPORTANTE: Usare URLSession per streaming
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                onError(error)
+                return
+            }
+            
+            guard let data = data,
+                  let text = String(data: data, encoding: .utf8) else { return }
+            
+            // Parse SSE response
+            var fullResponse = ""
+            let lines = text.components(separatedBy: "\n")
+            
+            for line in lines {
+                if line.hasPrefix("data: ") {
+                    let dataStr = String(line.dropFirst(6))
+                    if dataStr == "[DONE]" { break }
+                    
+                    if let jsonData = dataStr.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                       let choices = json["choices"] as? [[String: Any]],
+                       let delta = choices.first?["delta"] as? [String: Any],
+                       let content = delta["content"] as? String {
+                        fullResponse += content
+                        DispatchQueue.main.async { onChunk(content) }
+                    }
+                }
+            }
+            
+            DispatchQueue.main.async { onComplete(fullResponse) }
+        }
+        task.resume()
+    }
+    
+    /// Versione con async/await e streaming reale
+    func sendMessageStream(
+        message: String,
+        sessionId: String,
+        conversationHistory: [[String: String]],
+        accessToken: String
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            guard let url = URL(string: "\(baseURL)/ai-chat") else {
+                continuation.finish(throwing: URLError(.badURL))
+                return
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+            
+            let body: [String: Any] = [
+                "message": message,
+                "sessionId": sessionId,
+                "conversationHistory": conversationHistory
+            ]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            
+            let task = Task {
+                do {
+                    let (bytes, _) = try await URLSession.shared.bytes(for: request)
+                    
+                    for try await line in bytes.lines {
+                        if line.hasPrefix("data: ") {
+                            let dataStr = String(line.dropFirst(6))
+                            if dataStr == "[DONE]" { break }
+                            
+                            if let jsonData = dataStr.data(using: .utf8),
+                               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                               let choices = json["choices"] as? [[String: Any]],
+                               let delta = choices.first?["delta"] as? [String: Any],
+                               let content = delta["content"] as? String {
+                                continuation.yield(content)
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}
+```
+
+### SwiftUI ViewModel per Chat
+
+```swift
+@MainActor
+class AriaChatViewModel: ObservableObject {
+    @Published var messages: [ChatMessage] = []
+    @Published var currentResponse = ""
+    @Published var isLoading = false
+    
+    private let chatService = AriaChatService()
+    private var sessionId: String?
+    
+    func sendMessage(_ text: String, accessToken: String, userId: String) async {
+        // 1. Crea sessione se non esiste
+        if sessionId == nil {
+            sessionId = await createSession(userId: userId, accessToken: accessToken)
+        }
+        
+        guard let sessionId = sessionId else { return }
+        
+        // 2. Aggiungi messaggio utente alla UI
+        let userMsg = ChatMessage(role: "user", content: text)
+        messages.append(userMsg)
+        
+        // 3. Salva in database
+        await saveChatMessage(sessionId: sessionId, userId: userId, role: "user", content: text, accessToken: accessToken)
+        
+        // 4. Streaming risposta
+        isLoading = true
+        currentResponse = ""
+        
+        let history = messages.map { ["role": $0.role, "content": $0.content] }
+        
+        do {
+            for try await chunk in chatService.sendMessageStream(
+                message: text,
+                sessionId: sessionId,
+                conversationHistory: history,
+                accessToken: accessToken
+            ) {
+                currentResponse += chunk
+            }
+            
+            // 5. Aggiungi risposta completa
+            let aiMsg = ChatMessage(role: "assistant", content: currentResponse)
+            messages.append(aiMsg)
+            
+            // 6. Salva risposta in database
+            await saveChatMessage(sessionId: sessionId, userId: userId, role: "assistant", content: currentResponse, accessToken: accessToken)
+            
+            currentResponse = ""
+        } catch {
+            print("Errore streaming: \(error)")
+        }
+        
+        isLoading = false
+    }
+    
+    func endSession(accessToken: String) async {
+        guard let sessionId = sessionId else { return }
+        
+        // Chiudi sessione e processa
+        // ... update session status to 'completed'
+        // ... invoke 'process-session' edge function
+        await processSession(sessionId: sessionId, accessToken: accessToken)
+    }
+    
+    private func processSession(sessionId: String, accessToken: String) async {
+        guard let url = URL(string: "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/process-session") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["sessionId": sessionId])
+        
+        _ = try? await URLSession.shared.data(for: request)
+    }
+    
+    // Helper functions for Supabase REST API calls
+    private func createSession(userId: String, accessToken: String) async -> String? {
+        // POST to Supabase REST API: /rest/v1/sessions
+        // Return session ID
+        return nil // implement with actual Supabase call
+    }
+    
+    private func saveChatMessage(sessionId: String, userId: String, role: String, content: String, accessToken: String) async {
+        // POST to Supabase REST API: /rest/v1/chat_messages
+    }
+}
+```
+
+---
+
+## 2. ARIA VOCE (ElevenLabs via WebSocket Nativo)
+
+### ⚠️ NON usare `@elevenlabs/react` — è solo per React/browser!
+
+L'unica via per iOS nativo è connettersi direttamente al **WebSocket** di ElevenLabs usando la `signed_url`.
+
+### Agent ID: `agent_2901khw977kbesesvd00yh2mbeyx`
+
+### Implementazione Swift
+
+```swift
+import Foundation
+import AVFoundation
+
+class AriaVoiceService: NSObject, ObservableObject {
+    @Published var isConnected = false
+    @Published var isSpeaking = false
+    @Published var transcript = ""
+    
+    private var webSocket: URLSessionWebSocketTask?
+    private var audioEngine = AVAudioEngine()
+    private var audioPlayer = AVAudioPlayerNode()
+    
+    private let baseURL = "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1"
+    
+    /// STEP 1: Ottieni signed URL dal backend
+    func startSession(accessToken: String) async throws {
+        // 1a. Ottieni signed_url (WebSocket) dal nostro backend
+        guard let tokenURL = URL(string: "\(baseURL)/elevenlabs-conversation-token") else { return }
+        
+        var tokenRequest = URLRequest(url: tokenURL)
+        tokenRequest.httpMethod = "POST"
+        tokenRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        tokenRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        tokenRequest.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+        tokenRequest.httpBody = "{}".data(using: .utf8)
+        
+        let (tokenData, _) = try await URLSession.shared.data(for: tokenRequest)
+        let tokenJSON = try JSONSerialization.jsonObject(with: tokenData) as? [String: Any]
+        
+        guard let signedUrl = tokenJSON?["signed_url"] as? String else {
+            throw NSError(domain: "AriaVoice", code: 1, userInfo: [NSLocalizedDescriptionKey: "No signed_url received"])
+        }
+        
+        // 1b. Ottieni contesto (system prompt) dal nostro backend
+        guard let contextURL = URL(string: "\(baseURL)/elevenlabs-context") else { return }
+        
+        var contextRequest = URLRequest(url: contextURL)
+        contextRequest.httpMethod = "POST"
+        contextRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        contextRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        contextRequest.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+        contextRequest.httpBody = "{}".data(using: .utf8)
+        
+        let (contextData, _) = try await URLSession.shared.data(for: contextRequest)
+        let contextJSON = try JSONSerialization.jsonObject(with: contextData) as? [String: Any]
+        
+        let systemPrompt = contextJSON?["system_prompt"] as? String ?? ""
+        let firstMessage = contextJSON?["first_message"] as? String ?? "Ciao, come stai?"
+        
+        // 2. Connetti al WebSocket ElevenLabs
+        await connectWebSocket(signedUrl: signedUrl, systemPrompt: systemPrompt, firstMessage: firstMessage)
+    }
+    
+    /// STEP 2: Connessione WebSocket diretta a ElevenLabs
+    private func connectWebSocket(signedUrl: String, systemPrompt: String, firstMessage: String) async {
+        guard let url = URL(string: signedUrl) else { return }
+        
+        let session = URLSession(configuration: .default, delegate: nil, delegateQueue: nil)
+        webSocket = session.webSocketTask(with: url)
+        webSocket?.resume()
+        
+        DispatchQueue.main.async {
+            self.isConnected = true
+        }
+        
+        // Invia configurazione iniziale con override del system prompt
+        let initMessage: [String: Any] = [
+            "type": "conversation_initiation_client_data",
+            "conversation_config_override": [
+                "agent": [
+                    "prompt": ["prompt": systemPrompt],
+                    "first_message": firstMessage,
+                    "language": "it"
+                ]
+            ]
+        ]
+        
+        if let data = try? JSONSerialization.data(withJSONObject: initMessage),
+           let str = String(data: data, encoding: .utf8) {
+            try? await webSocket?.send(.string(str))
+        }
+        
+        // Avvia audio capture + invio
+        startAudioCapture()
+        
+        // Ascolta messaggi dal server
+        listenForMessages()
+    }
+    
+    /// STEP 3: Cattura audio dal microfono e invia via WebSocket
+    private func startAudioCapture() {
+        let audioSession = AVAudioSession.sharedInstance()
+        try? audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+        try? audioSession.setActive(true)
+        
+        let inputNode = audioEngine.inputNode
+        let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: false)!
+        
+        // Converter per downsampling
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, time in
+            // Converti in base64 PCM 16kHz e invia via WebSocket
+            guard let self = self else { return }
+            
+            // Semplificato: converti buffer in base64
+            let audioData = self.bufferToData(buffer: buffer)
+            let base64 = audioData.base64EncodedString()
+            
+            let audioMessage: [String: Any] = [
+                "user_audio_chunk": base64
+            ]
+            
+            if let data = try? JSONSerialization.data(withJSONObject: audioMessage),
+               let str = String(data: data, encoding: .utf8) {
+                self.webSocket?.send(.string(str)) { _ in }
+            }
+        }
+        
+        try? audioEngine.start()
+    }
+    
+    /// STEP 4: Ascolta risposte audio dal server
+    private func listenForMessages() {
+        webSocket?.receive { [weak self] result in
+            switch result {
+            case .success(let message):
+                switch message {
+                case .string(let text):
+                    self?.handleServerMessage(text)
+                case .data(let data):
+                    // Audio binario da riprodurre
+                    self?.playAudioData(data)
+                @unknown default:
+                    break
+                }
+                // Continua ad ascoltare
+                self?.listenForMessages()
+                
+            case .failure(let error):
+                print("WebSocket error: \(error)")
+                DispatchQueue.main.async {
+                    self?.isConnected = false
+                }
+            }
+        }
+    }
+    
+    /// Gestisci messaggi JSON dal server ElevenLabs
+    private func handleServerMessage(_ text: String) {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String else { return }
+        
+        switch type {
+        case "user_transcript":
+            // Trascrizione di ciò che ha detto l'utente
+            if let event = json["user_transcription_event"] as? [String: Any],
+               let transcript = event["user_transcript"] as? String {
+                DispatchQueue.main.async {
+                    self.transcript = transcript
+                }
+            }
+            
+        case "agent_response":
+            // Risposta testuale di Aria
+            if let event = json["agent_response_event"] as? [String: Any],
+               let response = event["agent_response"] as? String {
+                print("Aria dice: \(response)")
+            }
+            
+        case "audio":
+            // Audio base64 da riprodurre (solo WebSocket, non WebRTC)
+            if let audioEvent = json["audio_event"] as? [String: Any],
+               let audioBase64 = audioEvent["audio_base_64"] as? String,
+               let audioData = Data(base64Encoded: audioBase64) {
+                playAudioData(audioData)
+            }
+            
+        case "interruption":
+            // L'utente ha interrotto Aria
+            stopPlayback()
+            
+        case "ping":
+            // Rispondi con pong per mantenere la connessione
+            let pong = ["type": "pong"]
+            if let data = try? JSONSerialization.data(withJSONObject: pong),
+               let str = String(data: data, encoding: .utf8) {
+                webSocket?.send(.string(str)) { _ in }
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    /// Riproduci audio ricevuto dal server
+    private func playAudioData(_ data: Data) {
+        DispatchQueue.main.async { self.isSpeaking = true }
+        
+        // Usa AVAudioPlayer per riprodurre il chunk audio
+        DispatchQueue.global().async {
+            do {
+                let player = try AVAudioPlayer(data: data)
+                player.play()
+                
+                // Aspetta che finisca
+                while player.isPlaying {
+                    Thread.sleep(forTimeInterval: 0.05)
+                }
+                
+                DispatchQueue.main.async { self.isSpeaking = false }
+            } catch {
+                print("Errore riproduzione audio: \(error)")
+                DispatchQueue.main.async { self.isSpeaking = false }
+            }
+        }
+    }
+    
+    /// Ferma riproduzione audio
+    private func stopPlayback() {
+        DispatchQueue.main.async { self.isSpeaking = false }
+    }
+    
+    /// Chiudi sessione
+    func endSession() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        webSocket?.cancel(with: .normalClosure, reason: nil)
+        
+        DispatchQueue.main.async {
+            self.isConnected = false
+            self.isSpeaking = false
+        }
+    }
+    
+    /// Helper: converti AVAudioPCMBuffer in Data
+    private func bufferToData(buffer: AVAudioPCMBuffer) -> Data {
+        let channelData = buffer.floatChannelData![0]
+        let frameCount = Int(buffer.frameLength)
+        
+        var int16Data = [Int16](repeating: 0, count: frameCount)
+        for i in 0..<frameCount {
+            let sample = max(-1.0, min(1.0, channelData[i]))
+            int16Data[i] = Int16(sample * Float(Int16.max))
+        }
+        
+        return Data(bytes: &int16Data, count: frameCount * 2)
+    }
+}
+```
+
+### Approccio ALTERNATIVO più semplice: Aria Voice senza ElevenLabs
+
+Se il WebSocket ElevenLabs è troppo complesso, usa `aria-agent-backend` con `AVSpeechSynthesizer` nativo:
+
+```swift
+class SimpleAriaVoice: ObservableObject {
+    @Published var isListening = false
+    @Published var isThinking = false
+    @Published var isSpeaking = false
+    @Published var transcript = ""
+    
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "it-IT"))
+    private let audioEngine = AVAudioEngine()
+    private let synthesizer = AVSpeechSynthesizer()
+    private var recognitionTask: SFSpeechRecognitionTask?
+    
+    /// Avvia ascolto con Speech.framework nativo
+    func startListening() {
+        SFSpeechRecognizer.requestAuthorization { status in
+            guard status == .authorized else { return }
+        }
+        
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        
+        let audioSession = AVAudioSession.sharedInstance()
+        try? audioSession.setCategory(.record, mode: .measurement)
+        try? audioSession.setActive(true)
+        
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+        
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            request.append(buffer)
+        }
+        
+        try? audioEngine.start()
+        isListening = true
+        
+        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
+            guard let result = result else { return }
+            
+            DispatchQueue.main.async {
+                self?.transcript = result.bestTranscription.formattedString
+            }
+            
+            // Quando l'utente smette di parlare (isFinal)
+            if result.isFinal {
+                self?.stopListening()
+                Task { [weak self] in
+                    await self?.sendToAria(text: result.bestTranscription.formattedString)
+                }
+            }
+        }
+    }
+    
+    func stopListening() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionTask?.cancel()
+        isListening = false
+    }
+    
+    /// Invia testo a Aria backend e riproduci risposta
+    private func sendToAria(text: String, accessToken: String = "") async {
+        DispatchQueue.main.async { self.isThinking = true }
+        
+        guard let url = URL(string: "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/aria-agent-backend") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
+        
+        let body: [String: Any] = [
+            "message": text,
+            "conversationHistory": []
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            
+            DispatchQueue.main.async { self.isThinking = false }
+            
+            if let response = json?["response"] as? String {
+                // Riproduci con voce nativa iOS
+                speak(text: response)
+            }
+        } catch {
+            DispatchQueue.main.async { self.isThinking = false }
+            print("Errore Aria: \(error)")
+        }
+    }
+    
+    /// Text-to-Speech con AVSpeechSynthesizer nativo
+    private func speak(text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "it-IT")
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 1.0
+        
+        DispatchQueue.main.async { self.isSpeaking = true }
+        synthesizer.speak(utterance)
+    }
+}
+```
+
+---
+
+## 3. DASHBOARD & WELLNESS SCORE
 
 ### Problema attuale
 L'app legge `user_profiles.wellness_score` → sempre 0.
 
 ### Soluzione
-Il Wellness Score è un **giudizio AI** (non una media), calcolato dalla Edge Function `ai-dashboard` e salvato in `user_profiles.ai_dashboard_cache`.
+Il Wellness Score è un **giudizio AI**, calcolato dalla Edge Function `ai-dashboard` e salvato in `user_profiles.ai_dashboard_cache`.
 
-### Implementazione
-```typescript
-// 1. Chiamare la Edge Function
-const { data, error } = await supabase.functions.invoke('ai-dashboard');
+```swift
+// 1. Chiama Edge Function per rigenerare (se cache scaduta)
+func refreshDashboard(accessToken: String) async {
+    guard let url = URL(string: "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/ai-dashboard") else { return }
+    
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("<anon_key>", forHTTPHeaderField: "apikey")
+    request.httpBody = "{}".data(using: .utf8)
+    
+    _ = try? await URLSession.shared.data(for: request)
+}
 
-// 2. Leggere i dati dalla cache nel profilo
-const { data: profile } = await supabase
-  .from('user_profiles')
-  .select('ai_dashboard_cache, ai_cache_updated_at')
-  .eq('user_id', userId)
-  .single();
-
-// 3. Usare i dati dalla cache
-const dashboardData = profile.ai_dashboard_cache;
-// dashboardData contiene:
+// 2. Leggi dalla cache nel profilo (via Supabase REST API)
+// GET /rest/v1/user_profiles?select=ai_dashboard_cache,ai_cache_updated_at&user_id=eq.<userId>
+// Il campo ai_dashboard_cache contiene:
 // {
-//   wellness_score: 7.5,        // <-- QUESTO è il vero punteggio
-//   wellness_trend: "stable",
-//   mood_summary: "...",
-//   energy_summary: "...",
-//   top_insights: [...],
-//   suggested_actions: [...],
-//   emotional_summary: "...",
-//   life_areas_summary: {...}
+//   "wellness_score": 7.5,        ← QUESTO è il vero punteggio
+//   "wellness_trend": "stable",
+//   "mood_summary": "...",
+//   "energy_summary": "...",
+//   "top_insights": [...],
+//   "suggested_actions": [...]
 // }
 ```
 
-### Pattern Cache-First
-```typescript
-// Controlla se la cache è ancora valida (< 2 ore)
-const cacheAge = Date.now() - new Date(profile.ai_cache_updated_at).getTime();
-const TWO_HOURS = 2 * 60 * 60 * 1000;
-
-if (!profile.ai_dashboard_cache || cacheAge > TWO_HOURS) {
-  // Rigenera chiamando la Edge Function
-  await supabase.functions.invoke('ai-dashboard');
-  // Poi rileggi il profilo
-}
-```
-
 ---
 
-## 2. METRICHE GIORNALIERE (Vitals)
+## 4. METRICHE GIORNALIERE (Vitals)
 
-### Problema attuale
-Umore, ansia, energia, sonno tutti a 0.
+```swift
+// Chiama la RPC get_daily_metrics via Supabase REST API
+// POST /rest/v1/rpc/get_daily_metrics
+// Body: { "p_user_id": "<userId>", "p_date": "2026-02-21" }
 
-### Soluzione
-Usare la RPC `get_daily_metrics` che aggrega dati da checkins, sessioni ed emozioni.
-
-```typescript
-const { data: metrics } = await supabase.rpc('get_daily_metrics', {
-  p_user_id: userId,
-  p_date: new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
-});
-
-// metrics ritorna:
+// Risposta:
 // {
-//   date: "2026-02-21",
-//   vitals: { mood: 7, anxiety: 4, energy: 6, sleep: 8 },
-//   emotions: { joy: 7, sadness: 2, anger: 0, fear: 1, apathy: 0, shame: null, ... },
-//   life_areas: { work: 7, love: 6, family: 8, social: 5, health: 6, growth: 7, leisure: 4, finances: 5, school: null },
-//   deep_psychology: { rumination: 3, self_efficacy: 7, mental_clarity: 6, burnout_level: 4, ... },
-//   has_checkin: true,
-//   has_sessions: true,
-//   has_emotions: true,
-//   has_life_areas: true,
-//   has_psychology: true
+//   "vitals": { "mood": 7, "anxiety": 4, "energy": 6, "sleep": 8 },
+//   "emotions": { "joy": 7, "sadness": 2, ... },
+//   "life_areas": { "work": 7, "love": 6, ... },
+//   "deep_psychology": { "rumination": 3, ... },
+//   "has_checkin": true,
+//   "has_sessions": true
 // }
 ```
 
-### Per storico (ultimi N giorni)
-```typescript
-const days = [];
-for (let i = 0; i < 7; i++) {
-  const date = new Date();
-  date.setDate(date.getDate() - i);
-  const dateStr = date.toISOString().split('T')[0];
-  const { data } = await supabase.rpc('get_daily_metrics', {
-    p_user_id: userId,
-    p_date: dateStr
-  });
-  days.push(data);
+---
+
+## 5. PROCESS-SESSION (OBBLIGATORIO dopo ogni conversazione)
+
+```swift
+func processSession(sessionId: String, accessToken: String) async {
+    guard let url = URL(string: "https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/process-session") else { return }
+    
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("<anon_key>", forHTTPHeaderField: "apikey")
+    request.httpBody = try? JSONSerialization.data(withJSONObject: ["sessionId": sessionId])
+    
+    _ = try? await URLSession.shared.data(for: request)
 }
 ```
 
----
-
-## 3. ARIA CHAT (Testuale)
-
-### Edge Function: `ai-chat`
-Supporta **streaming SSE** (Server-Sent Events).
-
-### Flusso completo
-
-```typescript
-// 1. Creare una sessione
-const { data: session } = await supabase
-  .from('sessions')
-  .insert({
-    user_id: userId,
-    type: 'chat',
-    status: 'active',
-    start_time: new Date().toISOString()
-  })
-  .select()
-  .single();
-
-// 2. Salvare il messaggio utente
-await supabase.from('chat_messages').insert({
-  session_id: session.id,
-  user_id: userId,
-  role: 'user',
-  content: userMessage
-});
-
-// 3. Chiamare ai-chat con streaming
-const response = await fetch(
-  'https://yzlszvvhbcasbzsaastq.supabase.co/functions/v1/ai-chat',
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'apikey': ANON_KEY
-    },
-    body: JSON.stringify({
-      message: userMessage,
-      sessionId: session.id,
-      conversationHistory: previousMessages.map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-    })
-  }
-);
-
-// 4. Leggere lo stream SSE
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-let fullResponse = '';
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  
-  const chunk = decoder.decode(value);
-  const lines = chunk.split('\n');
-  
-  for (const line of lines) {
-    if (line.startsWith('data: ')) {
-      const data = line.slice(6);
-      if (data === '[DONE]') break;
-      
-      try {
-        const parsed = JSON.parse(data);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) {
-          fullResponse += content;
-          // Aggiorna UI in tempo reale
-        }
-      } catch (e) {}
-    }
-  }
-}
-
-// 5. Salvare la risposta di Aria
-await supabase.from('chat_messages').insert({
-  session_id: session.id,
-  user_id: userId,
-  role: 'assistant',
-  content: fullResponse
-});
-```
-
-### Al termine della conversazione
-```typescript
-// 6. Chiudere la sessione
-const endTime = new Date().toISOString();
-const duration = Math.floor((new Date(endTime) - new Date(session.start_time)) / 1000);
-
-await supabase
-  .from('sessions')
-  .update({
-    status: 'completed',
-    end_time: endTime,
-    duration: duration,
-    transcript: allMessages.map(m => `${m.role}: ${m.content}`).join('\n')
-  })
-  .eq('id', session.id);
-
-// 7. OBBLIGATORIO: Processare la sessione per estrarre dati clinici
-await supabase.functions.invoke('process-session', {
-  body: { sessionId: session.id }
-});
-```
+Questa funzione estrae automaticamente: emozioni, aree vita, psicologia, eventi, ricordi, summary AI.
 
 ---
 
-## 4. ARIA VOCE (ElevenLabs WebRTC)
-
-### Agent ID: `agent_2901khw977kbesesvd00yh2mbeyx`
-
-### Flusso in 2 step
-
-```typescript
-// STEP 1: Ottenere il token di conversazione
-const { data: tokenData } = await supabase.functions.invoke(
-  'elevenlabs-conversation-token'
-);
-const conversationToken = tokenData.token;
-
-// STEP 2: Ottenere il contesto (system prompt + memoria)
-const { data: contextData } = await supabase.functions.invoke(
-  'elevenlabs-context'
-);
-// contextData contiene:
-// {
-//   system_prompt: "...",      // Il prompt clinico completo di Aria
-//   first_message: "...",      // Messaggio di apertura personalizzato
-//   memories: [...],           // Ricordi dell'utente
-//   user_name: "Marco"
-// }
-
-// STEP 3: Connettersi a ElevenLabs con WebRTC
-// Usare la libreria ElevenLabs React Native o il WebSocket nativo
-// con il token ottenuto e gli override dal contesto:
-const sessionConfig = {
-  conversationToken: conversationToken,
-  connectionType: 'webrtc',
-  overrides: {
-    agent: {
-      prompt: { prompt: contextData.system_prompt },
-      firstMessage: contextData.first_message,
-      language: 'it'
-    }
-  }
-};
-```
-
-### Fallback: Aria Agent Backend (senza ElevenLabs)
-Se ElevenLabs non è disponibile, usare la Edge Function `aria-agent-backend`:
-
-```typescript
-const { data } = await supabase.functions.invoke('aria-agent-backend', {
-  body: {
-    message: userMessage,
-    conversationHistory: [
-      { role: 'user', text: 'Ciao' },
-      { role: 'assistant', text: 'Ciao! Come stai?' }
-    ]
-  }
-});
-// data.response = "Risposta di Aria"
-// data.crisis_detected = false
-```
-
----
-
-## 5. PROCESS-SESSION (Post-conversazione)
-
-**OBBLIGATORIO** dopo ogni conversazione (chat o voce).
-
-```typescript
-await supabase.functions.invoke('process-session', {
-  body: { sessionId: sessionId }
-});
-```
-
-Questa funzione:
-- Estrae emozioni → salva in `daily_emotions`
-- Valuta aree vita → salva in `daily_life_areas`
-- Analizza psicologia → salva in `daily_psychology`
-- Estrae eventi/appuntamenti → salva in `user_events`
-- Estrae ricordi → salva in `user_memories`
-- Aggiorna `sessions` con: `mood_score_detected`, `anxiety_score_detected`, `energy_score_detected`, `emotion_breakdown`, `life_balance_scores`, `deep_psychology`, `ai_summary`, `emotion_tags`, `key_events`, `insights`
-
----
-
-## 6. ANALISI & INSIGHTS
-
-### ai-analysis (Tab Analisi)
-```typescript
-const { data } = await supabase.functions.invoke('ai-analysis');
-// Risultato salvato in user_profiles.ai_analysis_cache
-// Contiene: trend emotivi, pattern, correlazioni, suggerimenti clinici
-```
-
-### ai-insights (Insight rapidi)
-```typescript
-const { data } = await supabase.functions.invoke('ai-insights');
-// Risultato salvato in user_profiles.ai_insights_cache
-// Contiene: 3-5 insight personalizzati basati sui dati recenti
-```
-
-### ai-checkins (Domande personalizzate)
-```typescript
-const { data } = await supabase.functions.invoke('ai-checkins');
-// Risultato salvato in user_profiles.ai_checkins_cache
-// Contiene: domande di check-in personalizzate per l'utente
-```
-
----
-
-## 7. DAILY CHECK-IN
-
-### Salvare un check-in
-```typescript
-await supabase.from('daily_checkins').insert({
-  user_id: userId,
-  mood_value: 4,        // 1-5
-  mood_emoji: '😊',
-  notes: JSON.stringify({
-    anxiety: 3,          // 1-10
-    energy: 7,           // 1-10
-    sleep: 8             // 1-10
-  })
-});
-```
-
----
-
-## 8. ABITUDINI (Habits)
-
-### Leggere configurazione abitudini
-```typescript
-const { data: habits } = await supabase
-  .from('user_habits_config')
-  .select('*')
-  .eq('user_id', userId)
-  .eq('is_active', true);
-```
-
-### Registrare completamento
-```typescript
-await supabase.from('daily_habits').upsert({
-  user_id: userId,
-  habit_type: 'meditation',  // tipo abitudine
-  date: today,
-  value: 1,
-  target_value: 1,
-  unit: 'sessions'
-}, { onConflict: 'user_id,habit_type,date' });
-```
-
-### Leggere streak
-```typescript
-const { data: streaks } = await supabase
-  .from('habit_streaks')
-  .select('*')
-  .eq('user_id', userId);
-// Ogni streak ha: current_streak, longest_streak, total_completions
-```
-
----
-
-## 9. OBIETTIVI (Objectives)
-
-### Leggere obiettivi attivi
-```typescript
-const { data: objectives } = await supabase
-  .from('user_objectives')
-  .select('*')
-  .eq('user_id', userId)
-  .eq('status', 'active');
-```
-
-### Creare obiettivo tramite AI
-```typescript
-const { data } = await supabase.functions.invoke('create-objective-chat', {
-  body: {
-    message: "Voglio meditare 10 minuti al giorno",
-    conversationHistory: []
-  }
-});
-```
-
-### Aggiornare progresso obiettivo
-```typescript
-const { data } = await supabase.functions.invoke('update-objective-chat', {
-  body: {
-    objectiveId: objectiveId,
-    message: "Ho meditato 15 minuti oggi",
-    conversationHistory: []
-  }
-});
-```
-
----
-
-## 10. DIARI TEMATICI
-
-### Leggere diari
-```typescript
-const { data: diaries } = await supabase
-  .from('thematic_diaries')
-  .select('*')
-  .eq('user_id', userId)
-  .order('last_updated_at', { ascending: false });
-```
-
-### Chat in un diario
-```typescript
-const { data } = await supabase.functions.invoke('thematic-diary-chat', {
-  body: {
-    diaryId: diaryId,
-    theme: 'gratitudine',
-    message: userMessage,
-    conversationHistory: existingMessages
-  }
-});
-```
-
----
-
-## 11. SESSIONI PASSATE
-
-### Leggere storico sessioni
-```typescript
-const { data: sessions } = await supabase
-  .from('sessions')
-  .select('*')
-  .eq('user_id', userId)
-  .eq('status', 'completed')
-  .order('start_time', { ascending: false })
-  .limit(20);
-```
-
-### Leggere messaggi di una sessione
-```typescript
-const { data: messages } = await supabase
-  .from('chat_messages')
-  .select('*')
-  .eq('session_id', sessionId)
-  .order('created_at', { ascending: true });
-```
-
----
-
-## 12. PROFILO UTENTE
-
-### Leggere profilo completo
-```typescript
-const { data: profile } = await supabase
-  .from('user_profiles')
-  .select('*')
-  .eq('user_id', userId)
-  .single();
-
-// Campi importanti:
-// - name: nome utente
-// - birth_date: data di nascita
-// - gender: genere
-// - onboarding_completed: boolean
-// - selected_goals: string[] (obiettivi selezionati in onboarding)
-// - active_dashboard_metrics: string[] (metriche visibili)
-// - premium_type: null | 'plus' | 'pro'
-// - long_term_memory: string[] (ricordi legacy)
-// - occupation_context: string (contesto lavorativo)
-// - therapy_status: 'none' | 'active' | 'past'
-```
-
-### Ricordi strutturati (nuova tabella)
-```typescript
-const { data: memories } = await supabase
-  .from('user_memories')
-  .select('*')
-  .eq('user_id', userId)
-  .eq('is_active', true)
-  .order('importance', { ascending: false });
-
-// Ogni memoria ha: category, fact, importance (1-10), source_session_id
-```
-
----
-
-## 13. GAMIFICATION
-
-### Punti ricompensa
-```typescript
-const { data: points } = await supabase
-  .from('user_reward_points')
-  .select('*')
-  .eq('user_id', userId)
-  .single();
-// points.total_points, points.lifetime_points
-```
-
-### Achievement sbloccati
-```typescript
-const { data: achievements } = await supabase
-  .from('user_achievements')
-  .select('*')
-  .eq('user_id', userId);
-```
-
----
-
-## 14. AREA CLINICA (Connessione Dottore)
-
-### Codice connessione paziente
-```typescript
-const { data: profile } = await supabase
-  .from('user_profiles')
-  .select('connection_code')
-  .eq('user_id', userId)
-  .single();
-// profile.connection_code = "ABC12345" (generato automaticamente)
-```
-
----
-
-## RIEPILOGO EDGE FUNCTIONS DISPONIBILI
+## 6. TUTTE LE EDGE FUNCTIONS DISPONIBILI
 
 | Funzione | Metodo | Descrizione |
 |----------|--------|-------------|
-| `ai-chat` | POST (streaming SSE) | Chat testuale con Aria |
-| `ai-dashboard` | POST | Genera dashboard AI (wellness score, insight) |
-| `ai-analysis` | POST | Analisi approfondita trend e pattern |
-| `ai-insights` | POST | Insight rapidi personalizzati |
-| `ai-checkins` | POST | Domande check-in personalizzate |
-| `process-session` | POST | Processa sessione completata (OBBLIGATORIO) |
-| `elevenlabs-conversation-token` | POST | Token WebRTC per voce |
+| `ai-chat` | POST (streaming SSE) | Chat testuale con Aria — parsare SSE con `URLSession.bytes` |
+| `ai-dashboard` | POST | Genera dashboard AI → risultato in `ai_dashboard_cache` |
+| `ai-analysis` | POST | Analisi trend → risultato in `ai_analysis_cache` |
+| `ai-insights` | POST | Insight rapidi → risultato in `ai_insights_cache` |
+| `ai-checkins` | POST | Domande check-in → risultato in `ai_checkins_cache` |
+| `process-session` | POST | Processa sessione completata (**OBBLIGATORIO**) |
+| `elevenlabs-conversation-token` | POST | Signed URL WebSocket per voce ElevenLabs |
 | `elevenlabs-context` | POST | System prompt + memoria per voce |
-| `aria-agent-backend` | POST | Fallback voce senza ElevenLabs |
+| `aria-agent-backend` | POST | **Fallback voce semplice** (no ElevenLabs, risposta JSON) |
 | `create-objective-chat` | POST | Crea obiettivo via AI |
 | `update-objective-chat` | POST | Aggiorna obiettivo via AI |
 | `thematic-diary-chat` | POST | Chat nei diari tematici |
 | `create-habit-chat` | POST | Crea abitudine via AI |
-| `calculate-correlations` | POST | Calcola correlazioni tra metriche |
+| `calculate-correlations` | POST | Calcola correlazioni |
 | `detect-emotion-patterns` | POST | Rileva pattern emotivi |
-| `generate-clinical-report` | POST | Genera report clinico PDF |
-| `real-time-context` | POST | Contesto real-time (meteo, ora, etc.) |
-| `sync-habits-to-brain` | POST | Sincronizza abitudini nella memoria AI |
+| `generate-clinical-report` | POST | Genera report clinico |
+| `real-time-context` | POST | Contesto real-time (meteo, ora) |
 
-## NOTE IMPORTANTI
+---
 
-1. **NON leggere mai direttamente** `wellness_score`, `life_areas_scores` da `user_profiles` → usa sempre le cache AI o `get_daily_metrics`
-2. **Ogni sessione completata** DEVE essere processata con `process-session`
-3. **Il fuso orario** di riferimento è `Europe/Rome`
-4. **Tutte le Edge Functions** richiedono l'header Authorization
-5. **Lo streaming SSE** è supportato solo da `ai-chat`, tutte le altre ritornano JSON standard
+## 7. OPERAZIONI DATABASE (via Supabase Swift SDK o REST API)
+
+### Daily Check-in
+```swift
+// POST /rest/v1/daily_checkins
+// Body: {
+//   "user_id": "<userId>",
+//   "mood_value": 4,        // 1-5
+//   "mood_emoji": "😊",
+//   "notes": "{\"anxiety\":3,\"energy\":7,\"sleep\":8}"
+// }
+```
+
+### Abitudini
+```swift
+// Leggi configurazione: GET /rest/v1/user_habits_config?user_id=eq.<userId>&is_active=eq.true
+// Registra completamento: POST /rest/v1/daily_habits (upsert)
+// Leggi streak: GET /rest/v1/habit_streaks?user_id=eq.<userId>
+```
+
+### Obiettivi
+```swift
+// Leggi: GET /rest/v1/user_objectives?user_id=eq.<userId>&status=eq.active
+// Crea via AI: invoke 'create-objective-chat'
+// Aggiorna via AI: invoke 'update-objective-chat'
+```
+
+### Sessioni passate
+```swift
+// GET /rest/v1/sessions?user_id=eq.<userId>&status=eq.completed&order=start_time.desc&limit=20
+// Messaggi: GET /rest/v1/chat_messages?session_id=eq.<sessionId>&order=created_at.asc
+```
+
+---
+
+## NOTE CRITICHE
+
+1. **NON usare** `@elevenlabs/react`, `useConversation`, `webkitSpeechRecognition` — sono API **browser-only**
+2. **Per la voce**: usa `URLSessionWebSocketTask` con `signed_url` da `elevenlabs-conversation-token`, OPPURE l'approccio semplice con `aria-agent-backend` + `AVSpeechSynthesizer`
+3. **Per il chat streaming**: usa `URLSession.shared.bytes(for:)` con `AsyncBytes.lines`
+4. **NON leggere** `user_profiles.wellness_score` — usa `ai_dashboard_cache`
+5. **Ogni sessione** DEVE essere processata con `process-session`
+6. **Fuso orario**: `Europe/Rome`
+7. **Tutti gli header**: `Authorization: Bearer <token>`, `apikey: <anon_key>`, `Content-Type: application/json`
+8. **Se ElevenLabs WebSocket è troppo complesso**, parti con l'approccio semplice (`aria-agent-backend` + TTS nativo) e migra dopo
