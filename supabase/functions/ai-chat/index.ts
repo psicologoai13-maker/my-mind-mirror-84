@@ -3052,7 +3052,14 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, generateSummary, userId, realTimeContext } = await req.json();
+    const body = await req.json();
+    // Support both "messages" (web) and "conversationHistory" (iOS) field names
+    const messages: Array<{ role: string; content: string }> = Array.isArray(body.messages) 
+      ? body.messages 
+      : Array.isArray(body.conversationHistory) 
+        ? body.conversationHistory 
+        : [];
+    const { generateSummary, userId, realTimeContext } = body;
     const authHeader = req.headers.get("Authorization");
     
     const isCrisis = detectCrisis(messages || []);
