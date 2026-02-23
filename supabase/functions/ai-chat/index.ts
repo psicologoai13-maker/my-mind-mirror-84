@@ -2671,7 +2671,8 @@ interface UserProfile {
 }
 
 // Helper to get user's profile and memory from database
-async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
+// Supports 3 auth methods: 1) Authorization header JWT, 2) body accessToken, 3) body userId with service role
+async function getUserProfile(authHeader: string | null, bodyAccessToken?: string, bodyUserId?: string): Promise<UserProfile> {
   const defaultProfile: UserProfile = { 
     name: null, 
     long_term_memory: [], 
@@ -2694,32 +2695,82 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
     occupation_context: null,
   };
   
-  if (!authHeader) {
-    console.log('[ai-chat] No auth header provided');
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.log('[ai-chat] Missing Supabase config');
+    return defaultProfile;
+  }
+  
+  let authenticatedUserId: string | null = null;
+  let supabase: any = null;
+  
+  // === AUTH METHOD 1: Authorization header JWT ===
+  if (authHeader) {
+    const anonKeyPrefix = supabaseKey.substring(0, 30);
+    const headerTokenPrefix = authHeader.replace('Bearer ', '').substring(0, 30);
+    const isAnonKey = headerTokenPrefix === anonKeyPrefix;
+    
+    if (isAnonKey) {
+      console.log('[ai-chat] ⚠️ Authorization header contains ANON KEY (not user JWT) - trying fallbacks');
+    } else {
+      try {
+        supabase = createClient(supabaseUrl, supabaseKey, {
+          global: { headers: { Authorization: authHeader } }
+        });
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!userError && user) {
+          authenticatedUserId = user.id;
+          console.log('[ai-chat] ✅ Auth Method 1 (header JWT): User', user.id);
+        } else {
+          console.log('[ai-chat] ❌ Auth Method 1 failed:', userError?.message);
+        }
+      } catch (e) {
+        console.log('[ai-chat] ❌ Auth Method 1 error:', e.message);
+      }
+    }
+  }
+  
+  // === AUTH METHOD 2: accessToken in request body ===
+  if (!authenticatedUserId && bodyAccessToken) {
+    try {
+      const tokenAuthHeader = bodyAccessToken.startsWith('Bearer ') ? bodyAccessToken : `Bearer ${bodyAccessToken}`;
+      supabase = createClient(supabaseUrl, supabaseKey, {
+        global: { headers: { Authorization: tokenAuthHeader } }
+      });
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (!userError && user) {
+        authenticatedUserId = user.id;
+        console.log('[ai-chat] ✅ Auth Method 2 (body accessToken): User', user.id);
+      } else {
+        console.log('[ai-chat] ❌ Auth Method 2 failed:', userError?.message);
+      }
+    } catch (e) {
+      console.log('[ai-chat] ❌ Auth Method 2 error:', e.message);
+    }
+  }
+  
+  // === AUTH METHOD 3: userId in body + service role (last resort) ===
+  if (!authenticatedUserId && bodyUserId && serviceRoleKey) {
+    // Validate UUID format to prevent injection
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(bodyUserId)) {
+      authenticatedUserId = bodyUserId;
+      supabase = createClient(supabaseUrl, serviceRoleKey);
+      console.log('[ai-chat] ⚠️ Auth Method 3 (body userId + service role): User', bodyUserId);
+    } else {
+      console.log('[ai-chat] ❌ Auth Method 3: Invalid userId format');
+    }
+  }
+  
+  if (!authenticatedUserId || !supabase) {
+    console.log('[ai-chat] ❌ ALL auth methods failed - returning anonymous profile');
     return defaultProfile;
   }
   
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.log('[ai-chat] Missing Supabase config');
-      return defaultProfile;
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.log('[ai-chat] Failed to get user:', userError?.message);
-      return defaultProfile;
-    }
-    
-    console.log('[ai-chat] User authenticated:', user.id);
-    
     const today = new Date().toISOString().split('T')[0];
     
     // Calculate date range for events (past 7 days to future 30 days)
@@ -2740,33 +2791,33 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       todayHabitsResult,
       bodyMetricsResult,
       userEventsResult,
-      userMemoriesResult,  // NEW: Structured memories
-      sessionSnapshotsResult,  // NEW: Session context snapshots
-      conversationTopicsResult,  // NEW: Conversation topics
-      habitStreaksResult  // NEW: Habit streaks cache
+      userMemoriesResult,
+      sessionSnapshotsResult,
+      conversationTopicsResult,
+      habitStreaksResult
     ] = await Promise.all([
       supabase
         .from('user_profiles')
         .select('name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .single(),
       supabase
         .from('user_interests')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .maybeSingle(),
       supabase
         .from('user_objectives')
         .select('id, title, category, target_value, current_value, starting_value, unit, status, ai_feedback')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .eq('status', 'active'),
       // Get daily metrics via RPC for unified data
-      supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
+      supabase.rpc('get_daily_metrics', { p_user_id: authenticatedUserId, p_date: today }),
       // Get recent sessions (last 5) - includes transcript for memory continuity
       supabase
         .from('sessions')
         .select('id, start_time, type, ai_summary, transcript, emotion_tags, mood_score_detected, anxiety_score_detected')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .eq('status', 'completed')
         .order('start_time', { ascending: false })
         .limit(5),
@@ -2774,13 +2825,13 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       supabase
         .from('daily_habits')
         .select('habit_type, value, target_value, unit')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .eq('date', today),
       // Get latest body metrics
       supabase
         .from('body_metrics')
         .select('weight, sleep_hours, steps, active_minutes, resting_heart_rate')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .order('date', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -2788,40 +2839,40 @@ async function getUserProfile(authHeader: string | null): Promise<UserProfile> {
       supabase
         .from('user_events')
         .select('id, title, event_type, location, event_date, event_time, status, follow_up_done, extracted_from_text')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .gte('event_date', pastDateStr)
         .lte('event_date', futureDateStr)
         .in('status', ['upcoming', 'happening', 'passed'])
         .order('event_date', { ascending: true })
         .limit(20),
-      // NEW: Get structured memories with smart selection (priority by importance and recency)
+      // Get structured memories with smart selection
       supabase
         .from('user_memories')
         .select('id, category, fact, importance, last_referenced_at')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .eq('is_active', true)
         .order('importance', { ascending: false })
         .order('last_referenced_at', { ascending: false })
         .limit(80),
-      // NEW: Get session context snapshots for narrative continuity
+      // Get session context snapshots for narrative continuity
       supabase
         .from('session_context_snapshots')
         .select('key_topics, unresolved_issues, action_items, context_summary, dominant_emotion, follow_up_needed, session_quality_score, created_at')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .order('created_at', { ascending: false })
         .limit(5),
-      // NEW: Get conversation topics with sensitivity info
+      // Get conversation topics with sensitivity info
       supabase
         .from('conversation_topics')
         .select('topic, mention_count, is_sensitive, avoid_unless_introduced, last_mentioned_at')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
         .order('mention_count', { ascending: false })
         .limit(30),
-      // NEW: Get habit streaks from cache table
+      // Get habit streaks from cache table
       supabase
         .from('habit_streaks')
         .select('habit_type, current_streak, longest_streak, last_completion_date')
-        .eq('user_id', user.id)
+        .eq('user_id', authenticatedUserId)
     ]);
     
     const profile = profileResult.data;
@@ -3059,11 +3110,13 @@ serve(async (req) => {
       : Array.isArray(body.conversationHistory) 
         ? body.conversationHistory 
         : [];
-    const { generateSummary, userId, realTimeContext } = body;
+    const { generateSummary, userId, realTimeContext, accessToken } = body;
     const authHeader = req.headers.get("Authorization");
     
+    console.log(`[ai-chat] Request received - hasAuthHeader: ${!!authHeader}, hasBodyAccessToken: ${!!accessToken}, hasBodyUserId: ${!!userId}`);
+    
     const isCrisis = detectCrisis(messages || []);
-    const userProfile = await getUserProfile(authHeader);
+    const userProfile = await getUserProfile(authHeader, accessToken, userId);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     console.log(`[ai-chat] User: ${userProfile.name || 'Anonymous'}, Goals: ${userProfile.selected_goals.join(',')}, Memory: ${userProfile.long_term_memory.length}`);

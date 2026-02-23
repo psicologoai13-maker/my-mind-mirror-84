@@ -16,6 +16,21 @@ apikey: <anon_key>
 Content-Type: application/json
 ```
 
+**FALLBACK AUTH (CRITICO per ai-chat)**: Il backend `ai-chat` supporta 3 metodi di autenticazione in cascata:
+1. **Header JWT** (Authorization: Bearer <userJWT>) — metodo primario
+2. **Body accessToken** — se l'header fallisce, il backend prova con `accessToken` nel body JSON
+3. **Body userId** — ultimo resort, il backend usa il service role per caricare il profilo
+
+**OBBLIGATORIO**: Invia SEMPRE `accessToken` e `userId` nel body JSON di `ai-chat`:
+```json
+{
+  "conversationHistory": [...],
+  "accessToken": "<session.accessToken>",
+  "userId": "<session.user.id>"
+}
+```
+Questo garantisce che Aria abbia SEMPRE le sue istruzioni complete (~2500 righe), memorie e personalità, anche se il JWT nell'header viene ignorato o corrotto.
+
 ---
 
 ## INCOMPATIBILITÀ WEB → iOS NATIVO
@@ -58,10 +73,14 @@ class AriaChatService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
         
+        // IMPORTANTE: Invia accessToken e userId anche nel body come fallback auth
+        let userId = try? await SupabaseManager.shared.client.auth.session.user.id.uuidString
         let body: [String: Any] = [
             "message": message,
             "sessionId": sessionId,
-            "conversationHistory": conversationHistory
+            "conversationHistory": conversationHistory,
+            "accessToken": accessToken,
+            "userId": userId ?? ""
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
@@ -119,10 +138,14 @@ class AriaChatService {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHN6dnZoYmNhc2J6c2Fhc3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY4ODg3MDUsImV4cCI6MjAzMjQ2NDcwNX0.8tYpQvH8yC96iG9Hsh9_rCoT4", forHTTPHeaderField: "apikey")
             
+            // IMPORTANTE: Invia accessToken e userId anche nel body come fallback auth
+            let userId = try? await SupabaseManager.shared.client.auth.session.user.id.uuidString
             let body: [String: Any] = [
                 "message": message,
                 "sessionId": sessionId,
-                "conversationHistory": conversationHistory
+                "conversationHistory": conversationHistory,
+                "accessToken": accessToken,
+                "userId": userId ?? ""
             ]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             
