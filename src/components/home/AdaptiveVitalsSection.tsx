@@ -128,33 +128,37 @@ const AdaptiveVitalsSection: React.FC = () => {
     };
   }, [vitalsTrends, lifeAreasTrends]);
 
-  // Get metrics from AI layout - ALWAYS ensure 4 metrics
+  // Get metrics from AI layout - ALWAYS ensure 8 metrics
   const primaryMetrics = React.useMemo((): MetricConfig[] => {
     let metrics: MetricConfig[] = [];
     
     if (layout.primary_metrics && layout.primary_metrics.length > 0) {
-      metrics = layout.primary_metrics.slice(0, 4);
+      metrics = layout.primary_metrics.slice(0, 8);
     }
     
-    // Ensure we always have exactly 4 metrics for consistent grid
-    if (metrics.length < 4) {
+    // Ensure we always have exactly 8 metrics for consistent grid
+    if (metrics.length < 8) {
       const existingKeys = new Set(metrics.map(m => m.key));
       const fallbacks = [
-        { key: 'mood', priority: 5, reason: 'Umore generale', value: 0 },
-        { key: 'anxiety', priority: 6, reason: 'Livello di stress', value: 0 },
-        { key: 'energy', priority: 7, reason: 'Energia disponibile', value: 0 },
-        { key: 'sleep', priority: 8, reason: 'Qualità del sonno', value: 0 },
+        { key: 'mood', priority: 1, reason: 'Umore generale', value: 0 },
+        { key: 'anxiety', priority: 2, reason: 'Livello di stress', value: 0 },
+        { key: 'energy', priority: 3, reason: 'Energia disponibile', value: 0 },
+        { key: 'sleep', priority: 4, reason: 'Qualità del sonno', value: 0 },
+        { key: 'motivation', priority: 5, reason: 'Spinta interiore', value: 0 },
+        { key: 'self_worth', priority: 6, reason: 'Autostima', value: 0 },
+        { key: 'concentration', priority: 7, reason: 'Concentrazione', value: 0 },
+        { key: 'resilience', priority: 8, reason: 'Resilienza', value: 0 },
       ];
       
       for (const fb of fallbacks) {
-        if (metrics.length >= 4) break;
+        if (metrics.length >= 8) break;
         if (!existingKeys.has(fb.key)) {
           metrics.push(fb);
         }
       }
     }
     
-    return metrics.slice(0, 4); // Exactly 4 for 2x2 grid
+    return metrics.slice(0, 8); // Exactly 8 for 2x4 grid
   }, [layout]);
 
   // CRITICAL FIX: Check if we have CACHED values to show immediately
@@ -173,15 +177,10 @@ const AdaptiveVitalsSection: React.FC = () => {
           <h3 className="font-display font-semibold text-sm text-foreground">I tuoi focus</h3>
         </div>
         {/* Silent skeleton grid */}
-        <div className="flex gap-3">
-          <div className="flex-1 flex flex-col gap-3">
-            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
-            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
-          </div>
-          <div className="flex-1 flex flex-col gap-3">
-            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
-            <div className="h-32 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-28 bg-glass/30 border border-glass-border/30 rounded-3xl animate-pulse" />
+          ))}
         </div>
       </div>
     );
@@ -195,54 +194,29 @@ const AdaptiveVitalsSection: React.FC = () => {
         <h3 className="font-display font-semibold text-sm text-foreground">I tuoi focus</h3>
       </div>
 
-      {/* Priority Metrics - 2 independent columns */}
-      <div className="flex gap-3">
-        {/* Left Column */}
-        <div className="flex-1 flex flex-col gap-3">
-          {primaryMetrics.filter((_, i) => i % 2 === 0).map((metric, index) => {
-            const metricKey = metric.key as MetricKey;
-            const config = METRIC_CONFIG[metricKey];
-            if (!config) return null;
+      {/* Priority Metrics - 2x4 grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {primaryMetrics.map((metric, index) => {
+          const metricKey = metric.key as MetricKey;
+          const config = METRIC_CONFIG[metricKey];
+          if (!config) return null;
 
-            return (
-              <div 
-                key={metricKey}
-                className="animate-scale-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <AdaptiveVitalCard
-                  metricKey={metricKey}
-                  value={metricValues[metricKey]}
-                  trend={metricTrends[metricKey]}
-                  isWeeklyAverage={true}
-                />
-              </div>
-            );
-          })}
-        </div>
-        {/* Right Column */}
-        <div className="flex-1 flex flex-col gap-3">
-          {primaryMetrics.filter((_, i) => i % 2 === 1).map((metric, index) => {
-            const metricKey = metric.key as MetricKey;
-            const config = METRIC_CONFIG[metricKey];
-            if (!config) return null;
-
-            return (
-              <div 
-                key={metricKey}
-                className="animate-scale-in"
-                style={{ animationDelay: `${(index * 0.1) + 0.05}s` }}
-              >
-                <AdaptiveVitalCard
-                  metricKey={metricKey}
-                  value={metricValues[metricKey]}
-                  trend={metricTrends[metricKey]}
-                  isWeeklyAverage={true}
-                />
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <div 
+              key={metricKey}
+              className="animate-scale-in"
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <AdaptiveVitalCard
+                metricKey={metricKey}
+                value={metricValues[metricKey]}
+                trend={metricTrends[metricKey]}
+                isWeeklyAverage={true}
+                isSecondary={true}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

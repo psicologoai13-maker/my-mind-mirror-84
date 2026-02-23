@@ -43,6 +43,10 @@ const DEFAULT_LAYOUT: DashboardLayout = {
     { key: 'anxiety', value: 0, priority: 2, reason: 'Monitora lo stress' },
     { key: 'energy', value: 0, priority: 3, reason: 'Livello energetico' },
     { key: 'sleep', value: 0, priority: 4, reason: 'Qualità del riposo' },
+    { key: 'motivation', value: 0, priority: 5, reason: 'Spinta interiore' },
+    { key: 'self_worth', value: 0, priority: 6, reason: 'Autostima' },
+    { key: 'concentration', value: 0, priority: 7, reason: 'Focus mentale' },
+    { key: 'resilience', value: 0, priority: 8, reason: 'Capacità di recupero' },
   ],
   widgets: [
     { type: 'vitals_grid', title: 'I Tuoi Focus', description: '', priority: 1, visible: true },
