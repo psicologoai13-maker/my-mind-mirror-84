@@ -2049,8 +2049,8 @@ USO: Puoi fare riferimento a conversazioni passate:
   // Destination patterns
   const destinationPattern = /(?:a|ad|in|per)\s+([A-Z][a-zA-Zà-ü]+(?:\s+[A-Z][a-zA-Zà-ü]+)?)/g;
   
-  // Check long-term memory for events with temporal context
-  if (longTermMemory.length > 0) {
+  // Check structured memories for events with temporal context
+  if (memory.length > 0) {
     const eventPatterns = [
       { regex: /\[EVENTO\]\s*(.+)/i, type: 'evento' },
       { regex: /\[VIAGGIO\]\s*(.+)/i, type: 'viaggio' },
@@ -2058,7 +2058,7 @@ USO: Puoi fare riferimento a conversazioni passate:
       { regex: /\[VACANZA\]\s*(.+)/i, type: 'vacanza' },
     ];
     
-    for (const item of longTermMemory) {
+    for (const item of memory) {
       for (const pattern of eventPatterns) {
         const match = item.match(pattern.regex);
         if (match) {
