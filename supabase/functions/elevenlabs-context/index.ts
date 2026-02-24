@@ -1416,6 +1416,7 @@ interface VoiceContext {
   todayHabits: Array<{ habit_type: string; value: number; target_value: number | null }>;
   bodyMetrics: { weight: number | null; sleep_hours: number | null; steps: number | null; active_minutes: number | null; resting_heart_rate: number | null } | null;
   userEvents: Array<{ id: string; title: string; event_type: string; location: string | null; event_date: string; event_time: string | null; status: string; follow_up_done: boolean }>;
+  knowledgeBase?: string;
 }
 
 function calculateAge(birthDate: string): number {
@@ -1849,6 +1850,17 @@ ${userContextBlock}
 - NO liste, NO formattazione, parla e basta
 - Usa il nome dell'utente quando lo conosci
 - Fai riferimento alla memoria e alle conversazioni passate!
+
+${ctx.knowledgeBase ? `
+═══════════════════════════════════════════════
+📚 KNOWLEDGE BASE CLINICA
+═══════════════════════════════════════════════
+Usa queste conoscenze come riferimento quando l'utente tocca questi argomenti.
+NON recitarle, integrale NATURALMENTE nella conversazione vocale.
+
+${ctx.knowledgeBase}
+═══════════════════════════════════════════════
+` : ''}
 `;
 }
 
@@ -1876,11 +1888,15 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
     const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 7);
     const futureDate = new Date(); futureDate.setDate(futureDate.getDate() + 30);
 
-    // 12 parallel queries (FULL PARITY - includes height, dashboard_config, life_areas_scores, active_minutes, resting_heart_rate)
+    // 13 parallel queries (FULL PARITY + KB)
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    
     const [
       profileResult, interestsResult, objectivesResult, dailyMetricsResult,
       recentSessionsResult, todayHabitsResult, bodyMetricsResult, userEventsResult,
-      userMemoriesResult, sessionSnapshotsResult, conversationTopicsResult, habitStreaksResult
+      userMemoriesResult, sessionSnapshotsResult, conversationTopicsResult, habitStreaksResult,
+      kbResult
     ] = await Promise.all([
       supabase.from('user_profiles').select('name, long_term_memory, selected_goals, occupation_context, gender, birth_date, height, therapy_status, onboarding_answers, dashboard_config, life_areas_scores').eq('user_id', user.id).single(),
       supabase.from('user_interests').select('*').eq('user_id', user.id).maybeSingle(),
@@ -1894,6 +1910,8 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       supabase.from('session_context_snapshots').select('key_topics, unresolved_issues, action_items, context_summary, dominant_emotion, follow_up_needed, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('conversation_topics').select('topic, mention_count, is_sensitive, avoid_unless_introduced').eq('user_id', user.id).order('mention_count', { ascending: false }).limit(30),
       supabase.from('habit_streaks').select('habit_type, current_streak, longest_streak').eq('user_id', user.id),
+      // KB: load top priority documents for voice context
+      supabaseAdmin.from('aria_knowledge_base').select('topic, title, content').eq('is_active', true).order('priority', { ascending: false }).limit(5),
     ]);
 
     const profile = profileResult.data;
@@ -1978,6 +1996,7 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       todayHabits: (todayHabitsResult.data || []).map((h: any) => ({ habit_type: h.habit_type, value: h.value, target_value: h.target_value })),
       bodyMetrics: bodyMetricsResult.data,
       userEvents: (userEventsResult.data || []).map((e: any) => ({ id: e.id, title: e.title, event_type: e.event_type, location: e.location, event_date: e.event_date, event_time: e.event_time, status: e.status, follow_up_done: e.follow_up_done })),
+      knowledgeBase: (kbResult.data || []).map((d: any) => d.content).join('\n\n---\n\n'),
     };
   } catch (error) {
     console.error("[elevenlabs-context] Error fetching context:", error);

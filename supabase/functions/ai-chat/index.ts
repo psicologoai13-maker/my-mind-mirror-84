@@ -4109,6 +4109,65 @@ USO DEL CONTESTO:
       systemPrompt += contextBlock;
       console.log('[ai-chat] Injected real-time context:', rtContext.location?.city || 'no location', rtContext.datetime?.time);
     }
+
+    // ═══════════════════════════════════════════════
+    // 📚 KNOWLEDGE BASE DINAMICA - Caricamento documenti rilevanti
+    // ═══════════════════════════════════════════════
+    try {
+      const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content?.toLowerCase() || '';
+      
+      if (lastUserMessage.length > 5) {
+        // Query KB by keyword matching
+        const { data: kbDocs } = await supabaseAdmin
+          .from('aria_knowledge_base')
+          .select('topic, title, content, keywords, priority')
+          .eq('is_active', true)
+          .order('priority', { ascending: false });
+        
+        if (kbDocs && kbDocs.length > 0) {
+          // Score each document by keyword relevance to user message
+          const scoredDocs = kbDocs.map(doc => {
+            let score = 0;
+            const keywords = doc.keywords || [];
+            for (const kw of keywords) {
+              if (lastUserMessage.includes(kw.toLowerCase())) {
+                score += 2; // exact keyword match
+              }
+            }
+            // Also check topic name
+            if (lastUserMessage.includes(doc.topic.replace(/_/g, ' '))) {
+              score += 3;
+            }
+            return { ...doc, score };
+          }).filter(d => d.score > 0)
+            .sort((a, b) => b.score - a.score || b.priority - a.priority)
+            .slice(0, 2); // Max 2 documents per message
+          
+          if (scoredDocs.length > 0) {
+            const kbContent = scoredDocs.map(d => d.content).join('\n\n---\n\n');
+            systemPrompt += `
+
+═══════════════════════════════════════════════
+📚 KNOWLEDGE BASE CONTESTUALE
+═══════════════════════════════════════════════
+I seguenti documenti sono PERTINENTI alla conversazione attuale.
+Usali come base di conoscenza ma NON citarli letteralmente.
+Integra le informazioni NATURALMENTE nella conversazione.
+NON fare un elenco puntato di tutto - seleziona solo ciò che è rilevante al messaggio specifico.
+
+${kbContent}
+
+FINE KNOWLEDGE BASE
+═══════════════════════════════════════════════`;
+            console.log(`[ai-chat] KB loaded: ${scoredDocs.map(d => d.topic).join(', ')} (${scoredDocs.length} docs)`);
+          }
+        }
+      }
+    } catch (kbError) {
+      console.error('[ai-chat] KB loading error (non-blocking):', kbError);
+      // Non-blocking: if KB fails, continue with hardcoded knowledge
+    }
+
     // Crisis override
     if (isCrisis) {
       console.log('[ai-chat] CRISIS DETECTED - Activating SOS protocol');
