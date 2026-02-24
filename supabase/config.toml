@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.detect-emotion-patterns]
 verify_jwt = false
+
+[functions.aria-push-notification]
+verify_jwt = false
