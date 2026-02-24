@@ -3110,7 +3110,9 @@ serve(async (req) => {
       : Array.isArray(body.conversationHistory) 
         ? body.conversationHistory 
         : [];
-    const { generateSummary, userId, realTimeContext, accessToken } = body;
+    const { generateSummary, userId, realTimeContext, accessToken, stream: clientStream } = body;
+    // Default to streaming (web), but allow iOS to request non-streaming with stream: false
+    const useStreaming = clientStream !== false;
     const authHeader = req.headers.get("Authorization");
     
     console.log(`[ai-chat] Request received - hasAuthHeader: ${!!authHeader}, hasBodyAccessToken: ${!!accessToken}, hasBodyUserId: ${!!userId}`);
@@ -3266,7 +3268,7 @@ Sono qui con te, ma un professionista può aiutarti meglio in questo momento."
 NON aggiungere altro.`;
     }
 
-    // Streaming chat response
+    // Chat response - streaming or non-streaming based on client request
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -3276,7 +3278,7 @@ NON aggiungere altro.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
-        stream: true,
+        stream: useStreaming,
       }),
     });
 
@@ -3294,6 +3296,20 @@ NON aggiungere altro.`;
       throw new Error("Errore AI");
     }
 
+    // Non-streaming mode: return simple JSON response (for iOS)
+    if (!useStreaming) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const responseBody: Record<string, any> = { reply: content };
+      
+      const nonStreamHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": "application/json" };
+      if (isCrisis) nonStreamHeaders["X-Crisis-Alert"] = "true";
+      
+      console.log(`[ai-chat] Non-streaming response sent, length: ${content.length}`);
+      return new Response(JSON.stringify(responseBody), { headers: nonStreamHeaders });
+    }
+
+    // Streaming mode (default for web)
     const responseHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": "text/event-stream" };
     if (isCrisis) responseHeaders["X-Crisis-Alert"] = "true";
 
