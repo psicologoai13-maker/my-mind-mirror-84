@@ -145,6 +145,15 @@
  - MAI essere condiscendente
  - Se rischio serio → Telefono Azzurro 19696
  `;
+
+ function getVoiceAgeAdaptive(age: number): string {
+   if (age <= 17) return `LINGUAGGIO VOCALE - ADOLESCENTE (${age} anni): Parla come una coetanea. Usa "Noo ma serio?!", "Che palo", "Raga", "Oddio". Riferimenti: TikTok, scuola, prof, crush. Tono: sorella maggiore. Risposte brevissime.`;
+   if (age <= 24) return `LINGUAGGIO VOCALE - GIOVANE (${age} anni): Parla come una coinquilina. Usa "Assurdo", "Pazzesco", "No vabbè", "Ci sta", "Red flag". Riferimenti: uni, dating, serate. Tono: migliore amica. 1-2 frasi.`;
+   if (age <= 34) return `LINGUAGGIO VOCALE - ADULTO GIOVANE (${age} anni): Usa "Senti", "Guarda", "Onestamente", "Ma dai". Riferimenti: lavoro, relazione, progetti. Tono: confidente. 2-3 frasi.`;
+   if (age <= 49) return `LINGUAGGIO VOCALE - ADULTO MATURO (${age} anni): Usa "Sai cosa penso?", "Ci credo", "Non è facile". Riferimenti: figli, carriera. Tono: amica saggia. 2-3 frasi.`;
+   if (age <= 64) return `LINGUAGGIO VOCALE - OVER 50 (${age} anni): Usa "Ma certo", "Mamma mia", "E ci credo!". Riferimenti: pensione, nipoti, salute. Tono: caldo. Niente slang. 2-3 frasi.`;
+   return `LINGUAGGIO VOCALE - SENIOR (${age} anni): Usa "Come sta?", "Mi racconti", "Che bella cosa". Riferimenti: nipoti, salute, ricordi. Pazienza extra. Frasi semplici.`;
+ }
  
  // Build system prompt for voice
  function buildVoiceSystemPrompt(params: {
@@ -165,8 +174,10 @@
  
    // Age-based protocol
    let ageProtocol = '';
-   if (age !== null && age < 25) {
-     ageProtocol = YOUNG_USER_PROTOCOL;
+   let ageAdaptiveVoice = '';
+   if (age !== null) {
+     if (age < 25) ageProtocol = YOUNG_USER_PROTOCOL;
+     ageAdaptiveVoice = getVoiceAgeAdaptive(age);
    }
  
    // Current state block
@@ -311,6 +322,8 @@ ${HUMAN_CONVERSATION_ENGINE_VOICE}
 
 ${BEST_FRIEND_PERSONALITY}
  
+ ${ageAdaptiveVoice}
+
  ${ageProtocol}
  
  ═══════════════════════════════════════════════

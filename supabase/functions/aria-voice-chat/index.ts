@@ -1497,8 +1497,9 @@ ${hasPendingFollowUps ? `📋 FOLLOW-UP: ${uniqueFollowUps.join(' | ')} → "Com
 function buildVoiceSystemPrompt(ctx: VoiceContext): string {
   const userContextBlock = buildUserContextBlock(ctx);
   
-  // Determine age protocol
+  // Determine age protocol + adaptive language
   let ageProtocol = '';
+  let ageAdaptiveVoice = '';
   let calculatedAge: number | null = null;
   
   if (ctx.profile?.birth_date) {
@@ -1506,6 +1507,10 @@ function buildVoiceSystemPrompt(ctx: VoiceContext): string {
   }
   
   const ageRange = ctx.profile?.onboarding_answers?.ageRange;
+  if (calculatedAge === null && ageRange) {
+    const est: Record<string, number> = { '<18': 16, '18-24': 21, '25-34': 29, '35-44': 39, '45-54': 49, '55+': 60 };
+    calculatedAge = est[ageRange] || null;
+  }
   const isMinor = ageRange === '<18' || (calculatedAge !== null && calculatedAge < 18);
   const isYoungAdult = ageRange === '18-24' || (calculatedAge !== null && calculatedAge >= 18 && calculatedAge < 25);
   
@@ -1515,6 +1520,16 @@ function buildVoiceSystemPrompt(ctx: VoiceContext): string {
     ageProtocol = YOUNG_USER_PROTOCOL + '\n' + ADULT_USER_PROTOCOL;
   } else {
     ageProtocol = ADULT_USER_PROTOCOL;
+  }
+  
+  // Voice age adaptive language
+  if (calculatedAge !== null) {
+    if (calculatedAge <= 17) ageAdaptiveVoice = `LINGUAGGIO VOCALE - ADOLESCENTE (${calculatedAge} anni): Parla come una coetanea. Usa "Noo ma serio?!", "Raga", "Oddio". Riferimenti: TikTok, scuola, crush. Tono: sorella maggiore. Risposte brevissime.`;
+    else if (calculatedAge <= 24) ageAdaptiveVoice = `LINGUAGGIO VOCALE - GIOVANE (${calculatedAge} anni): Usa "Assurdo", "No vabbè", "Ci sta", "Red flag". Riferimenti: uni, dating, serate. Tono: migliore amica. 1-2 frasi.`;
+    else if (calculatedAge <= 34) ageAdaptiveVoice = `LINGUAGGIO VOCALE - ADULTO GIOVANE (${calculatedAge} anni): Usa "Senti", "Guarda", "Onestamente". Riferimenti: lavoro, relazione. Tono: confidente. 2-3 frasi.`;
+    else if (calculatedAge <= 49) ageAdaptiveVoice = `LINGUAGGIO VOCALE - ADULTO MATURO (${calculatedAge} anni): Usa "Sai cosa penso?", "Ci credo". Riferimenti: figli, carriera. Tono: amica saggia. 2-3 frasi.`;
+    else if (calculatedAge <= 64) ageAdaptiveVoice = `LINGUAGGIO VOCALE - OVER 50 (${calculatedAge} anni): Usa "Ma certo", "Mamma mia". Riferimenti: pensione, nipoti. Tono: caldo. Niente slang. 2-3 frasi.`;
+    else ageAdaptiveVoice = `LINGUAGGIO VOCALE - SENIOR (${calculatedAge} anni): Usa "Come sta?", "Mi racconti". Riferimenti: nipoti, salute, ricordi. Pazienza extra. Frasi semplici.`;
   }
   
   // Time context
@@ -1644,6 +1659,8 @@ ${PSYCHIATRIC_TRIAGE}
 ${DEEP_PSYCHOLOGY_INVESTIGATION}
 
 ${OBJECTIVES_MANAGEMENT}
+
+${ageAdaptiveVoice}
 
 ${ageProtocol}
 

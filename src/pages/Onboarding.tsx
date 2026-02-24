@@ -20,7 +20,7 @@ interface OnboardingData {
   currentMood: number;
   moodSelected: boolean;
   gender?: string;
-  ageRange?: string;
+  age?: number;
   therapyStatus?: string;
   occupation?: string;
   motivations: string[];
@@ -88,8 +88,19 @@ const buildDashboardConfig = (goals: string[]): DashboardConfig => {
 };
 
 // Check if age needs occupation question (18-34)
-const needsOccupation = (ageRange?: string): boolean => {
-  return ageRange === '18-24' || ageRange === '25-34';
+const needsOccupation = (age?: number): boolean => {
+  return age !== undefined && age >= 18 && age <= 34;
+};
+
+// Helper to compute ageRange string from numeric age for backward compat
+const ageToRange = (age?: number): string | undefined => {
+  if (age === undefined) return undefined;
+  if (age < 18) return '<18';
+  if (age <= 24) return '18-24';
+  if (age <= 34) return '25-34';
+  if (age <= 44) return '35-44';
+  if (age <= 54) return '45-54';
+  return '55+';
 };
 
 type Step = 'welcome' | 'nameMood' | 'profile' | 'motivations' | 'goals' | 'interests' | 'ready';
@@ -105,7 +116,7 @@ const Onboarding: React.FC = () => {
     currentMood: 2,
     moodSelected: false,
     gender: undefined,
-    ageRange: undefined,
+    age: undefined,
     therapyStatus: undefined,
     occupation: undefined,
     motivations: [],
@@ -139,8 +150,8 @@ const Onboarding: React.FC = () => {
       case 'nameMood':
         return data.name.trim().length >= 2 && data.moodSelected;
       case 'profile':
-        const occupationValid = needsOccupation(data.ageRange) ? !!data.occupation : true;
-        return !!data.gender && !!data.ageRange && !!data.therapyStatus && occupationValid;
+        const occupationValid = needsOccupation(data.age) ? !!data.occupation : true;
+        return !!data.gender && data.age !== undefined && data.age >= 13 && data.age <= 99 && !!data.therapyStatus && occupationValid;
       case 'motivations':
         return data.motivations.length >= 1;
       case 'goals':
@@ -178,12 +189,17 @@ const Onboarding: React.FC = () => {
       // Determine occupation_context based on age and selection
       let occupationContext = data.occupation;
       if (!occupationContext) {
-        if (data.ageRange === '<18') {
+        if (data.age !== undefined && data.age < 18) {
           occupationContext = 'student';
-        } else if (data.ageRange && ['35-44', '45-54', '55+'].includes(data.ageRange)) {
+        } else if (data.age !== undefined && data.age >= 35) {
           occupationContext = 'worker';
         }
       }
+      
+      // Calculate birth_date from age
+      const computedAgeRange = ageToRange(data.age);
+      const birthYear = data.age ? new Date().getFullYear() - data.age : null;
+      const birthDate = birthYear ? `${birthYear}-01-01` : null;
       
       // Save profile
       await updateProfile.mutateAsync({
@@ -192,12 +208,13 @@ const Onboarding: React.FC = () => {
         therapy_status: data.therapyStatus || 'none',
         gender: data.gender,
         occupation_context: occupationContext,
+        birth_date: birthDate,
         onboarding_answers: {
           name: data.name,
           motivations: data.motivations,
           primaryGoals: legacyGoals,
           currentMood: data.currentMood,
-          ageRange: data.ageRange,
+          ageRange: computedAgeRange,
           therapyStatus: data.therapyStatus,
           gender: data.gender,
           interests: data.interests,
@@ -327,13 +344,13 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             gender={data.gender}
             onGenderChange={(gender) => setData(prev => ({ ...prev, gender }))}
-            ageRange={data.ageRange}
-            onAgeChange={(age) => setData(prev => ({ ...prev, ageRange: age }))}
+            age={data.age}
+            onAgeChange={(age) => setData(prev => ({ ...prev, age }))}
             therapyStatus={data.therapyStatus}
             onTherapyChange={(status) => setData(prev => ({ ...prev, therapyStatus: status }))}
             occupation={data.occupation}
             onOccupationChange={(occ) => setData(prev => ({ ...prev, occupation: occ }))}
-            showOccupation={needsOccupation(data.ageRange)}
+            showOccupation={needsOccupation(data.age)}
           />
           <motion.div 
             className="px-5 pb-8 pt-2"
@@ -360,7 +377,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedMotivations={data.motivations}
             onMotivationsChange={(m) => setData(prev => ({ ...prev, motivations: m }))}
-            ageRange={data.ageRange}
+            ageRange={ageToRange(data.age)}
             gender={data.gender}
           />
           <motion.div 
@@ -388,7 +405,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedGoals={data.primaryGoals}
             onChange={(g) => setData(prev => ({ ...prev, primaryGoals: g }))}
-            ageRange={data.ageRange}
+            ageRange={ageToRange(data.age)}
             gender={data.gender}
           />
           <motion.div 
@@ -416,7 +433,7 @@ const Onboarding: React.FC = () => {
             userName={data.name}
             selectedInterests={data.interests}
             onChange={(interests) => setData(prev => ({ ...prev, interests }))}
-            ageRange={data.ageRange}
+            ageRange={ageToRange(data.age)}
             gender={data.gender}
           />
           <motion.div 

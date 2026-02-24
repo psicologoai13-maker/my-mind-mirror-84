@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { GraduationCap, Briefcase, Sparkles, Heart } from 'lucide-react';
+import { GraduationCap, Briefcase, Sparkles, Heart, Minus, Plus } from 'lucide-react';
 
 interface ProfileStepProps {
   userName: string;
   gender?: string;
   onGenderChange: (gender: string) => void;
-  ageRange?: string;
-  onAgeChange: (age: string) => void;
+  age?: number;
+  onAgeChange: (age: number) => void;
   therapyStatus?: string;
   onTherapyChange: (status: string) => void;
   occupation?: string;
@@ -21,15 +21,6 @@ const genderOptions = [
   { id: 'female', label: 'Donna', emoji: '👩' },
   { id: 'other', label: 'Altro', emoji: '🧑' },
   { id: 'prefer_not_say', label: 'Non dire', emoji: '🤐' },
-];
-
-const ageRanges = [
-  { id: '<18', label: '<18' },
-  { id: '18-24', label: '18-24' },
-  { id: '25-34', label: '25-34' },
-  { id: '35-44', label: '35-44' },
-  { id: '45-54', label: '45-54' },
-  { id: '55+', label: '55+' },
 ];
 
 const therapyOptions = [
@@ -45,17 +36,11 @@ const occupationOptions = [
   { id: 'both', label: 'Entrambi', emoji: '⚡', icon: Sparkles },
 ];
 
-const spring = {
-  type: "spring" as const,
-  stiffness: 400,
-  damping: 25
-};
-
 const ProfileStep: React.FC<ProfileStepProps> = ({
   userName,
   gender,
   onGenderChange,
-  ageRange,
+  age,
   onAgeChange,
   therapyStatus,
   onTherapyChange,
@@ -63,6 +48,26 @@ const ProfileStep: React.FC<ProfileStepProps> = ({
   onOccupationChange,
   showOccupation,
 }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Generate age values 13-99
+  const ages = Array.from({ length: 87 }, (_, i) => i + 13);
+
+  const handleAgeScroll = useCallback((targetAge: number) => {
+    onAgeChange(targetAge);
+    // Scroll to center the selected age
+    if (scrollRef.current) {
+      const container = scrollRef.current;
+      const items = container.children;
+      const idx = targetAge - 13;
+      if (items[idx]) {
+        const item = items[idx] as HTMLElement;
+        const scrollLeft = item.offsetLeft - container.clientWidth / 2 + item.clientWidth / 2;
+        container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+      }
+    }
+  }, [onAgeChange]);
+
   return (
     <div className="flex-1 flex flex-col px-5 py-6 overflow-y-auto">
       {/* Header */}
@@ -114,29 +119,76 @@ const ProfileStep: React.FC<ProfileStepProps> = ({
         </div>
       </motion.div>
 
-      {/* Age Section */}
+      {/* Age Section - Numeric */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="mb-6"
       >
-        <p className="text-sm font-medium text-foreground mb-3">Fascia d'età</p>
-        <div className="flex flex-wrap gap-2">
-          {ageRanges.map((age) => (
+        <p className="text-sm font-medium text-foreground mb-3">Quanti anni hai?</p>
+        
+        {/* Age display with +/- buttons */}
+        <div className="flex items-center justify-center gap-4 mb-3">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => age && age > 13 && onAgeChange(age - 1)}
+            disabled={!age || age <= 13}
+            className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+              "bg-glass backdrop-blur-xl border border-glass-border",
+              "disabled:opacity-30"
+            )}
+          >
+            <Minus className="w-4 h-4 text-muted-foreground" />
+          </motion.button>
+          
+          <div className={cn(
+            "w-20 h-16 rounded-2xl flex items-center justify-center",
+            "bg-glass backdrop-blur-xl border",
+            age ? "border-aria-violet/50 shadow-aria-glow" : "border-glass-border"
+          )}>
+            <span className={cn(
+              "text-3xl font-bold",
+              age ? "text-aria-violet" : "text-muted-foreground/40"
+            )}>
+              {age || '—'}
+            </span>
+          </div>
+          
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => age ? (age < 99 && onAgeChange(age + 1)) : onAgeChange(25)}
+            disabled={age !== undefined && age >= 99}
+            className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+              "bg-glass backdrop-blur-xl border border-glass-border",
+              "disabled:opacity-30"
+            )}
+          >
+            <Plus className="w-4 h-4 text-muted-foreground" />
+          </motion.button>
+        </div>
+
+        {/* Horizontal scroll age picker */}
+        <div 
+          ref={scrollRef}
+          className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide snap-x"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {ages.map((a) => (
             <motion.button
-              key={age.id}
-              onClick={() => onAgeChange(age.id)}
+              key={a}
+              onClick={() => handleAgeScroll(a)}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300",
-                "bg-glass backdrop-blur-xl border",
-                ageRange === age.id
-                  ? "border-aria-violet/50 text-aria-violet shadow-aria-glow selection-glow"
-                  : "border-glass-border text-muted-foreground hover:text-foreground hover:border-aria-violet/20"
+                "flex-shrink-0 w-11 h-9 rounded-full text-sm font-medium transition-all duration-200 snap-center",
+                age === a
+                  ? "bg-aria-violet text-white shadow-aria-glow"
+                  : "bg-glass/50 text-muted-foreground hover:text-foreground border border-glass-border/50"
               )}
             >
-              {age.label}
+              {a}
             </motion.button>
           ))}
         </div>
