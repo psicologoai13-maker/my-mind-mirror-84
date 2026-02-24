@@ -96,6 +96,41 @@ serve(async (req) => {
 
     console.log(`[aria-chat-ios] Success, reply length: ${result.reply?.length || 0}`);
 
+    // Fire-and-forget: trigger incremental processing to extract metrics
+    // without waiting for it to complete (non-blocking)
+    const sessionId = body.sessionId || body.session_id;
+    const userId = body.userId || body.user_id;
+    if (sessionId && userId && result.reply) {
+      // Build transcript from messages + AI reply for analysis
+      const messages = body.messages || body.conversationHistory || [];
+      const transcriptLines = messages.map((m: any) => 
+        `${m.role === 'user' ? 'Utente' : 'Aria'}: ${m.content}`
+      ).join('\n');
+      const fullTranscript = transcriptLines + `\nAria: ${result.reply}`;
+      
+      const processPayload = {
+        session_id: sessionId,
+        user_id: userId,
+        transcript: fullTranscript,
+        incremental: true, // Don't change session status to 'completed'
+      };
+
+      // Fire and forget - don't await
+      fetch(`${supabaseUrl}/functions/v1/process-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''}`,
+        },
+        body: JSON.stringify(processPayload),
+      }).then(r => {
+        console.log(`[aria-chat-ios] Incremental process-session triggered, status: ${r.status}`);
+      }).catch(err => {
+        console.error('[aria-chat-ios] Incremental process-session failed:', err.message);
+      });
+    }
+
     return new Response(
       JSON.stringify(result),
       { 

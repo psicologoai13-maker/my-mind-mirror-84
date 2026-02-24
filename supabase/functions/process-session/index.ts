@@ -450,12 +450,13 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, user_id, transcript, is_voice = false, user_context } = await req.json() as {
+    const { session_id, user_id, transcript, is_voice = false, user_context, incremental = false } = await req.json() as {
       session_id: string;
       user_id: string;
       transcript: string;
       is_voice?: boolean;
       user_context?: UserContext;
+      incremental?: boolean;
     };
 
     if (!session_id || !user_id || !transcript) {
@@ -463,7 +464,7 @@ serve(async (req) => {
       throw new Error('Missing required fields: session_id, user_id, transcript');
     }
 
-    console.log('[process-session] Processing session:', session_id, 'is_voice:', is_voice);
+    console.log('[process-session] Processing session:', session_id, 'is_voice:', is_voice, 'incremental:', incremental);
     console.log('[process-session] User context:', user_context);
     console.log('[process-session] Transcript length:', transcript.length);
 
@@ -1972,7 +1973,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         key_events: analysis.key_events,
         insights: analysis.insights,
         crisis_alert: isCrisisAlert,
-        status: 'completed',
+        ...(incremental ? {} : { status: 'completed' }),
         specific_emotions: analysis.emotions,
         clinical_indices: analysis.clinical_indices,
         sleep_quality: analysis.vitals.sleep,
