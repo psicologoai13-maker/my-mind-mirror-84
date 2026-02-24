@@ -787,6 +787,99 @@ Questa funzione estrae automaticamente: emozioni, aree vita, psicologia, eventi,
 
 ---
 
+## 8. ONBOARDING - ETÀ PRECISA (AGGIORNAMENTO CRITICO)
+
+### Modifica al Quiz di Onboarding
+
+Il quiz ora chiede l'**età precisa** (numero intero 13-99) invece delle fasce d'età generiche ("18-24", "25-34", ecc.).
+
+**Su iOS, usa il selettore nativo `UIPickerView` / `Picker` di SwiftUI** per scegliere l'età:
+
+```swift
+struct AgePickerView: View {
+    @Binding var selectedAge: Int?
+    let ageRange = Array(13...99)
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Quanti anni hai?")
+                .font(.headline)
+            
+            Picker("Età", selection: Binding(
+                get: { selectedAge ?? 25 },
+                set: { selectedAge = $0 }
+            )) {
+                ForEach(ageRange, id: \.self) { age in
+                    Text("\(age) anni").tag(age)
+                }
+            }
+            .pickerStyle(.wheel) // ← SELETTORE NATIVO iOS A RUOTA
+            .frame(height: 150)
+        }
+    }
+}
+```
+
+### Salvataggio dell'età
+
+Al completamento dell'onboarding, calcola `birth_date` dall'età e salvalo nel profilo:
+
+```swift
+// Calcolo birth_date dall'età
+let birthYear = Calendar.current.component(.year, from: Date()) - selectedAge
+let birthDate = "\(birthYear)-01-01" // Formato ISO
+
+// PATCH /rest/v1/user_profiles?user_id=eq.<userId>
+// Body include:
+// {
+//   "birth_date": "2001-01-01",
+//   "onboarding_completed": true,
+//   "onboarding_answers": {
+//     "ageRange": "18-24",  ← calcolato dall'età per retrocompatibilità
+//     "age": 25,            ← età precisa
+//     ...altri campi...
+//   }
+// }
+```
+
+### Calcolo retrocompatibile di ageRange
+
+```swift
+func ageToRange(_ age: Int) -> String {
+    switch age {
+    case 13...17: return "13-17"
+    case 18...24: return "18-24"
+    case 25...34: return "25-34"
+    case 35...44: return "35-44"
+    case 45...54: return "45-54"
+    case 55...64: return "55-64"
+    default: return "65+"
+    }
+}
+```
+
+### Logica Occupazione Condizionale
+
+La domanda "Cosa fai nella vita?" (Studio/Lavoro/Entrambi) viene mostrata **solo se l'età è tra 16 e 34**:
+
+```swift
+let showOccupation = (selectedAge ?? 0) >= 16 && (selectedAge ?? 0) <= 34
+```
+
+### Linguaggio Adattivo Automatico
+
+**NON serve implementare nulla per il linguaggio adattivo su iOS.** L'Edge Function `aria-chat-ios` (che è un proxy verso `ai-chat`) riceve automaticamente le istruzioni `AGE_ADAPTIVE_LANGUAGE` basate sul `birth_date` salvato nel profilo. Aria parlerà in modo diverso a un 16enne, un 22enne, un 35enne, un 50enne o un 70enne — tutto gestito dal backend.
+
+Le 6 fasce linguistiche sono:
+- **13-17**: Slang Gen-Z/Alpha, emoji frequenti, tono da sorella maggiore
+- **18-24**: Informale, mix italiano/inglese, tono da migliore amica
+- **25-34**: Diretto, meno slang, tono da confidente
+- **35-49**: Riflessivo, maturo, tono da amica saggia
+- **50-64**: Caldo, rispettoso, tono da amica di lunga data
+- **65+**: Chiaro, paziente, affettuoso, quasi senza emoji
+
+---
+
 ## NOTE CRITICHE
 
 1. **NON usare** `@elevenlabs/react`, `useConversation`, `webkitSpeechRecognition` — sono API **browser-only**
@@ -797,3 +890,5 @@ Questa funzione estrae automaticamente: emozioni, aree vita, psicologia, eventi,
 6. **Fuso orario**: `Europe/Rome`
 7. **Tutti gli header**: `Authorization: Bearer <token>`, `apikey: <anon_key>`, `Content-Type: application/json`
 8. **Se ElevenLabs WebSocket è troppo complesso**, parti con l'approccio semplice (`aria-agent-backend` + TTS nativo) e migra dopo
+9. **Età**: usa `Picker` nativo SwiftUI con `.pickerStyle(.wheel)` per il selettore età nell'onboarding. Salva `birth_date` nel profilo.
+10. **Linguaggio adattivo**: automatico via backend, nessuna implementazione iOS necessaria
