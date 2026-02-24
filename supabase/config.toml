@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.aria-push-notification]
 verify_jwt = false
+
+[functions.aria-chat-ios]
+verify_jwt = false
