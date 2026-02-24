@@ -1066,6 +1066,7 @@ interface VoiceContext {
     status: string;
     follow_up_done: boolean;
   }>;
+  knowledgeBaseDocs: Array<{ topic: string; title: string; content: string }>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1782,6 +1783,13 @@ ${firstConversationBlock}
 
 ${userContextBlock}
 
+${ctx.knowledgeBaseDocs.length > 0 ? `
+═══════════════════════════════════════════════
+📚 KNOWLEDGE BASE CLINICA
+═══════════════════════════════════════════════
+${ctx.knowledgeBaseDocs.map(d => `### ${d.title}\n${d.content}`).join('\n\n')}
+` : ''}
+
 ═══════════════════════════════════════════════
 📌 RICORDA: SEI IN MODALITÀ VOCALE!
 ═══════════════════════════════════════════════
@@ -1806,7 +1814,8 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     recentSessions: [],
     todayHabits: [],
     bodyMetrics: null,
-    userEvents: []
+    userEvents: [],
+    knowledgeBaseDocs: []
   };
 
   if (!authHeader) {
@@ -1858,7 +1867,8 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       userMemoriesResult,  // NEW: Structured memories
       sessionSnapshotsResult,  // NEW: Session context snapshots
       conversationTopicsResult,  // NEW: Conversation topics
-      habitStreaksResult  // NEW: Habit streaks cache
+      habitStreaksResult,  // NEW: Habit streaks cache
+      kbDocsResult  // NEW: Knowledge Base documents
     ] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -1932,7 +1942,14 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
       supabase
         .from('habit_streaks')
         .select('habit_type, current_streak, longest_streak')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id),
+      // KB: load top priority documents for voice context
+      createClient(supabaseUrl!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || supabaseKey!)
+        .from('aria_knowledge_base')
+        .select('topic, title, content')
+        .eq('is_active', true)
+        .order('priority', { ascending: false })
+        .limit(5),
     ]);
 
     const profile = profileResult.data;
@@ -1947,6 +1964,11 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
     const sessionSnapshots = sessionSnapshotsResult.data || [];
     const conversationTopics = conversationTopicsResult.data || [];
     const habitStreaks = habitStreaksResult.data || [];
+    const kbDocs = kbDocsResult.data || [];
+
+    if (kbDocs.length > 0) {
+      console.log(`[aria-voice-chat] Loaded ${kbDocs.length} knowledge base documents`);
+    }
 
     if (profileResult.error) {
       console.log('[aria-voice-chat] Failed to get profile:', profileResult.error.message);
@@ -2072,7 +2094,8 @@ async function getUserVoiceContext(authHeader: string | null): Promise<VoiceCont
         event_time: e.event_time,
         status: e.status,
         follow_up_done: e.follow_up_done
-      }))
+      })),
+      knowledgeBaseDocs: kbDocs.map((d: any) => ({ topic: d.topic, title: d.title, content: d.content }))
     };
 
     console.log(`[aria-voice-chat] Context loaded: name="${result.profile?.name}", memory=${result.profile?.long_term_memory?.length || 0}, objectives=${result.objectives.length}, sessions=${result.recentSessions.length}, events=${result.userEvents.length}`);
