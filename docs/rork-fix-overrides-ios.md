@@ -1,164 +1,297 @@
-# Fix Aria Voice iOS: Overrides non funzionano + Aria non parla
+# Fix DEFINITIVO Aria Voice iOS — Agente ElevenLabs con Overrides
 
-## PROBLEMA ATTUALE
+## IL PROBLEMA
 
-Dopo l'ultimo fix con `updateContext()`, Aria non parla più. Il `updateContext()` sta rompendo la connessione.
+Aria si connette su iOS ("Ti ascolto") ma **non parla e non sente**. Questo succede perché il codice Swift attuale usa API obsolete dell'SDK (`SessionConfig`, `AgentOverrides`, `startSession`). L'SDK ElevenLabs Swift v3 ha aggiornato i nomi delle classi. Inoltre c'è un problema noto di timing: gli overrides vanno inviati correttamente al momento della connessione.
 
-## CAUSA
+## NOTA IMPORTANTE
 
-1. `updateContext()` chiamato dopo la connessione interferisce con il flusso LiveKit e blocca l'audio dell'agente
-2. Gli overrides passati con `conversationToken` tramite `SessionConfig` DOVREBBERO funzionare — l'SDK Swift v3 li supporta nativamente come `conversation_initiation_client_data`
+C'è un issue aperto su GitHub (elevenlabs/packages#92) che riporta problemi con gli overrides su iOS. La soluzione sotto implementa un **doppio approccio**: prima prova con overrides (API corretta), poi fallback senza overrides + invio contesto dopo la connessione via `sendContextualUpdate`.
 
-## FIX RICHIESTO (2 MODIFICHE)
+## ARCHITETTURA (2 chiamate backend, NON modificare il backend)
 
-### MODIFICA 1: Rimuovere updateContext() da AriaVoiceConnectionCoordinator.swift
+### 1. `elevenlabs-conversation-token` → Restituisce `signed_url`, `token`, `agent_id`
+### 2. `elevenlabs-context` → Restituisce `system_prompt`, `first_message`, `user_name`
 
-**RIMUOVI COMPLETAMENTE** ogni chiamata a `conversation.updateContext()` o `updateContext()` dopo la connessione. Questo è ciò che blocca Aria dal parlare.
+Entrambi richiedono `Authorization: Bearer <access_token>` e `apikey` header.
 
-```swift
-// ❌ RIMUOVI QUESTO - causa il blocco audio
-// conversation.updateContext(systemPrompt)
+---
 
-// ❌ RIMUOVI ANCHE QUESTO se presente
-// try await conversation.updateContext(systemPrompt)
-```
+## MODIFICA 1: AriaVoiceConnectionCoordinator.swift — RISCRIVERE COMPLETAMENTE
 
-### MODIFICA 2: Verificare che gli overrides siano passati correttamente nel SessionConfig
+Riscrivere usando le API CORRETTE dell'SDK Swift v3. **Leggi il codice sorgente dell'SDK** per verificare i nomi esatti dei tipi.
 
-L'SDK Swift v3 supporta gli overrides tramite `SessionConfig`. Devono essere costruiti così:
+### API corrette dell'SDK (da documentazione ufficiale ElevenLabs Swift):
 
 ```swift
 import ElevenLabsSDK
 
-// 1. Fetch context dal backend
-let contextData = try await fetchElevenLabsContext(accessToken: userAccessToken)
+// ==========================================
+// STEP 1: Fetch token + context IN PARALLELO
+// ==========================================
 
-// 2. Costruisci gli overrides
-let promptOverride = ElevenLabsSDK.AgentPrompt(
-    prompt: contextData.systemPrompt  // Il prompt clinico da ~66k caratteri
+async let tokenResult = fetchConversationToken(accessToken: userAccessToken)
+async let contextResult = fetchElevenLabsContext(accessToken: userAccessToken)
+
+let (tokenData, contextData) = try await (tokenResult, contextResult)
+
+print("[AriaVoice] Token: signedUrl=\(tokenData.signedUrl != nil), token=\(tokenData.token != nil)")
+print("[AriaVoice] Context: promptLength=\(contextData.systemPrompt?.count ?? 0), userName=\(contextData.userName)")
+
+// ==========================================
+// STEP 2: Costruisci callbacks
+// ==========================================
+
+let config = ConversationConfig(
+    onAgentResponse: { text, _ in
+        print("[AriaVoice] Agent: \(text)")
+        // Accumula nel transcript
+    },
+    onUserTranscript: { text, _ in
+        print("[AriaVoice] User: \(text)")
+        // Accumula nel transcript
+    },
+    onConnect: {
+        print("[AriaVoice] ✅ Connected!")
+    },
+    onDisconnect: {
+        print("[AriaVoice] Disconnected")
+    },
+    onError: { error, _ in
+        print("[AriaVoice] Error: \(error)")
+    }
 )
 
-let agentConfig = ElevenLabsSDK.AgentConfig(
-    prompt: promptOverride,
-    firstMessage: contextData.firstMessage,  // "Ciao Simo! Come stai?"
-    language: "it"
-)
+// ==========================================
+// STEP 3: Tentativo 1 — conversationToken + overrides completi
+// ==========================================
 
-let overrides = ElevenLabsSDK.ConversationConfigOverride(
-    agent: agentConfig
-)
-
-// 3. Crea SessionConfig con overrides
-let config = ElevenLabsSDK.SessionConfig(
-    overrides: overrides
-)
-
-// 4. Connetti - 3 tentativi
-// ATTEMPT 1: conversationToken + overrides
 if let token = tokenData.token {
     do {
-        print("[AriaVoice] Attempt 1: conversationToken + overrides")
-        let conversationId = try await conversation.startSession(
-            conversationToken: token,
-            config: config  // <-- overrides inclusi qui
+        print("[AriaVoice] Attempt 1: conversationToken + full overrides")
+        
+        // Costruisci overrides con API CORRETTE dell'SDK v3
+        // NOTA: Verifica i nomi esatti nel codice sorgente dell'SDK!
+        // Potrebbe essere ConversationOverrides o ConversationConfigOverride
+        let overridesConfig = ConversationConfig(
+            conversationOverrides: ConversationOverrides(
+                agent: AgentOverrides(
+                    prompt: PromptOverride(prompt: contextData.systemPrompt ?? ""),
+                    firstMessage: contextData.firstMessage,
+                    language: .it  // o "it" a seconda del tipo
+                )
+            ),
+            onAgentResponse: config.onAgentResponse,
+            onUserTranscript: config.onUserTranscript,
+            onConnect: config.onConnect,
+            onDisconnect: config.onDisconnect,
+            onError: config.onError
         )
-        print("[AriaVoice] Connected with overrides! ConversationId: \(conversationId)")
-        // ❌ NON chiamare updateContext() qui!
-        return
+        
+        conversation = try await ElevenLabs.startConversation(
+            auth: .conversationToken(token),
+            config: overridesConfig
+        )
+        
+        print("[AriaVoice] ✅ Connected with overrides! Aria should speak with clinical prompt")
+        return  // SUCCESSO — STOP
+        
     } catch {
-        print("[AriaVoice] Attempt 1 failed: \(error)")
+        print("[AriaVoice] ❌ Attempt 1 failed: \(error)")
     }
 }
 
-// ATTEMPT 2: conversationToken SENZA overrides
+// ==========================================
+// STEP 4: Tentativo 2 — conversationToken SENZA overrides
+//         + sendContextualUpdate dopo connessione
+// ==========================================
+
 if let token = tokenData.token {
     do {
         print("[AriaVoice] Attempt 2: conversationToken without overrides")
-        let conversationId = try await conversation.startSession(
-            conversationToken: token
-            // NO config/overrides
+        
+        conversation = try await ElevenLabs.startConversation(
+            auth: .conversationToken(token),
+            config: config
         )
-        print("[AriaVoice] Connected without overrides")
-        // ❌ NON chiamare updateContext() qui!
-        return
+        
+        print("[AriaVoice] ✅ Connected without overrides")
+        
+        // DOPO la connessione, inietta il contesto clinico
+        // sendContextualUpdate NON interferisce con l'audio (diverso da updateContext!)
+        if let prompt = contextData.systemPrompt {
+            // Attendi 2 secondi che l'agente si stabilizzi
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            
+            // Invia come aggiornamento contestuale (NON blocca l'audio)
+            conversation?.sendContextualUpdate(prompt)
+            print("[AriaVoice] ✅ Contextual update sent (\(prompt.count) chars)")
+        }
+        
+        return  // SUCCESSO — STOP
+        
     } catch {
-        print("[AriaVoice] Attempt 2 failed: \(error)")
+        print("[AriaVoice] ❌ Attempt 2 failed: \(error)")
     }
 }
 
-// ATTEMPT 3: agentId diretto (ultimo tentativo)
+// ==========================================
+// STEP 5: Tentativo 3 — agentId diretto (ultimo tentativo)
+// ==========================================
+
 do {
-    print("[AriaVoice] Attempt 3: agentId direct (last resort)")
-    let conversationId = try await conversation.startSession(
-        agentId: tokenData.agentId ?? "agent_2901khw977kbesesvd00yh2mbeyx"
+    let agentId = tokenData.agentId ?? "agent_2901khw977kbesesvd00yh2mbeyx"
+    print("[AriaVoice] Attempt 3: agentId direct (\(agentId))")
+    
+    // Con agentId, prova gli overrides (più probabilità che funzionino)
+    let overridesConfig = ConversationConfig(
+        conversationOverrides: ConversationOverrides(
+            agent: AgentOverrides(
+                prompt: PromptOverride(prompt: contextData.systemPrompt ?? ""),
+                firstMessage: contextData.firstMessage,
+                language: .it
+            )
+        ),
+        onAgentResponse: config.onAgentResponse,
+        onUserTranscript: config.onUserTranscript,
+        onConnect: config.onConnect,
+        onDisconnect: config.onDisconnect,
+        onError: config.onError
     )
-    print("[AriaVoice] Connected with agentId (no overrides)")
-    return
+    
+    conversation = try await ElevenLabs.startConversation(
+        agentId: agentId,
+        config: overridesConfig
+    )
+    
+    print("[AriaVoice] ✅ Connected with agentId + overrides")
+    return  // SUCCESSO
+    
 } catch {
-    print("[AriaVoice] All attempts failed: \(error)")
-    throw error
+    print("[AriaVoice] ❌ Attempt 3 failed: \(error)")
 }
+
+// Se arriviamo qui, tutti i tentativi sono falliti
+throw AriaVoiceError.connectionFailed
 ```
 
-### IMPORTANTE: Verifica i tipi dell'SDK
+---
 
-L'SDK ElevenLabs Swift v3 espone questi tipi per gli overrides. Verifica che esistano nel tuo SDK:
+## MODIFICA 2: VoiceSessionViewModel.swift
+
+Assicurati che:
+1. **NON** pre-configuri `AVAudioSession` — l'SDK lo gestisce
+2. **NON** chiami `updateContext()` — MAI
+3. Il flusso sia: tap → connect (coordinator) → osserva stato SDK → speaking/listening → end → save
+
+---
+
+## VERIFICA NOMI API DELL'SDK
+
+⚠️ I nomi dei tipi potrebbero variare leggermente tra versioni dell'SDK. **PRIMA di implementare**, cerca nel codice sorgente dell'SDK i tipi corretti:
 
 ```swift
-// Cerca questi tipi nell'SDK:
-// ElevenLabsSDK.SessionConfig
-// ElevenLabsSDK.ConversationConfigOverride
-// ElevenLabsSDK.AgentConfig
-// ElevenLabsSDK.AgentPrompt
+// Cerca questi pattern nel codice sorgente dell'SDK (Package.swift dependencies → Sources):
 
-// Se i nomi sono leggermente diversi, cerca nel source dell'SDK:
-// - "ConversationConfigOverride" o "ConversationInitiationData" 
-// - "conversation_config_override" (il campo JSON che viene inviato)
-// - "SessionConfig" o "Configuration"
+// 1. Come si avvia una conversazione?
+// Cerca: "startConversation" o "startSession"
+// Probabile: ElevenLabs.startConversation(agentId:, config:)
+// Probabile: ElevenLabs.startConversation(auth:, config:)
+
+// 2. Come si autentica con token privato?
+// Cerca: "conversationToken" o "ConversationAuth"
+// Probabile: .conversationToken(token) 
+
+// 3. Come si passano gli overrides?
+// Cerca: "ConversationOverrides" o "ConversationConfigOverride" o "override"
+// Probabile: ConversationConfig(conversationOverrides: ...)
+
+// 4. Come si invia contesto post-connessione?
+// Cerca: "sendContextualUpdate" o "contextualUpdate" o "sendContext"
+// Probabile: conversation.sendContextualUpdate(text)
+
+// 5. Come si configura la lingua?
+// Cerca: "language" nel contesto degli overrides
+// Potrebbe essere: .it, .italian, "it", Language.it
 ```
 
-Se l'SDK usa nomi diversi, adatta il codice. L'importante è che gli overrides vengano passati nella `startSession()`, NON dopo con `updateContext()`.
-
-### Come l'SDK invia gli overrides internamente
-
-Quando chiami `startSession(conversationToken:, config:)`, l'SDK:
-1. Si connette alla room LiveKit usando il JWT token
-2. Invia un messaggio `conversation_initiation_client_data` via data channel con gli overrides
-3. L'agente ElevenLabs riceve gli overrides e li usa per la conversazione
-
-Questo è lo stesso meccanismo del web (dove funziona). La differenza è che sul web gli overrides vengono inviati come primo messaggio WebSocket, su iOS via data channel LiveKit — ma l'effetto è identico.
-
-### CHECKLIST FINALE
-
-- [x] Rimosso OGNI chiamata a `updateContext()` o `conversation.updateContext()`
-- [x] Overrides passati tramite `SessionConfig` nella `startSession()`
-- [x] NO pre-configurazione di `AVAudioSession`
-- [x] NO watchdog timer o state machine complesse
-- [x] Logging con prefisso `[AriaVoice]`
-
-### Come verificare
-
-Nei log dovresti vedere:
+### COMANDO per trovare i tipi:
 ```
-[AriaVoice] Attempt 1: conversationToken + overrides
-[AriaVoice] Connected with overrides!
+// Nel progetto Xcode, Cmd+Shift+O e cerca:
+// - "ConversationConfig"
+// - "ConversationOverrides" 
+// - "startConversation"
+// - "sendContextualUpdate"
+// Oppure naviga in: .build/checkouts/elevenlabs-swift-sdk/Sources/
 ```
 
-E Aria dovrebbe:
-1. **Parlare** (non più muta!)
-2. Salutarti con "Ciao [Nome]! Come stai?" (non "Sono Aria, la tua assistente personale")
+---
 
-### Se il primo messaggio è ancora quello di default
+## STRATEGIA CHIAVE: sendContextualUpdate vs updateContext
 
-Se Aria PARLA ma il primo messaggio è ancora "Sono Aria, la tua assistente personale", significa che gli overrides non vengono applicati in tempo per il primo messaggio. In quel caso:
-1. Tutti i messaggi SUCCESSIVI useranno comunque il prompt clinico (gli overrides sono attivi)
-2. Possiamo aggiornare il first_message nel dashboard ElevenLabs come workaround
-3. Ma prima verifichiamo che funzioni — il problema più urgente è che Aria non parla!
+- `updateContext()` → **BLOCCA L'AUDIO** → NON usare MAI
+- `sendContextualUpdate()` → Invia contesto senza interferire con audio → SICURO da usare
 
-### NON FARE
+Se gli overrides al momento della connessione non funzionano (issue #92), il fallback è:
+1. Connettiti SENZA overrides (l'agente parlerà con il prompt di default del dashboard)
+2. Aspetta 2 secondi
+3. Invia `sendContextualUpdate(systemPrompt)` 
+4. Da quel momento in poi, l'agente userà il prompt clinico
 
-- ❌ NON aggiungere `updateContext()` dopo la connessione
+Il primo messaggio sarà quello di default del dashboard ("Ciao! Sono Aria..."), ma tutti i messaggi successivi useranno il prompt clinico completo. Questo è un compromesso accettabile finché ElevenLabs non fixa l'issue #92.
+
+---
+
+## CHECKLIST FINALE
+
+- [ ] Verificati i nomi esatti dei tipi nell'SDK (cerca nel codice sorgente!)
+- [ ] Usato `ElevenLabs.startConversation(auth: .conversationToken(token), config:)` per agent privato
+- [ ] Usato `ElevenLabs.startConversation(agentId:, config:)` per fallback pubblico
+- [ ] Overrides passati in `ConversationConfig(conversationOverrides:)` — NON dopo la connessione
+- [ ] `sendContextualUpdate()` usato come fallback (NON `updateContext()`)
+- [ ] NESSUNA pre-configurazione di `AVAudioSession`
+- [ ] NESSUN `updateContext()` nel codice
+- [ ] Logging con prefisso `[AriaVoice]`
+- [ ] 3 tentativi: token+overrides → token+contextualUpdate → agentId+overrides
+
+---
+
+## COME VERIFICARE
+
+Nei log dovresti vedere UNO di questi scenari:
+
+### Scenario IDEALE (overrides funzionano):
+```
+[AriaVoice] Attempt 1: conversationToken + full overrides
+[AriaVoice] ✅ Connected with overrides!
+```
+→ Aria parla con "Ciao [Nome]! Come stai?" e ha il prompt clinico
+
+### Scenario FALLBACK (overrides non funzionano, contextualUpdate sì):
+```
+[AriaVoice] Attempt 1 failed: [errore]
+[AriaVoice] Attempt 2: conversationToken without overrides
+[AriaVoice] ✅ Connected without overrides
+[AriaVoice] ✅ Contextual update sent (66000 chars)
+```
+→ Aria parla con messaggio di default del dashboard, ma poi usa il prompt clinico
+
+### Scenario ULTIMO TENTATIVO:
+```
+[AriaVoice] Attempt 1 failed: [errore]
+[AriaVoice] Attempt 2 failed: [errore]
+[AriaVoice] Attempt 3: agentId direct
+[AriaVoice] ✅ Connected with agentId + overrides
+```
+
+---
+
+## ❌ NON FARE
+
+- ❌ NON usare `updateContext()` — blocca l'audio
 - ❌ NON pre-configurare `AVAudioSession`
-- ❌ NON cambiare il backend
-- ❌ NON usare `signedUrl` (non supportato dall'SDK Swift)
-- ❌ NON aggiungere timeout estesi
+- ❌ NON usare `SessionConfig` (nome vecchio) — usa `ConversationConfig`
+- ❌ NON usare `AgentOverrides` come nome di tipo — verifica il nome corretto nell'SDK
+- ❌ NON usare `startSession()` — il metodo corretto è `startConversation()`
+- ❌ NON modificare il backend
+- ❌ NON aggiungere timeout estesi o watchdog timer
