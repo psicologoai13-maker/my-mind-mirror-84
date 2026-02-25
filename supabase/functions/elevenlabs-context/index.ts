@@ -2383,7 +2383,9 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       todayHabits: (todayHabitsResult.data || []).map((h: any) => ({ habit_type: h.habit_type, value: h.value, target_value: h.target_value })),
       bodyMetrics: bodyMetricsResult.data,
       userEvents: (userEventsResult.data || []).map((e: any) => ({ id: e.id, title: e.title, event_type: e.event_type, location: e.location, event_date: e.event_date, event_time: e.event_time, status: e.status, follow_up_done: e.follow_up_done })),
-      knowledgeBase: (kbResult.data || []).map((d: any) => d.content).join('\n\n---\n\n'),
+      // KB: skip for voice prompt to keep payload under iOS LiveKit limits
+      // The hardcoded clinical instructions already cover all major topics
+      // knowledgeBase omitted intentionally for voice (~10k chars saved)
     };
   } catch (error) {
     console.error("[elevenlabs-context] Error fetching context:", error);
