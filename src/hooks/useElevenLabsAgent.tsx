@@ -172,48 +172,64 @@ export const useElevenLabsAgent = () => {
     try {
       await conversation.endSession();
       console.log('[ElevenLabs] Session ended');
-      
-      // Save session and process transcript
-      if (transcriptRef.current.length > 0 && user) {
-        try {
-          const transcript = transcriptRef.current
-            .map(t => `${t.role === 'user' ? 'Utente' : 'Aria'}: ${t.text}`)
-            .join('\n');
-          
-          const { data: sessionData, error: insertError } = await supabase.from('sessions').insert({
-            user_id: user.id,
-            type: 'voice',
-            status: 'completed',
-            start_time: sessionStartTimeRef.current?.toISOString() || new Date().toISOString(),
-            end_time: new Date().toISOString(),
-            transcript,
-            ai_summary: 'Sessione vocale con Aria'
-          }).select('id').single();
-          
-          if (insertError) {
-            console.error('[ElevenLabs] Failed to save session:', insertError);
-          } else if (sessionData?.id) {
-            console.log('[ElevenLabs] Session saved:', sessionData.id);
-            
-            // Process session in background
-            supabase.functions.invoke('process-session', {
-              body: {
-                session_id: sessionData.id,
-                user_id: user.id,
-                transcript,
-                is_voice: true
-              }
-            }).then(({ error: processError }) => {
-              if (processError) console.error('[ElevenLabs] Process session error:', processError);
-              else console.log('[ElevenLabs] Session processed successfully');
-            });
-          }
-        } catch (saveError) {
-          console.error('[ElevenLabs] Failed to save session:', saveError);
-        }
-      }
     } catch (err) {
-      console.error('[ElevenLabs] Error stopping:', err);
+      console.error('[ElevenLabs] Error stopping conversation:', err);
+    }
+
+    // Always save session if user is authenticated, even with empty transcript
+    if (!user) {
+      console.warn('[ElevenLabs] No user, skipping session save');
+      return;
+    }
+
+    const startTime = sessionStartTimeRef.current || new Date();
+    const endTime = new Date();
+    const durationSec = Math.max(1, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
+    const hasTranscript = transcriptRef.current.length > 0;
+    
+    const transcript = hasTranscript
+      ? transcriptRef.current.map(t => `${t.role === 'user' ? 'Utente' : 'Aria'}: ${t.text}`).join('\n')
+      : '';
+
+    const aiSummary = hasTranscript ? 'Sessione vocale con Aria' : 'Sessione vocale breve';
+    
+    console.log(`[ElevenLabs] Saving session: duration=${durationSec}s, transcriptEntries=${transcriptRef.current.length}, chars=${transcript.length}`);
+
+    try {
+      const { data: sessionData, error: insertError } = await supabase.from('sessions').insert({
+        user_id: user.id,
+        type: 'voice',
+        status: 'completed',
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration: durationSec,
+        transcript: transcript || null,
+        ai_summary: aiSummary,
+      }).select('id').single();
+
+      if (insertError) {
+        console.error('[ElevenLabs] Failed to save session:', insertError);
+        return;
+      }
+
+      console.log('[ElevenLabs] Session saved:', sessionData.id);
+
+      // Process session in background only if there's meaningful transcript
+      if (hasTranscript && sessionData.id) {
+        supabase.functions.invoke('process-session', {
+          body: {
+            session_id: sessionData.id,
+            user_id: user.id,
+            transcript,
+            is_voice: true
+          }
+        }).then(({ error: processError }) => {
+          if (processError) console.error('[ElevenLabs] Process session error:', processError);
+          else console.log('[ElevenLabs] Session processed successfully');
+        });
+      }
+    } catch (saveError) {
+      console.error('[ElevenLabs] Failed to save session:', saveError);
     }
   }, [conversation, user]);
 
