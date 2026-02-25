@@ -1,126 +1,164 @@
-# Fix Aria Voice: Override non funzionano su iOS
+# Fix Aria Voice iOS: Overrides non funzionano + Aria non parla
 
-## PROBLEMA
+## PROBLEMA ATTUALE
 
-Aria si connette ma risponde con il prompt di default del dashboard ElevenLabs ("Ciao! Sono Aria, la tua assistente personale. Come posso aiutarti oggi?") invece del prompt clinico personalizzato da ~66k caratteri.
+Dopo l'ultimo fix con `updateContext()`, Aria non parla più. Il `updateContext()` sta rompendo la connessione.
 
-**Causa:** Il codice attuale usa `conversationToken` (JWT/WebRTC) per tutti e 3 i tentativi di connessione. Ma **`conversationToken` NON supporta gli overrides**. Solo `signedUrl` (WebSocket) supporta gli overrides.
+## CAUSA
 
-Sul web funziona perché il primo tentativo usa `signedUrl` + overrides, non `conversationToken`.
+1. `updateContext()` chiamato dopo la connessione interferisce con il flusso LiveKit e blocca l'audio dell'agente
+2. Gli overrides passati con `conversationToken` tramite `SessionConfig` DOVREBBERO funzionare — l'SDK Swift v3 li supporta nativamente come `conversation_initiation_client_data`
 
-## FIX RICHIESTO
+## FIX RICHIESTO (2 MODIFICHE)
 
-### In `AriaVoiceConnectionCoordinator.swift`
+### MODIFICA 1: Rimuovere updateContext() da AriaVoiceConnectionCoordinator.swift
 
-Cambiare la sequenza di connessione così:
+**RIMUOVI COMPLETAMENTE** ogni chiamata a `conversation.updateContext()` o `updateContext()` dopo la connessione. Questo è ciò che blocca Aria dal parlare.
 
 ```swift
-// Il backend restituisce DUE valori:
-// - signed_url: URL WebSocket (wss://...) — SUPPORTA overrides
-// - token: JWT token — NON supporta overrides
+// ❌ RIMUOVI QUESTO - causa il blocco audio
+// conversation.updateContext(systemPrompt)
 
-// ATTEMPT 1 (PRIMARIO): signedUrl + overrides
-// Questo è l'unico modo per iniettare il system_prompt personalizzato
-if let signedUrl = tokenData.signedUrl {
+// ❌ RIMUOVI ANCHE QUESTO se presente
+// try await conversation.updateContext(systemPrompt)
+```
+
+### MODIFICA 2: Verificare che gli overrides siano passati correttamente nel SessionConfig
+
+L'SDK Swift v3 supporta gli overrides tramite `SessionConfig`. Devono essere costruiti così:
+
+```swift
+import ElevenLabsSDK
+
+// 1. Fetch context dal backend
+let contextData = try await fetchElevenLabsContext(accessToken: userAccessToken)
+
+// 2. Costruisci gli overrides
+let promptOverride = ElevenLabsSDK.AgentPrompt(
+    prompt: contextData.systemPrompt  // Il prompt clinico da ~66k caratteri
+)
+
+let agentConfig = ElevenLabsSDK.AgentConfig(
+    prompt: promptOverride,
+    firstMessage: contextData.firstMessage,  // "Ciao Simo! Come stai?"
+    language: "it"
+)
+
+let overrides = ElevenLabsSDK.ConversationConfigOverride(
+    agent: agentConfig
+)
+
+// 3. Crea SessionConfig con overrides
+let config = ElevenLabsSDK.SessionConfig(
+    overrides: overrides
+)
+
+// 4. Connetti - 3 tentativi
+// ATTEMPT 1: conversationToken + overrides
+if let token = tokenData.token {
     do {
-        print("[AriaVoice] Attempt 1: signedUrl (WebSocket) + overrides")
-        try await conversation.startSession(
-            signedUrl: signedUrl,    // <-- USA signedUrl, NON conversationToken!
-            overrides: overrides     // <-- overrides con system_prompt + firstMessage + language
+        print("[AriaVoice] Attempt 1: conversationToken + overrides")
+        let conversationId = try await conversation.startSession(
+            conversationToken: token,
+            config: config  // <-- overrides inclusi qui
         )
-        print("[AriaVoice] Connected with full clinical prompt!")
-        return // SUCCESSO
+        print("[AriaVoice] Connected with overrides! ConversationId: \(conversationId)")
+        // ❌ NON chiamare updateContext() qui!
+        return
     } catch {
         print("[AriaVoice] Attempt 1 failed: \(error)")
     }
 }
 
-// ATTEMPT 2: conversationToken SENZA overrides (fallback)
-// Userà il prompt configurato nel dashboard ElevenLabs
+// ATTEMPT 2: conversationToken SENZA overrides
 if let token = tokenData.token {
     do {
-        print("[AriaVoice] Attempt 2: conversationToken (WebRTC) without overrides")
-        try await conversation.startSession(
+        print("[AriaVoice] Attempt 2: conversationToken without overrides")
+        let conversationId = try await conversation.startSession(
             conversationToken: token
-            // NO overrides - non sono supportati con conversationToken
+            // NO config/overrides
         )
-        print("[AriaVoice] Connected with dashboard prompt (no overrides)")
-        return // SUCCESSO
+        print("[AriaVoice] Connected without overrides")
+        // ❌ NON chiamare updateContext() qui!
+        return
     } catch {
         print("[AriaVoice] Attempt 2 failed: \(error)")
     }
 }
 
-// ATTEMPT 3: signedUrl SENZA overrides (ultimo tentativo)
-if let signedUrl = tokenData.signedUrl {
-    do {
-        print("[AriaVoice] Attempt 3: signedUrl without overrides (last resort)")
-        try await conversation.startSession(
-            signedUrl: signedUrl
-            // NO overrides
-        )
-        print("[AriaVoice] Connected (no overrides, last resort)")
-        return
-    } catch {
-        print("[AriaVoice] All ElevenLabs attempts failed: \(error)")
-    }
+// ATTEMPT 3: agentId diretto (ultimo tentativo)
+do {
+    print("[AriaVoice] Attempt 3: agentId direct (last resort)")
+    let conversationId = try await conversation.startSession(
+        agentId: tokenData.agentId ?? "agent_2901khw977kbesesvd00yh2mbeyx"
+    )
+    print("[AriaVoice] Connected with agentId (no overrides)")
+    return
+} catch {
+    print("[AriaVoice] All attempts failed: \(error)")
+    throw error
 }
 ```
 
-### Cosa cambia rispetto al codice attuale
+### IMPORTANTE: Verifica i tipi dell'SDK
 
-| Prima (BUG) | Dopo (FIX) |
-|---|---|
-| Attempt 1: `conversationToken` + overrides | Attempt 1: `signedUrl` + overrides |
-| Attempt 2: `conversationToken` senza overrides | Attempt 2: `conversationToken` senza overrides |
-| Attempt 3: `agentId` diretto | Attempt 3: `signedUrl` senza overrides |
-
-**L'unica modifica è nel tentativo 1:** usare `signedUrl` invece di `conversationToken`.
-
-### Verifica in VoiceService.swift
-
-Assicurati che `fetchConversationToken()` restituisca ENTRAMBI i campi dal backend:
+L'SDK ElevenLabs Swift v3 espone questi tipi per gli overrides. Verifica che esistano nel tuo SDK:
 
 ```swift
-struct ConversationTokenResponse {
-    let signedUrl: String?   // wss://... — da signed_url nel JSON
-    let token: String?       // JWT — da token nel JSON  
-    let agentId: String?     // agent ID
-}
+// Cerca questi tipi nell'SDK:
+// ElevenLabsSDK.SessionConfig
+// ElevenLabsSDK.ConversationConfigOverride
+// ElevenLabsSDK.AgentConfig
+// ElevenLabsSDK.AgentPrompt
+
+// Se i nomi sono leggermente diversi, cerca nel source dell'SDK:
+// - "ConversationConfigOverride" o "ConversationInitiationData" 
+// - "conversation_config_override" (il campo JSON che viene inviato)
+// - "SessionConfig" o "Configuration"
 ```
 
-Il backend (`elevenlabs-conversation-token`) restituisce:
-```json
-{
-  "signed_url": "wss://...",   // ← QUESTO serve per overrides
-  "token": "xxx",              // ← Questo è il JWT per WebRTC
-  "agent_id": "agent_2901khw977kbesesvd00yh2mbeyx"
-}
-```
+Se l'SDK usa nomi diversi, adatta il codice. L'importante è che gli overrides vengano passati nella `startSession()`, NON dopo con `updateContext()`.
 
-### Come verificare che funziona
+### Come l'SDK invia gli overrides internamente
+
+Quando chiami `startSession(conversationToken:, config:)`, l'SDK:
+1. Si connette alla room LiveKit usando il JWT token
+2. Invia un messaggio `conversation_initiation_client_data` via data channel con gli overrides
+3. L'agente ElevenLabs riceve gli overrides e li usa per la conversazione
+
+Questo è lo stesso meccanismo del web (dove funziona). La differenza è che sul web gli overrides vengono inviati come primo messaggio WebSocket, su iOS via data channel LiveKit — ma l'effetto è identico.
+
+### CHECKLIST FINALE
+
+- [x] Rimosso OGNI chiamata a `updateContext()` o `conversation.updateContext()`
+- [x] Overrides passati tramite `SessionConfig` nella `startSession()`
+- [x] NO pre-configurazione di `AVAudioSession`
+- [x] NO watchdog timer o state machine complesse
+- [x] Logging con prefisso `[AriaVoice]`
+
+### Come verificare
 
 Nei log dovresti vedere:
 ```
-[AriaVoice] Attempt 1: signedUrl (WebSocket) + overrides
-[AriaVoice] Connected with full clinical prompt!
+[AriaVoice] Attempt 1: conversationToken + overrides
+[AriaVoice] Connected with overrides!
 ```
 
-E Aria dovrebbe salutarti con il messaggio personalizzato tipo:
-"Ciao [Nome]! Come stai?" (non "Sono Aria, la tua assistente personale")
+E Aria dovrebbe:
+1. **Parlare** (non più muta!)
+2. Salutarti con "Ciao [Nome]! Come stai?" (non "Sono Aria, la tua assistente personale")
 
-### REGOLA CHIAVE
+### Se il primo messaggio è ancora quello di default
 
-```
-signedUrl → WebSocket → SUPPORTA overrides ✅
-conversationToken → WebRTC/LiveKit → NON supporta overrides ❌
-```
+Se Aria PARLA ma il primo messaggio è ancora "Sono Aria, la tua assistente personale", significa che gli overrides non vengono applicati in tempo per il primo messaggio. In quel caso:
+1. Tutti i messaggi SUCCESSIVI useranno comunque il prompt clinico (gli overrides sono attivi)
+2. Possiamo aggiornare il first_message nel dashboard ElevenLabs come workaround
+3. Ma prima verifichiamo che funzioni — il problema più urgente è che Aria non parla!
 
-Il web funziona perché usa `signedUrl` + overrides come primo tentativo. iOS deve fare lo stesso.
+### NON FARE
 
-### NON MODIFICARE
-
-- ❌ NON cambiare il backend (elevenlabs-conversation-token, elevenlabs-context)
-- ❌ NON aggiungere updateContext() o strategie complesse
-- ❌ NON pre-configurare AVAudioSession
-- ✅ Cambia SOLO il primo tentativo da conversationToken → signedUrl
+- ❌ NON aggiungere `updateContext()` dopo la connessione
+- ❌ NON pre-configurare `AVAudioSession`
+- ❌ NON cambiare il backend
+- ❌ NON usare `signedUrl` (non supportato dall'SDK Swift)
+- ❌ NON aggiungere timeout estesi
