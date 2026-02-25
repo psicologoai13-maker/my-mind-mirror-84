@@ -1108,11 +1108,25 @@ NON inventare NIENTE basandoti su inferenze generali!
 ═══════════════════════════════════════════════
 ⚠️ REGOLA FONDAMENTALE: Se l'utente NON parla ESPLICITAMENTE di questi temi → NULL. MAI inventare!
 
+🚨 CALIBRAZIONE ANTI-CONSERVATIVISMO (OBBLIGATORIA!):
+I modelli AI tendono ad appiattire i punteggi verso 6-7 per cautela. Questo è un ERRORE CLINICO.
+Se l'utente parla CHIARAMENTE BENE di qualcosa, il punteggio DEVE riflettere l'intensità reale.
+- NON avere paura di dare 8, 9 o 10 quando il contesto lo giustifica!
+- Un utente che dice "sono felicissimo" o "giornata fantastica" merita 9-10, NON 7.
+- Un utente che racconta entusiasticamente qualcosa di positivo → almeno 8.
+- Il 7 è per situazioni BUONE MA ORDINARIE ("sto bene", senza dettagli), non per entusiasmo genuino.
+- REGOLA: Se il transcript contiene molte espressioni positive → punteggio >= 8.
+- REGOLA: Se l'utente usa superlativi ("bellissimo", "fantastico", "incredibile") → punteggio >= 9.
+
 **mood** (umore generale 1-10):
 - RILEVA: espressioni ESPLICITE dello stato d'animo generale
 - BASSO (1-4): "mi sento giù", "sono triste", "depresso", "abbattuto", "giornata nera", "umore a terra", "umore pessimo", "mi sento male", "sono a pezzi"
 - MEDIO (5-6): "così così", "normale", "né bene né male", "meh", "insomma", "niente di che"
-- ALTO (7-10): "mi sento bene", "sono felice", "sono contento", "ottimo umore", "alla grande", "in forma smagliante", "giornata fantastica"
+- BUONO (7): "mi sento bene", "sto bene", "giornata ok" → soddisfazione calma senza entusiasmo
+- MOLTO BUONO (8): "sono contento", "giornata bella", "soddisfatto" → positività chiara con dettagli concreti
+- OTTIMO (9): "sono molto felice", "giornata fantastica", "ottimo umore", "alla grande" → entusiasmo evidente con esclamazioni
+- ECCELLENTE (10): "non potrebbe andare meglio", "umore al massimo", "in forma smagliante", "il giorno più bello" → euforia o picco emotivo raro
+- 🚨 Se l'utente racconta cose positive CON ENTUSIASMO → minimo 8. Se ESTREMAMENTE positivo → 9-10.
 - ⚠️ SOLO se l'utente ESPRIME il proprio umore! Sintomi fisici ≠ mood
 - Se NON menzionato esplicitamente → null
 
@@ -1128,16 +1142,20 @@ NON inventare NIENTE basandoti su inferenze generali!
 - RILEVA: livelli di energia fisica/mentale
 - BASSA (1-4): "sono stanco", "esausto", "senza forze", "spossato", "zero energie", "morto", "distrutto", "sfinito", "non ho energie", "sono a terra"
 - MEDIA (5-6): "energia normale", "ok", "nella media"
-- ALTA (7-10): "pieno di energia", "sono carico", "attivo", "dinamico", "in forma", "energico", "pieno di voglia di fare"
+- BUONA (7): "mi sento bene", "attivo" → energia positiva ma ordinaria
+- ALTA (8): "sono carico", "pieno di energia", "dinamico" → energia sopra la norma
+- MOLTO ALTA (9): "energico da paura", "voglia di fare tutto", "in forma smagliante" → entusiasmo energetico
+- MASSIMA (10): "non mi sono mai sentito così carico", "energia esplosiva" → picco raro
+- 🚨 Se l'utente descrive attività intense fatte con piacere e senza fatica → almeno 8.
 - ⚠️ ATTENZIONE: Distingui tra stanchezza FISICA (energy) ed EMOTIVA (mood/burnout)
-- ⚠️ "Sono stanco" senza contesto → potrebbe essere energia OPPURE burnout. Chiedi contesto.
 - Se NON menzionato → null
 
 **sleep** (qualità sonno 1-10):
 - RILEVA: SOLO menzioni ESPLICITE del sonno/riposo notturno
 - SCARSO (1-4): "ho dormito male", "insonnia", "mi sono svegliato alle 3", "incubi", "non dormo", "notte in bianco", "non riesco a dormire", "mi sveglio sempre"
 - MEDIO (5-6): "ho dormito ok", "dormito abbastanza", "così così", "poteva andare meglio"
-- BUONO (7-10): "ho dormito benissimo", "sono riposato", "8 ore filate", "dormito come un sasso", "notte perfetta"
+- BUONO (7-8): "ho dormito bene", "sono riposato", "bella dormita"
+- OTTIMO (9-10): "ho dormito benissimo", "8 ore filate", "dormito come un sasso", "notte perfetta", "miglior sonno da mesi"
 - ⚠️ REGOLA STRETTA: Assegna SOLO se l'utente PARLA del sonno!
 - ⚠️ NON inferire sonno da stanchezza! "Sono stanco" ≠ "ho dormito male"
 - Se NON menziona sonno/dormire/riposo → null (MAI inventare!)
@@ -1152,9 +1170,13 @@ NON inventare NIENTE basandoti su inferenze generali!
 
 **joy** (gioia 0-10):
 - RILEVA: espressioni di felicità, contentezza, O CONTESTO CHIARAMENTE POSITIVO
-- ALTA (7-10): "sono felice", "che bello!", "fantastico!", "entusiasta", "evviva!", "sono contentissimo", "gioia immensa"
-- MEDIA (4-6): "sono contento", "soddisfatto", "mi fa piacere", "bene così", viaggio programmato, uscita con amici, evento positivo imminente
 - BASSA (1-3): "un po' contento", "niente male"
+- MEDIA (4-6): "sono contento", "soddisfatto", "mi fa piacere", "bene così", viaggio programmato, uscita con amici, evento positivo imminente
+- BUONA (7): "sono contento!", "bella giornata" → positività senza eccesso
+- ALTA (8): "sono molto felice", "che bello!", "fantastico!" → entusiasmo chiaro con esclamazioni
+- MOLTO ALTA (9): "sono contentissimo!", "entusiasta!", "non sto nella pelle!" → gioia intensa
+- MASSIMA (10): "gioia immensa", "il giorno più bello della mia vita", "piango di gioia" → picco emotivo
+- 🚨 ANTI-CONSERVATIVISMO: Se l'utente racconta qualcosa con GENUINO entusiasmo → minimo 8. NON dare 7 a chi è chiaramente felice!
 - ✅ PUOI INFERIRE joy da contesto positivo evidente (viaggio, festa, successo, buone notizie)
 - Se contesto neutro/negativo → 0
 
@@ -1227,6 +1249,16 @@ NON inventare NIENTE basandoti su inferenze generali!
     // Build the OMNISCIENT analysis prompt with personalization
     const analysisPrompt = `SEI UN ANALISTA CLINICO OMNISCIENTE con formazione in Psichiatria, Psicologia Clinica e Neuroscienze.
 Analizza la conversazione e restituisci SEMPRE un JSON valido.
+
+🚨 CALIBRAZIONE GLOBALE ANTI-APPIATTIMENTO:
+I modelli AI tendono sistematicamente a dare 7 quando il contesto è positivo. Questo APPIATTISCE i dati e rende l'analisi clinicamente INUTILE.
+REGOLE OBBLIGATORIE per emozioni positive (joy, excitement, serenity, pride, hope, affection, curiosity):
+- Se l'utente esprime positività con ENTUSIASMO (esclamazioni, superlativi, dettagli gioiosi) → punteggio 8-9
+- Se l'utente è ESTREMAMENTE positivo o usa superlativi ("bellissimo!", "incredibile!", "fantastico!") → punteggio 9-10
+- Il 7 è riservato SOLO a positività MODERATA e CALMA senza entusiasmo evidente
+- Il 6 o meno è per positività APPENA ACCENNATA
+- CHIEDITI: "L'utente sembra genuinamente entusiasta?" → Se sì, dai almeno 8.
+
 ${personalizedInstructions}
 ${vitalsSemanticPrompt}
 ${baseEmotionsPrompt}
@@ -1916,13 +1948,17 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
       
-      // 6. Pattern UMORE ALTO senza emozioni → forza joy/excitement
+      // 6. Pattern UMORE ALTO senza emozioni → forza joy/excitement (ANTI-CONSERVATIVISMO)
       if (analysis.vitals.mood && analysis.vitals.mood >= 8) {
-        if (emotions.joy < 5) {
-          console.log(`[CONTEXTUAL] Forcing joy: ${emotions.joy} → 6 (high mood ${analysis.vitals.mood})`);
-          emotions.joy = 6;
+        if (emotions.joy < 7) {
+          console.log(`[CONTEXTUAL] Forcing joy: ${emotions.joy} → ${Math.max(7, analysis.vitals.mood - 1)} (high mood ${analysis.vitals.mood})`);
+          emotions.joy = Math.max(7, analysis.vitals.mood - 1);
         }
-        if (!emotions.excitement && (!emotions.hope || emotions.hope < 4)) {
+        if (!emotions.excitement || emotions.excitement < 5) {
+          console.log(`[CONTEXTUAL] Forcing excitement: ${emotions.excitement || 0} → 5 (high mood ${analysis.vitals.mood})`);
+          emotions.excitement = 5;
+        }
+        if (!emotions.hope || emotions.hope < 5) {
           console.log(`[CONTEXTUAL] Forcing hope: ${emotions.hope || 0} → 5 (high mood)`);
           emotions.hope = 5;
         }
