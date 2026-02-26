@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneOff, Mic, MicOff, X } from "lucide-react";
 import { useElevenLabsAgent } from "@/hooks/useElevenLabsAgent";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ZenVoiceModalProps {
@@ -13,14 +13,15 @@ interface ZenVoiceModalProps {
 }
 
 // Floating particle component
-const FloatingParticle = ({ delay, duration, size, x, y }: { 
-  delay: number; 
-  duration: number; 
+const FloatingParticle = forwardRef<HTMLDivElement, {
+  delay: number;
+  duration: number;
   size: number;
   x: number;
   y: number;
-}) => (
+}>(({ delay, duration, size, x, y }, ref) => (
   <motion.div
+    ref={ref}
     className="absolute rounded-full"
     style={{
       width: size,
@@ -42,7 +43,8 @@ const FloatingParticle = ({ delay, duration, size, x, y }: {
       ease: "easeInOut",
     }}
   />
-);
+));
+FloatingParticle.displayName = 'FloatingParticle';
 
 export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
   const {
@@ -100,6 +102,12 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
       await stop();
     }
     onClose();
+  };
+
+  const handleOpenChange = async (open: boolean) => {
+    if (!open) {
+      await handleClose();
+    }
   };
 
   const toggleMute = () => {
@@ -266,7 +274,7 @@ export const ZenVoiceModal = ({ isOpen, onClose }: ZenVoiceModalProps) => {
   }, [isActive, isSpeaking, isListening, isConnecting, audioLevel]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent 
         className="w-screen h-screen max-w-none max-h-none m-0 p-0 border-none rounded-none bg-transparent [&>button]:hidden"
         aria-describedby={undefined}

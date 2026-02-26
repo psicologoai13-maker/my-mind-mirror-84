@@ -111,17 +111,19 @@ export const useElevenLabsAgent = () => {
         },
       };
 
-      // 3. Connect using signed URL (WebSocket) or token (WebRTC) 
-      if (tokenData.signed_url) {
-        console.log('[ElevenLabs] Starting session with signed URL (WebSocket)');
-        await conversation.startSession({
-          signedUrl: tokenData.signed_url,
-          overrides,
-        } as any);
-      } else if (tokenData.token) {
+      // 3. Connect using WebRTC token first (more stable on mobile), then WS signed URL
+      if (tokenData.token) {
         console.log('[ElevenLabs] Starting session with conversation token (WebRTC)');
         await conversation.startSession({
           conversationToken: tokenData.token,
+          connectionType: 'webrtc',
+          overrides,
+        } as any);
+      } else if (tokenData.signed_url) {
+        console.log('[ElevenLabs] Starting session with signed URL (WebSocket)');
+        await conversation.startSession({
+          signedUrl: tokenData.signed_url,
+          connectionType: 'websocket',
           overrides,
         } as any);
       } else {
