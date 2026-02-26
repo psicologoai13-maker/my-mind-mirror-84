@@ -24,15 +24,30 @@ export const useElevenLabsAgent = () => {
   const volumeAnimRef = useRef<number>(0);
   const userInitiatedStopRef = useRef(false);
   const contextInjectionTimeoutRef = useRef<number | null>(null);
+  const pendingContextRef = useRef<string>('');
+  const hasInjectedContextRef = useRef(false);
+  const connectedAtRef = useRef<number | null>(null);
+  const autoReconnectAttemptedRef = useRef(false);
+  const shouldAutoReconnectRef = useRef(false);
+  const conversationInstanceRef = useRef<any>(null);
 
   const conversation = useConversation({
     onConnect: () => {
       console.log('[ElevenLabs] Connected');
+      connectedAtRef.current = Date.now();
       setError(null);
     },
     onDisconnect: () => {
       console.log('[ElevenLabs] Disconnected');
       if (!userInitiatedStopRef.current) {
+        const connectedForMs = connectedAtRef.current ? Date.now() - connectedAtRef.current : null;
+        if (connectedForMs !== null && connectedForMs < 15000 && !autoReconnectAttemptedRef.current) {
+          autoReconnectAttemptedRef.current = true;
+          shouldAutoReconnectRef.current = true;
+          setError('Connessione instabile, riconnessione...');
+          return;
+        }
+
         setError('Connessione persa. Riprova.');
       }
     },
@@ -42,6 +57,23 @@ export const useElevenLabsAgent = () => {
         if (userText) {
           transcriptRef.current.push({ role: 'user', text: userText, timestamp: new Date() });
           setTranscriptVersion(v => v + 1);
+
+          if (pendingContextRef.current && !hasInjectedContextRef.current) {
+            const contextToInject = pendingContextRef.current;
+            pendingContextRef.current = '';
+            hasInjectedContextRef.current = true;
+
+            window.setTimeout(async () => {
+              if (conversationInstanceRef.current?.status !== 'connected') return;
+              try {
+                console.log(`[ElevenLabs] Injecting deferred context after first user transcript: ${contextToInject.length} chars`);
+                await conversationInstanceRef.current?.sendContextualUpdate?.(contextToInject);
+                console.log('[ElevenLabs] Deferred dynamic context injected');
+              } catch (ctxErr) {
+                console.warn('[ElevenLabs] Deferred sendContextualUpdate failed (non-critical):', ctxErr);
+              }
+            }, 350);
+          }
         }
       }
       if (message?.type === 'agent_response') {
@@ -57,6 +89,7 @@ export const useElevenLabsAgent = () => {
       setError(typeof error === 'string' ? error : 'Errore di connessione');
     },
   });
+  conversationInstanceRef.current = conversation;
 
   // Audio level polling
   useEffect(() => {
@@ -76,15 +109,21 @@ export const useElevenLabsAgent = () => {
     return () => cancelAnimationFrame(volumeAnimRef.current);
   }, [conversation.status]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (isRecovery = false) => {
     if (conversation.status === 'connected') return;
 
     setIsConnecting(true);
     setError(null);
-    transcriptRef.current = [];
-    setTranscriptVersion(0);
+    if (!isRecovery) {
+      transcriptRef.current = [];
+      setTranscriptVersion(0);
+      autoReconnectAttemptedRef.current = false;
+    }
     sessionStartTimeRef.current = new Date();
     userInitiatedStopRef.current = false;
+    shouldAutoReconnectRef.current = false;
+    hasInjectedContextRef.current = false;
+    pendingContextRef.current = '';
 
     try {
       // 1. Mic permission
@@ -138,27 +177,39 @@ export const useElevenLabsAgent = () => {
       
       console.log('[ElevenLabs] Session started successfully');
 
-      // 4. Inject dynamic user context AFTER connection (delayed + sanitized for stability)
+      // 4. Queue dynamic context for safer deferred injection (after user transcript)
       if (dynamicContext) {
         try {
           const sanitizedContext = dynamicContext
             .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-            .slice(0, 1800);
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 600);
+
+          pendingContextRef.current = sanitizedContext;
+          hasInjectedContextRef.current = false;
 
           if (contextInjectionTimeoutRef.current) {
             window.clearTimeout(contextInjectionTimeoutRef.current);
           }
 
+          // Fallback injection only if user doesn't speak for a while
           contextInjectionTimeoutRef.current = window.setTimeout(async () => {
-            if (conversation.status !== 'connected') return;
+            if (!pendingContextRef.current || hasInjectedContextRef.current) return;
+            if (conversationInstanceRef.current?.status !== 'connected') return;
+
+            const fallbackContext = pendingContextRef.current;
+            pendingContextRef.current = '';
+            hasInjectedContextRef.current = true;
+
             try {
-              console.log(`[ElevenLabs] Injecting delayed dynamic context: ${sanitizedContext.length} chars`);
-              await (conversation as any).sendContextualUpdate?.(sanitizedContext);
-              console.log('[ElevenLabs] Delayed dynamic context injected');
+              console.log(`[ElevenLabs] Injecting fallback deferred context: ${fallbackContext.length} chars`);
+              await conversationInstanceRef.current?.sendContextualUpdate?.(fallbackContext);
+              console.log('[ElevenLabs] Fallback deferred context injected');
             } catch (ctxErr) {
-              console.warn('[ElevenLabs] sendContextualUpdate failed (non-critical):', ctxErr);
+              console.warn('[ElevenLabs] Fallback sendContextualUpdate failed (non-critical):', ctxErr);
             }
-          }, 1200);
+          }, 6500);
         } catch (ctxErr) {
           console.warn('[ElevenLabs] Context sanitization failed (non-critical):', ctxErr);
         }
@@ -185,12 +236,27 @@ export const useElevenLabsAgent = () => {
     }
   }, [conversation]);
 
+  useEffect(() => {
+    if (conversation.status === 'disconnected' && shouldAutoReconnectRef.current) {
+      shouldAutoReconnectRef.current = false;
+      window.setTimeout(() => {
+        start(true).catch((err) => {
+          console.error('[ElevenLabs] Auto-reconnect failed:', err);
+          setError('Connessione persa. Riprova.');
+        });
+      }, 250);
+    }
+  }, [conversation.status, start]);
+
   const stop = useCallback(async () => {
     userInitiatedStopRef.current = true;
     if (contextInjectionTimeoutRef.current) {
       window.clearTimeout(contextInjectionTimeoutRef.current);
       contextInjectionTimeoutRef.current = null;
     }
+    pendingContextRef.current = '';
+    hasInjectedContextRef.current = false;
+    connectedAtRef.current = null;
     
     try {
       await conversation.endSession();
@@ -247,6 +313,9 @@ export const useElevenLabsAgent = () => {
         window.clearTimeout(contextInjectionTimeoutRef.current);
         contextInjectionTimeoutRef.current = null;
       }
+      pendingContextRef.current = '';
+      hasInjectedContextRef.current = false;
+      connectedAtRef.current = null;
       if (conversationRef.current.status === 'connected') {
         conversationRef.current.endSession().catch(console.error);
       }
