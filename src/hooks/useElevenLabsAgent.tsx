@@ -89,14 +89,16 @@ export const useElevenLabsAgent = () => {
       // 1. Mic permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // 2. Fetch dynamic context (lightweight, ~5-10k chars)
-      const contextPromise = supabase.functions.invoke('elevenlabs-context');
+      // 2. Fetch token + context in parallel
+      console.log('[ElevenLabs] Fetching token and context...');
+      const [tokenResult, contextResult] = await Promise.all([
+        supabase.functions.invoke('elevenlabs-conversation-token', {
+          body: { agentId: AGENT_ID }
+        }),
+        supabase.functions.invoke('elevenlabs-context'),
+      ]);
 
-      // 3. Start session with agentId ONLY (static prompt lives in ElevenLabs dashboard)
-      //    This keeps the handshake payload minimal → no connection drops
-      console.log('[ElevenLabs] Starting session with agentId (dashboard prompt)');
-      
-      const contextResult = await contextPromise;
+      const tokenData = tokenResult.data || {};
       const contextData = contextResult.data || {};
       const firstMessage = contextData.first_message || '';
       const dynamicContext = contextData.dynamic_context || '';
@@ -109,15 +111,31 @@ export const useElevenLabsAgent = () => {
         },
       };
 
-      await conversation.startSession({
-        agentId: AGENT_ID,
-        overrides,
-      } as any);
+      // 3. Connect using signed URL (WebSocket) or token (WebRTC) 
+      if (tokenData.signed_url) {
+        console.log('[ElevenLabs] Starting session with signed URL (WebSocket)');
+        await conversation.startSession({
+          signedUrl: tokenData.signed_url,
+          overrides,
+        } as any);
+      } else if (tokenData.token) {
+        console.log('[ElevenLabs] Starting session with conversation token (WebRTC)');
+        await conversation.startSession({
+          conversationToken: tokenData.token,
+          overrides,
+        } as any);
+      } else {
+        // Last resort: try agentId directly (public agent)
+        console.log('[ElevenLabs] No token/URL, trying agentId directly');
+        await conversation.startSession({
+          agentId: AGENT_ID,
+          overrides,
+        } as any);
+      }
       
       console.log('[ElevenLabs] Session started successfully');
 
       // 4. Inject dynamic user context AFTER connection via sendContextualUpdate
-      //    This doesn't break the connection because it's sent post-handshake
       if (dynamicContext) {
         try {
           console.log(`[ElevenLabs] Injecting dynamic context: ${dynamicContext.length} chars`);
@@ -131,9 +149,9 @@ export const useElevenLabsAgent = () => {
     } catch (err) {
       console.error('[ElevenLabs] Failed to start:', err);
       
-      // Fallback: try without any overrides
+      // Fallback: try agentId directly without overrides
       try {
-        console.log('[ElevenLabs] Retrying without overrides');
+        console.log('[ElevenLabs] Retrying with agentId only');
         await conversation.startSession({
           agentId: AGENT_ID,
         } as any);
