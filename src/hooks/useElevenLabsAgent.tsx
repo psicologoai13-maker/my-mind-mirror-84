@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,9 +9,6 @@ interface TranscriptEntry {
   text: string;
   timestamp: Date;
 }
-
-// No prompt truncation — ElevenLabs handles large prompts fine.
-// The disconnect-after-first-message bug is NOT caused by prompt size.
 
 export const useElevenLabsAgent = () => {
   const { user } = useAuth();
@@ -24,13 +21,18 @@ export const useElevenLabsAgent = () => {
   const sessionStartTimeRef = useRef<Date | null>(null);
   const volumeAnimRef = useRef<number>(0);
   
+  // Overrides state — set BEFORE startSession, used by useConversation
+  const [agentOverrides, setAgentOverrides] = useState<any>(undefined);
+  
   // Reconnect state
   const hasAttemptedReconnectRef = useRef(false);
   const userInitiatedStopRef = useRef(false);
-  const cachedOverridesRef = useRef<any>(null);
   const cachedTokenDataRef = useRef<any>(null);
 
+  // Overrides go in the HOOK (not startSession) per ElevenLabs SDK docs
+  // See: https://github.com/elevenlabs/packages/issues/92
   const conversation = useConversation({
+    overrides: agentOverrides,
     onConnect: () => {
       console.log('[ElevenLabs] Connected to agent');
       setError(null);
@@ -38,11 +40,10 @@ export const useElevenLabsAgent = () => {
     onDisconnect: () => {
       console.log('[ElevenLabs] Disconnected from agent');
       
-      // If user didn't initiate stop, attempt reconnect
       if (!userInitiatedStopRef.current && !hasAttemptedReconnectRef.current) {
-        console.warn('[ElevenLabs] Unexpected disconnect — attempting reconnect with overrides');
+        console.warn('[ElevenLabs] Unexpected disconnect — attempting reconnect');
         hasAttemptedReconnectRef.current = true;
-        reconnectWithOverrides();
+        reconnectSession();
       } else if (!userInitiatedStopRef.current) {
         console.error('[ElevenLabs] Unexpected disconnect after reconnect — giving up');
         setError('Connessione persa. Riprova.');
@@ -72,55 +73,35 @@ export const useElevenLabsAgent = () => {
     },
   });
 
-  // Reconnect preserving overrides
-  const reconnectWithOverrides = useCallback(async () => {
+  // Reconnect using cached token (overrides already in hook state)
+  const reconnectSession = useCallback(async () => {
     const tokenData = cachedTokenDataRef.current;
-    const overrides = cachedOverridesRef.current;
-    
     if (!tokenData) {
-      console.error('[ElevenLabs] No cached token for reconnect');
       setError('Connessione persa. Riprova.');
       return;
     }
 
     try {
-      // Strategy: try WebRTC with overrides first (more stable for reconnects)
+      // Try WebRTC first, then WebSocket — NO overrides in startSession
       if (tokenData.token) {
         try {
-          const opts: any = { conversationToken: tokenData.token };
-          if (overrides) opts.overrides = overrides;
-          console.log('[ElevenLabs] Reconnect: WebRTC + overrides');
-          await conversation.startSession(opts);
-          console.log('[ElevenLabs] Reconnect successful (WebRTC + overrides)');
+          console.log('[ElevenLabs] Reconnect: WebRTC (token)');
+          await conversation.startSession({ conversationToken: tokenData.token });
+          console.log('[ElevenLabs] Reconnect successful');
           return;
         } catch (e) {
-          console.warn('[ElevenLabs] Reconnect WebRTC+overrides failed:', e);
+          console.warn('[ElevenLabs] Reconnect WebRTC failed:', e);
         }
       }
 
-      // Fallback: signedUrl with overrides
       if (tokenData.signed_url) {
         try {
-          const opts: any = { signedUrl: tokenData.signed_url };
-          if (overrides) opts.overrides = overrides;
-          console.log('[ElevenLabs] Reconnect: WebSocket + overrides');
-          await conversation.startSession(opts);
-          console.log('[ElevenLabs] Reconnect successful (WebSocket + overrides)');
+          console.log('[ElevenLabs] Reconnect: WebSocket (signedUrl)');
+          await conversation.startSession({ signedUrl: tokenData.signed_url });
+          console.log('[ElevenLabs] Reconnect successful');
           return;
         } catch (e) {
-          console.warn('[ElevenLabs] Reconnect WebSocket+overrides failed:', e);
-        }
-      }
-
-      // Last resort: token without overrides
-      if (tokenData.token) {
-        try {
-          console.log('[ElevenLabs] Reconnect: WebRTC no overrides (last resort)');
-          await conversation.startSession({ conversationToken: tokenData.token });
-          console.log('[ElevenLabs] Reconnect successful (WebRTC, no overrides)');
-          return;
-        } catch (e) {
-          console.error('[ElevenLabs] Reconnect last resort failed:', e);
+          console.warn('[ElevenLabs] Reconnect WebSocket failed:', e);
         }
       }
 
@@ -181,79 +162,63 @@ export const useElevenLabsAgent = () => {
       const tokenData = tokenResult.data;
       const contextData = contextResult.data || {};
       
-      // Cache for reconnect
       cachedTokenDataRef.current = tokenData;
       
       console.log('[ElevenLabs] Context loaded:', contextData.user_name, `(${contextData.system_prompt?.length || 0} chars prompt)`);
 
-      // Build overrides — truncate prompt for stability
+      // Set overrides in HOOK STATE (not in startSession!)
       const rawPrompt = contextData.system_prompt || '';
-      
-      console.log(`[ElevenLabs] Using full prompt: ${rawPrompt.length} chars (no truncation)`);
+      if (rawPrompt) {
+        const overrides = {
+          agent: {
+            prompt: { prompt: rawPrompt },
+            firstMessage: contextData.first_message || undefined,
+            language: 'it',
+          },
+        };
+        setAgentOverrides(overrides);
+        console.log(`[ElevenLabs] Overrides set in hook: ${rawPrompt.length} chars prompt`);
+        
+        // Give React a tick to re-render the hook with new overrides
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
-      const overrides = rawPrompt ? {
-        agent: {
-          prompt: { prompt: rawPrompt },
-          firstMessage: contextData.first_message || undefined,
-          language: 'it',
-        },
-      } : undefined;
-
-      // Cache overrides for reconnect
-      cachedOverridesRef.current = overrides;
-
-      // Connection strategy: WebRTC first (more stable), then WebSocket
+      // startSession: ONLY connection params, NO overrides
       let started = false;
 
-      // Attempt 1: WebRTC (conversationToken) + overrides — most stable
+      // Attempt 1: WebRTC (conversationToken)
       if (tokenData.token) {
         try {
-          const opts: any = { conversationToken: tokenData.token };
-          if (overrides) opts.overrides = overrides;
-          console.log('[ElevenLabs] Attempt 1: WebRTC + overrides');
-          await conversation.startSession(opts);
-          started = true;
-          console.log('[ElevenLabs] Session started (WebRTC + overrides)');
-        } catch (rtcError) {
-          console.warn('[ElevenLabs] WebRTC + overrides failed:', rtcError);
-        }
-      }
-
-      // Attempt 2: WebSocket (signedUrl) + overrides
-      if (!started && tokenData.signed_url) {
-        try {
-          const opts: any = { signedUrl: tokenData.signed_url };
-          if (overrides) opts.overrides = overrides;
-          console.log('[ElevenLabs] Attempt 2: WebSocket + overrides');
-          await conversation.startSession(opts);
-          started = true;
-          console.log('[ElevenLabs] Session started (WebSocket + overrides)');
-        } catch (wsError) {
-          console.warn('[ElevenLabs] WebSocket + overrides failed:', wsError);
-        }
-      }
-
-      // Attempt 3: WebRTC without overrides
-      if (!started && tokenData.token) {
-        try {
-          console.log('[ElevenLabs] Attempt 3: WebRTC without overrides (fallback)');
+          console.log('[ElevenLabs] Attempt 1: WebRTC (token)');
           await conversation.startSession({ conversationToken: tokenData.token });
           started = true;
-          console.log('[ElevenLabs] Session started (WebRTC, dashboard prompt)');
+          console.log('[ElevenLabs] Session started via WebRTC');
         } catch (rtcError) {
-          console.error('[ElevenLabs] WebRTC fallback failed:', rtcError);
+          console.warn('[ElevenLabs] WebRTC failed:', rtcError);
         }
       }
 
-      // Attempt 4: signedUrl without overrides
+      // Attempt 2: WebSocket (signedUrl)
       if (!started && tokenData.signed_url) {
         try {
-          console.log('[ElevenLabs] Attempt 4: WebSocket without overrides (last resort)');
+          console.log('[ElevenLabs] Attempt 2: WebSocket (signedUrl)');
           await conversation.startSession({ signedUrl: tokenData.signed_url });
           started = true;
-          console.log('[ElevenLabs] Session started (WebSocket, no overrides)');
+          console.log('[ElevenLabs] Session started via WebSocket');
+        } catch (wsError) {
+          console.warn('[ElevenLabs] WebSocket failed:', wsError);
+        }
+      }
+
+      // Attempt 3: signedUrl without anything else as last resort
+      if (!started && tokenData.signed_url) {
+        try {
+          console.log('[ElevenLabs] Attempt 3: signedUrl retry');
+          await conversation.startSession({ signedUrl: tokenData.signed_url });
+          started = true;
+          console.log('[ElevenLabs] Session started via signedUrl retry');
         } catch (lastError) {
-          console.error('[ElevenLabs] All connection attempts failed:', lastError);
+          console.error('[ElevenLabs] All attempts failed:', lastError);
           throw lastError;
         }
       }
@@ -282,7 +247,6 @@ export const useElevenLabsAgent = () => {
       console.error('[ElevenLabs] Error stopping conversation:', err);
     }
 
-    // Always save session if user is authenticated
     if (!user) {
       console.warn('[ElevenLabs] No user, skipping session save');
       return;
@@ -344,7 +308,7 @@ export const useElevenLabsAgent = () => {
   
   useEffect(() => {
     return () => {
-      userInitiatedStopRef.current = true; // prevent reconnect on unmount
+      userInitiatedStopRef.current = true;
       if (conversationRef.current.status === 'connected') {
         conversationRef.current.endSession().catch(console.error);
       }
