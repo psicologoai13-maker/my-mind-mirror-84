@@ -653,9 +653,9 @@ const corsHeaders = {
 ### 7.2 Variabili Frontend (.env)
 
 ```
-VITE_SUPABASE_URL=https://yzlszvvhbcasbzsaastq.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJ...
-VITE_SUPABASE_PROJECT_ID=yzlszvvhbcasbzsaastq
+VITE_SUPABASE_URL=https://pcsoranahgoinljvgmtl.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_JGcjU6yk4Fc9ffH45b0oOA_4vyklzEF
+VITE_SUPABASE_PROJECT_ID=pcsoranahgoinljvgmtl
 ```
 
 ---
@@ -763,7 +763,7 @@ Tutte le funzioni hanno `verify_jwt = false` perché l'autenticazione è gestita
 Le Edge Functions sono deployate automaticamente dal sistema Lovable Cloud. Per un deploy manuale (migrazione a Supabase standalone):
 
 ```bash
-supabase functions deploy nome-funzione --project-ref yzlszvvhbcasbzsaastq
+supabase functions deploy nome-funzione --project-ref pcsoranahgoinljvgmtl
 ```
 
 ### 10.3 Migrazioni Database
