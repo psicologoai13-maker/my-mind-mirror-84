@@ -10,6 +10,18 @@ interface TranscriptEntry {
   timestamp: Date;
 }
 
+// Max prompt size for voice overrides (larger prompts destabilize WebSocket)
+const MAX_VOICE_PROMPT_CHARS = 12000;
+
+function truncatePrompt(prompt: string, maxChars: number): string {
+  if (prompt.length <= maxChars) return prompt;
+  // Keep the first part (identity + golden rules) and truncate the rest
+  const truncated = prompt.substring(0, maxChars);
+  const lastNewline = truncated.lastIndexOf('\n');
+  return (lastNewline > maxChars * 0.8 ? truncated.substring(0, lastNewline) : truncated) +
+    '\n\n[Istruzioni aggiuntive omesse per stabilità vocale]';
+}
+
 export const useElevenLabsAgent = () => {
   const { user } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -20,6 +32,12 @@ export const useElevenLabsAgent = () => {
   const [transcriptVersion, setTranscriptVersion] = useState(0);
   const sessionStartTimeRef = useRef<Date | null>(null);
   const volumeAnimRef = useRef<number>(0);
+  
+  // Reconnect state
+  const hasAttemptedReconnectRef = useRef(false);
+  const userInitiatedStopRef = useRef(false);
+  const cachedOverridesRef = useRef<any>(null);
+  const cachedTokenDataRef = useRef<any>(null);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -28,6 +46,16 @@ export const useElevenLabsAgent = () => {
     },
     onDisconnect: () => {
       console.log('[ElevenLabs] Disconnected from agent');
+      
+      // If user didn't initiate stop, attempt reconnect
+      if (!userInitiatedStopRef.current && !hasAttemptedReconnectRef.current) {
+        console.warn('[ElevenLabs] Unexpected disconnect — attempting reconnect with overrides');
+        hasAttemptedReconnectRef.current = true;
+        reconnectWithOverrides();
+      } else if (!userInitiatedStopRef.current) {
+        console.error('[ElevenLabs] Unexpected disconnect after reconnect — giving up');
+        setError('Connessione persa. Riprova.');
+      }
     },
     onMessage: (message: any) => {
       if (message?.type === 'user_transcript') {
@@ -52,6 +80,65 @@ export const useElevenLabsAgent = () => {
       setError(typeof error === 'string' ? error : 'Errore di connessione');
     },
   });
+
+  // Reconnect preserving overrides
+  const reconnectWithOverrides = useCallback(async () => {
+    const tokenData = cachedTokenDataRef.current;
+    const overrides = cachedOverridesRef.current;
+    
+    if (!tokenData) {
+      console.error('[ElevenLabs] No cached token for reconnect');
+      setError('Connessione persa. Riprova.');
+      return;
+    }
+
+    try {
+      // Strategy: try WebRTC with overrides first (more stable for reconnects)
+      if (tokenData.token) {
+        try {
+          const opts: any = { conversationToken: tokenData.token };
+          if (overrides) opts.overrides = overrides;
+          console.log('[ElevenLabs] Reconnect: WebRTC + overrides');
+          await conversation.startSession(opts);
+          console.log('[ElevenLabs] Reconnect successful (WebRTC + overrides)');
+          return;
+        } catch (e) {
+          console.warn('[ElevenLabs] Reconnect WebRTC+overrides failed:', e);
+        }
+      }
+
+      // Fallback: signedUrl with overrides
+      if (tokenData.signed_url) {
+        try {
+          const opts: any = { signedUrl: tokenData.signed_url };
+          if (overrides) opts.overrides = overrides;
+          console.log('[ElevenLabs] Reconnect: WebSocket + overrides');
+          await conversation.startSession(opts);
+          console.log('[ElevenLabs] Reconnect successful (WebSocket + overrides)');
+          return;
+        } catch (e) {
+          console.warn('[ElevenLabs] Reconnect WebSocket+overrides failed:', e);
+        }
+      }
+
+      // Last resort: token without overrides
+      if (tokenData.token) {
+        try {
+          console.log('[ElevenLabs] Reconnect: WebRTC no overrides (last resort)');
+          await conversation.startSession({ conversationToken: tokenData.token });
+          console.log('[ElevenLabs] Reconnect successful (WebRTC, no overrides)');
+          return;
+        } catch (e) {
+          console.error('[ElevenLabs] Reconnect last resort failed:', e);
+        }
+      }
+
+      setError('Impossibile riconnettersi. Riprova.');
+    } catch (err) {
+      console.error('[ElevenLabs] Reconnect failed:', err);
+      setError('Connessione persa. Riprova.');
+    }
+  }, [conversation]);
 
   // Real-time audio level polling
   useEffect(() => {
@@ -85,6 +172,8 @@ export const useElevenLabsAgent = () => {
     transcriptRef.current = [];
     setTranscriptVersion(0);
     sessionStartTimeRef.current = new Date();
+    hasAttemptedReconnectRef.current = false;
+    userInitiatedStopRef.current = false;
 
     try {
       // Parallel: mic permission + token + context
@@ -101,26 +190,53 @@ export const useElevenLabsAgent = () => {
       const tokenData = tokenResult.data;
       const contextData = contextResult.data || {};
       
+      // Cache for reconnect
+      cachedTokenDataRef.current = tokenData;
+      
       console.log('[ElevenLabs] Context loaded:', contextData.user_name, `(${contextData.system_prompt?.length || 0} chars prompt)`);
 
-      // Build overrides from context
-      const overrides = contextData.system_prompt ? {
+      // Build overrides — truncate prompt for stability
+      const rawPrompt = contextData.system_prompt || '';
+      const safePrompt = truncatePrompt(rawPrompt, MAX_VOICE_PROMPT_CHARS);
+      
+      if (rawPrompt.length > MAX_VOICE_PROMPT_CHARS) {
+        console.log(`[ElevenLabs] Prompt truncated: ${rawPrompt.length} → ${safePrompt.length} chars`);
+      }
+
+      const overrides = safePrompt ? {
         agent: {
-          prompt: { prompt: contextData.system_prompt },
+          prompt: { prompt: safePrompt },
           firstMessage: contextData.first_message || undefined,
           language: 'it',
         },
       } : undefined;
 
-      // Strategy: try signedUrl + overrides first, then fallback to token without overrides
+      // Cache overrides for reconnect
+      cachedOverridesRef.current = overrides;
+
+      // Connection strategy: WebRTC first (more stable), then WebSocket
       let started = false;
 
-      // Attempt 1: signedUrl (WebSocket) + overrides
-      if (tokenData.signed_url) {
+      // Attempt 1: WebRTC (conversationToken) + overrides — most stable
+      if (tokenData.token) {
+        try {
+          const opts: any = { conversationToken: tokenData.token };
+          if (overrides) opts.overrides = overrides;
+          console.log('[ElevenLabs] Attempt 1: WebRTC + overrides');
+          await conversation.startSession(opts);
+          started = true;
+          console.log('[ElevenLabs] Session started (WebRTC + overrides)');
+        } catch (rtcError) {
+          console.warn('[ElevenLabs] WebRTC + overrides failed:', rtcError);
+        }
+      }
+
+      // Attempt 2: WebSocket (signedUrl) + overrides
+      if (!started && tokenData.signed_url) {
         try {
           const opts: any = { signedUrl: tokenData.signed_url };
           if (overrides) opts.overrides = overrides;
-          console.log('[ElevenLabs] Attempting WebSocket + overrides');
+          console.log('[ElevenLabs] Attempt 2: WebSocket + overrides');
           await conversation.startSession(opts);
           started = true;
           console.log('[ElevenLabs] Session started (WebSocket + overrides)');
@@ -129,22 +245,22 @@ export const useElevenLabsAgent = () => {
         }
       }
 
-      // Attempt 2: token (WebRTC) without overrides
+      // Attempt 3: WebRTC without overrides
       if (!started && tokenData.token) {
         try {
-          console.log('[ElevenLabs] Attempting WebRTC without overrides (fallback)');
+          console.log('[ElevenLabs] Attempt 3: WebRTC without overrides (fallback)');
           await conversation.startSession({ conversationToken: tokenData.token });
           started = true;
           console.log('[ElevenLabs] Session started (WebRTC, dashboard prompt)');
         } catch (rtcError) {
-          console.error('[ElevenLabs] WebRTC fallback also failed:', rtcError);
+          console.error('[ElevenLabs] WebRTC fallback failed:', rtcError);
         }
       }
 
-      // Attempt 3: signedUrl without overrides
+      // Attempt 4: signedUrl without overrides
       if (!started && tokenData.signed_url) {
         try {
-          console.log('[ElevenLabs] Attempting WebSocket without overrides (last resort)');
+          console.log('[ElevenLabs] Attempt 4: WebSocket without overrides (last resort)');
           await conversation.startSession({ signedUrl: tokenData.signed_url });
           started = true;
           console.log('[ElevenLabs] Session started (WebSocket, no overrides)');
@@ -169,6 +285,8 @@ export const useElevenLabsAgent = () => {
   }, [conversation]);
 
   const stop = useCallback(async () => {
+    userInitiatedStopRef.current = true;
+    
     try {
       await conversation.endSession();
       console.log('[ElevenLabs] Session ended');
@@ -176,7 +294,7 @@ export const useElevenLabsAgent = () => {
       console.error('[ElevenLabs] Error stopping conversation:', err);
     }
 
-    // Always save session if user is authenticated, even with empty transcript
+    // Always save session if user is authenticated
     if (!user) {
       console.warn('[ElevenLabs] No user, skipping session save');
       return;
@@ -193,7 +311,7 @@ export const useElevenLabsAgent = () => {
 
     const aiSummary = hasTranscript ? 'Sessione vocale con Aria' : 'Sessione vocale breve';
     
-    console.log(`[ElevenLabs] Saving session: duration=${durationSec}s, transcriptEntries=${transcriptRef.current.length}, chars=${transcript.length}`);
+    console.log(`[ElevenLabs] Saving session: duration=${durationSec}s, transcriptEntries=${transcriptRef.current.length}`);
 
     try {
       const { data: sessionData, error: insertError } = await supabase.from('sessions').insert({
@@ -214,7 +332,6 @@ export const useElevenLabsAgent = () => {
 
       console.log('[ElevenLabs] Session saved:', sessionData.id);
 
-      // Process session in background only if there's meaningful transcript
       if (hasTranscript && sessionData.id) {
         supabase.functions.invoke('process-session', {
           body: {
@@ -239,6 +356,7 @@ export const useElevenLabsAgent = () => {
   
   useEffect(() => {
     return () => {
+      userInitiatedStopRef.current = true; // prevent reconnect on unmount
       if (conversationRef.current.status === 'connected') {
         conversationRef.current.endSession().catch(console.error);
       }
@@ -253,7 +371,6 @@ export const useElevenLabsAgent = () => {
     error,
     transcript: transcriptRef.current,
     
-    // Real audio levels for visualization
     audioLevel: conversation.isSpeaking ? outputVolume : inputVolume,
     inputVolume,
     outputVolume,
