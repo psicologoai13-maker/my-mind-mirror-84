@@ -169,9 +169,9 @@ serve(async (req) => {
     const recentSummaries = sessions.slice(0, 3).map(s => s.ai_summary).filter(Boolean);
 
     // Build AI prompt
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
     const systemPrompt = `Sei un AI psicologo che personalizza la pagina ANALISI di un'app di benessere mentale.
@@ -278,19 +278,15 @@ ${recentSummaries.length > 0 ? recentSummaries.join('\n---\n') : 'Nessuna sessio
 
 Genera la configurazione della pagina Analisi.`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-        temperature: 0.7,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        generationConfig: { temperature: 0.7 },
       }),
     });
 
@@ -311,7 +307,7 @@ Genera la configurazione della pagina Analisi.`;
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || '';
+    const content = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     // Parse JSON from response
     let analysisLayout: AnalysisLayout;

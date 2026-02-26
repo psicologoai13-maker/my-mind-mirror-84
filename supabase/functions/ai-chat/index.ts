@@ -4647,12 +4647,12 @@ serve(async (req) => {
     
     const isCrisis = detectCrisis(messages || []);
     const userProfile = await getUserProfile(authHeader, accessToken, userId);
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
+
     console.log(`[ai-chat] User: ${userProfile.name || 'Anonymous'}, Goals: ${userProfile.selected_goals.join(',')}, Memory: ${userProfile.long_term_memory.length}`);
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+
+    if (!GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_API_KEY is not configured");
     }
 
     // Generate session summary
@@ -4670,15 +4670,13 @@ Rispondi SOLO con il JSON.
 Conversazione:
 ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
 
-      const summaryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const summaryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [{ role: "user", content: summaryPrompt }],
+          contents: [{ role: "user", parts: [{ text: summaryPrompt }] }],
         }),
       });
 
@@ -4687,7 +4685,7 @@ ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`;
       }
 
       const summaryData = await summaryResponse.json();
-      const summaryContent = summaryData.choices?.[0]?.message?.content || "";
+      const summaryContent = summaryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
       
       try {
         const jsonMatch = summaryContent.match(/\{[\s\S]*\}/);
@@ -4856,16 +4854,21 @@ NON aggiungere altro.`;
     }
 
     // Chat response - streaming or non-streaming based on client request
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const geminiContents = messages.map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : m.role,
+      parts: [{ text: m.content }]
+    }));
+    const geminiEndpoint = useStreaming
+      ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${GOOGLE_API_KEY}`
+      : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`;
+    const response = await fetch(geminiEndpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        stream: useStreaming,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiContents,
       }),
     });
 
@@ -4886,21 +4889,47 @@ NON aggiungere altro.`;
     // Non-streaming mode: return simple JSON response (for iOS)
     if (!useStreaming) {
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "";
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const responseBody: Record<string, any> = { reply: content };
-      
+
       const nonStreamHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": "application/json" };
       if (isCrisis) nonStreamHeaders["X-Crisis-Alert"] = "true";
-      
+
       console.log(`[ai-chat] Non-streaming response sent, length: ${content.length}`);
       return new Response(JSON.stringify(responseBody), { headers: nonStreamHeaders });
     }
 
-    // Streaming mode (default for web)
+    // Streaming mode (default for web): transform Gemini SSE to OpenAI SSE format
     const responseHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": "text/event-stream" };
     if (isCrisis) responseHeaders["X-Crisis-Alert"] = "true";
 
-    return new Response(response.body, { headers: responseHeaders });
+    let sseBuffer = '';
+    const transformStream = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        sseBuffer += new TextDecoder().decode(chunk);
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (!data) continue;
+            try {
+              const parsed = JSON.parse(data);
+              const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (text) {
+                const out = { choices: [{ delta: { content: text }, finish_reason: null }] };
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(out)}\n\n`));
+              }
+            } catch { /* ignore parse errors */ }
+          }
+        }
+      },
+      flush(controller) {
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+      }
+    });
+
+    return new Response(response.body!.pipeThrough(transformStream), { headers: responseHeaders });
   } catch (e) {
     console.error("Chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Errore sconosciuto" }), {

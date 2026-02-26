@@ -722,27 +722,27 @@ MAI scherzare se l'utente è triste/ansioso.
 
 🚨 SICUREZZA: Se rischio autolesionismo → Telefono Amico: 02 2327 2327, Emergenze: 112.`;
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
-    // Call Lovable AI Gateway for chat response
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Google Gemini API for chat response
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory,
-          { role: 'user', content: message },
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [
+          ...conversationHistory.map((m: any) => ({
+            role: m.role === 'assistant' ? 'model' : m.role,
+            parts: [{ text: m.content }]
+          })),
+          { role: 'user', parts: [{ text: message }] },
         ],
-        max_tokens: 300,
-        temperature: 0.8,
+        generationConfig: { maxOutputTokens: 300, temperature: 0.8 },
       }),
     });
 
@@ -753,7 +753,7 @@ MAI scherzare se l'utente è triste/ansioso.
     }
 
     const aiData = await aiResponse.json();
-    const reply = aiData.choices?.[0]?.message?.content || 'Mi dispiace, non riesco a rispondere ora.';
+    const reply = aiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Mi dispiace, non riesco a rispondere ora.';
 
     // Map theme to life area
     const themeToLifeAreaMap: Record<string, string> = {
@@ -836,21 +836,19 @@ Se non c'è nulla di nuovo, restituisci esattamente: "NESSUN_AGGIORNAMENTO"
 
 Rispondi SOLO con la frase o "NESSUN_AGGIORNAMENTO".`;
 
-    fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [{ role: 'user', content: memoryUpdatePrompt }],
-        max_tokens: 100,
+        contents: [{ role: 'user', parts: [{ text: memoryUpdatePrompt }] }],
+        generationConfig: { maxOutputTokens: 100 },
       }),
     }).then(async (memResponse) => {
       if (memResponse.ok) {
         const memData = await memResponse.json();
-        const memoryFact = memData.choices?.[0]?.message?.content?.trim();
+        const memoryFact = memData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         
         if (memoryFact && memoryFact !== 'NESSUN_AGGIORNAMENTO' && memoryFact.length > 5) {
           const factWithContext = `[${themeLabel}] ${memoryFact}`;

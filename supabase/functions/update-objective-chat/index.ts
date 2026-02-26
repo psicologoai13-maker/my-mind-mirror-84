@@ -61,9 +61,9 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
     // Build detailed objectives context with clear IDs
@@ -175,20 +175,18 @@ DEVI stimare il progresso in percentuale basandoti su AZIONI CONCRETE:
 
 TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: messages.map((m: any) => ({
+          role: m.role === 'assistant' ? 'model' : m.role,
+          parts: [{ text: m.content }]
+        })),
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
       }),
     });
 
@@ -198,7 +196,7 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
     }
 
     const data = await response.json();
-    let aiMessage = data.choices[0].message.content;
+    let aiMessage = data.candidates[0].content.parts[0].text;
     
     // Parse any JSON updates from the response
     const updates: ObjectiveUpdate[] = [];

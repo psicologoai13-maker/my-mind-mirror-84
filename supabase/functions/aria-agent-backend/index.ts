@@ -481,9 +481,9 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_API_KEY is not configured");
     }
 
     // Fetch user profile
@@ -531,17 +531,19 @@ NON aggiungere altro.`;
       { role: "user", content: message }
     ];
 
-    // Call Lovable AI Gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Google Gemini API
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        max_tokens: 200, // Keep responses short for voice
+        systemInstruction: { parts: [{ text: messages[0].content }] },
+        contents: messages.slice(1).map((m: any) => ({
+          role: m.role === 'assistant' ? 'model' : m.role,
+          parts: [{ text: m.content }]
+        })),
+        generationConfig: { maxOutputTokens: 200 },
       }),
     });
 
@@ -562,7 +564,7 @@ NON aggiungere altro.`;
     }
 
     const data = await response.json();
-    const ariaResponse = data.choices?.[0]?.message?.content || "Scusa, non ho capito. Puoi ripetere?";
+    const ariaResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Scusa, non ho capito. Puoi ripetere?";
 
     console.log('[aria-agent-backend] Response generated:', ariaResponse.substring(0, 50) + '...');
 

@@ -16,7 +16,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 
     // SECURITY: Require doctor authentication via JWT
     const authHeader = req.headers.get('Authorization');
@@ -230,7 +230,7 @@ serve(async (req) => {
 
     // Generate AI Clinical Summary using Lovable AI Gateway
     let clinicalSummary = '';
-    if (LOVABLE_API_KEY && completedSessions.length >= 1) {
+    if (GOOGLE_API_KEY && completedSessions.length >= 1) {
       try {
         const summariesText = completedSessions
           .slice(0, 5)
@@ -273,25 +273,21 @@ Suggerimenti generici per il professionista (NON diagnosi).
 
 Usa un linguaggio tecnico ma accessibile. NON inventare dati. Se mancano informazioni, indicalo.`;
 
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: 'Sei uno psicologo clinico esperto. Scrivi in italiano, in modo professionale e obiettivo.' },
-              { role: 'user', content: clinicalPrompt }
-            ],
-            max_tokens: 800,
+            systemInstruction: { parts: [{ text: 'Sei uno psicologo clinico esperto. Scrivi in italiano, in modo professionale e obiettivo.' }] },
+            contents: [{ role: 'user', parts: [{ text: clinicalPrompt }] }],
+            generationConfig: { maxOutputTokens: 800 },
           }),
         });
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          clinicalSummary = aiData.choices?.[0]?.message?.content || '';
+          clinicalSummary = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
           console.error('[doctor-view-data] AI response error:', await aiResponse.text());
         }

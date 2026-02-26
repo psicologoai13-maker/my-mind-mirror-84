@@ -175,10 +175,10 @@ ${sortedThemes.length > 0 ? sortedThemes.map(t => `- ${t}`).join('\n') : '- Ness
 
     console.log('Data summary prepared:', dataSummary);
 
-    // Generate clinical report with Lovable AI (GPT-5)
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Generate clinical report with Google Gemini AI
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
     const systemPrompt = `Agisci come un ASSISTENTE CLINICO ESPERTO con formazione in psicologia clinica e psichiatria.
@@ -228,18 +228,14 @@ STRUTTURA DEL REPORT:
 
 Scrivi in italiano. Mantieni un tono professionale e distaccato.`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Genera un report clinico basato su questi dati:\n\n${dataSummary}` }
-        ],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: `Genera un report clinico basato su questi dati:\n\n${dataSummary}` }] }],
       }),
     });
 
@@ -250,7 +246,7 @@ Scrivi in italiano. Mantieni un tono professionale e distaccato.`;
     }
 
     const aiData = await aiResponse.json();
-    const reportText = aiData.choices?.[0]?.message?.content || 'Impossibile generare il report.';
+    const reportText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Impossibile generare il report.';
 
     // Prepare response
     const report = {
