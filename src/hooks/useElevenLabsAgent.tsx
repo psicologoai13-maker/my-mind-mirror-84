@@ -23,6 +23,7 @@ export const useElevenLabsAgent = () => {
   const sessionStartTimeRef = useRef<Date | null>(null);
   const volumeAnimRef = useRef<number>(0);
   const userInitiatedStopRef = useRef(false);
+  const contextInjectionTimeoutRef = useRef<number | null>(null);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -137,14 +138,29 @@ export const useElevenLabsAgent = () => {
       
       console.log('[ElevenLabs] Session started successfully');
 
-      // 4. Inject dynamic user context AFTER connection via sendContextualUpdate
+      // 4. Inject dynamic user context AFTER connection (delayed + sanitized for stability)
       if (dynamicContext) {
         try {
-          console.log(`[ElevenLabs] Injecting dynamic context: ${dynamicContext.length} chars`);
-          await (conversation as any).sendContextualUpdate?.(dynamicContext);
-          console.log('[ElevenLabs] Dynamic context injected');
+          const sanitizedContext = dynamicContext
+            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+            .slice(0, 1800);
+
+          if (contextInjectionTimeoutRef.current) {
+            window.clearTimeout(contextInjectionTimeoutRef.current);
+          }
+
+          contextInjectionTimeoutRef.current = window.setTimeout(async () => {
+            if (conversation.status !== 'connected') return;
+            try {
+              console.log(`[ElevenLabs] Injecting delayed dynamic context: ${sanitizedContext.length} chars`);
+              await (conversation as any).sendContextualUpdate?.(sanitizedContext);
+              console.log('[ElevenLabs] Delayed dynamic context injected');
+            } catch (ctxErr) {
+              console.warn('[ElevenLabs] sendContextualUpdate failed (non-critical):', ctxErr);
+            }
+          }, 1200);
         } catch (ctxErr) {
-          console.warn('[ElevenLabs] sendContextualUpdate failed (non-critical):', ctxErr);
+          console.warn('[ElevenLabs] Context sanitization failed (non-critical):', ctxErr);
         }
       }
 
@@ -171,6 +187,10 @@ export const useElevenLabsAgent = () => {
 
   const stop = useCallback(async () => {
     userInitiatedStopRef.current = true;
+    if (contextInjectionTimeoutRef.current) {
+      window.clearTimeout(contextInjectionTimeoutRef.current);
+      contextInjectionTimeoutRef.current = null;
+    }
     
     try {
       await conversation.endSession();
@@ -223,6 +243,10 @@ export const useElevenLabsAgent = () => {
   useEffect(() => {
     return () => {
       userInitiatedStopRef.current = true;
+      if (contextInjectionTimeoutRef.current) {
+        window.clearTimeout(contextInjectionTimeoutRef.current);
+        contextInjectionTimeoutRef.current = null;
+      }
       if (conversationRef.current.status === 'connected') {
         conversationRef.current.endSession().catch(console.error);
       }
