@@ -10,17 +10,8 @@ interface TranscriptEntry {
   timestamp: Date;
 }
 
-// Max prompt size for voice overrides (larger prompts destabilize WebSocket)
-const MAX_VOICE_PROMPT_CHARS = 12000;
-
-function truncatePrompt(prompt: string, maxChars: number): string {
-  if (prompt.length <= maxChars) return prompt;
-  // Keep the first part (identity + golden rules) and truncate the rest
-  const truncated = prompt.substring(0, maxChars);
-  const lastNewline = truncated.lastIndexOf('\n');
-  return (lastNewline > maxChars * 0.8 ? truncated.substring(0, lastNewline) : truncated) +
-    '\n\n[Istruzioni aggiuntive omesse per stabilità vocale]';
-}
+// No prompt truncation — ElevenLabs handles large prompts fine.
+// The disconnect-after-first-message bug is NOT caused by prompt size.
 
 export const useElevenLabsAgent = () => {
   const { user } = useAuth();
@@ -197,15 +188,12 @@ export const useElevenLabsAgent = () => {
 
       // Build overrides — truncate prompt for stability
       const rawPrompt = contextData.system_prompt || '';
-      const safePrompt = truncatePrompt(rawPrompt, MAX_VOICE_PROMPT_CHARS);
       
-      if (rawPrompt.length > MAX_VOICE_PROMPT_CHARS) {
-        console.log(`[ElevenLabs] Prompt truncated: ${rawPrompt.length} → ${safePrompt.length} chars`);
-      }
+      console.log(`[ElevenLabs] Using full prompt: ${rawPrompt.length} chars (no truncation)`);
 
-      const overrides = safePrompt ? {
+      const overrides = rawPrompt ? {
         agent: {
-          prompt: { prompt: safePrompt },
+          prompt: { prompt: rawPrompt },
           firstMessage: contextData.first_message || undefined,
           language: 'it',
         },
