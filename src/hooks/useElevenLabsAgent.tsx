@@ -23,11 +23,7 @@ export const useElevenLabsAgent = () => {
   const sessionStartTimeRef = useRef<Date | null>(null);
   const volumeAnimRef = useRef<number>(0);
   const userInitiatedStopRef = useRef(false);
-  
-  // Context loaded from backend (for override injection)
-  const contextRef = useRef<{ prompt: string; firstMessage: string } | null>(null);
 
-  // Simple setup following ElevenLabs official docs exactly
   const conversation = useConversation({
     onConnect: () => {
       console.log('[ElevenLabs] Connected');
@@ -93,45 +89,55 @@ export const useElevenLabsAgent = () => {
       // 1. Mic permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // 2. Fetch context for overrides (parallel with nothing else needed)
-      const contextResult = await supabase.functions.invoke('elevenlabs-context');
-      const contextData = contextResult.data || {};
-      const systemPrompt = contextData.system_prompt || '';
-      const firstMessage = contextData.first_message || '';
-      
-      contextRef.current = { prompt: systemPrompt, firstMessage };
-      console.log(`[ElevenLabs] Context: ${systemPrompt.length} chars prompt, firstMessage: "${firstMessage}"`);
+      // 2. Fetch dynamic context (lightweight, ~5-10k chars)
+      const contextPromise = supabase.functions.invoke('elevenlabs-context');
 
-      // 3. Build overrides for this session
-      const overrides: any = {};
-      if (systemPrompt) {
-        overrides.agent = {
-          prompt: { prompt: systemPrompt },
+      // 3. Start session with agentId ONLY (static prompt lives in ElevenLabs dashboard)
+      //    This keeps the handshake payload minimal → no connection drops
+      console.log('[ElevenLabs] Starting session with agentId (dashboard prompt)');
+      
+      const contextResult = await contextPromise;
+      const contextData = contextResult.data || {};
+      const firstMessage = contextData.first_message || '';
+      const dynamicContext = contextData.dynamic_context || '';
+
+      // Build lightweight overrides: only firstMessage + language
+      const overrides: any = {
+        agent: {
           firstMessage: firstMessage || undefined,
           language: 'it',
-        };
-      }
+        },
+      };
 
-      // 4. Start session following official docs:
-      //    agentId + overrides in startSession
-      console.log('[ElevenLabs] Starting session with agentId + overrides');
       await conversation.startSession({
         agentId: AGENT_ID,
-        overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+        overrides,
       } as any);
       
       console.log('[ElevenLabs] Session started successfully');
 
+      // 4. Inject dynamic user context AFTER connection via sendContextualUpdate
+      //    This doesn't break the connection because it's sent post-handshake
+      if (dynamicContext) {
+        try {
+          console.log(`[ElevenLabs] Injecting dynamic context: ${dynamicContext.length} chars`);
+          await (conversation as any).sendContextualUpdate?.(dynamicContext);
+          console.log('[ElevenLabs] Dynamic context injected');
+        } catch (ctxErr) {
+          console.warn('[ElevenLabs] sendContextualUpdate failed (non-critical):', ctxErr);
+        }
+      }
+
     } catch (err) {
       console.error('[ElevenLabs] Failed to start:', err);
       
-      // Fallback: try without overrides (use dashboard config)
+      // Fallback: try without any overrides
       try {
-        console.log('[ElevenLabs] Retrying without overrides (dashboard prompt)');
+        console.log('[ElevenLabs] Retrying without overrides');
         await conversation.startSession({
           agentId: AGENT_ID,
         } as any);
-        console.log('[ElevenLabs] Session started (dashboard prompt)');
+        console.log('[ElevenLabs] Session started (fallback)');
       } catch (fallbackErr) {
         console.error('[ElevenLabs] Fallback also failed:', fallbackErr);
         const errorMessage = fallbackErr instanceof Error ? fallbackErr.message : 'Errore di connessione';
