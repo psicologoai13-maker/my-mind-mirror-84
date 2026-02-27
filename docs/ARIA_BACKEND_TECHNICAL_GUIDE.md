@@ -1,8 +1,10 @@
 # ARIA — Guida Tecnica Backend Completa
 
-> Versione: 1.5 | Data: 26 Febbraio 2026  
-> Destinatario: Sviluppatore backend senza accesso al repository GitHub  
+> Versione: 1.6 | Data: 27 Febbraio 2026
+> Destinatario: Sviluppatore backend senza accesso al repository GitHub
 > Scope: Database PostgreSQL, Edge Functions (Deno), API, Autenticazione, RLS
+>
+> **V1.6**: Migrazione a Supabase standalone completata. Chiamate dirette Google API. Sistema diari personali.
 
 ---
 
@@ -23,7 +25,13 @@
 
 ## 1. Panoramica Architetturale
 
-Il backend di Aria è costruito interamente su **Supabase** (PostgreSQL + Edge Functions Deno + Auth + Realtime).
+Il backend di Aria è costruito interamente su **Supabase Standalone** (PostgreSQL + Edge Functions Deno + Auth + Realtime).
+
+> **V1.6**: Migrato da Lovable Cloud a progetto Supabase indipendente.
+> - **Progetto**: `pcsoranahgoinljvgmtl`
+> - **URL**: `https://pcsoranahgoinljvgmtl.supabase.co`
+> - **Regione**: EU Frankfurt
+> - **GRANT permissions**: aggiunte esplicitamente per PostgREST su 30 tabelle (ruoli: `anon`, `authenticated`, `service_role`)
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -34,22 +42,26 @@ Il backend di Aria è costruito interamente su **Supabase** (PostgreSQL + Edge F
            ▼                      ▼
 ┌──────────────────┐   ┌─────────────────────────┐
 │   PostgreSQL DB   │   │   Deno Edge Functions    │
-│   31+ tabelle     │   │   20+ funzioni           │
+│   31+ tabelle     │   │   22+ funzioni           │
 │   RLS completo    │   │   AI, Processing, Auth   │
+│   GRANT permissions│  │   Google API diretta     │
 └──────────────────┘   └──────────┬──────────────┘
                                   │
                        ┌──────────▼──────────────┐
                        │    API Esterne           │
-                       │  Gemini, ElevenLabs,     │
-                       │  OpenWeather, WorldNews  │
+                       │  Gemini (diretta),       │
+                       │  ElevenLabs, OpenWeather, │
+                       │  WorldNews               │
                        └─────────────────────────┘
 ```
 
 ### Principi
 - **Ogni tabella ha RLS**: nessun dato accessibile senza autenticazione
+- **GRANT permissions esplicite**: su 30 tabelle per ruoli `anon`, `authenticated`, `service_role` (necessario per PostgREST su Supabase standalone)
 - **Edge Functions stateless**: ogni chiamata è indipendente
 - **verify_jwt = false** su tutte le Edge Functions: l'autenticazione è gestita internamente via header `Authorization` o fallback nel body
 - **Service Role**: usato solo nelle Edge Functions per operazioni cross-utente (mai esposto al client)
+- **Google API diretta**: tutte le chiamate Gemini passano per `generativelanguage.googleapis.com` con `GOOGLE_API_KEY` (rimossa dipendenza Lovable AI proxy)
 
 ---
 
@@ -306,8 +318,21 @@ code (varchar), user_id, expires_at, is_active.
 
 ### 2.8 Tabelle Varie
 
-#### `thematic_diaries`
-Diari tematici con messaggi JSON: theme, messages (jsonb array), last_message_preview.
+#### `thematic_diaries` (aggiornata V1.6)
+Diari personali liberi (quaderni) senza interazione AI.
+
+| Colonna | Tipo | Note |
+|---------|------|------|
+| id | uuid | PK |
+| user_id | uuid | FK logica verso auth.users |
+| title | text | Titolo del quaderno |
+| entries | jsonb | Array di entries `[{text, created_at}]` |
+| color | text | Colore del quaderno (hex o nome) |
+| icon | text | Icona del quaderno |
+| created_at | timestamptz | — |
+| updated_at | timestamptz | — |
+
+> **V1.6**: Le colonne `theme`, `messages`, `last_message_preview` sono state sostituite da `title`, `entries`, `color`, `icon`. I diari sono ora quaderni personali liberi — Aria li legge in background per contesto conversazionale.
 
 #### `aria_knowledge_base`
 54 documenti clinici: topic, category, title, content, keywords, priority, is_active.
@@ -484,7 +509,7 @@ const corsHeaders = {
 **Scopo**: Chat testuale principale con Aria.
 **Input**: POST `{ messages: [...], sessionId?, userId?, accessToken?, realTimeContext? }`
 **Output**: Streaming text/event-stream (SSE)
-**Modello AI**: Google Gemini 2.5 Flash
+**Modello AI**: Google Gemini 2.5 Flash (chiamata diretta a `generativelanguage.googleapis.com`)
 **Logica**:
 1. Autenticazione (triple fallback)
 2. Caricamento profilo utente, memorie, obiettivi, abitudini
@@ -499,10 +524,19 @@ const corsHeaders = {
 **Output**: JSON `{ reply, crisisAlert, summary }`
 **Differenze da ai-chat**: Non-streaming, processing clinico incrementale, nessuna chiusura sessione permanente.
 
-#### `thematic-diary-chat`
-**Scopo**: Chat per diari tematici.
-**Input**: POST `{ diaryId, message, theme }`
-**Output**: Streaming SSE
+#### `thematic-diary-chat` — ⛔ DEPRECATED
+**Stato**: DEPRECATA — risponde HTTP 410 (Gone)
+**Motivo**: Sostituita dal sistema diari personali senza AI (V1.6).
+
+#### `diary-save-entry` — **Nuova V1.6**
+**Scopo**: Salva una nuova entry in un diario personale.
+**Input**: POST `{ diaryId, text }`
+**Output**: JSON `{ success, entry }`
+
+#### `diary-get-entries` — **Nuova V1.6**
+**Scopo**: Recupera le entries di un diario personale.
+**Input**: POST `{ diaryId }`
+**Output**: JSON `{ entries: [...] }`
 
 ### 6.3 Funzioni Voce
 
@@ -546,7 +580,9 @@ const corsHeaders = {
 6. Genera `session_context_snapshot`
 7. Estrae e salva nuove `user_memories`
 8. Aggiorna `conversation_topics`
-9. Aggiorna `user_profiles.last_data_change_at`
+9. **V1.6**: Estrae eventi futuri dalla conversazione e li salva in `user_events` con `follow_up_done = false`
+10. **V1.6**: Aggiorna automaticamente eventi con data passata a status `passed`
+11. Aggiorna `user_profiles.last_data_change_at`
 
 ### 6.5 Funzioni Dashboard e Analytics
 
@@ -648,7 +684,7 @@ const corsHeaders = {
 | ELEVENLABS_AGENT_ID | ID agente vocale (`agent_2901khw977kbesesvd00yh2mbeyx`) |
 | OPENWEATHER_API_KEY | OpenWeather meteo |
 | WORLDNEWS_API_KEY | World News API |
-| LOVABLE_API_KEY | Lovable AI proxy |
+| ~~LOVABLE_API_KEY~~ | ~~Lovable AI proxy~~ — **RIMOSSA in V1.6** (sostituita da GOOGLE_API_KEY diretta) |
 
 ### 7.2 Variabili Frontend (.env)
 
@@ -718,10 +754,14 @@ Doctor → POST /doctor-view-data { code }
 
 ### 9.1 Google Gemini (AI primaria)
 
+> **V1.6**: Migrato da Lovable AI Proxy a chiamate dirette Google API.
+
 | Endpoint | Modello | Uso |
 |----------|---------|-----|
-| Lovable AI Proxy | gemini-2.5-flash | Chat, processing, check-in |
-| Lovable AI Proxy | gemini-2.5-pro | Report clinici, analisi complesse |
+| `generativelanguage.googleapis.com` | `gemini-2.5-flash` | Chat, processing, check-in |
+| `generativelanguage.googleapis.com` | `gemini-2.5-pro` | Report clinici, analisi complesse |
+
+Autenticazione: header `x-goog-api-key` con `GOOGLE_API_KEY` (rimossa `LOVABLE_API_KEY`).
 
 ### 9.2 ElevenLabs (Voce)
 
@@ -760,7 +800,7 @@ Tutte le funzioni hanno `verify_jwt = false` perché l'autenticazione è gestita
 
 ### 10.2 Deploy Edge Functions
 
-Le Edge Functions sono deployate automaticamente dal sistema Lovable Cloud. Per un deploy manuale (migrazione a Supabase standalone):
+Le Edge Functions sono deployate su Supabase standalone (migrazione da Lovable Cloud completata in V1.6):
 
 ```bash
 supabase functions deploy nome-funzione --project-ref pcsoranahgoinljvgmtl
@@ -770,18 +810,18 @@ supabase functions deploy nome-funzione --project-ref pcsoranahgoinljvgmtl
 
 Le migrazioni SQL sono in `supabase/migrations/` (~50 file) e devono essere eseguite in ordine cronologico. Ogni file è prefissato con un timestamp.
 
-### 10.4 Secrets Setup (per migrazione)
+### 10.4 Secrets Setup (Supabase Standalone)
 
 ```bash
-supabase secrets set GOOGLE_API_KEY=xxx
-supabase secrets set ELEVENLABS_API_KEY=xxx
+supabase secrets set GOOGLE_API_KEY=xxx          # Gemini AI (chiamate dirette)
+supabase secrets set ELEVENLABS_API_KEY=xxx       # ElevenLabs Voice AI
 supabase secrets set ELEVENLABS_AGENT_ID=agent_2901khw977kbesesvd00yh2mbeyx
-supabase secrets set OPENWEATHER_API_KEY=xxx
-supabase secrets set WORLDNEWS_API_KEY=xxx
-supabase secrets set OPENAI_API_KEY=xxx
-supabase secrets set LOVABLE_API_KEY=xxx
+supabase secrets set OPENWEATHER_API_KEY=xxx      # Contesto meteo
+supabase secrets set WORLDNEWS_API_KEY=xxx        # Contesto news
+supabase secrets set OPENAI_API_KEY=xxx           # OpenAI (fallback/legacy)
+# LOVABLE_API_KEY — RIMOSSA in V1.6, non più necessaria
 ```
 
 ---
 
-> **Nota**: Questo documento copre l'intero backend al 26 Febbraio 2026. Per modifiche successive, consultare le migrazioni SQL e i changelog delle Edge Functions.
+> **Nota**: Questo documento copre l'intero backend al 27 Febbraio 2026 (V1.6). Per modifiche successive, consultare le migrazioni SQL, i changelog delle Edge Functions e `ARIA_DECISIONI_CHANGELOG.md`.
