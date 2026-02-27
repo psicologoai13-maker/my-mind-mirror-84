@@ -178,7 +178,7 @@ Rispondi SOLO in JSON: {"title": "...", "body": "...", "triggerType": "..."}
 triggerType: "missing_you" | "streak_motivation" | "event_reminder" | "mood_check" | "random_thinking"`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GOOGLE_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
