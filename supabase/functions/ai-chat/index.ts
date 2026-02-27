@@ -2534,9 +2534,9 @@ Se i dati sono positivi, celebra! "Oggi sembri in forma!"
       return `- ${date} (${s.type}): ${summary} [${tags}]`;
     });
     
-    // Calculate time since last session
+    // Calculate time since last session (use end_time for accuracy, fallback to start_time)
     const lastSession = recentSessions[0];
-    const lastSessionTime = new Date(lastSession.start_time);
+    const lastSessionTime = new Date(lastSession.end_time || lastSession.start_time);
     const now = new Date();
     const diffMs = now.getTime() - lastSessionTime.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -2648,14 +2648,59 @@ USO: Puoi fare riferimento a conversazioni passate:
 - "Come sta andando quella cosa di cui abbiamo discusso?"
 `;
   }
-  
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // 🧠 STATO EMOTIVO ULTIMA SESSIONE
+  // Permette ad Aria di fare riferimento a come stava l'utente l'ultima volta
+  // ════════════════════════════════════════════════════════════════════════════
+
+  let lastSessionEmotionalStateBlock = '';
+
+  if (recentSessions.length > 0) {
+    const lastSession = recentSessions[0];
+    const moodScore = lastSession.mood_score_detected;
+    const emotionTags = lastSession.emotion_tags;
+
+    // Build emotional state description from mood_score and emotion_tags
+    let emotionalState = '';
+
+    if (moodScore !== null) {
+      if (moodScore <= 3) emotionalState = 'in difficoltà (umore molto basso)';
+      else if (moodScore <= 5) emotionalState = 'un po\' giù (umore sotto la media)';
+      else if (moodScore <= 7) emotionalState = 'discretamente (umore nella norma)';
+      else emotionalState = 'bene (umore alto)';
+    }
+
+    const tagsList = emotionTags && emotionTags.length > 0
+      ? emotionTags.slice(0, 5).join(', ')
+      : null;
+
+    if (emotionalState || tagsList) {
+      lastSessionEmotionalStateBlock = `
+═══════════════════════════════════════════════
+🧠 STATO EMOTIVO ULTIMA SESSIONE
+═══════════════════════════════════════════════
+
+Nell'ultima sessione l'utente era: ${emotionalState}${tagsList ? `\nEmozioni rilevate: ${tagsList}` : ''}
+${moodScore !== null ? `Punteggio umore: ${moodScore}/10` : ''}
+
+ISTRUZIONI:
+- Puoi fare riferimento a come stava l'ultima volta, CON NATURALEZZA
+- Se stava male: "L'ultima volta mi sembravi un po' giù... come va adesso?"
+- Se stava bene: "L'ultima volta eri carico/a! Come va oggi?"
+- NON citare punteggi o dati tecnici, parla come un'amica
+- NON forzare il riferimento se l'utente vuole parlare d'altro
+`;
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════════════════
   // 🔄 FOLLOW-UP PROATTIVO + ARCO TEMPORALE
   // Rileva eventi passati (chiedi com'è andata) E eventi in corso (riconosci che ci sei)
   // ════════════════════════════════════════════════════════════════════════════
-  
+
   let proactiveFollowUpBlock = '';
-  
+
   // Get current time context
   const now = new Date();
   const currentHour = now.getHours();
@@ -3136,6 +3181,70 @@ ESEMPI ARCO TEMPORALE:
 `;
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // 📆 EVENTI IMMINENTI (FINESTRA 24 ORE)
+  // Eventi nelle ultime 12 ore (chiedi com'è andata) e prossime 12 ore (menziona)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  let imminentEventsBlock = '';
+
+  if (userEvents && userEvents.length > 0) {
+    const recentPastEvents: string[] = [];
+    const upcomingEvents: string[] = [];
+    const nowMs = now.getTime();
+
+    for (const event of userEvents) {
+      // Build full event datetime
+      let eventDateTime: Date;
+      if (event.event_time) {
+        eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
+      } else {
+        // For all-day events, use noon as reference
+        eventDateTime = new Date(`${event.event_date}T12:00:00`);
+      }
+
+      const diffHoursFromNow = (eventDateTime.getTime() - nowMs) / (1000 * 60 * 60);
+      const locationStr = event.location ? ` a ${event.location}` : '';
+
+      // Past 12 hours: ask how it went
+      if (diffHoursFromNow >= -12 && diffHoursFromNow < 0 && !event.follow_up_done) {
+        const hoursAgo = Math.abs(Math.round(diffHoursFromNow));
+        recentPastEvents.push(`- "${event.title}"${locationStr} (${hoursAgo === 1 ? "un'ora fa" : `${hoursAgo} ore fa`}) → CHIEDI COM'È ANDATA`);
+      }
+
+      // Next 12 hours: mention it
+      if (diffHoursFromNow > 0 && diffHoursFromNow <= 12) {
+        const hoursUntil = Math.round(diffHoursFromNow);
+        const timeLabel = event.event_time ? ` alle ${event.event_time.slice(0, 5)}` : '';
+        upcomingEvents.push(`- "${event.title}"${locationStr}${timeLabel} (tra ${hoursUntil === 1 ? "un'ora" : `${hoursUntil} ore`}) → PUOI MENZIONARLO`);
+      }
+    }
+
+    if (recentPastEvents.length > 0 || upcomingEvents.length > 0) {
+      imminentEventsBlock = `
+═══════════════════════════════════════════════
+📆 EVENTI IMMINENTI (FINESTRA 24 ORE)
+═══════════════════════════════════════════════
+${recentPastEvents.length > 0 ? `
+⏪ EVENTI NELLE ULTIME 12 ORE (chiedi com'è andata!):
+${recentPastEvents.join('\n')}
+
+💬 Dì qualcosa come:
+- "Ehi! Allora com'è andata [evento]?"
+- "Mi ricordo che avevi [evento]... raccontami!"
+` : ''}${upcomingEvents.length > 0 ? `
+⏩ EVENTI NELLE PROSSIME 12 ORE (menzionali!):
+${upcomingEvents.join('\n')}
+
+💬 Dì qualcosa come:
+- "A proposito, tra poco hai [evento]! Tutto pronto?"
+- "Come ti senti per [evento] di dopo?"
+` : ''}
+REGOLE: NON forzare se l'utente ha un problema urgente. Priorità al supporto emotivo.
+`;
+      console.log(`[ai-chat] Imminent events (24h window): ${recentPastEvents.length} past, ${upcomingEvents.length} upcoming`);
+    }
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // ABITUDINI DI OGGI
@@ -3923,14 +4032,42 @@ OCCASIONALMENTE usa (1 ogni 5-8 messaggi):
 - "Non sono sicura, però..."
 
 ═══════════════════════════════════════════════
- 9. CONTESTO TEMPORALE
+ 9. CONTESTO TEMPORALE (CALIBRAZIONE TONO OBBLIGATORIA)
 ═══════════════════════════════════════════════
 
-Reagisci all'ora del giorno come un'amica (solo se pertinente):
-- Mattina presto: "Sei già sveglio? Dai che è presto!"
-- Tarda sera: "Ehi, tutto ok? È tardi..."
-- Weekend: "Che fai di bello oggi?"
-- Lunedì: "Ugh, lunedì. Forza!"
+⚠️ DEVI usare l'ora del giorno per calibrare ATTIVAMENTE il tuo tono.
+NON ignorare l'ora: è parte della tua consapevolezza come amica presente.
+
+🌅 MATTINA (5:00–12:00) → TONO ENERGICO E POSITIVO
+- Energia, slancio, motivazione per la giornata
+- "Buongiorno! Pronta per la giornata?"
+- Se è presto (5-7): "Sei già in piedi! Che determinazione!"
+- Se è tardi (11-12): "Come sta andando la mattinata?"
+- Proponi azione/intenzione per la giornata
+
+🌤️ POMERIGGIO (12:00–18:00) → TONO BILANCIATO E CONCRETO
+- Check-in sulla giornata, bilancio a metà strada
+- "Come sta andando oggi?" / "Giornata produttiva?"
+- Riconosci la stanchezza del post-pranzo se presente
+- Se sono le 17-18: "Quasi finita la giornata!"
+
+🌙 SERA (18:00–23:00) → TONO RILASSATO E RIFLESSIVO
+- Atmosfera più calma, spazio per riflessione
+- "Come è andata oggi?" / "Serata tranquilla?"
+- Invita al rilassamento e al decomprimere
+- Se è tardi (22-23): "È tardi, tutto ok? Non riesci a dormire?"
+
+🌑 NOTTE (23:00–5:00) → TONO ATTENTO E PREMUROSO
+- Attenzione speciale: chi scrive di notte potrebbe avere bisogno
+- "Ehi, è tardi... tutto bene?" / "Non riesci a dormire?"
+- Tono più intimo e protettivo
+- NON essere giudicante sull'orario
+- Se l'utente sembra in difficoltà, priorità assoluta al supporto
+
+📅 CONTESTO GIORNO SETTIMANA:
+- Lunedì: "Ugh, lunedì. Forza!" - empatia per l'inizio settimana
+- Venerdì: "È venerdì! Che programmi per il weekend?"
+- Weekend: "Che fai di bello oggi?" - tono più leggero e libero
 
 ═══════════════════════════════════════════════
  10. CONTINUITÀ NARRATIVA
@@ -3990,7 +4127,11 @@ ${adultUserBlock}
 
 ${timeSinceLastSessionBlock}
 
+${lastSessionEmotionalStateBlock}
+
 ${proactiveFollowUpBlock}
+
+${imminentEventsBlock}
 
 ${firstConversationBlock}
 
@@ -4138,6 +4279,7 @@ interface DailyMetricsData {
 interface RecentSession {
   id: string;
   start_time: string;
+  end_time: string | null;
   type: string;
   ai_summary: string | null;
   transcript: string | null;
@@ -4344,7 +4486,7 @@ async function getUserProfile(authHeader: string | null, bodyAccessToken?: strin
       // Get recent sessions (last 5) - includes transcript for memory continuity
       supabase
         .from('sessions')
-        .select('id, start_time, type, ai_summary, transcript, emotion_tags, mood_score_detected, anxiety_score_detected')
+        .select('id, start_time, end_time, type, ai_summary, transcript, emotion_tags, mood_score_detected, anxiety_score_detected')
         .eq('user_id', authenticatedUserId)
         .eq('status', 'completed')
         .order('start_time', { ascending: false })
