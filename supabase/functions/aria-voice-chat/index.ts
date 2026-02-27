@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
+const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY')!;
 const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
 
 // Italian voice ID (custom Italian voice)
@@ -2143,18 +2143,19 @@ serve(async (req) => {
       { role: 'user', content: message }
     ];
 
-    // Call Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Google Gemini API
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages,
-        temperature: 0.8,
-        max_tokens: 300
+        systemInstruction: { parts: [{ text: messages[0].content }] },
+        contents: messages.slice(1).map((m: any) => ({
+          role: m.role === 'assistant' ? 'model' : m.role,
+          parts: [{ text: m.content }]
+        })),
+        generationConfig: { temperature: 0.8, maxOutputTokens: 300 },
       }),
     });
 
@@ -2165,7 +2166,7 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const text = aiData.choices?.[0]?.message?.content || "Scusa, non ho capito. Puoi ripetere?";
+    const text = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "Scusa, non ho capito. Puoi ripetere?";
 
     console.log('[aria-voice-chat] AI response:', text.slice(0, 100) + '...');
 
