@@ -2783,9 +2783,191 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 📅 ESTRAZIONE EVENTI FUTURI DEDICATA (Chiamata Gemini separata)
+    // Chiamata AI focalizzata esclusivamente sull'estrazione di eventi futuri
+    // menzionati nella conversazione, per massima affidabilità.
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const todayISO = new Date().toISOString().split('T')[0];
+      const dayOfWeek = new Date().toLocaleDateString('it-IT', { weekday: 'long' });
+
+      const eventExtractionPrompt = `Sei un assistente specializzato nell'estrarre eventi futuri da conversazioni.
+Analizza questa conversazione ed estrai TUTTI gli eventi futuri o appuntamenti menzionati dall'utente.
+
+CONTESTO TEMPORALE:
+- Oggi è: ${dayOfWeek} ${todayISO}
+
+REGOLE:
+- Estrai SOLO eventi FUTURI (oggi incluso)
+- NON estrarre eventi già passati
+- Se non riesci a determinare una data approssimativa, NON estrarre l'evento
+- Includi la frase originale dell'utente come "original_quote"
+
+Per ogni evento restituisci un oggetto JSON con:
+- title: titolo breve e descrittivo dell'evento
+- event_date: data in formato ISO YYYY-MM-DD (stima approssimativa basata sul contesto)
+- event_time: orario "HH:MM" se menzionato, altrimenti null
+- event_type: una tra "social" (uscite, cene, feste), "work" (colloqui, riunioni, presentazioni), "personal" (appuntamenti, commissioni), "health" (medico, dentista, visite), "travel" (viaggi, partenze), "celebration" (compleanni, matrimoni), "generic" (altro)
+- location: luogo se menzionato, altrimenti null
+- original_quote: la frase originale dell'utente che menziona l'evento
+
+ESEMPI:
+"stasera esco con Marco" → {"title":"Uscita con Marco","event_date":"${todayISO}","event_time":"20:00","event_type":"social","location":null,"original_quote":"stasera esco con Marco"}
+"domani ho il colloquio alle 10" → {"title":"Colloquio di lavoro","event_date":"...domani...","event_time":"10:00","event_type":"work","location":null,"original_quote":"domani ho il colloquio alle 10"}
+"questo weekend vado al mare" → {"title":"Weekend al mare","event_date":"...sabato...","event_time":null,"event_type":"travel","location":"mare","original_quote":"questo weekend vado al mare"}
+
+Rispondi SOLO con un JSON array valido. Se non ci sono eventi futuri, rispondi con [].
+NIENTE markdown code blocks, SOLO JSON puro.`;
+
+      console.log('[process-session] Calling Gemini for dedicated event extraction...');
+
+      const eventExtractionResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: eventExtractionPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: `Analizza questa conversazione ed estrai gli eventi futuri:\n\n${transcript}` }] }],
+          }),
+        }
+      );
+
+      if (eventExtractionResponse.ok) {
+        const eventData = await eventExtractionResponse.json();
+        const eventText = eventData.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+        const cleanedEventText = eventText.replace(/```json\n?|\n?```/g, '').trim();
+
+        let extractedEvents: Array<{
+          title: string;
+          event_date: string;
+          event_time: string | null;
+          event_type: string;
+          location: string | null;
+          original_quote: string;
+        }> = [];
+
+        try {
+          extractedEvents = JSON.parse(cleanedEventText);
+          if (!Array.isArray(extractedEvents)) extractedEvents = [];
+        } catch (parseErr) {
+          console.error('[process-session] Failed to parse event extraction response:', parseErr);
+          extractedEvents = [];
+        }
+
+        console.log(`[process-session] Dedicated event extraction found ${extractedEvents.length} events`);
+
+        // Process each extracted event with 24h dedup
+        const validEventTypes = ['social', 'work', 'personal', 'health', 'travel', 'celebration', 'generic'];
+
+        for (const evt of extractedEvents) {
+          if (!evt.title || !evt.event_date) continue;
+
+          // Validate date format
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(evt.event_date)) {
+            console.log(`[process-session] Skipping event with invalid date format: ${evt.event_date}`);
+            continue;
+          }
+
+          // Skip past events
+          const evtDate = new Date(evt.event_date);
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          if (evtDate < todayStart) {
+            console.log(`[process-session] Skipping past event: ${evt.title} on ${evt.event_date}`);
+            continue;
+          }
+
+          // Sanitize event_type
+          const eventType = validEventTypes.includes(evt.event_type) ? evt.event_type : 'generic';
+
+          // 24h dedup: check if a similar event exists within +/- 1 day
+          const dedupDateBefore = new Date(evtDate);
+          dedupDateBefore.setDate(dedupDateBefore.getDate() - 1);
+          const dedupDateAfter = new Date(evtDate);
+          dedupDateAfter.setDate(dedupDateAfter.getDate() + 1);
+
+          const { data: existingEvents } = await supabase
+            .from('user_events')
+            .select('id, title')
+            .eq('user_id', user_id)
+            .gte('event_date', dedupDateBefore.toISOString().split('T')[0])
+            .lte('event_date', dedupDateAfter.toISOString().split('T')[0]);
+
+          // Check for title similarity (first 15 chars case-insensitive)
+          const titlePrefix = evt.title.substring(0, 15).toLowerCase();
+          const isDuplicate = (existingEvents || []).some(
+            (existing) => existing.title.toLowerCase().includes(titlePrefix) || titlePrefix.includes(existing.title.substring(0, 15).toLowerCase())
+          );
+
+          if (isDuplicate) {
+            console.log(`[process-session] 📅 Dedup: skipping duplicate event "${evt.title}" near ${evt.event_date}`);
+            continue;
+          }
+
+          // Insert new event
+          const { error: insertError } = await supabase
+            .from('user_events')
+            .insert({
+              user_id: user_id,
+              title: evt.title,
+              event_type: eventType,
+              event_date: evt.event_date,
+              event_time: evt.event_time || null,
+              is_all_day: !evt.event_time,
+              location: evt.location || null,
+              extracted_from_text: evt.original_quote || null,
+              source_session_id: session_id,
+              status: 'upcoming',
+              follow_up_done: false,
+            });
+
+          if (insertError) {
+            console.error(`[process-session] Error inserting event "${evt.title}":`, insertError);
+          } else {
+            console.log(`[process-session] 📅 Created event (dedicated extraction): "${evt.title}" on ${evt.event_date}`);
+          }
+        }
+      } else {
+        console.error('[process-session] Gemini event extraction call failed:', eventExtractionResponse.status);
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 📅 STEP 2: Marca eventi passati come completati
+      // Gli eventi con event_date < oggi vengono marcati come "passed"
+      // ═══════════════════════════════════════════════════════════════════════════
+      const { data: pastEvents, error: pastEventsError } = await supabase
+        .from('user_events')
+        .select('id, title, event_date')
+        .eq('user_id', user_id)
+        .eq('status', 'upcoming')
+        .lt('event_date', todayISO);
+
+      if (pastEventsError) {
+        console.error('[process-session] Error fetching past events:', pastEventsError);
+      } else if (pastEvents && pastEvents.length > 0) {
+        const pastEventIds = pastEvents.map((e) => e.id);
+        const { error: updateError } = await supabase
+          .from('user_events')
+          .update({ status: 'passed' })
+          .in('id', pastEventIds);
+
+        if (updateError) {
+          console.error('[process-session] Error marking past events:', updateError);
+        } else {
+          console.log(`[process-session] 📅 Marked ${pastEvents.length} past events as "passed": ${pastEvents.map((e) => e.title).join(', ')}`);
+        }
+      }
+    } catch (eventExtractionError) {
+      // Non-blocking: event extraction failure should not break session processing
+      console.error('[process-session] Event extraction failed (non-blocking):', eventExtractionError);
+    }
+
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
-      .update({ 
+      .update({
         // NOTE: long_term_memory is now deprecated - memories are stored in user_memories table
         life_areas_scores: mergedLifeScores,
         active_dashboard_metrics: validFinalMetrics,
