@@ -1,10 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Feature deprecated: thematic diary chat has been replaced by personal journals.
+// Users now write free-form journal entries without AI interaction.
+// Aria reads journal entries in background for conversational context only.
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  return new Response(
+    JSON.stringify({ error: 'Feature deprecated. Use diary-save-entry and diary-get-entries instead.' }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 410,
+    }
+  );
+});
+
+/* ============================================================
+   DEPRECATED CODE BELOW — kept for reference / retrocompatibility
+   ============================================================ */
+
+/*
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 interface DiaryMessage {
   id: string;
@@ -885,10 +908,11 @@ Rispondi SOLO con la frase o "NESSUN_AGGIORNAMENTO".`;
     console.error('Error in thematic-diary-chat:', errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }
     );
   }
 });
+*/
