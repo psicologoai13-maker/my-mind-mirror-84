@@ -81,5 +81,11 @@ verify_jwt = false
 [functions.diary-get-entries]
 verify_jwt = false
 
+[functions.get-exercises]
+verify_jwt = false
+
+[functions.log-exercise]
+verify_jwt = false
+
 [functions.home-context]
 verify_jwt = false
