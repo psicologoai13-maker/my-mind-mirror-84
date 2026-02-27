@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.aria-chat-ios]
 verify_jwt = false
+
+[functions.diary-save-entry]
+verify_jwt = false
+
+[functions.diary-get-entries]
+verify_jwt = false
