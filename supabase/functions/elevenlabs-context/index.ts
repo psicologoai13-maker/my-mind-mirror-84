@@ -47,7 +47,7 @@ interface VoiceContext {
   interests: any;
   objectives: Array<{ title: string; category: string; target_value: number | null; current_value: number | null; starting_value: number | null; unit: string | null }>;
   dailyMetrics: any;
-  recentSessions: Array<{ start_time: string; ai_summary: string | null; transcript: string | null; mood_score_detected: number | null }>;
+  recentSessions: Array<{ start_time: string; end_time: string | null; ai_summary: string | null; transcript: string | null; mood_score_detected: number | null; emotion_tags: string[] | null }>;
   todayHabits: Array<{ habit_type: string; value: number; target_value: number | null }>;
   bodyMetrics: { weight: number | null; sleep_hours: number | null; steps: number | null; active_minutes: number | null; resting_heart_rate: number | null } | null;
   userEvents: Array<{ id: string; title: string; event_type: string; location: string | null; event_date: string; event_time: string | null; status: string; follow_up_done: boolean }>;
@@ -108,221 +108,126 @@ function formatTimeSince(dateString: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 📦 BUILD DYNAMIC USER CONTEXT (lightweight, ~5-10k chars)
+// 📦 BUILD DYNAMIC USER CONTEXT (compact, max 800 chars for WebRTC)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function buildDynamicContext(ctx: VoiceContext): string {
-  const blocks: string[] = [];
+  const parts: string[] = [];
   const now = new Date();
-  
-  // Time context
-  const hour = now.getHours();
-  let timeGreeting = '';
-  if (hour >= 5 && hour < 12) timeGreeting = 'È mattina - tono energico e positivo';
-  else if (hour >= 12 && hour < 18) timeGreeting = 'È pomeriggio - tono bilanciato';
-  else if (hour >= 18 && hour < 22) timeGreeting = 'È sera - tono più riflessivo e accogliente';
-  else timeGreeting = 'È notte - tono calmo e rassicurante';
-  blocks.push(`⏰ CONTESTO TEMPORALE: ${timeGreeting}`);
-  
-  // Age protocol hint
-  if (ctx.profile) {
-    const name = ctx.interests?.nickname || ctx.profile.name?.split(' ')[0] || null;
-    let calculatedAge: number | null = null;
-    if (ctx.profile.birth_date) calculatedAge = calculateAge(ctx.profile.birth_date);
-    
-    let ageInfo = '';
-    if (calculatedAge) ageInfo = ` | Età: ${calculatedAge} anni`;
-    
-    let occupationInfo = '';
-    if (ctx.profile.occupation_context === 'student') occupationInfo = ' | Studente';
-    else if (ctx.profile.occupation_context === 'worker') occupationInfo = ' | Lavoratore';
-    else if (ctx.profile.occupation_context === 'both') occupationInfo = ' | Studente-Lavoratore';
-    
-    let heightInfo = ctx.profile.height ? ` | Altezza: ${ctx.profile.height}cm` : '';
-    let genderInfo = ctx.profile.gender ? ` | Genere: ${ctx.profile.gender}` : '';
-    
-    const ageRange = ctx.profile.onboarding_answers?.ageRange;
-    const isMinor = ageRange === '<18' || (calculatedAge !== null && calculatedAge < 18);
-    
-    blocks.push(`👤 UTENTE: ${name || 'Non specificato'}${ageInfo}${genderInfo}${occupationInfo}${heightInfo}${isMinor ? ' | ⚠️ MINORE - protocollo giovani attivo' : ''}\nTerapia: ${ctx.profile.therapy_status === 'in_therapy' || ctx.profile.therapy_status === 'active' ? 'Segue già un percorso' : ctx.profile.therapy_status === 'seeking' ? 'Sta cercando supporto' : ctx.profile.therapy_status === 'past' ? 'Ha fatto terapia in passato' : 'Non in terapia'}`);
 
-    // Occupation clarification
-    if (!ctx.profile.occupation_context) {
-      const isYoungAdultAge = calculatedAge !== null && calculatedAge >= 18 && calculatedAge <= 27;
-      const isYoungByRange = ageRange === '18-24';
-      if (isYoungAdultAge || isYoungByRange) {
-        blocks.push(`🎓💼 OCCUPAZIONE DA CHIARIRE: Chiedi naturalmente: "A proposito, cosa fai nella vita?"`);
+  // ── 4. ORA E GIORNO (Aria-format) ──
+  const giorni = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const hh = now.getHours();
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const periodo = hh >= 5 && hh < 12 ? 'mattina' : hh < 18 ? 'pomeriggio' : hh < 22 ? 'sera' : 'notte';
+  const tono = hh >= 5 && hh < 12 ? 'energico' : hh < 18 ? 'bilanciato' : hh < 22 ? 'riflessivo' : 'calmo';
+  parts.push(`⏰ ${giorni[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1} ore ${hh}:${mm} (${periodo}) - tono ${tono}`);
+
+  // ── 1. TEMPO DALL'ULTIMA SESSIONE (usa end_time se disponibile) ──
+  if (ctx.recentSessions?.length > 0) {
+    const last = ctx.recentSessions[0];
+    const refTime = last.end_time ? new Date(last.end_time) : new Date(last.start_time);
+    const diffMs = now.getTime() - refTime.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffH = Math.floor(diffMs / 3600000);
+    const diffD = Math.floor(diffMs / 86400000);
+
+    let ago: string;
+    if (diffMin < 60) ago = `${diffMin}min fa`;
+    else if (diffH < 24) ago = `${diffH}h fa`;
+    else ago = `${diffD}gg fa`;
+
+    let note = '';
+    if (diffMin < 30) note = ' → appena sentiti, NO saluto iniziale';
+    else if (diffD > 3 && diffD <= 14) note = ' → accenna assenza naturalmente';
+    else if (diffD > 14) note = ' → lunga assenza, "Che bello risentirti!"';
+    parts.push(`🕐 Ultima conv: ${ago}${note}`);
+
+    // ── 2. STATO EMOTIVO ULTIMA SESSIONE ──
+    const mood = last.mood_score_detected;
+    const emo = last.emotion_tags?.slice(0, 3);
+    const emoParts: string[] = [];
+    if (mood) emoParts.push(`umore ${mood}/10`);
+    if (emo?.length) emoParts.push(emo.join(', '));
+    if (emoParts.length > 0) parts.push(`💭 Stato prec: ${emoParts.join(' | ')}`);
+  } else {
+    parts.push(`🌟 PRIMA CONVERSAZIONE - presentati, UNA domanda per turno`);
+  }
+
+  // ── 3. EVENTI IMMINENTI (±12h) + follow-up prioritario ──
+  if (ctx.userEvents?.length > 0) {
+    const evLines: string[] = [];
+    const ms12h = 12 * 3600000;
+    for (const ev of ctx.userEvents.slice(0, 8)) {
+      const evTime = ev.event_time
+        ? new Date(`${ev.event_date}T${ev.event_time}`)
+        : new Date(ev.event_date + 'T12:00:00');
+      const diff = evTime.getTime() - now.getTime();
+
+      if (diff >= -ms12h && diff < 0 && !ev.follow_up_done) {
+        const hAgo = Math.max(1, Math.floor(Math.abs(diff) / 3600000));
+        evLines.push(`📋 ${ev.title} (${hAgo}h fa) - CHIEDI COM'È ANDATA`);
+      } else if (diff >= 0 && diff <= ms12h) {
+        const hLeft = Math.max(1, Math.floor(diff / 3600000));
+        const loc = ev.location ? ` a ${ev.location}` : '';
+        evLines.push(`📅 ${ev.title}${loc} tra ${hLeft}h`);
       }
     }
-
-    if (ctx.profile.long_term_memory?.length > 0) {
-      const memory = ctx.profile.long_term_memory;
-      const priorityTags = ['[EVENTO]', '[PERSONA]', '[HOBBY]', '[PIACE]', '[NON PIACE]', '[VIAGGIO]', '[LAVORO]'];
-      const priorityItems = memory.filter(m => priorityTags.some(tag => m.includes(tag)));
-      const recentItems = memory.slice(-25);
-      const combined = [...new Set([...priorityItems, ...recentItems])];
-      const selectedMemory = combined.slice(0, 50);
-      blocks.push(`🧠 MEMORIA PERSONALE:\n- ${selectedMemory.join('\n- ')}
-
-⚠️ REGOLE MEMORIA: Se l'utente chiede "ti ricordi?" → consulta la memoria. USA la tua conoscenza! NON chiedere cose che già sai.`);
-    }
-    
-    if (ctx.profile.selected_goals?.length > 0) {
-      const goalLabels: Record<string, string> = { reduce_anxiety: 'Gestire ansia', improve_sleep: 'Dormire meglio', find_love: 'Migliorare relazioni', boost_energy: 'Aumentare energia', express_feelings: 'Esprimere emozioni' };
-      blocks.push(`🎯 Obiettivi dichiarati: ${ctx.profile.selected_goals.map(g => goalLabels[g] || g).join(', ')}`);
-    }
-    
-    blocks.push(getPersonaStyle(ctx.profile.selected_goals || [], ctx.profile.onboarding_answers as OnboardingAnswers | null));
-
-    const priorityMetrics = ctx.profile.dashboard_config?.priority_metrics || ['mood', 'anxiety', 'energy', 'sleep'];
-    blocks.push(`FOCUS: ${getPriorityFocusDescription(priorityMetrics)}`);
+    if (evLines.length > 0) parts.push(evLines.slice(0, 3).join('\n'));
   }
-  
-  // Daily metrics
+
+  // ── UTENTE (compact) ──
+  if (ctx.profile) {
+    const name = ctx.interests?.nickname || ctx.profile.name?.split(' ')[0] || '?';
+    let info = name;
+    if (ctx.profile.birth_date) info += `, ${calculateAge(ctx.profile.birth_date)}a`;
+    if (ctx.profile.gender) info += `, ${ctx.profile.gender}`;
+    const occMap: Record<string, string> = { student: 'stud', worker: 'lav', both: 'stud+lav' };
+    if (ctx.profile.occupation_context) info += `, ${occMap[ctx.profile.occupation_context] || ctx.profile.occupation_context}`;
+    const ageRange = ctx.profile.onboarding_answers?.ageRange;
+    const age = ctx.profile.birth_date ? calculateAge(ctx.profile.birth_date) : null;
+    if (ageRange === '<18' || (age !== null && age < 18)) info += ' ⚠️MINORE';
+    parts.push(`👤 ${info}`);
+  }
+
+  // ── STILE PERSONA ──
+  parts.push(getPersonaStyle(ctx.profile?.selected_goals || [], ctx.profile?.onboarding_answers as OnboardingAnswers | null));
+
+  // ── OBIETTIVI (compact) ──
+  if (ctx.profile?.selected_goals?.length > 0) {
+    const gl: Record<string, string> = { reduce_anxiety: 'ansia', improve_sleep: 'sonno', find_love: 'relazioni', boost_energy: 'energia', express_feelings: 'emozioni' };
+    parts.push(`🎯 ${ctx.profile.selected_goals.map(g => gl[g] || g).join(', ')}`);
+  }
+
+  // ── MEMORIE CHIAVE (compact, prioritarie) ──
+  if (ctx.profile?.long_term_memory?.length > 0) {
+    const memory = ctx.profile.long_term_memory;
+    const priorityTags = ['[EVENTO]', '[PERSONA]', '[HOBBY]', '[PIACE]', '[LAVORO]'];
+    const priority = memory.filter(m => priorityTags.some(tag => m.includes(tag)));
+    const selected = (priority.length > 0 ? priority : memory).slice(0, 5);
+    const mems = selected.map(m => m.length > 50 ? m.slice(0, 47) + '...' : m);
+    parts.push(`🧠 ${mems.join(' | ')}`);
+  }
+
+  // ── STATO OGGI (if available, ultra-compact) ──
   if (ctx.dailyMetrics) {
     const v = ctx.dailyMetrics.vitals;
-    if (v.mood > 0 || v.anxiety > 0 || v.energy > 0 || v.sleep > 0) {
-      blocks.push(`📊 STATO OGGI: Umore: ${v.mood || '?'}/10 | Ansia: ${v.anxiety || '?'}/10 | Energia: ${v.energy || '?'}/10 | Sonno: ${v.sleep || '?'}/10`);
-    }
-    
-    const emotions = ctx.dailyMetrics.emotions || {};
-    const emotionLabels: Record<string, string> = { joy: 'Gioia', sadness: 'Tristezza', anger: 'Rabbia', fear: 'Paura', apathy: 'Apatia' };
-    const emotionItems: string[] = [];
-    Object.entries(emotionLabels).forEach(([key, label]) => {
-      if (emotions[key] && (emotions[key] as number) > 20) emotionItems.push(`${label} ${emotions[key]}%`);
-    });
-    if (emotionItems.length > 0) blocks.push(`💭 Emozioni: ${emotionItems.join(', ')}`);
-    
-    const la = ctx.dailyMetrics.life_areas || {};
-    const areaLabels: Record<string, string> = { love: 'Amore', work: 'Lavoro', health: 'Salute', social: 'Sociale', growth: 'Crescita', family: 'Famiglia', school: 'Scuola', leisure: 'Tempo Libero', finances: 'Finanze' };
-    const areaItems: string[] = [];
-    Object.entries(areaLabels).forEach(([key, label]) => {
-      if (la[key] && la[key] > 0) areaItems.push(`${label}: ${la[key]}/10`);
-    });
-    if (areaItems.length > 0) blocks.push(`🎯 Aree vita: ${areaItems.join(' | ')}`);
-    
-    const psychology = ctx.dailyMetrics.deep_psychology || {};
-    const psychLabels: Record<string, string> = {
-      rumination: 'Ruminazione', burnout_level: 'Burnout', motivation: 'Motivazione',
-      self_efficacy: 'Autoefficacia', mental_clarity: 'Chiarezza'
-    };
-    const psychItems: string[] = [];
-    Object.entries(psychLabels).forEach(([key, label]) => {
-      const val = psychology[key];
-      if (val !== null && val !== undefined && (val >= 7 || val <= 3)) {
-        psychItems.push(`${label}: ${val >= 7 ? 'ALTO' : 'BASSO'}`);
-      }
-    });
-    if (psychItems.length > 0) blocks.push(`🧠 Segnali: ${psychItems.join(', ')}`);
-  }
-  
-  // Objectives
-  if (ctx.objectives?.length > 0) {
-    const objList = ctx.objectives.map(o => {
-      const currVal = o.current_value !== null ? `${o.current_value}${o.unit || ''}` : '-';
-      const targetVal = o.target_value !== null ? `${o.target_value}${o.unit || ''}` : '⚠️ mancante';
-      return `• "${o.title}": Attuale: ${currVal} | Target: ${targetVal}`;
-    }).join('\n');
-    blocks.push(`🎯 OBIETTIVI ATTIVI:\n${objList}`);
-  }
-  
-  // Missing life areas
-  if (ctx.dailyMetrics || ctx.profile?.life_areas_scores) {
-    const la = ctx.dailyMetrics?.life_areas || {};
-    const profileScores = ctx.profile?.life_areas_scores || {};
-    const areaLabels: Record<string, string> = { love: 'Amore', work: 'Lavoro', social: 'Amici', health: 'Salute', growth: 'Crescita' };
-    const missing = Object.entries(areaLabels).filter(([k]) => {
-      const dailyVal = la[k];
-      const profileVal = profileScores[k];
-      return (!dailyVal || dailyVal === 0) && (!profileVal || profileVal === 0);
-    }).map(([, v]) => v);
-    if (missing.length > 0) blocks.push(`📊 AREE MANCANTI: ${missing.join(', ')}`);
-  }
-  
-  // Interests (compact)
-  if (ctx.interests) {
-    const parts: string[] = [];
-    if (ctx.interests.favorite_teams?.length) parts.push(`🏆 ${ctx.interests.favorite_teams.join(', ')}`);
-    if (ctx.interests.music_genres?.length || ctx.interests.favorite_artists?.length)
-      parts.push(`🎵 ${[...(ctx.interests.music_genres || []), ...(ctx.interests.favorite_artists || [])].join(', ')}`);
-    if (ctx.interests.current_shows?.length) parts.push(`📺 ${ctx.interests.current_shows.join(', ')}`);
-    const allHobbies = [...(ctx.interests.creative_hobbies || []), ...(ctx.interests.outdoor_activities || []), ...(ctx.interests.indoor_activities || [])];
-    if (allHobbies.length > 0) parts.push(`🎨 ${allHobbies.join(', ')}`);
-    if (ctx.interests.pet_owner && ctx.interests.pets?.length)
-      parts.push(`🐾 ${ctx.interests.pets.map((p: any) => `${p.name} (${p.type})`).join(', ')}`);
-    if (ctx.interests.nickname) parts.push(`💬 Chiamami: ${ctx.interests.nickname}`);
-    if (ctx.interests.sensitive_topics?.length) parts.push(`⚠️ Evita: ${ctx.interests.sensitive_topics.join(', ')}`);
-    if (ctx.interests.relationship_status) parts.push(`❤️ ${ctx.interests.relationship_status}`);
-    if (parts.length > 0) blocks.push(`💫 INTERESSI:\n${parts.join('\n')}`);
-  }
-  
-  // Recent sessions + time since last
-  if (ctx.recentSessions?.length > 0) {
-    const sessionsInfo = ctx.recentSessions.slice(0, 3).map(s => {
-      const timeAgo = formatTimeSince(s.start_time);
-      let summary = s.ai_summary?.slice(0, 100);
-      return `• ${timeAgo}: ${summary || 'conversazione breve'}`;
-    }).join('\n');
-    blocks.push(`⏰ RECENTI:\n${sessionsInfo}`);
-    
-    // Time since last session
-    const lastSession = ctx.recentSessions[0];
-    const diffMs = now.getTime() - new Date(lastSession.start_time).getTime();
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffMinutes < 30) {
-      blocks.push(`⏰ CI SIAMO APPENA SENTITI (${diffMinutes}min fa)! NON salutare come prima volta!`);
-    } else if (diffDays >= 14) {
-      blocks.push(`⏰ LUNGA ASSENZA (${diffDays} giorni!) - "Che bello risentirti!"`);
-    }
-    
-    // Events follow-up
-    if (ctx.userEvents?.length > 0) {
-      const todayStr = now.toISOString().split('T')[0];
-      const eventsNow: string[] = [];
-      for (const event of ctx.userEvents.slice(0, 5)) {
-        const diffEventDays = Math.floor((new Date(event.event_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        const isSameDay = event.event_date === todayStr;
-        const loc = event.location ? ` a ${event.location}` : '';
-        
-        if (isSameDay) eventsNow.push(`🎉 OGGI: ${event.title}${loc}!`);
-        else if (diffEventDays >= -3 && diffEventDays < 0 && !event.follow_up_done) eventsNow.push(`📋 ${event.title} (${Math.abs(diffEventDays)}gg fa) - CHIEDI!`);
-        else if (diffEventDays > 0 && diffEventDays <= 3) eventsNow.push(`📅 ${event.title}${loc} - ${diffEventDays === 1 ? 'domani' : `tra ${diffEventDays}gg`}`);
-      }
-      if (eventsNow.length > 0) blocks.push(`🔄 EVENTI:\n${eventsNow.join('\n')}`);
+    if (v.mood > 0 || v.anxiety > 0 || v.energy > 0) {
+      const items: string[] = [];
+      if (v.mood > 0) items.push(`U:${v.mood}`);
+      if (v.anxiety > 0) items.push(`A:${v.anxiety}`);
+      if (v.energy > 0) items.push(`E:${v.energy}`);
+      if (v.sleep > 0) items.push(`S:${v.sleep}`);
+      parts.push(`📊 Oggi ${items.join(' ')}/10`);
     }
   }
-  
-  // First conversation
-  const isFirstConversation = !ctx.recentSessions || ctx.recentSessions.length === 0;
-  if (isFirstConversation) {
-    const name = ctx.interests?.nickname || ctx.profile?.name?.split(' ')[0] || '';
-    blocks.push(`🌟 PRIMA CONVERSAZIONE! Obiettivo: farti conoscere. UNA domanda per turno. Mostra interesse genuino.`);
+
+  // Enforce 800 char limit for WebRTC
+  let result = parts.join('\n');
+  if (result.length > 800) {
+    result = result.slice(0, 797) + '...';
   }
-  
-  // Habits
-  if (ctx.todayHabits?.length > 0) {
-    const habitLabels: Record<string, string> = {
-      water: '💧Acqua', exercise: '🏃Esercizio', meditation: '🧘Meditazione',
-      reading: '📚Lettura', sleep: '😴Sonno'
-    };
-    blocks.push(`📋 Abitudini: ${ctx.todayHabits.map(h => {
-      const label = habitLabels[h.habit_type] || h.habit_type;
-      return `${label}: ${h.target_value ? `${h.value}/${h.target_value}` : h.value}`;
-    }).join(', ')}`);
-  }
-  
-  // Body metrics
-  if (ctx.bodyMetrics && (ctx.bodyMetrics.weight || ctx.bodyMetrics.sleep_hours || ctx.bodyMetrics.steps)) {
-    const parts: string[] = [];
-    if (ctx.bodyMetrics.weight) parts.push(`Peso: ${ctx.bodyMetrics.weight}kg`);
-    if (ctx.bodyMetrics.sleep_hours) parts.push(`Sonno: ${ctx.bodyMetrics.sleep_hours}h`);
-    if (ctx.bodyMetrics.steps) parts.push(`Passi: ${ctx.bodyMetrics.steps}`);
-    if (parts.length > 0) blocks.push(`📊 Corpo: ${parts.join(' | ')}`);
-  }
-  
-  return blocks.join('\n\n');
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -358,7 +263,7 @@ async function getUserVoiceContext(authHeader: string): Promise<VoiceContext> {
       supabase.from('user_interests').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_objectives').select('title, category, target_value, current_value, starting_value, unit').eq('user_id', user.id).eq('status', 'active'),
       supabase.rpc('get_daily_metrics', { p_user_id: user.id, p_date: today }),
-      supabase.from('sessions').select('start_time, ai_summary, transcript, mood_score_detected').eq('user_id', user.id).eq('status', 'completed').order('start_time', { ascending: false }).limit(5),
+      supabase.from('sessions').select('start_time, end_time, ai_summary, transcript, mood_score_detected, emotion_tags').eq('user_id', user.id).eq('status', 'completed').order('start_time', { ascending: false }).limit(5),
       supabase.from('daily_habits').select('habit_type, value, target_value').eq('user_id', user.id).eq('date', today),
       supabase.from('body_metrics').select('weight, sleep_hours, steps, active_minutes, resting_heart_rate').eq('user_id', user.id).order('date', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('user_events').select('id, title, event_type, location, event_date, event_time, status, follow_up_done').eq('user_id', user.id).gte('event_date', pastDate.toISOString().split('T')[0]).lte('event_date', futureDate.toISOString().split('T')[0]).in('status', ['upcoming', 'happening', 'passed']).order('event_date', { ascending: true }).limit(20),
@@ -477,7 +382,8 @@ serve(async (req) => {
     
     if (ctx.recentSessions?.length > 0) {
       const lastSession = ctx.recentSessions[0];
-      const diffMs = new Date().getTime() - new Date(lastSession.start_time).getTime();
+      const refTime = lastSession.end_time ? new Date(lastSession.end_time) : new Date(lastSession.start_time);
+      const diffMs = new Date().getTime() - refTime.getTime();
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       
       if (diffMinutes < 30) {
@@ -489,7 +395,7 @@ serve(async (req) => {
       firstMessage = `Ciao${userName !== 'Utente' ? ' ' + userName : ''}! Sono Aria, piacere di sentirti! Come stai oggi?`;
     }
 
-    console.log(`[elevenlabs-context] Dynamic context for ${userName}: ${dynamicContext.length} chars (was ~72k, now lightweight)`);
+    console.log(`[elevenlabs-context] Dynamic context for ${userName}: ${dynamicContext.length}/800 chars`);
 
     return new Response(
       JSON.stringify({
