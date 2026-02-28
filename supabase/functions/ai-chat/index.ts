@@ -4899,6 +4899,66 @@ USO DEL CONTESTO:
     }
 
     // ═══════════════════════════════════════════════
+    // 🏥 DATI HEALTHKIT OGGI
+    // ═══════════════════════════════════════════════
+    try {
+      const hkSupabaseUrl = Deno.env.get("SUPABASE_URL");
+      const hkServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const hkAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+      // Resolve user_id for HealthKit query via same triple fallback
+      let hkUserId: string | null = null;
+      if (userId) {
+        hkUserId = userId;
+      } else if (hkSupabaseUrl && hkAnonKey) {
+        try {
+          const token = accessToken || authHeader;
+          if (token) {
+            const tokenHeader = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+            const hkAuthClient = createClient(hkSupabaseUrl, hkAnonKey, {
+              global: { headers: { Authorization: tokenHeader } },
+            });
+            const { data: { user } } = await hkAuthClient.auth.getUser();
+            if (user) hkUserId = user.id;
+          }
+        } catch (_e) { /* fallback failed */ }
+      }
+
+      if (hkSupabaseUrl && hkServiceRoleKey && hkUserId) {
+        const hkClient = createClient(hkSupabaseUrl, hkServiceRoleKey);
+        const { data: hkData } = await hkClient
+          .from('healthkit_data')
+          .select('steps, sleep_hours, heart_rate_avg, hrv_avg')
+          .eq('user_id', hkUserId)
+          .eq('date', new Date().toISOString().split('T')[0])
+          .limit(1)
+          .maybeSingle();
+
+        if (hkData && (hkData.steps || hkData.sleep_hours || hkData.heart_rate_avg || hkData.hrv_avg)) {
+          const hkItems: string[] = [];
+          if (hkData.sleep_hours) hkItems.push(`Sonno: ${hkData.sleep_hours} ore`);
+          if (hkData.steps) hkItems.push(`Passi: ${hkData.steps}`);
+          if (hkData.heart_rate_avg) hkItems.push(`FC media: ${hkData.heart_rate_avg} bpm`);
+          if (hkData.hrv_avg) hkItems.push(`HRV: ${hkData.hrv_avg} ms`);
+
+          const hkBlock = `
+═══════════════════════════════════════════════
+🏥 DATI SALUTE OGGI (HealthKit)
+═══════════════════════════════════════════════
+${hkItems.join(' | ')}
+
+Usa questi dati per personalizzare la conversazione se rilevante.
+Esempio: se sonno < 6 ore, sii più comprensiva se l'utente sembra stanco.
+Se HRV < 30ms, potrebbe esserci stress fisiologico non verbalizzato.
+`;
+          systemPrompt += hkBlock;
+          console.log('[ai-chat] Injected HealthKit data:', hkItems.join(', '));
+        }
+      }
+    } catch (hkError) {
+      console.log('[ai-chat] HealthKit data fetch skipped:', (hkError as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════
     // 📚 KNOWLEDGE BASE DINAMICA - Caricamento documenti rilevanti
     // ═══════════════════════════════════════════════
     try {

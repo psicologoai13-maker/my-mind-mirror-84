@@ -20,6 +20,11 @@ const CORRELATION_PAIRS = [
   { metric_a: 'social', metric_b: 'loneliness_perceived', type: 'area_psychology' },
   { metric_a: 'work', metric_b: 'burnout_level', type: 'area_psychology' },
   { metric_a: 'sunlight_exposure', metric_b: 'mood', type: 'psychology_vital' },
+  // HealthKit correlations
+  { metric_a: 'hk_sleep_hours', metric_b: 'mood', type: 'hk_vital' },
+  { metric_a: 'hk_steps', metric_b: 'mood', type: 'hk_vital' },
+  { metric_a: 'hk_hrv_avg', metric_b: 'somatic_tension', type: 'hk_psychology' },
+  { metric_a: 'hk_heart_rate_avg', metric_b: 'rumination', type: 'hk_psychology' },
 ];
 
 // Pearson correlation coefficient calculation
@@ -67,6 +72,12 @@ function generateInsight(metricA: string, metricB: string, r: number): string {
     burnout_level: 'burnout',
     mental_clarity: 'chiarezza mentale',
     sunlight_exposure: 'esposizione al sole',
+    hk_sleep_hours: 'sonno (HealthKit)',
+    hk_steps: 'passi (HealthKit)',
+    hk_hrv_avg: 'HRV (HealthKit)',
+    hk_heart_rate_avg: 'frequenza cardiaca (HealthKit)',
+    somatic_tension: 'tensione somatica',
+    rumination: 'ruminazione',
   };
   
   const labelA = labels[metricA] || metricA;
@@ -109,7 +120,7 @@ serve(async (req) => {
     const dateFilter = sixtyDaysAgo.toISOString().split('T')[0];
 
     // Fetch data in parallel
-    const [sessionsResult, habitsResult, psychologyResult, lifeAreasResult] = await Promise.all([
+    const [sessionsResult, habitsResult, psychologyResult, lifeAreasResult, healthkitResult, dailyCheckinsResult] = await Promise.all([
       supabase
         .from('sessions')
         .select('start_time, mood_score_detected, anxiety_score_detected, energy_score_detected, sleep_quality')
@@ -125,13 +136,25 @@ serve(async (req) => {
         .order('date', { ascending: true }),
       supabase
         .from('daily_psychology')
-        .select('date, mental_clarity, burnout_level, loneliness_perceived')
+        .select('date, mental_clarity, burnout_level, loneliness_perceived, somatic_tension, rumination')
         .eq('user_id', user_id)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
       supabase
         .from('daily_life_areas')
         .select('date, work, social')
+        .eq('user_id', user_id)
+        .gte('date', dateFilter)
+        .order('date', { ascending: true }),
+      supabase
+        .from('healthkit_data')
+        .select('date, sleep_hours, steps, hrv_avg, heart_rate_avg')
+        .eq('user_id', user_id)
+        .gte('date', dateFilter)
+        .order('date', { ascending: true }),
+      supabase
+        .from('daily_checkins')
+        .select('date, mood_value')
         .eq('user_id', user_id)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
@@ -167,6 +190,8 @@ serve(async (req) => {
       if (psych.mental_clarity) dataByDate[date].mental_clarity = psych.mental_clarity;
       if (psych.burnout_level) dataByDate[date].burnout_level = psych.burnout_level;
       if (psych.loneliness_perceived) dataByDate[date].loneliness_perceived = psych.loneliness_perceived;
+      if (psych.somatic_tension) dataByDate[date].somatic_tension = psych.somatic_tension;
+      if (psych.rumination) dataByDate[date].rumination = psych.rumination;
     }
     
     // Process life areas
@@ -176,6 +201,25 @@ serve(async (req) => {
       if (!dataByDate[date]) dataByDate[date] = {};
       if (area.work) dataByDate[date].work = area.work;
       if (area.social) dataByDate[date].social = area.social;
+    }
+
+    // Process HealthKit data
+    for (const hk of healthkitResult.data || []) {
+      const date = hk.date;
+      if (!date) continue;
+      if (!dataByDate[date]) dataByDate[date] = {};
+      if (hk.sleep_hours) dataByDate[date].hk_sleep_hours = hk.sleep_hours;
+      if (hk.steps) dataByDate[date].hk_steps = hk.steps;
+      if (hk.hrv_avg) dataByDate[date].hk_hrv_avg = hk.hrv_avg;
+      if (hk.heart_rate_avg) dataByDate[date].hk_heart_rate_avg = hk.heart_rate_avg;
+    }
+
+    // Process daily checkins (mood_value for HK correlations)
+    for (const checkin of dailyCheckinsResult.data || []) {
+      const date = checkin.date;
+      if (!date) continue;
+      if (!dataByDate[date]) dataByDate[date] = {};
+      if (checkin.mood_value) dataByDate[date].mood = checkin.mood_value;
     }
 
     const dates = Object.keys(dataByDate).sort();
