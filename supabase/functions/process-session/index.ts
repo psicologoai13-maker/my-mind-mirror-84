@@ -492,8 +492,28 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .eq('status', 'active');
 
+    // 📖 Load recent shared diary entries (last 7 days) for context enrichment
+    const { data: recentDiaryEntries } = await supabase
+      .from('diary_entries')
+      .select('content_text, entry_date, diary_id')
+      .eq('user_id', user_id)
+      .eq('is_private', false)
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    let diaryContextBlock = '';
+    if (recentDiaryEntries && recentDiaryEntries.length > 0) {
+      const diaryLines = recentDiaryEntries.map((entry: any) => {
+        const text = (entry.content_text || '').split(/\s+/).slice(0, 150).join(' ');
+        return `[${entry.entry_date}]: ${text}`;
+      }).join('\n');
+      diaryContextBlock = `\n\nDIARI RECENTI (condivisi con Aria):\n${diaryLines}`;
+      console.log('[process-session] 📖 Loaded', recentDiaryEntries.length, 'recent diary entries for context');
+    }
+
     const currentLifeScores = profileData?.life_areas_scores || {};
-    
+
     // Extract user context (from request or profile)
     const selectedGoals = user_context?.selected_goals || (profileData?.selected_goals as string[]) || [];
     const dashboardConfig = profileData?.dashboard_config as { priority_metrics?: string[] } | null;
@@ -1705,7 +1725,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: analysisPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: `Analizza questa conversazione terapeutica:\n\n${transcript}` }] }],
+        contents: [{ role: 'user', parts: [{ text: `Analizza questa conversazione terapeutica:\n\n${transcript}${diaryContextBlock}` }] }],
       }),
     });
 

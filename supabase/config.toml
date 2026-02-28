@@ -101,3 +101,15 @@ verify_jwt = false
 
 [functions.sync-healthkit]
 verify_jwt = false
+
+[functions.generate-wrapped]
+verify_jwt = false
+
+[functions.get-wrapped]
+verify_jwt = false
+
+[functions.transcribe-diary-voice]
+verify_jwt = false
+
+[functions.get-diary-prompt]
+verify_jwt = false
