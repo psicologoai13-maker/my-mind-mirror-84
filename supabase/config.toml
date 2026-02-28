@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.start-challenge]
 verify_jwt = false
+
+[functions.sync-healthkit]
+verify_jwt = false
