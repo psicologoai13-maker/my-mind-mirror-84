@@ -98,9 +98,8 @@ serve(async (req) => {
 
     const userId = accessRecord.user_id;
 
-    // SECURITY: Optionally verify doctor has an existing relationship with this patient
-    // This adds an extra layer of security - doctors can only access tokens from patients they're connected to
-    const { data: existingAccess } = await supabase
+    // FIX 2.3: Verifica OBBLIGATORIA che esista una relazione dottore-paziente attiva
+    const { data: accessRelation } = await supabase
       .from('doctor_patient_access')
       .select('id')
       .eq('doctor_id', doctorId)
@@ -108,8 +107,16 @@ serve(async (req) => {
       .eq('is_active', true)
       .single();
 
+    if (!accessRelation) {
+      console.log('[doctor-view-data] No active relationship. Doctor:', doctorId, 'Patient:', userId);
+      return new Response(JSON.stringify({ error: 'No active access relationship with this patient' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Log access attempt with doctor identity for audit trail
-    console.log('[doctor-view-data] Access attempt by doctor:', doctorId, 'for patient:', userId, 'existing_relationship:', !!existingAccess);
+    console.log('[doctor-view-data] Access granted for doctor:', doctorId, 'patient:', userId);
 
     // Update access count with doctor identity
     await supabase

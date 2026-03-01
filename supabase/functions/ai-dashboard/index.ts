@@ -486,9 +486,15 @@ Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'u
         ],
         ai_message: '',
         focus_areas: userGoals.slice(0, 2),
-        wellness_score: 5,
+        wellness_score: 50, // FIX 2.2: scala 0-100 (era 5 su scala 1-10)
         wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
       };
+    }
+
+    // FIX 2.2: Converti wellness_score da scala 1-10 (Gemini) a 0-100 (DB)
+    if (dashboardLayout.wellness_score !== null && dashboardLayout.wellness_score !== undefined) {
+      const parsedScore = dashboardLayout.wellness_score;
+      dashboardLayout.wellness_score = Math.min(100, Math.max(0, (parsedScore || 5) * 10));
     }
 
     // Add current values to metrics (using most recent, not averages)

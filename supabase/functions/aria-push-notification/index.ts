@@ -212,21 +212,56 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // FIX 1.2: Verifica autenticazione — OBBLIGATORIA
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const authenticatedUserId = user.id;
+
+    const body = await req.json() as PushPayload;
+    const { userId, triggerType = "scheduled" } = body;
+
+    // FIX 1.2: Se userId nel body è diverso dall'utente autenticato, blocca
+    // (a meno che non sia service_role — per cron job futuri)
+    if (userId && userId !== authenticatedUserId) {
+      const isServiceRole = authHeader.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '___');
+      if (!isServiceRole) {
+        return new Response(JSON.stringify({ error: 'Cannot send notifications for other users' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Se non c'è userId nel body, usa l'userId dall'autenticazione
+    const targetUserId = userId || authenticatedUserId;
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { userId, triggerType = "scheduled" } = await req.json() as PushPayload;
-
-    // Get target users (specific or all with active tokens)
+    // Get target user's tokens (only for the authenticated/target user, NOT all users)
     let usersQuery = supabase
       .from("device_push_tokens")
       .select("user_id, device_token")
       .eq("is_active", true)
-      .eq("platform", "ios");
-
-    if (userId) {
-      usersQuery = usersQuery.eq("user_id", userId);
-    }
+      .eq("platform", "ios")
+      .eq("user_id", targetUserId);
 
     const { data: tokens, error: tokensError } = await usersQuery;
     if (tokensError || !tokens?.length) {
