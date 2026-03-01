@@ -38,6 +38,17 @@ serve(async (req) => {
       );
     }
 
+    // Validazione input wrapped
+    const validPeriodTypes = ['monthly', 'yearly'];
+    if (!validPeriodTypes.includes(period_type)) {
+      return new Response(JSON.stringify({ error: 'period_type must be monthly or yearly' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!/^\d{4}(-\d{2})?$/.test(period_key)) {
+      return new Response(JSON.stringify({ error: 'period_key must be YYYY or YYYY-MM format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const authHeader = req.headers.get("Authorization");
     const bodyAccessToken = body.accessToken;
     const bodyUserId = body.userId;

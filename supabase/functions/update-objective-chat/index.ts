@@ -225,16 +225,21 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
                 updateData.ai_progress_estimate = Math.min(100, Math.max(0, update.ai_progress_estimate));
               }
               
-              // Add milestone if provided
+              // Add milestone if provided (with dedup check)
               if (update.new_milestone) {
                 const existingMilestones = objective.ai_milestones || [];
-                updateData.ai_milestones = [
-                  ...existingMilestones,
-                  {
-                    milestone: update.new_milestone,
-                    date: new Date().toISOString(),
-                  }
-                ];
+                const alreadyExists = existingMilestones.some(
+                  (m: any) => m.milestone?.toLowerCase() === update.new_milestone?.toLowerCase()
+                );
+                if (!alreadyExists) {
+                  updateData.ai_milestones = [
+                    ...existingMilestones,
+                    {
+                      milestone: update.new_milestone,
+                      date: new Date().toISOString(),
+                    }
+                  ];
+                }
               }
               
               // Save to database

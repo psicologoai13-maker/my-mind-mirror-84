@@ -303,10 +303,10 @@ interface CachedCheckinsData {
   fixedDailyList: any[];
 }
 
-function getRomeDateString(): string {
+function getDateStringForTimezone(timezone: string = 'Europe/Rome'): string {
   const now = new Date();
   return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Europe/Rome',
+    timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -584,13 +584,15 @@ serve(async (req) => {
     }
 
     const userId = claimsData.user.id;
-    const today = getRomeDateString();
 
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("ai_checkins_cache, selected_goals, onboarding_answers, occupation_context, birth_date")
+      .select("ai_checkins_cache, selected_goals, onboarding_answers, occupation_context, birth_date, timezone")
       .eq("user_id", userId)
       .maybeSingle();
+
+    const userTimezone = (profile?.timezone as string) || 'Europe/Rome';
+    const today = getDateStringForTimezone(userTimezone);
 
     const existingCache = profile?.ai_checkins_cache as CachedCheckinsData | null;
     const occupationContext = profile?.occupation_context as string | null;

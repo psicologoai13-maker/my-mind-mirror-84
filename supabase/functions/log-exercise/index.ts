@@ -49,6 +49,25 @@ serve(async (req) => {
       );
     }
 
+    // Validazione input
+    if (mood_before !== undefined && (mood_before < 1 || mood_before > 10)) {
+      return new Response(JSON.stringify({ error: 'mood_before must be between 1 and 10' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (mood_after !== undefined && (mood_after < 1 || mood_after > 10)) {
+      return new Response(JSON.stringify({ error: 'mood_after must be between 1 and 10' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (duration_actual !== undefined && (duration_actual < 0 || duration_actual > 480)) {
+      return new Response(JSON.stringify({ error: 'duration_actual must be between 0 and 480 minutes' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const validTriggers = ['manual', 'scheduled', 'suggestion'];
+    if (triggered_by && !validTriggers.includes(triggered_by)) {
+      return new Response(JSON.stringify({ error: 'triggered_by must be manual, scheduled, or suggestion' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // --- Triple fallback auth ---
     let authenticatedUserId: string | null = null;
     let supabase: ReturnType<typeof createClient> | null = null;
