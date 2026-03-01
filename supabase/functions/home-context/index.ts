@@ -7,6 +7,105 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+async function generateAriaHomeMessage(
+  profile: any,
+  timeSlot: string,
+  healthkit: any,
+  lastSession: any,
+  memories: any[]
+): Promise<string> {
+  const apiKey = Deno.env.get('GOOGLE_API_KEY');
+  if (!apiKey) throw new Error('GOOGLE_API_KEY not configured');
+
+  const userName = profile.name || 'amico';
+  const goals = profile.selected_goals || [];
+
+  // Build compact context
+  const contextParts: string[] = [];
+
+  if (healthkit?.sleep_hours) {
+    contextParts.push(`Sonno stanotte: ${healthkit.sleep_hours}h`);
+  }
+  if (healthkit?.steps) {
+    contextParts.push(`Passi oggi: ${healthkit.steps}`);
+  }
+  if (lastSession) {
+    const daysAgo = Math.floor((Date.now() - new Date(lastSession.start_time).getTime()) / 86400000);
+    const sessionInfo = daysAgo === 0 ? 'Ultima sessione: oggi'
+      : daysAgo === 1 ? 'Ultima sessione: ieri'
+      : `Ultima sessione: ${daysAgo} giorni fa`;
+    contextParts.push(sessionInfo);
+    if (lastSession.ai_summary) {
+      contextParts.push(`Riassunto ultima sessione: ${lastSession.ai_summary.substring(0, 200)}`);
+    }
+  }
+  if (memories && memories.length > 0) {
+    const memTexts = memories.map((m: any) => m.fact).join('; ');
+    contextParts.push(`Ricordi recenti: ${memTexts.substring(0, 300)}`);
+  }
+  if (goals.length > 0) {
+    contextParts.push(`Obiettivi attivi: ${goals.join(', ')}`);
+  }
+
+  const prompt = `Sei Aria, assistente AI di benessere psicologico. Genera UN messaggio per ${userName} da mostrare nella Home dell'app.
+
+CONTESTO:
+- Fascia oraria: ${timeSlot}
+${contextParts.map(c => `- ${c}`).join('\n')}
+
+REGOLE:
+- MASSIMO 120 caratteri
+- Tono da migliore amica attenta, NON da terapeuta
+- Fai riferimento a UN dato specifico del contesto (sonno, sessione, obiettivo, ricordo)
+- Se è mattina: tono energico. Se è sera: tono riflessivo e caldo
+- NON usare emoji
+- NON fare domande retoriche generiche tipo "Come stai?"
+- Se non ci sono dati specifici, fai un commento sulla giornata/momento
+- Rispondi SOLO con il messaggio, nient'altro
+
+ESEMPIO BUONO: "Ho visto che hai dormito poco stanotte. Prenditi un momento per te oggi."
+ESEMPIO CATTIVO: "Ciao! Come stai oggi? Spero bene! 😊"`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 100,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+
+  // Truncate safety: max 150 chars
+  return text.length > 150 ? text.substring(0, 147) + '...' : text;
+}
+
+function getFallbackMessage(timeSlot: string, name: string | null): string {
+  const n = name || 'amico';
+  switch (timeSlot) {
+    case 'morning': return `Buongiorno ${n}. Oggi è un nuovo giorno, iniziamolo insieme.`;
+    case 'afternoon': return `Ciao ${n}, come sta andando il pomeriggio?`;
+    case 'evening': return `Buonasera ${n}. Prenditi un momento per respirare.`;
+    case 'night': return `${n}, è tardi. Riposati bene stanotte.`;
+    default: return `Ciao ${n}, sono qui quando vuoi.`;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -136,11 +235,12 @@ serve(async (req) => {
       healthkitResult,
       rewardPointsResult,
       levelsResult,
+      userMemoriesResult,
     ] = await Promise.all([
       // 3. PROFILE
       supabase
         .from("user_profiles")
-        .select("name, current_level, active_dashboard_metrics")
+        .select("name, current_level, active_dashboard_metrics, aria_home_message, aria_home_message_at, selected_goals")
         .eq("user_id", authenticatedUserId)
         .single(),
 
@@ -171,10 +271,10 @@ serve(async (req) => {
         .order("current_streak", { ascending: false })
         .limit(1),
 
-      // 5. SUGGESTED_EXERCISE - last session anxiety
+      // 5. SUGGESTED_EXERCISE + ARIA MESSAGE - last completed session
       supabase
         .from("sessions")
-        .select("anxiety_score_detected")
+        .select("anxiety_score_detected, start_time, ai_summary")
         .eq("user_id", authenticatedUserId)
         .eq("status", "completed")
         .order("start_time", { ascending: false })
@@ -210,6 +310,15 @@ serve(async (req) => {
         .from("gamification_levels")
         .select("level, name, points_required")
         .order("level", { ascending: true }),
+
+      // 9. USER_MEMORIES - last 3 memories for Aria home message context
+      supabase
+        .from("user_memories")
+        .select("fact, category, extracted_at")
+        .eq("user_id", authenticatedUserId)
+        .eq("is_active", true)
+        .order("extracted_at", { ascending: false })
+        .limit(3),
     ]);
 
     // ─────────────────────────────────────────────
@@ -219,6 +328,9 @@ serve(async (req) => {
       name: null,
       current_level: 1,
       active_dashboard_metrics: ["mood", "anxiety", "energy", "sleep"],
+      aria_home_message: null,
+      aria_home_message_at: null,
+      selected_goals: [],
     };
 
     // ─────────────────────────────────────────────
@@ -344,7 +456,52 @@ serve(async (req) => {
     };
 
     // ─────────────────────────────────────────────
-    // 9. GREETING
+    // 9. ARIA HOME MESSAGE (V5)
+    // ─────────────────────────────────────────────
+    const lastSession = lastSessionResult.data?.[0] ?? null;
+    const userMemories = userMemoriesResult.data ?? [];
+    const healthkitData = healthkit;
+
+    let ariaMessage = profile.aria_home_message || null;
+    let shouldGenerate = false;
+
+    if (!ariaMessage) {
+      shouldGenerate = true;
+    } else if (profile.aria_home_message_at) {
+      const messageAge = Date.now() - new Date(profile.aria_home_message_at).getTime();
+      const FOUR_HOURS = 4 * 60 * 60 * 1000;
+      if (messageAge > FOUR_HOURS) {
+        shouldGenerate = true;
+      }
+    }
+
+    if (shouldGenerate) {
+      try {
+        ariaMessage = await generateAriaHomeMessage(
+          profile,
+          timeSlot,
+          healthkitData,
+          lastSession,
+          userMemories
+        );
+
+        // Save to cache
+        await supabase
+          .from('user_profiles')
+          .update({
+            aria_home_message: ariaMessage,
+            aria_home_message_at: new Date().toISOString()
+          })
+          .eq('user_id', authenticatedUserId);
+      } catch (err) {
+        console.error('[home-context] Aria home message generation failed:', err);
+        // Fallback: generic message based on time slot
+        ariaMessage = getFallbackMessage(timeSlot, profile.name);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // 10. GREETING
     // ─────────────────────────────────────────────
     const userName = profile.name ?? "amico";
     const greetings: Record<TimeSlot, string> = {
@@ -371,6 +528,7 @@ serve(async (req) => {
       follow_up: followUp,
       healthkit,
       level_progress: levelProgress,
+      aria_message: ariaMessage,
     };
 
     console.log("[home-context] ✅ Response built for user", authenticatedUserId, "| slot:", timeSlot);

@@ -181,7 +181,12 @@ IL TUO COMPITO:
 1. Organizzare le sezioni in ordine di rilevanza per l'utente
 2. Evidenziare 3-5 metriche che meritano attenzione speciale (positive o da migliorare)
 3. Suggerire 2-3 metriche su cui l'utente dovrebbe fare un "deep dive"
-4. Generare un breve riassunto AI dello stato generale
+4. Generare "ai_summary": MASSIMO 100 caratteri (circa 15 parole), tono caldo e specifico.
+   DEVE contenere almeno 1 dato reale dell'utente (es: "ansia in calo", "sonno migliorato", "3 sessioni questa settimana").
+   NON deve essere generico tipo "Stai facendo progressi".
+   DEVE sembrare scritto da un'amica che conosce bene l'utente.
+   Esempio buono: "L'ansia è in calo da 2 settimane e il sonno migliora. Brava, Marco."
+   Esempio cattivo: "Stai facendo un buon percorso di crescita personale."
 5. Generare un insight focale basato sui pattern rilevati
 
 REGOLE:
@@ -317,6 +322,13 @@ Genera la configurazione della pagina Analisi.`;
         analysisLayout = JSON.parse(jsonMatch[0]);
       } else {
         throw new Error('No JSON found in response');
+      }
+
+      // Truncate ai_summary for non-expandable box (V5)
+      if (analysisLayout.ai_summary && analysisLayout.ai_summary.length > 120) {
+        const truncated = analysisLayout.ai_summary.substring(0, 120);
+        const lastSpace = truncated.lastIndexOf(' ');
+        analysisLayout.ai_summary = (lastSpace > 80 ? truncated.substring(0, lastSpace) : truncated) + '\u2026';
       }
     } catch (parseError) {
       console.error('Parse error:', parseError, 'Content:', content);

@@ -4,6 +4,27 @@
 
 ---
 
+## 1 Mar 2026 — Batch V5.1: Messaggio Aria + Sintesi breve
+
+### Implementazioni
+- **Messaggio Aria nella Home**: `home-context` ora genera un messaggio personalizzato con Gemini Flash. Cache 4h in `user_profiles.aria_home_message`. Invalidato automaticamente da `process-session` dopo ogni sessione completata. Fallback testuale se API down.
+- **Sintesi AI breve**: prompt `ai-analysis` modificato con vincolo 100 char per `ai_summary`. Aggiunto truncation fallback a 120 char nel parsing. Box Riepilogo ora sempre visibile (non espandibile).
+
+### Colonne DB aggiunte
+- `user_profiles.aria_home_message` (text)
+- `user_profiles.aria_home_message_at` (timestamptz)
+
+### File modificati
+- `supabase/functions/home-context/index.ts` — +query user_memories, +generateAriaHomeMessage(), +aria_message nel response
+- `supabase/functions/process-session/index.ts` — +invalidazione cache aria_home_message alla fine
+- `supabase/functions/ai-analysis/index.ts` — +vincolo lunghezza prompt, +truncation fallback
+
+### Decisioni architetturali
+- process-session NON rigenera il messaggio (evita chiamata Gemini extra) — invalida solo la cache. Rigenerazione delegata a home-context alla prossima apertura app.
+- Strategia cache ibrida: <4h → usa cache (0ms), >4h → genera al volo (1-2s), post-sessione → invalida per freschezza.
+
+---
+
 ## 1 Mar 2026 — Fix P3 Batch 2
 
 ### Completate
