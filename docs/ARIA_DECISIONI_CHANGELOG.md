@@ -4,6 +4,21 @@
 
 ---
 
+## 1 Mar 2026 — Fix process-session
+
+### Completate
+- **Salvataggio habits**: habits rilevati da Gemini (`habits_detected`) ora vengono salvati in `user_habits_config` + `daily_habits` con dedup tramite upsert su `(user_id, habit_type, date)`
+- **Salvataggio progressi habits**: `habit_progress_updates` rilevati da Gemini ora vengono salvati in `daily_habits` con lookup `target_value`/`unit` da `user_habits_config`
+- **Salvataggio eventi**: eventi rilevati da Gemini (`events_detected`) già funzionanti, verificato e confermato
+- **Error handling migliorato**: ogni scrittura DB (10+ tabelle) è wrappata in try-catch con logging chiaro. Se una fallisce, le altre continuano (graceful degradation). Errori tracciati in `dbErrors[]` e loggati in summary finale
+- **Rimosso throw fatale**: la sessione update non fa più `throw` se fallisce — logga l'errore e continua con le altre scritture
+
+### Decisioni prese
+- Scelto Opzione A (graceful degradation) per la transazione perché le 10+ scritture sono molto diverse tra loro e complesse da serializzare in un singolo JSONB per una RPC SQL
+- La risposta JSON include `db_errors` se ci sono stati errori parziali
+
+---
+
 ## 1 Mar 2026 — Sessione Post-Audit Fix
 
 ### Completate

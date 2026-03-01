@@ -1997,9 +1997,13 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     const isCrisisAlert = analysis.crisis_risk === 'high';
     const today = new Date().toISOString().split('T')[0];
 
+    // Track DB write errors for graceful degradation
+    const dbErrors: Array<{ table: string; error: string }> = [];
+
     // 1. Update the SESSION with all analysis results (including deep_psychology)
+    try {
     console.log('[process-session] Updating session in database...');
-    
+
     // Map new life_areas to old life_balance_scores for backwards compatibility
     // Also store health and energy separately for clarity
     const lifeBalanceScores: LifeBalanceScores & { health?: number | null } = {
@@ -2034,11 +2038,17 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       .eq('id', session_id);
 
     if (sessionError) {
-      console.error('[process-session] Error updating session:', sessionError);
-      throw new Error(`Failed to update session: ${sessionError.message}`);
+      console.error(`[process-session] Failed to save sessions for session ${session_id}:`, sessionError.message);
+      dbErrors.push({ table: 'sessions', error: sessionError.message });
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save sessions for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'sessions', error: msg });
     }
 
     // 2. SAVE TO daily_emotions (upsert) - including all 20 emotions
+    try {
     console.log('[process-session] Saving to daily_emotions with all 20 emotions...');
     const { error: emotionsError } = await supabase
       .from('daily_emotions')
@@ -2074,10 +2084,17 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       }, { onConflict: 'user_id,date,source' });
 
     if (emotionsError) {
-      console.error('[process-session] Error saving daily_emotions:', emotionsError);
+      console.error(`[process-session] Failed to save daily_emotions for session ${session_id}:`, emotionsError.message);
+      dbErrors.push({ table: 'daily_emotions', error: emotionsError.message });
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save daily_emotions for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'daily_emotions', error: msg });
     }
 
     // 3. SAVE TO daily_life_areas (upsert) - 9 areas
+    try {
     const hasLifeAreas = Object.values(analysis.life_areas).some(v => v !== null);
     if (hasLifeAreas) {
       console.log('[process-session] Saving to daily_life_areas...');
@@ -2100,11 +2117,18 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }, { onConflict: 'user_id,date,source' });
 
       if (lifeAreasError) {
-        console.error('[process-session] Error saving daily_life_areas:', lifeAreasError);
+        console.error(`[process-session] Failed to save daily_life_areas for session ${session_id}:`, lifeAreasError.message);
+        dbErrors.push({ table: 'daily_life_areas', error: lifeAreasError.message });
       }
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save daily_life_areas for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'daily_life_areas', error: msg });
     }
 
     // 4. SAVE TO daily_psychology (upsert) - ~32 parameters including safety indicators
+    try {
     const hasDeepPsychology = Object.values(analysis.deep_psychology).some(v => v !== null);
     if (hasDeepPsychology) {
       console.log('[process-session] Saving to daily_psychology with all ~32 parameters...');
@@ -2157,10 +2181,16 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }, { onConflict: 'user_id,date,source' });
 
       if (psychologyError) {
-        console.error('[process-session] Error saving daily_psychology:', psychologyError);
+        console.error(`[process-session] Failed to save daily_psychology for session ${session_id}:`, psychologyError.message);
+        dbErrors.push({ table: 'daily_psychology', error: psychologyError.message });
       } else {
         console.log('[process-session] Deep psychology metrics saved successfully');
       }
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save daily_psychology for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'daily_psychology', error: msg });
     }
 
     // 5. Update user's profile
@@ -2182,24 +2212,24 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     // ═══════════════════════════════════════════════════════════════════════════
     // 🧠 STRUCTURED MEMORY SYSTEM - Save to user_memories table
     // ═══════════════════════════════════════════════════════════════════════════
-    
+    try {
     console.log('[process-session] 📝 Processing structured memories...');
-    
+
     // Extract personal details from analysis if present
     const personalDetails = (analysis as any).personal_details || {};
-    
+
     // Helper to determine category and importance for a memory
     const categorizeMemory = (fact: string, source: 'key_fact' | 'persona' | 'hobby' | 'piace' | 'evento'): { category: string; importance: number } => {
       const lowerFact = fact.toLowerCase();
-      
+
       // High importance patterns
       const highImportancePatterns = /partner|fidanzat|marit|moglie|figli|genitor|famiglia|lavoro|professione|malattia|trauma|obiettivo|sogno/i;
       const mediumImportancePatterns = /amici|hobby|sport|viaggio|vacanza|studio|università|scuola/i;
-      
+
       let importance = 5; // Default medium
       if (highImportancePatterns.test(lowerFact)) importance = 8;
       else if (mediumImportancePatterns.test(lowerFact)) importance = 6;
-      
+
       // Determine category based on source and content
       let category = 'generale';
       if (source === 'persona') category = 'persona';
@@ -2214,27 +2244,27 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         else if (/salute|medico|malattia|farmac/i.test(lowerFact)) category = 'salute';
         else if (/obiettivo|goal|voglio|desider/i.test(lowerFact)) category = 'obiettivo';
       }
-      
+
       return { category, importance };
     };
-    
+
     // Collect all new memories to insert
     const newMemoriesToInsert: Array<{ fact: string; category: string; importance: number }> = [];
-    
+
     // Add key_facts from AI analysis
     const filteredKeyFacts = analysis.key_facts.filter((fact: string) => {
       const corrections = analysis.corrections || [];
-      return !corrections.some((c: MemoryCorrection) => 
+      return !corrections.some((c: MemoryCorrection) =>
         c.wrong_fact?.toLowerCase().includes(fact.toLowerCase()) ||
         fact.toLowerCase().includes(c.wrong_fact?.toLowerCase() || '')
       );
     });
-    
+
     for (const fact of filteredKeyFacts) {
       const { category, importance } = categorizeMemory(fact, 'key_fact');
       newMemoriesToInsert.push({ fact, category, importance });
     }
-    
+
     // Add mentioned names
     if (personalDetails.mentioned_names?.length > 0) {
       for (const name of personalDetails.mentioned_names) {
@@ -2243,7 +2273,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     // Add hobbies/interests
     if (personalDetails.hobbies_interests?.length > 0) {
       for (const hobby of personalDetails.hobbies_interests) {
@@ -2252,7 +2282,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     // Add likes
     if (personalDetails.likes?.length > 0) {
       for (const like of personalDetails.likes) {
@@ -2261,7 +2291,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     // Add life events
     if (personalDetails.life_events?.length > 0) {
       for (const event of personalDetails.life_events) {
@@ -2270,12 +2300,12 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     // 🔄 Handle corrections - deactivate wrong memories
     const corrections = analysis.corrections || [];
     if (corrections.length > 0) {
       console.log('[process-session] 🔄 Processing', corrections.length, 'memory corrections');
-      
+
       for (const correction of corrections) {
         if (correction.keywords_to_remove?.length > 0) {
           // Deactivate memories matching these keywords
@@ -2285,7 +2315,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               .update({ is_active: false })
               .eq('user_id', user_id)
               .ilike('fact', `%${keyword}%`);
-            
+
             if (deactivateError) {
               console.error('[process-session] Error deactivating memory:', deactivateError);
             } else {
@@ -2295,7 +2325,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     // Insert new memories (avoid duplicates)
     let insertedCount = 0;
     for (const memory of newMemoriesToInsert) {
@@ -2307,7 +2337,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         .eq('is_active', true)
         .ilike('fact', `%${memory.fact.substring(0, 30)}%`)
         .maybeSingle();
-      
+
       if (!existing) {
         const { error: insertError } = await supabase
           .from('user_memories')
@@ -2318,7 +2348,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
             importance: memory.importance,
             source_session_id: session_id
           });
-        
+
         if (insertError) {
           console.error('[process-session] Error inserting memory:', insertError);
         } else {
@@ -2326,22 +2356,28 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
-    
+
     console.log(`[process-session] 📝 Inserted ${insertedCount} new structured memories`);
     console.log('[process-session] 📝 NEW_MEMORIES_TOTAL:', newMemoriesToInsert.length);
     console.log('[process-session] 📝 CORRECTIONS_PROCESSED:', corrections.length);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save user_memories for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'user_memories', error: msg });
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 📸 SESSION CONTEXT SNAPSHOT - Save for continuity between sessions
     // ═══════════════════════════════════════════════════════════════════════════
+    try {
     console.log('[process-session] 📸 Creating session context snapshot...');
-    
+
     // Determine dominant emotion
     const emotionScores = Object.entries(analysis.emotions || {})
       .filter(([k, v]) => v !== null && (v as number) > 0)
       .sort((a, b) => (b[1] as number) - (a[1] as number));
     const dominantEmotion = emotionScores[0]?.[0] || null;
-    
+
     // Calculate session quality score (1-10)
     const qualityFactors = [
       analysis.vitals.mood ? analysis.vitals.mood : 5,
@@ -2351,26 +2387,26 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     const sessionQualityScore = Math.round(
       qualityFactors.reduce((a, b) => a + b, 0) / qualityFactors.length
     );
-    
+
     // Determine if follow-up is needed
-    const needsFollowUp = 
+    const needsFollowUp =
       analysis.crisis_risk !== 'low' ||
       (analysis.key_events?.length || 0) > 0 ||
       (analysis.deep_psychology?.hopelessness || 0) >= 6 ||
       (analysis.deep_psychology?.suicidal_ideation || 0) >= 3;
-    
+
     // Extract unresolved issues (problems mentioned but not solved)
     const problemPatterns = /problem|difficolt|crisi|stress|ansia|preoccup|paur|triste|male|dolore|non riesco/i;
-    const unresolvedIssues = (analysis.key_events || []).filter((e: string) => 
+    const unresolvedIssues = (analysis.key_events || []).filter((e: string) =>
       problemPatterns.test(e)
     ).slice(0, 5);
-    
+
     // Extract action items (things the user wants to do)
     const actionPatterns = /devo|dovrei|voglio|vorrei|obiettivo|farò|proverò|inizier/i;
-    const actionItems = (analysis.key_events || []).filter((e: string) => 
+    const actionItems = (analysis.key_events || []).filter((e: string) =>
       actionPatterns.test(e)
     ).slice(0, 5);
-    
+
     const snapshot = {
       session_id: session_id,
       user_id: user_id,
@@ -2389,32 +2425,39 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       dominant_emotion: dominantEmotion,
       session_quality_score: sessionQualityScore
     };
-    
+
     const { error: snapshotError } = await supabase
       .from('session_context_snapshots')
       .insert(snapshot);
-    
+
     if (snapshotError) {
-      console.error('[process-session] Error saving session snapshot:', snapshotError);
+      console.error(`[process-session] Failed to save session_context_snapshots for session ${session_id}:`, snapshotError.message);
+      dbErrors.push({ table: 'session_context_snapshots', error: snapshotError.message });
     } else {
       console.log('[process-session] 📸 Session context snapshot saved successfully');
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save session_context_snapshots for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'session_context_snapshots', error: msg });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 🏷️ CONVERSATION TOPICS TRACKING - Track and learn topic patterns
     // ═══════════════════════════════════════════════════════════════════════════
+    try {
     console.log('[process-session] 🏷️ Tracking conversation topics...');
-    
+
     const topics = (analysis.emotion_tags || []) as string[];
     const sensitivePatterns = /trauma|abuso|lutto|morte|suicid|autolesion|violenza|stupro|molest/i;
-    
+
     let topicsTracked = 0;
     for (const topic of topics) {
       if (!topic || topic.length < 2) continue;
-      
+
       const topicLower = topic.toLowerCase().trim();
       const isSensitive = sensitivePatterns.test(topicLower);
-      
+
       // Check if topic already exists for user
       const { data: existingTopic } = await supabase
         .from('conversation_topics')
@@ -2422,7 +2465,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         .eq('user_id', user_id)
         .eq('topic', topicLower)
         .maybeSingle();
-      
+
       if (existingTopic) {
         // Update existing topic
         const currentSessionIds = (existingTopic.session_ids as string[]) || [];
@@ -2437,7 +2480,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               updated_at: new Date().toISOString()
             })
             .eq('id', existingTopic.id);
-          
+
           if (!updateError) topicsTracked++;
         }
       } else {
@@ -2452,12 +2495,17 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
             mention_count: 1,
             avoid_unless_introduced: isSensitive
           });
-        
+
         if (!insertError) topicsTracked++;
       }
     }
-    
+
     console.log(`[process-session] 🏷️ Tracked ${topicsTracked} conversation topics`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save conversation_topics for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'conversation_topics', error: msg });
+    }
 
     // Update dashboard metrics - prefer user's priority metrics
     const recommendedMetrics = analysis.recommended_dashboard_metrics || [];
@@ -2486,6 +2534,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
     }
 
     // 🎯 Post-processing: Validate and correct categories for custom objectives
+    try {
     // Keywords that MUST map to body category
     const BODY_KEYWORDS = /peso|kg|dimagr|ingrassare|palestra|sport|muscol|fisico|corpo|chili|massa/i;
     const FINANCE_KEYWORDS = /risparm|soldi|euro|€|debito|guadagn|invest|stipendio|budget|denaro/i;
@@ -2737,32 +2786,38 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save user_objectives for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'user_objectives', error: msg });
+    }
 
     // 📅 NEW: Save events detected by AI to user_events table
+    try {
     const eventsDetected = (analysis as any).events_detected || [];
     if (eventsDetected.length > 0) {
       console.log('[process-session] AI detected events:', eventsDetected);
-      
+
       for (const event of eventsDetected) {
         if (!event.title || !event.event_date) continue;
-        
+
         // Validate date format
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(event.event_date)) {
           console.log(`[process-session] Skipping event with invalid date: ${event.event_date}`);
           continue;
         }
-        
+
         // Check if event is in the future (or today)
         const eventDate = new Date(event.event_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (eventDate < today) {
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+
+        if (eventDate < todayDate) {
           console.log(`[process-session] Skipping past event: ${event.title} on ${event.event_date}`);
           continue;
         }
-        
+
         // Check if similar event already exists (avoid duplicates)
         const { data: existingEvent } = await supabase
           .from('user_events')
@@ -2771,7 +2826,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
           .eq('event_date', event.event_date)
           .ilike('title', `%${event.title.substring(0, 20)}%`)
           .maybeSingle();
-        
+
         if (!existingEvent) {
           const { error: eventError } = await supabase
             .from('user_events')
@@ -2791,7 +2846,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
               status: 'upcoming',
               follow_up_done: false
             });
-          
+
           if (eventError) {
             console.error('[process-session] Error creating event:', eventError);
           } else {
@@ -2802,10 +2857,100 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
         }
       }
     }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save user_events for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'user_events', error: msg });
+    }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🔄 HABITS: Save new habits and progress updates detected by AI
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+
+    // 1. Save newly detected habits to user_habits_config + initial daily_habits entry
+    const habitsDetected = (analysis as any).habits_detected || [];
+    if (habitsDetected.length > 0) {
+      console.log('[process-session] 🔄 AI detected new habits:', habitsDetected);
+
+      for (const habit of habitsDetected) {
+        if (!habit.habit_type) continue;
+
+        // Ensure habit config exists (upsert to user_habits_config)
+        const { error: configError } = await supabase
+          .from('user_habits_config')
+          .upsert({
+            user_id: user_id,
+            habit_type: habit.habit_type,
+            is_active: true,
+            daily_target: habit.daily_target || null,
+            unit: habit.unit || null,
+            streak_type: habit.streak_type || 'daily'
+          }, { onConflict: 'user_id,habit_type' });
+
+        if (configError) {
+          console.error(`[process-session] Failed to save user_habits_config for habit ${habit.habit_type}:`, configError.message);
+        } else {
+          console.log(`[process-session] 🔄 Saved habit config: ${habit.habit_type} (${habit.label || habit.habit_type})`);
+        }
+      }
+    }
+
+    // 2. Save habit progress updates to daily_habits
+    const habitProgressUpdates = (analysis as any).habit_progress_updates || [];
+    if (habitProgressUpdates.length > 0) {
+      console.log('[process-session] 🔄 AI detected habit progress updates:', habitProgressUpdates);
+
+      for (const update of habitProgressUpdates) {
+        if (!update.habit_type || update.value === undefined) continue;
+
+        const habitDate = update.date || today; // today is already defined as YYYY-MM-DD
+
+        // Validate date format
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(habitDate)) {
+          console.log(`[process-session] Skipping habit update with invalid date: ${habitDate}`);
+          continue;
+        }
+
+        // Lookup target_value from user_habits_config if available
+        const { data: habitConfig } = await supabase
+          .from('user_habits_config')
+          .select('daily_target, unit')
+          .eq('user_id', user_id)
+          .eq('habit_type', update.habit_type)
+          .maybeSingle();
+
+        const { error: habitError } = await supabase
+          .from('daily_habits')
+          .upsert({
+            user_id: user_id,
+            habit_type: update.habit_type,
+            date: habitDate,
+            value: update.value,
+            target_value: habitConfig?.daily_target || null,
+            unit: habitConfig?.unit || null,
+            notes: update.note || null
+          }, { onConflict: 'user_id,habit_type,date', ignoreDuplicates: false });
+
+        if (habitError) {
+          console.error(`[process-session] Failed to save daily_habits for ${update.habit_type}:`, habitError.message);
+        } else {
+          console.log(`[process-session] 🔄 Saved habit progress: ${update.habit_type} = ${update.value} on ${habitDate}`);
+        }
+      }
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save daily_habits for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'daily_habits', error: msg });
+    }
+
+    // Update user profile
+    try {
     const { error: profileUpdateError } = await supabase
       .from('user_profiles')
-      .update({ 
+      .update({
         // NOTE: long_term_memory is now deprecated - memories are stored in user_memories table
         life_areas_scores: mergedLifeScores,
         active_dashboard_metrics: validFinalMetrics,
@@ -2814,22 +2959,33 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       .eq('user_id', user_id);
 
     if (profileUpdateError) {
-      console.error('[process-session] Error updating profile:', profileUpdateError);
+      console.error(`[process-session] Failed to save user_profiles for session ${session_id}:`, profileUpdateError.message);
+      dbErrors.push({ table: 'user_profiles', error: profileUpdateError.message });
     } else {
       console.log('[process-session] Profile updated. Memories now stored in user_memories table.');
       if (suggestedNewGoals.length > 0) {
         console.log('[process-session] Added', suggestedNewGoals.length, 'new AI-detected goals');
       }
-      if (customObjectives.length > 0) {
-        console.log('[process-session] Created', customObjectives.length, 'custom objectives');
-      }
+    }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[process-session] Failed to save user_profiles for session ${session_id}:`, msg);
+      dbErrors.push({ table: 'user_profiles', error: msg });
+    }
+
+    // Log summary of all DB write errors (graceful degradation)
+    if (dbErrors.length > 0) {
+      console.error(`[process-session] ⚠️ ${dbErrors.length} DB write(s) failed for session ${session_id}:`, JSON.stringify(dbErrors));
+    } else {
+      console.log('[process-session] ✅ All DB writes completed successfully');
     }
 
     console.log('[process-session] Session processing complete!');
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
       crisis_alert: isCrisisAlert,
+      db_errors: dbErrors.length > 0 ? dbErrors : undefined,
       analysis: {
         vitals: analysis.vitals,
         emotions: analysis.emotions,

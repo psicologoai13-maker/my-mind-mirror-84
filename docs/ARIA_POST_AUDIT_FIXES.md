@@ -18,6 +18,8 @@
 | 7 | Doctor access bypass | P1 | Check relazione obbligatorio | doctor-view-data |
 | 8 | Livello scende spendendo punti | P2 | lifetime_points | SQL migration |
 | 9 | redeem-points race condition | P2 | atomic_redeem_points con FOR UPDATE | redeem-points + SQL |
+| 10 | Habits/eventi rilevati ma non salvati nel DB | P3 | `habits_detected` e `habit_progress_updates` ora salvati in `user_habits_config` + `daily_habits` | process-session |
+| 11 | process-session scrive 10 tabelle senza transazione | P3 | Ogni scrittura wrappata in try-catch con graceful degradation, errori tracciati e loggati | process-session |
 
 ## Funzioni Eliminate
 
@@ -39,8 +41,8 @@
 
 | # | Bug | Severità |
 |---|---|:---:|
-| 1 | process-session scrive 10 tabelle senza transazione | P3 |
-| 2 | Habits/eventi rilevati ma non salvati nel DB | P3 |
+| ~~1~~ | ~~process-session scrive 10 tabelle senza transazione~~ | ~~P3~~ ✅ |
+| ~~2~~ | ~~Habits/eventi rilevati ma non salvati nel DB~~ | ~~P3~~ ✅ |
 | 3 | Sfide scadute restano attive (no cron job) | P3 |
 | 4 | System prompt ai-chat ~30-50KB | P3 |
 | 5 | Timezone hardcoded Europe/Rome | P3 |
