@@ -1,10 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
 interface PatternDetection {
   pattern_type: string;
@@ -35,10 +29,10 @@ function average(arr: number[]): number {
 function detectMorningDip(sessions: any[]): PatternDetection | null {
   const morningMoods: number[] = [];
   const eveningMoods: number[] = [];
-  
+
   for (const session of sessions) {
     if (!session.mood_score_detected || !session.start_time) continue;
-    
+
     const hour = new Date(session.start_time).getHours();
     if (hour >= 5 && hour < 12) {
       morningMoods.push(session.mood_score_detected);
@@ -46,13 +40,13 @@ function detectMorningDip(sessions: any[]): PatternDetection | null {
       eveningMoods.push(session.mood_score_detected);
     }
   }
-  
+
   if (morningMoods.length < 5 || eveningMoods.length < 5) return null;
-  
+
   const morningAvg = average(morningMoods);
   const eveningAvg = average(eveningMoods);
   const diff = eveningAvg - morningAvg;
-  
+
   if (diff >= 1.5) {
     const confidence = Math.min(0.95, 0.5 + (diff / 5) + (morningMoods.length / 50));
     return {
@@ -69,7 +63,7 @@ function detectMorningDip(sessions: any[]): PatternDetection | null {
       ],
     };
   }
-  
+
   return null;
 }
 
@@ -77,10 +71,10 @@ function detectMorningDip(sessions: any[]): PatternDetection | null {
 function detectWeekendBoost(sessions: any[]): PatternDetection | null {
   const weekdayMoods: number[] = [];
   const weekendMoods: number[] = [];
-  
+
   for (const session of sessions) {
     if (!session.mood_score_detected || !session.start_time) continue;
-    
+
     const date = new Date(session.start_time);
     if (isWeekend(date)) {
       weekendMoods.push(session.mood_score_detected);
@@ -88,13 +82,13 @@ function detectWeekendBoost(sessions: any[]): PatternDetection | null {
       weekdayMoods.push(session.mood_score_detected);
     }
   }
-  
+
   if (weekdayMoods.length < 10 || weekendMoods.length < 4) return null;
-  
+
   const weekdayAvg = average(weekdayMoods);
   const weekendAvg = average(weekendMoods);
   const diff = weekendAvg - weekdayAvg;
-  
+
   if (diff >= 1.0) {
     const confidence = Math.min(0.9, 0.5 + (diff / 4) + (weekendMoods.length / 30));
     return {
@@ -111,7 +105,7 @@ function detectWeekendBoost(sessions: any[]): PatternDetection | null {
       ],
     };
   }
-  
+
   return null;
 }
 
@@ -119,26 +113,26 @@ function detectWeekendBoost(sessions: any[]): PatternDetection | null {
 function detectMondayBlues(sessions: any[]): PatternDetection | null {
   const mondayMoods: number[] = [];
   const otherDayMoods: number[] = [];
-  
+
   for (const session of sessions) {
     if (!session.mood_score_detected || !session.start_time) continue;
-    
+
     const date = new Date(session.start_time);
     const day = getDayOfWeek(date);
-    
+
     if (day === 1) { // Monday
       mondayMoods.push(session.mood_score_detected);
     } else if (day >= 2 && day <= 4) { // Tuesday-Thursday
       otherDayMoods.push(session.mood_score_detected);
     }
   }
-  
+
   if (mondayMoods.length < 4 || otherDayMoods.length < 10) return null;
-  
+
   const mondayAvg = average(mondayMoods);
   const otherAvg = average(otherDayMoods);
   const diff = otherAvg - mondayAvg;
-  
+
   if (diff >= 1.2) {
     const confidence = Math.min(0.85, 0.4 + (diff / 4) + (mondayMoods.length / 20));
     return {
@@ -155,27 +149,26 @@ function detectMondayBlues(sessions: any[]): PatternDetection | null {
       ],
     };
   }
-  
+
   return null;
 }
 
 // Detect anxiety cycle pattern
 function detectAnxietyCycle(sessions: any[]): PatternDetection | null {
   const anxietyLevels: { date: string; value: number }[] = [];
-  
+
   for (const session of sessions) {
     if (!session.anxiety_score_detected || !session.start_time) continue;
     const date = session.start_time.split('T')[0];
     anxietyLevels.push({ date, value: session.anxiety_score_detected });
   }
-  
+
   if (anxietyLevels.length < 14) return null;
-  
-  // Look for weekly cyclical patterns
+
   const avgAnxiety = average(anxietyLevels.map(a => a.value));
   const highAnxietyDays = anxietyLevels.filter(a => a.value >= avgAnxiety + 2).length;
   const percentage = (highAnxietyDays / anxietyLevels.length) * 100;
-  
+
   if (percentage >= 25) {
     return {
       pattern_type: 'anxiety_spikes',
@@ -191,37 +184,29 @@ function detectAnxietyCycle(sessions: any[]): PatternDetection | null {
       ],
     };
   }
-  
+
   return null;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const { user_id } = await req.json();
-    
-    if (!user_id) {
-      throw new Error('user_id is required');
-    }
+    // FIX: Aggiunta autenticazione JWT (era completamente assente)
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    console.log(`[detect-emotion-patterns] Processing patterns for user: ${user_id}`);
+    console.log(`[detect-emotion-patterns] Processing patterns for user: ${userId}`);
 
     // Get last 90 days of session data
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     const dateFilter = ninetyDaysAgo.toISOString();
 
-    const { data: sessions, error: sessionsError } = await supabase
+    const { data: sessions, error: sessionsError } = await supabaseAdmin
       .from('sessions')
       .select('start_time, mood_score_detected, anxiety_score_detected, energy_score_detected')
-      .eq('user_id', user_id)
+      .eq('user_id', userId)
       .eq('status', 'completed')
       .gte('start_time', dateFilter)
       .order('start_time', { ascending: true });
@@ -244,16 +229,16 @@ serve(async (req) => {
 
     // Detect all patterns
     const detectedPatterns: PatternDetection[] = [];
-    
+
     const morningDip = detectMorningDip(sessions);
     if (morningDip) detectedPatterns.push(morningDip);
-    
+
     const weekendBoost = detectWeekendBoost(sessions);
     if (weekendBoost) detectedPatterns.push(weekendBoost);
-    
+
     const mondayBlues = detectMondayBlues(sessions);
     if (mondayBlues) detectedPatterns.push(mondayBlues);
-    
+
     const anxietyCycle = detectAnxietyCycle(sessions);
     if (anxietyCycle) detectedPatterns.push(anxietyCycle);
 
@@ -261,18 +246,16 @@ serve(async (req) => {
 
     // Save/update patterns in database
     for (const pattern of detectedPatterns) {
-      // Check if pattern already exists
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseAdmin
         .from('emotion_patterns')
         .select('id')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .eq('pattern_type', pattern.pattern_type)
         .eq('is_active', true)
         .maybeSingle();
 
       if (existing) {
-        // Update existing pattern
-        await supabase
+        await supabaseAdmin
           .from('emotion_patterns')
           .update({
             description: pattern.description,
@@ -284,11 +267,10 @@ serve(async (req) => {
           })
           .eq('id', existing.id);
       } else {
-        // Insert new pattern
-        await supabase
+        await supabaseAdmin
           .from('emotion_patterns')
           .insert({
-            user_id,
+            user_id: userId,
             pattern_type: pattern.pattern_type,
             description: pattern.description,
             confidence: pattern.confidence,
@@ -314,9 +296,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error('[detect-emotion-patterns] Error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message 
+    return new Response(JSON.stringify({
+      error: (error as Error).message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

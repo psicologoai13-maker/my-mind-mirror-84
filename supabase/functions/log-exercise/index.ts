@@ -1,23 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
-    const authHeader = req.headers.get("Authorization");
     const body = await req.json();
     const {
       exercise_id,
@@ -26,8 +15,6 @@ serve(async (req) => {
       mood_after,
       triggered_by,
       session_id,
-      accessToken,
-      userId,
     } = body as {
       exercise_id: string;
       duration_actual: number;
@@ -35,8 +22,6 @@ serve(async (req) => {
       mood_after?: number;
       triggered_by: string;
       session_id?: string;
-      accessToken?: string;
-      userId?: string;
     };
 
     if (!exercise_id) {
@@ -68,94 +53,8 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader
-        .replace("Bearer ", "")
-        .substring(0, 30);
-      const isAnonKey = headerTokenPrefix === anonKeyPrefix;
-
-      if (!isAnonKey) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log(
-              "[log-exercise] Auth Method 1 (header JWT): User",
-              user.id
-            );
-          }
-        } catch (e) {
-          console.log("[log-exercise] Auth Method 1 error:", (e as Error).message);
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in request body
-    if (!authenticatedUserId && accessToken) {
-      try {
-        const tokenAuthHeader = accessToken.startsWith("Bearer ")
-          ? accessToken
-          : `Bearer ${accessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log(
-            "[log-exercise] Auth Method 2 (body accessToken): User",
-            user.id
-          );
-        }
-      } catch (e) {
-        console.log("[log-exercise] Auth Method 2 error:", (e as Error).message);
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role (last resort)
-    if (!authenticatedUserId && userId && serviceRoleKey) {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(userId)) {
-        authenticatedUserId = userId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log(
-          "[log-exercise] Auth Method 3 (body userId + service role): User",
-          userId
-        );
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
-        }
-      );
-    }
-
-    // --- Use service role client for DB operations that need elevated privileges ---
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
     // 1. Read points_reward from exercise
-    const { data: exercise, error: exerciseError } = await adminClient
+    const { data: exercise, error: exerciseError } = await supabaseAdmin
       .from("exercises")
       .select("id, slug, points_reward")
       .eq("id", exercise_id)
@@ -174,12 +73,10 @@ serve(async (req) => {
     const pointsReward = exercise.points_reward || 0;
 
     // 2. INSERT into user_exercise_sessions
-    //    The DB trigger award_exercise_points will auto-set points_awarded
-    //    and call add_reward_points
-    const { data: sessionData, error: insertError } = await adminClient
+    const { data: sessionData, error: insertError } = await supabaseAdmin
       .from("user_exercise_sessions")
       .insert({
-        user_id: authenticatedUserId,
+        user_id: userId,
         exercise_id,
         duration_actual: duration_actual || null,
         mood_before: mood_before ?? null,
@@ -203,8 +100,8 @@ serve(async (req) => {
 
     // 3. Update challenge progress if active challenges exist for this exercise slug
     try {
-      await adminClient.rpc("update_challenge_progress", {
-        p_user_id: authenticatedUserId,
+      await supabaseAdmin.rpc("update_challenge_progress", {
+        p_user_id: userId,
         p_slug: exercise.slug,
       });
       console.log(
@@ -212,7 +109,6 @@ serve(async (req) => {
         exercise.slug
       );
     } catch (e) {
-      // Non-fatal: challenges may not exist
       console.log(
         "[log-exercise] Challenge update skipped:",
         (e as Error).message
@@ -220,16 +116,16 @@ serve(async (req) => {
     }
 
     // 4. Update user_profiles.last_data_change_at
-    await adminClient
+    await supabaseAdmin
       .from("user_profiles")
       .update({ last_data_change_at: new Date().toISOString() })
-      .eq("user_id", authenticatedUserId);
+      .eq("user_id", userId);
 
     // 5. Read current total_points
-    const { data: rewardData } = await adminClient
+    const { data: rewardData } = await supabaseAdmin
       .from("user_reward_points")
       .select("total_points")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .single();
 
     const totalPoints = rewardData?.total_points ?? pointsReward;
@@ -245,7 +141,8 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof Response) return error;
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("[log-exercise] Error:", msg);
     return new Response(JSON.stringify({ error: msg }), {

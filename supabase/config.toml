@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.get-diary-prompt]
 verify_jwt = false
+
+[functions.cron-expire-challenges]
+verify_jwt = false

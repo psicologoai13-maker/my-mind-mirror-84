@@ -360,7 +360,12 @@ Voci diario: diary_id, user_id, entry_date, content_text, content_audio_url, con
 #### `thematic_diaries`
 **ELIMINATA in V1.7.** Dati migrati in `diaries` + `diary_entries`. Backup: `thematic_diaries_v1_backup`.
 
-### 2.9 Tabelle Varie
+### 2.9 Tabella Rate Limiting (V1.7)
+
+#### `rate_limits` (V1.7)
+Rate limiting per utente/funzione: user_id, function_name, window_start, request_count. Pulizia automatica dopo 24h.
+
+### 2.10 Tabelle Varie
 
 #### `thematic_diaries`
 **ELIMINATA in V1.7.** Dati migrati in `diaries` + `diary_entries`. Tabella backup: `thematic_diaries_v1_backup`.
@@ -516,34 +521,31 @@ Scatta su INSERT di `diary_entries`. Calcola e salva conteggio parole.
 - **Google OAuth**: "Continue with Google"
 - **Password Recovery**: via `resetPasswordForEmail` + pagina dedicata
 
-### 5.2 Triple Authentication Fallback (Edge Functions)
+### 5.2 Modulo Condiviso `_shared/auth.ts` (V1.7)
 
-Le Edge Functions supportano 3 livelli di autenticazione per compatibilità cross-platform:
-
-```
-Livello 1: Header Authorization: Bearer <jwt>
-Livello 2: Campo "accessToken" nel body JSON
-Livello 3: Campo "userId" nel body → bypass RLS via service_role
-```
+Tutte le edge functions importano l'autenticazione da `_shared/auth.ts`:
+- `authenticateUser(req)` — verifica JWT, restituisce userId + client Supabase
+- `handleCors(req)` — gestisce preflight OPTIONS
+- `checkRateLimit(admin, userId, functionName, max, window)` — rate limiting per utente
 
 Pattern di implementazione nelle Edge Functions:
 ```typescript
-// 1. Try standard auth header
-const authHeader = req.headers.get('Authorization');
-const { data: { user } } = await supabase.auth.getUser(token);
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
-// 2. Fallback: accessToken in body
-if (!user && body.accessToken) {
-  const { data } = await supabase.auth.getUser(body.accessToken);
-  user = data.user;
-}
-
-// 3. Fallback: userId with service_role
-if (!user && body.userId) {
-  userId = body.userId;
-  // Use supabaseAdmin (service_role) for queries
-}
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+  try {
+    const { userId, supabaseClient, supabaseAdmin } = await authenticateUser(req);
+    // ... business logic
+  } catch (error) {
+    if (error instanceof Response) return error;
+    // ... error handling
+  }
+});
 ```
+
+> **Nota**: la precedente "Triple Authentication Fallback" (livello 1: header JWT, livello 2: body accessToken, livello 3: body userId) è stata rimossa in V1.7 per sicurezza. Solo l'header `Authorization: Bearer <jwt>` è ora supportato.
 
 ---
 
@@ -771,7 +773,11 @@ Trascrizione audio con OpenAI Whisper-1. Lingua: italiano. Max 25MB.
 #### `get-diary-prompt`
 Genera domanda personalizzata per invitare a scrivere nel diario. Usa Gemini con contesto sessioni + ultime voci.
 
-### 6.9 Edge Functions Eliminate (V1.7)
+### 6.9 Edge Function `cron-expire-challenges` (V1.7)
+
+Chiamata da cron job giornaliero (00:05). Marca come "expired" le sfide attive con `expires_at` passato. Richiede auth service_role. Esegue anche pulizia automatica della tabella `rate_limits` (record > 24h).
+
+### 6.10 Edge Functions Eliminate (V1.7)
 - `create-objective-chat` — eliminata (zero auth, zero persistenza)
 - `create-habit-chat` — eliminata (zero auth, zero persistenza)
 - `thematic-diary-chat` — eliminata (era già deprecata HTTP 410)

@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
 const SHOP_ITEMS = [
   {
@@ -40,144 +33,39 @@ const SHOP_ITEMS = [
   },
 ];
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const authHeader = req.headers.get("Authorization");
-
-    let body: Record<string, unknown> = {};
-    try {
-      body = await req.json();
-    } catch {
-      // GET requests or empty body
-    }
-    const { accessToken, userId } = body as {
-      accessToken?: string;
-      userId?: string;
-    };
-
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader
-        .replace("Bearer ", "")
-        .substring(0, 30);
-      const isAnonKey = headerTokenPrefix === anonKeyPrefix;
-
-      if (!isAnonKey) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log(
-              "[get-gamification-status] Auth Method 1 (header JWT): User",
-              user.id
-            );
-          }
-        } catch (e) {
-          console.log(
-            "[get-gamification-status] Auth Method 1 error:",
-            (e as Error).message
-          );
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in request body
-    if (!authenticatedUserId && accessToken) {
-      try {
-        const tokenAuthHeader = accessToken.startsWith("Bearer ")
-          ? accessToken
-          : `Bearer ${accessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log(
-            "[get-gamification-status] Auth Method 2 (body accessToken): User",
-            user.id
-          );
-        }
-      } catch (e) {
-        console.log(
-          "[get-gamification-status] Auth Method 2 error:",
-          (e as Error).message
-        );
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role (last resort)
-    if (!authenticatedUserId && userId && serviceRoleKey) {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(userId)) {
-        authenticatedUserId = userId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log(
-          "[get-gamification-status] Auth Method 3 (body userId + service role): User",
-          userId
-        );
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-
-    // --- Use service role client for DB operations ---
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
     // 1. Get user reward points
-    const { data: rewardData } = await adminClient
+    const { data: rewardData } = await supabaseAdmin
       .from("user_reward_points")
       .select("total_points")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .single();
 
     const totalPoints = rewardData?.total_points ?? 0;
 
     // 2. Get user profile (current_level)
-    const { data: profileData } = await adminClient
+    const { data: profileData } = await supabaseAdmin
       .from("user_profiles")
       .select("current_level")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .single();
 
     const currentLevel = profileData?.current_level ?? 1;
 
     // 3. Get level info from gamification_levels
-    const { data: currentLevelData } = await adminClient
+    const { data: currentLevelData } = await supabaseAdmin
       .from("gamification_levels")
       .select("name, emoji, points_required")
       .eq("level", currentLevel)
       .single();
 
-    const { data: nextLevelData } = await adminClient
+    const { data: nextLevelData } = await supabaseAdmin
       .from("gamification_levels")
       .select("points_required")
       .eq("level", currentLevel + 1)
@@ -201,10 +89,10 @@ serve(async (req) => {
     }
 
     // 4. Get badges (user_achievements)
-    const { data: badgesData } = await adminClient
+    const { data: badgesData } = await supabaseAdmin
       .from("user_achievements")
       .select("achievement_id, unlocked_at, metadata")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .order("unlocked_at", { ascending: false });
 
     const badges = (badgesData ?? []).map((b) => ({
@@ -216,12 +104,12 @@ serve(async (req) => {
     }));
 
     // 5. Get active challenges
-    const { data: challengesData } = await adminClient
+    const { data: challengesData } = await supabaseAdmin
       .from("user_challenges")
       .select(
         "challenge_slug, challenge_title, current_count, target_count, expires_at, points_reward"
       )
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .is("completed_at", null)
       .gt("expires_at", new Date().toISOString());
 
@@ -235,10 +123,10 @@ serve(async (req) => {
     }));
 
     // 6. Get streak days (max current_streak)
-    const { data: streakData } = await adminClient
+    const { data: streakData } = await supabaseAdmin
       .from("habit_streaks")
       .select("current_streak")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .order("current_streak", { ascending: false })
       .limit(1)
       .single();
@@ -246,16 +134,16 @@ serve(async (req) => {
     const streakDays = streakData?.current_streak ?? 0;
 
     // 7. Total sessions count
-    const { count: totalSessions } = await adminClient
+    const { count: totalSessions } = await supabaseAdmin
       .from("sessions")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", authenticatedUserId);
+      .eq("user_id", userId);
 
     // 8. Total checkins count
-    const { count: totalCheckins } = await adminClient
+    const { count: totalCheckins } = await supabaseAdmin
       .from("daily_checkins")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", authenticatedUserId);
+      .eq("user_id", userId);
 
     return new Response(
       JSON.stringify({
@@ -277,7 +165,8 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof Response) return error;
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("[get-gamification-status] Error:", msg);
     return new Response(JSON.stringify({ error: msg }), {

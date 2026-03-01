@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { authenticateUser, handleCors, corsHeaders, checkRateLimit } from '../_shared/auth.ts';
 
 const EMOTION_COLUMNS = [
   "joy", "sadness", "anger", "fear", "apathy", "shame", "jealousy", "hope",
@@ -14,16 +7,15 @@ const EMOTION_COLUMNS = [
   "curiosity",
 ] as const;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
+    const { userId, supabaseAdmin } = await authenticateUser(req);
+
+    // Rate limit: max 5 richieste/ora (chiama Gemini, pesante)
+    await checkRateLimit(supabaseAdmin, userId, 'generate-wrapped', 5, 60);
 
     const body = await req.json();
     const { period_type, period_key } = body as {
@@ -49,84 +41,17 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const bodyAccessToken = body.accessToken;
-    const bodyUserId = body.userId;
-
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader.replace("Bearer ", "").substring(0, 30);
-      if (headerTokenPrefix !== anonKeyPrefix) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log("[generate-wrapped] Auth Method 1: User", user.id);
-          }
-        } catch (e) {
-          console.log("[generate-wrapped] Auth Method 1 error:", (e as Error).message);
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in body
-    if (!authenticatedUserId && bodyAccessToken) {
-      try {
-        const tokenAuthHeader = bodyAccessToken.startsWith("Bearer ")
-          ? bodyAccessToken
-          : `Bearer ${bodyAccessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log("[generate-wrapped] Auth Method 2: User", user.id);
-        }
-      } catch (e) {
-        console.log("[generate-wrapped] Auth Method 2 error:", (e as Error).message);
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role
-    if (!authenticatedUserId && bodyUserId && serviceRoleKey) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(bodyUserId)) {
-        authenticatedUserId = bodyUserId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log("[generate-wrapped] Auth Method 3: User", bodyUserId);
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(
-        JSON.stringify({ error: "Authentication failed" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const userId = authenticatedUserId;
+    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
 
     // Build date range from period_type and period_key
     let dateStart: string;
     let dateEnd: string;
     if (period_type === "monthly") {
-      // period_key = '2026-02'
       dateStart = `${period_key}-01`;
       const [y, m] = period_key.split("-").map(Number);
-      const nextMonth = new Date(y, m, 1); // month is 0-indexed, so m is already next month
+      const nextMonth = new Date(y, m, 1);
       dateEnd = nextMonth.toISOString().split("T")[0];
     } else {
-      // period_key = '2026'
       dateStart = `${period_key}-01-01`;
       dateEnd = `${Number(period_key) + 1}-01-01`;
     }
@@ -134,7 +59,7 @@ serve(async (req) => {
     console.log(`[generate-wrapped] Period: ${period_type} ${period_key} (${dateStart} → ${dateEnd})`);
 
     // 1. total_sessions & 2. total_minutes
-    const { data: sessionsData } = await adminClient
+    const { data: sessionsData } = await supabaseAdmin
       .from("sessions")
       .select("id, duration, mood_score_detected, start_time")
       .eq("user_id", userId)
@@ -149,15 +74,15 @@ serve(async (req) => {
     );
 
     // 3. total_checkins
-    const { count: totalCheckins } = await adminClient
+    const { count: totalCheckins } = await supabaseAdmin
       .from("daily_checkins")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .gte("created_at", dateStart)
       .lt("created_at", dateEnd);
 
-    // 4. dominant_emotion — average of 20 columns in daily_emotions
-    const { data: emotionsData } = await adminClient
+    // 4. dominant_emotion
+    const { data: emotionsData } = await supabaseAdmin
       .from("daily_emotions")
       .select(EMOTION_COLUMNS.join(", "))
       .eq("user_id", userId)
@@ -185,7 +110,7 @@ serve(async (req) => {
     }
 
     // 5. longest_streak
-    const { data: streakData } = await adminClient
+    const { data: streakData } = await supabaseAdmin
       .from("habit_streaks")
       .select("current_streak")
       .eq("user_id", userId)
@@ -195,7 +120,7 @@ serve(async (req) => {
     const longestStreak = streakData?.[0]?.current_streak ?? 0;
 
     // 6. top_topics
-    const { data: topicsData } = await adminClient
+    const { data: topicsData } = await supabaseAdmin
       .from("conversation_topics")
       .select("topic")
       .eq("user_id", userId)
@@ -205,8 +130,6 @@ serve(async (req) => {
     const topTopics = (topicsData ?? []).map((t: any) => t.topic);
 
     // 7. wellness_start & wellness_end
-    // wellness_start: average mood_score_detected of first 2 sessions
-    // wellness_end: average mood_score_detected of last 2 sessions
     const sortedSessions = (sessionsData ?? [])
       .filter((s: any) => s.mood_score_detected != null)
       .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
@@ -228,11 +151,9 @@ serve(async (req) => {
     }
 
     // 8. hardest_week & 9. best_week
-    // Group sessions by ISO week number, compute average mood_score_detected
     const weekMap: Record<number, number[]> = {};
     for (const s of sortedSessions) {
       const d = new Date(s.start_time);
-      // ISO week number
       const jan4 = new Date(d.getFullYear(), 0, 4);
       const dayOfYear = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000) + 1;
       const weekNum = Math.ceil((dayOfYear + jan4.getDay()) / 7);
@@ -257,7 +178,7 @@ serve(async (req) => {
     }
 
     // 10. badges_unlocked
-    const { data: badgesData } = await adminClient
+    const { data: badgesData } = await supabaseAdmin
       .from("user_achievements")
       .select("badge")
       .eq("user_id", userId)
@@ -267,7 +188,7 @@ serve(async (req) => {
     const badgesUnlocked = (badgesData ?? []).map((b: any) => b.badge);
 
     // 11. points_earned
-    const { data: pointsData } = await adminClient
+    const { data: pointsData } = await supabaseAdmin
       .from("reward_transactions")
       .select("points")
       .eq("user_id", userId)
@@ -278,7 +199,7 @@ serve(async (req) => {
     const pointsEarned = (pointsData ?? []).reduce((sum: number, r: any) => sum + r.points, 0);
 
     // Get user name for Gemini prompt
-    const { data: profileData } = await adminClient
+    const { data: profileData } = await supabaseAdmin
       .from("user_profiles")
       .select("name")
       .eq("user_id", userId)
@@ -334,7 +255,7 @@ serve(async (req) => {
     };
 
     // UPSERT into aria_wrapped_data
-    const { error: upsertError } = await adminClient
+    const { error: upsertError } = await supabaseAdmin
       .from("aria_wrapped_data")
       .upsert(
         {
@@ -359,6 +280,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error("[generate-wrapped] Error:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),

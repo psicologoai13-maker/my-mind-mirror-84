@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
 const SHOP_ITEMS: Record<
   string,
@@ -38,22 +31,16 @@ const SHOP_ITEMS: Record<
   },
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
-    const authHeader = req.headers.get("Authorization");
     const body = await req.json();
-    const { shop_item_slug, accessToken, userId } = body as {
+    const { shop_item_slug } = body as {
       shop_item_slug: string;
-      accessToken?: string;
-      userId?: string;
     };
 
     if (!shop_item_slug) {
@@ -83,98 +70,9 @@ serve(async (req) => {
       );
     }
 
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader
-        .replace("Bearer ", "")
-        .substring(0, 30);
-      const isAnonKey = headerTokenPrefix === anonKeyPrefix;
-
-      if (!isAnonKey) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log(
-              "[redeem-points] Auth Method 1 (header JWT): User",
-              user.id
-            );
-          }
-        } catch (e) {
-          console.log(
-            "[redeem-points] Auth Method 1 error:",
-            (e as Error).message
-          );
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in request body
-    if (!authenticatedUserId && accessToken) {
-      try {
-        const tokenAuthHeader = accessToken.startsWith("Bearer ")
-          ? accessToken
-          : `Bearer ${accessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log(
-            "[redeem-points] Auth Method 2 (body accessToken): User",
-            user.id
-          );
-        }
-      } catch (e) {
-        console.log(
-          "[redeem-points] Auth Method 2 error:",
-          (e as Error).message
-        );
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role (last resort)
-    if (!authenticatedUserId && userId && serviceRoleKey) {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(userId)) {
-        authenticatedUserId = userId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log(
-          "[redeem-points] Auth Method 3 (body userId + service role): User",
-          userId
-        );
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-
-    // --- Use service role client for DB operations ---
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
     // FIX 3.8: Riscatto atomico con SELECT FOR UPDATE tramite RPC
-    const { data: result, error: redeemError } = await adminClient.rpc('atomic_redeem_points', {
-      p_user_id: authenticatedUserId,
+    const { data: result, error: redeemError } = await supabaseAdmin.rpc('atomic_redeem_points', {
+      p_user_id: userId,
       p_cost: shopItem.points_cost,
       p_reward_type: shop_item_slug
     });
@@ -201,10 +99,10 @@ serve(async (req) => {
     }
 
     // Calculate new premium expiry
-    const { data: profileData } = await adminClient
+    const { data: profileData } = await supabaseAdmin
       .from("user_profiles")
       .select("premium_until")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .single();
 
     const now = new Date();
@@ -223,13 +121,13 @@ serve(async (req) => {
     newExpiry.setDate(newExpiry.getDate() + shopItem.days_premium);
 
     // Update user_profiles with premium
-    await adminClient
+    await supabaseAdmin
       .from("user_profiles")
       .update({
         premium_until: newExpiry.toISOString(),
         premium_type: "points",
       })
-      .eq("user_id", authenticatedUserId);
+      .eq("user_id", userId);
 
     return new Response(
       JSON.stringify({
@@ -242,7 +140,8 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof Response) return error;
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("[redeem-points] Error:", msg);
     return new Response(JSON.stringify({ error: msg }), {

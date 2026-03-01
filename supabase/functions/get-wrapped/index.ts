@@ -1,21 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
     const body = await req.json();
     const { period_type, period_key } = body as {
@@ -30,77 +20,11 @@ serve(async (req) => {
       );
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const bodyAccessToken = body.accessToken;
-    const bodyUserId = body.userId;
-
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader.replace("Bearer ", "").substring(0, 30);
-      if (headerTokenPrefix !== anonKeyPrefix) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log("[get-wrapped] Auth Method 1: User", user.id);
-          }
-        } catch (e) {
-          console.log("[get-wrapped] Auth Method 1 error:", (e as Error).message);
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in body
-    if (!authenticatedUserId && bodyAccessToken) {
-      try {
-        const tokenAuthHeader = bodyAccessToken.startsWith("Bearer ")
-          ? bodyAccessToken
-          : `Bearer ${bodyAccessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log("[get-wrapped] Auth Method 2: User", user.id);
-        }
-      } catch (e) {
-        console.log("[get-wrapped] Auth Method 2 error:", (e as Error).message);
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role
-    if (!authenticatedUserId && bodyUserId && serviceRoleKey) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(bodyUserId)) {
-        authenticatedUserId = bodyUserId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log("[get-wrapped] Auth Method 3: User", bodyUserId);
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(
-        JSON.stringify({ error: "Authentication failed" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
     // Check if wrapped data exists and is fresh (< 24h)
-    const { data: existing } = await adminClient
+    const { data: existing } = await supabaseAdmin
       .from("aria_wrapped_data")
       .select("data, generated_at")
-      .eq("user_id", authenticatedUserId)
+      .eq("user_id", userId)
       .eq("period_type", period_type)
       .eq("period_key", period_key)
       .maybeSingle();
@@ -122,20 +46,12 @@ serve(async (req) => {
     // Data doesn't exist or is stale — call generate-wrapped internally
     console.log("[get-wrapped] Generating fresh wrapped data...");
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const generateUrl = `${supabaseUrl}/functions/v1/generate-wrapped`;
-    const generatePayload: Record<string, string> = {
-      period_type,
-      period_key,
-    };
 
-    // Forward auth context
-    if (bodyUserId) {
-      generatePayload.userId = bodyUserId;
-    }
-    if (bodyAccessToken) {
-      generatePayload.accessToken = bodyAccessToken;
-    }
-
+    // Forward auth header
+    const authHeader = req.headers.get("Authorization");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "apikey": supabaseKey,
@@ -147,7 +63,7 @@ serve(async (req) => {
     const generateResponse = await fetch(generateUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify(generatePayload),
+      body: JSON.stringify({ period_type, period_key }),
     });
 
     if (!generateResponse.ok) {
@@ -163,6 +79,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error("[get-wrapped] Error:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
