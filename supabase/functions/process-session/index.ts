@@ -1718,7 +1718,7 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
 
     console.log('[process-session] Calling Gemini Flash for omniscient analysis...');
     
-    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GOOGLE_API_KEY}`, {
+    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
