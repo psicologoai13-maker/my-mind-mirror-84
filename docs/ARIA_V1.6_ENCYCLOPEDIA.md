@@ -1,7 +1,7 @@
-# ARIA V1.6 — Enciclopedia Completa del Progetto
+# ARIA V1.7 — Enciclopedia Completa del Progetto
 
-> Versione: 1.6 | Data: 27 Febbraio 2026
-> Aggiornamento dalla V1.5 con migrazione Supabase standalone, sistema diari, riscrittura comportamento Aria e voce
+> Versione: 1.7 | Data: 1 Marzo 2026
+> V1.7: Backend V2.0 (esercizi, gamification, HealthKit, diari V2, wrapped) + Post-audit fix (9 bug corretti, 3 funzioni eliminate)
 
 ---
 
@@ -153,37 +153,103 @@ Aria attinge da 54 documenti nella Knowledge Base che coprono:
 
 ## 4. Sistema Diari Personali
 
-> **V1.6 — Nuovo**: sistema diari personali completamente ripensato.
+> **V1.7**: Sistema diari unificato. V1 (`thematic_diaries`) eliminato e migrato in V2.
 
 ### 4.1 Concetto
+I diari sono **quaderni personali liberi** senza alcuna interazione AI diretta. L'utente scrive liberamente i propri pensieri, organizzati in quaderni tematici personalizzabili.
 
-I diari in V1.6 sono **quaderni personali liberi** senza alcuna interazione AI diretta. L'utente scrive liberamente i propri pensieri, organizzati in quaderni tematici personalizzabili.
+### 4.2 Tabelle
 
-### 4.2 Architettura
-
-- **Edge Function `thematic-diary-chat`**: **DEPRECATA** — risponde HTTP 410 (Gone)
-- **Edge Function `diary-save-entry`**: salva una nuova entry in un diario
-- **Edge Function `diary-get-entries`**: recupera le entries di un diario
-
-### 4.3 Tabella `thematic_diaries` (aggiornata V1.6)
-
+**`diaries`** — I quaderni:
 | Colonna | Tipo | Note |
 |---------|------|------|
 | id | uuid | PK |
-| user_id | uuid | FK logica verso auth.users |
-| title | text | Titolo del quaderno |
-| entries | jsonb | Array di entries `[{text, created_at}]` |
-| color | text | Colore del quaderno (hex o nome) |
-| icon | text | Icona del quaderno |
+| user_id | uuid | FK |
+| name | text | Nome del quaderno |
+| icon_emoji | text | Icona emoji |
+| color_hex | text | Colore hex |
+| description | text | Descrizione opzionale |
+| is_active | boolean | Attivo/archiviato |
+| weekly_prompt | text | Prompt settimanale opzionale |
+| created_at | timestamptz | — |
+
+**`diary_entries`** — Le voci:
+| Colonna | Tipo | Note |
+|---------|------|------|
+| id | uuid | PK |
+| diary_id | uuid | FK → diaries |
+| user_id | uuid | FK |
+| entry_date | date | Data voce |
+| content_text | text | Testo scritto |
+| content_audio_url | text | URL audio (se dettato) |
+| content_transcript | text | Trascrizione audio |
+| entry_type | text | text/audio |
+| prompt_used | text | Domanda usata |
+| mood_at_entry | integer | Umore al momento della scrittura |
+| is_private | boolean | Voce privata |
+| word_count | integer | Conteggio parole (trigger automatico) |
 | created_at | timestamptz | — |
 | updated_at | timestamptz | — |
 
-### 4.4 Interazione con Aria
+### 4.3 Edge Functions
+- `diary-save-entry` — salva una nuova entry
+- `diary-get-entries` — recupera le entries di un diario
+- `transcribe-diary-voice` — trascrizione audio con OpenAI Whisper (lingua: italiano)
+- `get-diary-prompt` — genera domanda personalizzata con Gemini basata su contesto sessioni e ultime voci
 
-Aria **legge i diari in background** per arricchire il contesto conversazionale:
-- Le entries dei diari vengono incluse nel contesto quando rilevanti
-- Aria non menziona esplicitamente di aver letto i diari a meno che l'utente ne parli
-- Zero interazione AI nel processo di scrittura del diario
+### 4.4 Interazione con Aria
+Aria **legge i diari in background** per arricchire il contesto conversazionale. Non menziona di aver letto i diari a meno che l'utente ne parli. Zero interazione AI nel processo di scrittura.
+
+### 4.5 Migrazione V1 → V2 (1 Marzo 2026)
+- Dati migrati da `thematic_diaries` (jsonb entries) a `diaries` + `diary_entries` (righe singole)
+- Mapping: title→name, color→color_hex, icon→icon_emoji
+- Tabella originale rinominata `thematic_diaries_v1_backup` (eliminabile in futuro)
+- `thematic-diary-chat` eliminata
+
+---
+
+## 4b. Sistema Esercizi Guidati (V1.7)
+
+### 4b.1 Concetto
+Catalogo di esercizi di benessere (respirazione, mindfulness, rilassamento muscolare) con tracking completamento, mood pre/post, e punti gamification.
+
+### 4b.2 Tabelle
+
+**`exercises`** — Catalogo:
+| Colonna | Tipo | Note |
+|---------|------|------|
+| id | uuid | PK |
+| slug | text | Identificatore univoco (es. "breathing-478") |
+| title | text | Nome esercizio |
+| category | text | Categoria (breathing, mindfulness, relaxation, ecc.) |
+| difficulty | text | beginner / intermediate / advanced |
+| duration_minutes | integer | Durata stimata |
+| points_reward | integer | Punti assegnati al completamento |
+| is_active | boolean | Attivo nel catalogo |
+
+**`user_exercise_sessions`** — Log completamenti:
+| Colonna | Tipo | Note |
+|---------|------|------|
+| id | uuid | PK |
+| user_id | uuid | FK |
+| exercise_id | uuid | FK → exercises |
+| duration_actual | integer | Durata effettiva (minuti) |
+| mood_before | integer | Umore prima (1-10) |
+| mood_after | integer | Umore dopo (1-10) |
+| triggered_by | text | manual / scheduled / suggestion |
+| session_id | text | Sessione chat associata (opzionale) |
+
+### 4b.3 Edge Functions
+- `get-exercises` — lista esercizi filtrati per categoria e difficoltà
+- `log-exercise` — registra completamento + assegna punti via trigger `award_exercise_points`
+
+### 4b.4 Selezione personalizzata "Per te oggi"
+Gestita da `home-context`. Logica attuale semplificata:
+- Ansia > 6 → breathing-478
+- Sera/notte → breathing o rilassamento muscolare
+- Mattina → box breathing o mindfulness
+- Altro → random tra esercizi beginner
+- **Da migliorare**: logica deterministica basata su hash userId+data, tracking esercizi fatti, progressione difficoltà
 
 ---
 
@@ -399,6 +465,36 @@ Tabella `habit_streaks` aggiornata via trigger PL/pgSQL (`update_habit_streak`) 
 
 ---
 
+## 9b. HealthKit Integration (V1.7)
+
+### 9b.1 Tabella
+
+**`healthkit_data`**:
+| Colonna | Tipo | Note |
+|---------|------|------|
+| user_id | uuid | FK |
+| date | date | Giorno di riferimento |
+| steps | integer | Passi |
+| sleep_hours | numeric | Ore di sonno |
+| heart_rate_avg | numeric | FC media |
+| hrv_avg | numeric | HRV media |
+| weight | numeric | Peso |
+| sleep_quality_hk | text | Qualità sonno (non ancora usata nell'AI) |
+| menstrual_cycle_phase | text | Fase ciclo (non ancora correlata con mood) |
+
+### 9b.2 Sync
+- Edge function `sync-healthkit`: riceve dati dall'app iOS e li salva
+- Autenticazione: solo JWT (fixato V1.7 — prima accettava qualsiasi user_id)
+- Sync unidirezionale: iOS → DB
+
+### 9b.3 Uso nei contesti AI
+- `ai-chat`: include passi, sonno, FC come contesto nella conversazione
+- `elevenlabs-context`: stesso contesto per sessioni vocali
+- `calculate-correlations`: calcola correlazioni HealthKit ↔ mood/ansia
+- `home-context`: mostra dati nel widget "Il tuo stato oggi"
+
+---
+
 ## 10. Architettura Multi-Piattaforma
 
 ### 10.1 Parità Cross-Platform
@@ -455,26 +551,48 @@ Edge Function `generate-clinical-report` genera report PDF strutturati con:
 ## 12. Gamification e Engagement
 
 ### 12.1 Sistema Punti
+- `user_reward_points`: saldo punti spendibili (`total_points`) e punti totali guadagnati (`lifetime_points`)
+- `reward_transactions`: log di ogni transazione
+- Funzione `add_reward_points()`: gestione atomica, incrementa lifetime_points solo su punti positivi
+- Riscatto atomico via `atomic_redeem_points()` con SELECT FOR UPDATE
 
-- `user_reward_points`: punti totali e lifetime
-- `reward_transactions`: log di ogni transazione (check-in, sessione, streak, referral)
-- Funzione PL/pgSQL `add_reward_points` per gestione atomica
+**Punti automatici (trigger SQL):**
+| Azione | Punti |
+|--------|:---:|
+| Check-in completato | +5 |
+| Sessione chat (>3 messaggi) | +15 |
+| Sessione vocale | +25 |
+| Voce diario | +10 |
+| Streak 7 giorni | +50 |
+| Streak 30 giorni | +200 |
 
-### 12.2 Achievement
+### 12.2 Livelli
+- `gamification_levels`: livelli definiti con nome, emoji, punti necessari
+- Il livello si basa su `lifetime_points` (non decrementano quando spendi punti)
+- Trigger automatico `update_user_level_on_points_change` aggiorna il livello ad ogni cambio punti
+- Funzione `calculate_user_level()` per ricalcolo on-demand
 
+### 12.3 Badge / Achievement
 - `user_achievements`: badge sbloccabili per traguardi
-- 30+ achievement definiti (primo check-in, streak 7 giorni, 10 sessioni, etc.)
+- 16 badge automatici (first_checkin, streak_7, streak_30, sessions_10, ecc.)
+- Funzione `check_and_award_badges()` eseguita ad ogni attività
+- Da ottimizzare: attualmente esegue 8 COUNT ogni volta anche se tutti i badge sono sbloccati
 
-### 12.3 Referral
+### 12.4 Sfide
+- `user_challenges`: sfide a tempo con expires_at
+- Edge function `start-challenge` per avviare
+- **Problema noto**: nessun cron job pulisce sfide scadute
 
-- `referral_code` generato automaticamente per ogni utente
-- Sistema di inviti con bonus punti per referrer e referato
+### 12.5 Wrapped (Resoconto periodico)
+- `aria_wrapped_data`: dati cachati per Wrapped mensile/annuale
+- `generate-wrapped`: genera statistiche + messaggio AI motivazionale con Gemini
+- `get-wrapped`: recupera con cache 24h, rigenera se scaduto
 
-### 12.4 Notifiche Smart
-
-- `smart_notifications`: notifiche AI-triggered con priorità e scheduling
-- `device_push_tokens`: gestione token push per iOS (APNs) e Android (Capacitor)
-- Edge Function `aria-push-notification`: invio notifiche contestuali
+### 12.6 Edge Functions Gamification
+- `get-gamification-status` — stato completo: livello, badge, sfide, punti, prossimo livello
+- `redeem-points` — riscatto punti via RPC atomica `atomic_redeem_points`
+- `start-challenge` — avvia sfida
+- `generate-wrapped` / `get-wrapped` — sistema Wrapped
 
 ---
 
@@ -500,6 +618,16 @@ Ogni tabella ha policy RLS che garantiscono:
 - Consenso esplicito per geolocalizzazione e news
 - Diritto all'oblio implementabile via delete policies
 - Nessun dato condiviso con terze parti senza consenso
+
+### 13.4 Fix Sicurezza V1.7 (1 Marzo 2026)
+
+4 edge functions corrette con autenticazione JWT obbligatoria:
+- `elevenlabs-conversation-token`: prima accessibile senza login (costi illimitati)
+- `aria-push-notification`: prima chiunque poteva triggerare notifiche a tutti
+- `sync-healthkit`: prima accettava qualsiasi user_id nel body
+- `calculate-correlations`: prima zero autenticazione
+
+Inoltre: `doctor-view-data` ora verifica obbligatoriamente la relazione `doctor_patient_access`.
 
 ---
 
@@ -683,6 +811,24 @@ La tabella `user_interests` (~50 campi di preferenze dettagliate) **non è prese
 - **OpenAI TTS economico**: Nova/Shimmer + Whisper come alternativa a ElevenLabs (~$0.12/sessione)
 - **Sessione giornaliera unica**: chiusura per contesto, non per timer
 - **user_interests**: non presente nel nuovo DB, da valutare migrazione
+
+---
+
+## 19. Changelog V1.6 → V1.7
+
+### Backend V2.0 (28 Feb 2026)
+- 8 nuove tabelle: exercises, user_exercise_sessions, gamification_levels, user_challenges, diaries, diary_entries, healthkit_data, aria_wrapped_data
+- 11 nuove edge functions: home-context, get-exercises, log-exercise, get-gamification-status, redeem-points, start-challenge, sync-healthkit, generate-wrapped, get-wrapped, transcribe-diary-voice, get-diary-prompt
+- 3 edge functions modificate: ai-chat (+esercizi +HealthKit), calculate-correlations (+HealthKit), process-session (+diari)
+- Trigger automatici: punti su azioni, 16 badge, calcolo livello
+
+### Post-Audit Fix (1 Mar 2026)
+- 9 bug critici corretti (4 sicurezza, 3 correttezza, 2 pulizia)
+- 3 edge functions eliminate: create-objective-chat, create-habit-chat, thematic-diary-chat
+- Diari V1 migrati in V2, tabella rinominata a backup
+- 7 trigger duplicati rimossi, 3 funzioni SQL duplicate rimosse
+- Nuova colonna lifetime_points, nuova RPC atomic_redeem_points
+- Edge functions totali: da 29 a 26
 
 ---
 
