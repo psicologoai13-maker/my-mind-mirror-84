@@ -1,10 +1,10 @@
 # ARIA — Guida Tecnica Backend Completa
 
-> Versione: 1.6 | Data: 27 Febbraio 2026
+> Versione: 1.7 | Aggiornato: 1 Marzo 2026
+> V1.7: Backend V2.0 + Post-audit fix. 26 edge functions, 39+ tabelle.
+>
 > Destinatario: Sviluppatore backend senza accesso al repository GitHub
 > Scope: Database PostgreSQL, Edge Functions (Deno), API, Autenticazione, RLS
->
-> **V1.6**: Migrazione a Supabase standalone completata. Chiamate dirette Google API. Sistema diari personali.
 
 ---
 
@@ -316,23 +316,54 @@ doctor_id, patient_id, is_active, access_granted_at.
 #### `doctor_share_codes`
 code (varchar), user_id, expires_at, is_active.
 
-### 2.8 Tabelle Varie
+### 2.5 Tabelle Esercizi (V1.7)
 
-#### `thematic_diaries` (aggiornata V1.6)
-Diari personali liberi (quaderni) senza interazione AI.
+#### `exercises`
+Catalogo esercizi: slug (unique), title, category, difficulty (beginner/intermediate/advanced), duration_minutes, points_reward, is_active.
 
-| Colonna | Tipo | Note |
-|---------|------|------|
-| id | uuid | PK |
-| user_id | uuid | FK logica verso auth.users |
-| title | text | Titolo del quaderno |
-| entries | jsonb | Array di entries `[{text, created_at}]` |
-| color | text | Colore del quaderno (hex o nome) |
-| icon | text | Icona del quaderno |
-| created_at | timestamptz | — |
-| updated_at | timestamptz | — |
+#### `user_exercise_sessions`
+Log completamenti: user_id, exercise_id, duration_actual, mood_before, mood_after, triggered_by (manual/scheduled/suggestion), session_id.
 
-> **V1.6**: Le colonne `theme`, `messages`, `last_message_preview` sono state sostituite da `title`, `entries`, `color`, `icon`. I diari sono ora quaderni personali liberi — Aria li legge in background per contesto conversazionale.
+### 2.6 Tabelle Gamification (V1.7)
+
+#### `gamification_levels`
+Livelli definiti: level_number, name, emoji, points_required.
+
+#### `user_challenges`
+Sfide attive: user_id, challenge_type, started_at, expires_at, progress, target, status.
+
+#### `user_reward_points`
+Punti utente: user_id, total_points (spendibili), lifetime_points (totali, mai decrementati).
+
+#### `reward_transactions`
+Log transazioni punti: user_id, points, action, description, created_at.
+
+#### `user_achievements`
+Badge sbloccati: user_id, badge (slug), unlocked_at.
+
+#### `aria_wrapped_data`
+Cache Wrapped mensile/annuale: user_id, period_type, period_key, data (jsonb), generated_at.
+
+### 2.7 Tabelle HealthKit (V1.7)
+
+#### `healthkit_data`
+Dati sincronizzati da Apple Salute: user_id, date, steps, sleep_hours, heart_rate_avg, hrv_avg, weight, sleep_quality_hk, menstrual_cycle_phase.
+
+### 2.8 Tabelle Diari V2 (V1.7)
+
+#### `diaries`
+Quaderni personali: user_id, name, icon_emoji, color_hex, description, is_active, weekly_prompt.
+
+#### `diary_entries`
+Voci diario: diary_id, user_id, entry_date, content_text, content_audio_url, content_transcript, entry_type, prompt_used, mood_at_entry, is_private, word_count.
+
+#### `thematic_diaries`
+**ELIMINATA in V1.7.** Dati migrati in `diaries` + `diary_entries`. Backup: `thematic_diaries_v1_backup`.
+
+### 2.9 Tabelle Varie
+
+#### `thematic_diaries`
+**ELIMINATA in V1.7.** Dati migrati in `diaries` + `diary_entries`. Tabella backup: `thematic_diaries_v1_backup`.
 
 #### `aria_knowledge_base`
 54 documenti clinici: topic, category, title, content, keywords, priority, is_active.
@@ -449,6 +480,32 @@ Aggiunge punti con upsert atomico. `SECURITY DEFINER`.
 
 #### `get_daily_metrics(uuid, date)` → json
 Funzione complessa che aggrega tutte le metriche giornaliere (vitali, emozioni, aree vita, psicologia) da tutte le fonti (check-in, sessioni) con logica di priorità e merge. Restituisce un JSON strutturato completo.
+
+### 4.5 Funzioni Gamification (V1.7)
+
+#### `add_reward_points(p_user_id, p_points, p_action, p_description)`
+Aggiunge/sottrae punti. Incrementa `lifetime_points` solo per punti positivi. Log in `reward_transactions`.
+
+#### `atomic_redeem_points(p_user_id, p_cost, p_reward_type)`
+Riscatto atomico con SELECT FOR UPDATE. Ritorna jsonb con success/error.
+
+#### `calculate_user_level(p_user_id)`
+Calcola livello basato su `lifetime_points` (con fallback a `total_points`). Ritorna level_number, name, emoji, points_for_next.
+
+#### `update_user_level_on_points_change()` — TRIGGER
+Scatta su INSERT/UPDATE di `user_reward_points`. Ricalcola livello e aggiorna `user_profiles`.
+
+#### `award_exercise_points()` — TRIGGER
+Scatta BEFORE INSERT su `user_exercise_sessions`. Assegna punti dell'esercizio completato.
+
+#### `check_and_award_badges()` — TRIGGER
+Scatta dopo attività (check-in, sessione, esercizio). Verifica e assegna 16 badge automatici.
+
+#### `update_habit_streak()` — TRIGGER
+Scatta su INSERT di `daily_habits`. Aggiorna streak corrente e più lungo.
+
+#### `calculate_diary_word_count()` — TRIGGER
+Scatta su INSERT di `diary_entries`. Calcola e salva conteggio parole.
 
 ---
 
@@ -664,6 +721,60 @@ const corsHeaders = {
 
 #### `aria-agent-backend`
 **Scopo**: Backend per l'agente Aria (logica avanzata).
+
+### 6.4 Edge Functions Homepage (V1.7)
+
+#### `home-context`
+Aggregatore dati per homepage. NO AI — solo query DB. Legge 9 tabelle, restituisce: saluto, check-in non completati, esercizio suggerito, streak, punti, livello, HealthKit oggi.
+
+### 6.5 Edge Functions Esercizi (V1.7)
+
+#### `get-exercises`
+Lista esercizi dal DB con filtri opzionali (category, difficulty). Ordinati per difficoltà e durata. READ-ONLY.
+
+#### `log-exercise`
+Registra completamento esercizio. Scrive su user_exercise_sessions. Trigger DB `award_exercise_points` assegna punti automatici.
+
+### 6.6 Edge Functions Gamification (V1.7)
+
+#### `get-gamification-status`
+Stato completo gamification utente: livello attuale, badge sbloccati, sfide in corso, punti, prossimo livello. Legge 8 tabelle.
+
+#### `redeem-points`
+Riscatto punti per premium. Usa RPC `atomic_redeem_points` con SELECT FOR UPDATE (race condition fixata V1.7).
+
+#### `start-challenge`
+Avvia una sfida gamificata. Sfide attualmente hardcoded nel codice.
+
+#### `generate-wrapped`
+Genera dati Wrapped (resoconto periodico): statistiche + messaggio AI motivazionale con Gemini. Salva in aria_wrapped_data.
+
+#### `get-wrapped`
+Recupera Wrapped con cache 24h. Se scaduto, chiama generate-wrapped.
+
+### 6.7 Edge Functions HealthKit (V1.7)
+
+#### `sync-healthkit`
+Sincronizza dati HealthKit dall'app iOS nel DB. Auth: solo JWT (fixato V1.7). Scrive su healthkit_data + body_metrics + daily_habits.
+
+### 6.8 Edge Functions Diari V2 (V1.7)
+
+#### `diary-save-entry`
+Salva una nuova voce in un diario.
+
+#### `diary-get-entries`
+Recupera le voci di un diario.
+
+#### `transcribe-diary-voice`
+Trascrizione audio con OpenAI Whisper-1. Lingua: italiano. Max 25MB.
+
+#### `get-diary-prompt`
+Genera domanda personalizzata per invitare a scrivere nel diario. Usa Gemini con contesto sessioni + ultime voci.
+
+### 6.9 Edge Functions Eliminate (V1.7)
+- `create-objective-chat` — eliminata (zero auth, zero persistenza)
+- `create-habit-chat` — eliminata (zero auth, zero persistenza)
+- `thematic-diary-chat` — eliminata (era già deprecata HTTP 410)
 
 ---
 
