@@ -166,19 +166,27 @@ serve(async (req) => {
     // --- Use service role client for DB operations ---
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Read total_points
-    const { data: rewardData } = await adminClient
-      .from("user_reward_points")
-      .select("total_points")
-      .eq("user_id", authenticatedUserId)
-      .single();
+    // FIX 3.8: Riscatto atomico con SELECT FOR UPDATE tramite RPC
+    const { data: result, error: redeemError } = await adminClient.rpc('atomic_redeem_points', {
+      p_user_id: authenticatedUserId,
+      p_cost: shopItem.points_cost,
+      p_reward_type: shop_item_slug
+    });
 
-    const currentPoints = rewardData?.total_points ?? 0;
-
-    // 2. Verify sufficient points
-    if (currentPoints < shopItem.points_cost) {
+    if (redeemError) {
+      console.error("[redeem-points] RPC error:", redeemError);
       return new Response(
-        JSON.stringify({ error: "Punti insufficienti" }),
+        JSON.stringify({ error: "Errore durante il riscatto" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+
+    if (!result?.success) {
+      return new Response(
+        JSON.stringify({ error: result?.error || "Punti insufficienti" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
@@ -186,25 +194,7 @@ serve(async (req) => {
       );
     }
 
-    // 3. Deduct points: INSERT reward_transaction with negative points
-    await adminClient.from("reward_transactions").insert({
-      user_id: authenticatedUserId,
-      points: -shopItem.points_cost,
-      type: "redemption",
-      source_id: shop_item_slug,
-      description: `Riscatto: ${shopItem.reward_description}`,
-    });
-
-    // 4. UPDATE user_reward_points: subtract points
-    await adminClient
-      .from("user_reward_points")
-      .update({
-        total_points: currentPoints - shopItem.points_cost,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", authenticatedUserId);
-
-    // 5. Calculate new premium expiry
+    // Calculate new premium expiry
     const { data: profileData } = await adminClient
       .from("user_profiles")
       .select("premium_until")
@@ -218,17 +208,15 @@ serve(async (req) => {
       profileData?.premium_until &&
       new Date(profileData.premium_until) > now
     ) {
-      // Extend existing premium
       baseDate = new Date(profileData.premium_until);
     } else {
-      // Start fresh
       baseDate = now;
     }
 
     const newExpiry = new Date(baseDate);
     newExpiry.setDate(newExpiry.getDate() + shopItem.days_premium);
 
-    // 6. Update user_profiles
+    // Update user_profiles with premium
     await adminClient
       .from("user_profiles")
       .update({
@@ -237,13 +225,11 @@ serve(async (req) => {
       })
       .eq("user_id", authenticatedUserId);
 
-    const remainingPoints = currentPoints - shopItem.points_cost;
-
     return new Response(
       JSON.stringify({
         success: true,
         new_expiry: newExpiry.toISOString(),
-        remaining_points: remainingPoints,
+        remaining_points: result.remaining_points,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

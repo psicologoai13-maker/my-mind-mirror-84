@@ -65,11 +65,13 @@ serve(async (req) => {
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString());
 
-    // Fetch thematic diaries
-    const { data: diaries } = await supabase
-      .from('thematic_diaries')
-      .select('*')
-      .eq('user_id', user.id);
+    // FIX 3.7: Query diaries V2 invece di thematic_diaries V1 (tabella rinominata a backup)
+    const { data: diaryEntries } = await supabase
+      .from('diary_entries')
+      .select('content_text, created_at, diary_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     // Aggregate data
     let totalMoodScore = 0;
@@ -111,21 +113,16 @@ serve(async (req) => {
       }
     }
 
-    // Process thematic diaries for theme activity
-    if (diaries && diaries.length > 0) {
-      for (const diary of diaries) {
-        const messages = diary.messages as any[];
-        if (messages && Array.isArray(messages)) {
-          // Count messages in the period
-          const recentMessages = messages.filter((m: any) => {
-            if (!m.timestamp) return false;
-            const msgDate = new Date(m.timestamp);
-            return msgDate >= startDate && msgDate <= endDate;
-          });
-          if (recentMessages.length > 0) {
-            themeActivity[diary.theme] = recentMessages.length;
-          }
-        }
+    // FIX 3.7: Process diary entries V2 for theme activity
+    if (diaryEntries && diaryEntries.length > 0) {
+      // Count entries within the period
+      const recentEntries = diaryEntries.filter((entry: any) => {
+        if (!entry.created_at) return false;
+        const entryDate = new Date(entry.created_at);
+        return entryDate >= startDate && entryDate <= endDate;
+      });
+      if (recentEntries.length > 0) {
+        themeActivity['diario_personale'] = recentEntries.length;
       }
     }
 

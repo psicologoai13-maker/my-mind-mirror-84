@@ -17,7 +17,28 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const authHeader = req.headers.get("Authorization");
+    // FIX 1.3: Verifica autenticazione — OBBLIGATORIA (rimossa triple fallback auth insicura)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    // SICUREZZA: ignora user_id dal body, usa solo JWT
+    const authenticatedUserId = user.id;
+    console.log("[sync-healthkit] Authenticated user:", authenticatedUserId);
+
     const body = await req.json();
     const {
       date,
@@ -31,8 +52,6 @@ serve(async (req) => {
       weight_kg,
       body_fat_pct,
       menstrual_cycle_phase,
-      accessToken,
-      userId,
     } = body as {
       date: string;
       steps?: number;
@@ -45,8 +64,6 @@ serve(async (req) => {
       weight_kg?: number;
       body_fat_pct?: number;
       menstrual_cycle_phase?: string;
-      accessToken?: string;
-      userId?: string;
     };
 
     if (!date) {
@@ -55,95 +72,6 @@ serve(async (req) => {
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
-        }
-      );
-    }
-
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader
-        .replace("Bearer ", "")
-        .substring(0, 30);
-      const isAnonKey = headerTokenPrefix === anonKeyPrefix;
-
-      if (!isAnonKey) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log(
-              "[sync-healthkit] ✅ Auth Method 1 (header JWT): User",
-              user.id
-            );
-          }
-        } catch (e) {
-          console.log(
-            "[sync-healthkit] ❌ Auth Method 1 error:",
-            (e as Error).message
-          );
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in request body
-    if (!authenticatedUserId && accessToken) {
-      try {
-        const tokenAuthHeader = accessToken.startsWith("Bearer ")
-          ? accessToken
-          : `Bearer ${accessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log(
-            "[sync-healthkit] ✅ Auth Method 2 (body accessToken): User",
-            user.id
-          );
-        }
-      } catch (e) {
-        console.log(
-          "[sync-healthkit] ❌ Auth Method 2 error:",
-          (e as Error).message
-        );
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role (last resort)
-    if (!authenticatedUserId && userId && serviceRoleKey) {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(userId)) {
-        authenticatedUserId = userId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log(
-          "[sync-healthkit] ⚠️ Auth Method 3 (body userId + service role): User",
-          userId
-        );
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
         }
       );
     }

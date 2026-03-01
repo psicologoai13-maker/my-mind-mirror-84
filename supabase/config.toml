@@ -9,9 +9,6 @@ verify_jwt = false
 [functions.process-session]
 verify_jwt = false
 
-[functions.thematic-diary-chat]
-verify_jwt = false
-
 [functions.generate-clinical-report]
 verify_jwt = false
 
@@ -37,12 +34,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-habits-to-brain]
-verify_jwt = false
-
-[functions.create-objective-chat]
-verify_jwt = false
-
-[functions.create-habit-chat]
 verify_jwt = false
 
 [functions.update-objective-chat]
