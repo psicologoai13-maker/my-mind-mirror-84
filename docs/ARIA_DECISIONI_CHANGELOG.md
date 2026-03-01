@@ -4,6 +4,15 @@
 
 ---
 
+## 1 Mar 2026 — Fix P3 Batch 2
+
+### Completate
+- **Modulo auth condiviso**: creato `_shared/auth.ts` con `authenticateUser()`, `handleCors()`, `checkRateLimit()`. Refactorate 15 edge functions per usarlo
+- **Cron sfide scadute**: nuova edge function `cron-expire-challenges` + cron job giornaliero. Sfide con `expires_at` passato vengono marcate come `expired`
+- **Rate limiting**: nuova tabella `rate_limits` + funzione SQL `check_rate_limit()`. Applicato a 6 funzioni costose (Gemini/Whisper) con limiti per utente/ora
+
+---
+
 ## 1 Mar 2026 — Fix P3 Batch 1
 
 ### Completate

@@ -1,43 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    // FIX 1.3: Verifica autenticazione — OBBLIGATORIA (rimossa triple fallback auth insicura)
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    // SICUREZZA: ignora user_id dal body, usa solo JWT
-    const authenticatedUserId = user.id;
-    console.log("[sync-healthkit] Authenticated user:", authenticatedUserId);
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
     const body = await req.json();
     const {
@@ -94,15 +62,11 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Use admin client for all DB operations
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const synced_fields: string[] = [];
 
-    // ─────────────────────────────────────────────
     // 1. UPSERT healthkit_data (only non-null fields)
-    // ─────────────────────────────────────────────
     const healthkitPayload: Record<string, unknown> = {
-      user_id: authenticatedUserId,
+      user_id: userId,
       date,
     };
 
@@ -117,7 +81,7 @@ serve(async (req) => {
     if (body_fat_pct != null) { healthkitPayload.body_fat_pct = body_fat_pct; synced_fields.push("body_fat_pct"); }
     if (menstrual_cycle_phase != null) { healthkitPayload.menstrual_cycle_phase = menstrual_cycle_phase; synced_fields.push("menstrual_cycle_phase"); }
 
-    const { error: hkError } = await adminClient
+    const { error: hkError } = await supabaseAdmin
       .from("healthkit_data")
       .upsert(healthkitPayload, {
         onConflict: "user_id,date",
@@ -133,15 +97,13 @@ serve(async (req) => {
       `[sync-healthkit] Upserted healthkit_data for ${date}: ${synced_fields.join(", ")}`
     );
 
-    // ─────────────────────────────────────────────
     // 2. UPSERT daily_habits for steps
-    // ─────────────────────────────────────────────
     if (steps != null) {
-      const { error } = await adminClient
+      const { error } = await supabaseAdmin
         .from("daily_habits")
         .upsert(
           {
-            user_id: authenticatedUserId,
+            user_id: userId,
             habit_type: "steps",
             date,
             value: steps,
@@ -155,15 +117,13 @@ serve(async (req) => {
       }
     }
 
-    // ─────────────────────────────────────────────
     // 3. UPSERT daily_habits for sleep
-    // ─────────────────────────────────────────────
     if (sleep_hours != null) {
-      const { error } = await adminClient
+      const { error } = await supabaseAdmin
         .from("daily_habits")
         .upsert(
           {
-            user_id: authenticatedUserId,
+            user_id: userId,
             habit_type: "sleep",
             date,
             value: sleep_hours,
@@ -177,15 +137,13 @@ serve(async (req) => {
       }
     }
 
-    // ─────────────────────────────────────────────
     // 4. UPSERT body_metrics for weight
-    // ─────────────────────────────────────────────
     if (weight_kg != null) {
-      const { error } = await adminClient
+      const { error } = await supabaseAdmin
         .from("body_metrics")
         .upsert(
           {
-            user_id: authenticatedUserId,
+            user_id: userId,
             weight: weight_kg,
             date,
           },
@@ -196,13 +154,11 @@ serve(async (req) => {
       }
     }
 
-    // ─────────────────────────────────────────────
     // 5. UPDATE user_profiles.last_data_change_at
-    // ─────────────────────────────────────────────
-    const { error: profileError } = await adminClient
+    const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
       .update({ last_data_change_at: new Date().toISOString() })
-      .eq("user_id", authenticatedUserId);
+      .eq("user_id", userId);
 
     if (profileError) {
       console.error(
@@ -212,7 +168,7 @@ serve(async (req) => {
     }
 
     console.log(
-      `[sync-healthkit] ✅ Sync complete for user ${authenticatedUserId}, date ${date}, fields: ${synced_fields.join(", ")}`
+      `[sync-healthkit] Sync complete for user ${userId}, date ${date}, fields: ${synced_fields.join(", ")}`
     );
 
     return new Response(
@@ -222,6 +178,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error("[sync-healthkit] Error:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),

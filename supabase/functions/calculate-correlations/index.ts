@@ -1,10 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
 // Correlation pairs to calculate
 const CORRELATION_PAIRS = [
@@ -31,17 +25,17 @@ const CORRELATION_PAIRS = [
 function pearsonCorrelation(x: number[], y: number[]): { r: number; n: number } {
   const n = Math.min(x.length, y.length);
   if (n < 5) return { r: 0, n: 0 };
-  
+
   const xSlice = x.slice(0, n);
   const ySlice = y.slice(0, n);
-  
+
   const meanX = xSlice.reduce((a, b) => a + b, 0) / n;
   const meanY = ySlice.reduce((a, b) => a + b, 0) / n;
-  
+
   let numerator = 0;
   let denomX = 0;
   let denomY = 0;
-  
+
   for (let i = 0; i < n; i++) {
     const diffX = xSlice[i] - meanX;
     const diffY = ySlice[i] - meanY;
@@ -49,10 +43,10 @@ function pearsonCorrelation(x: number[], y: number[]): { r: number; n: number } 
     denomX += diffX * diffX;
     denomY += diffY * diffY;
   }
-  
+
   const denominator = Math.sqrt(denomX * denomY);
   if (denominator === 0) return { r: 0, n };
-  
+
   return { r: numerator / denominator, n };
 }
 
@@ -79,13 +73,13 @@ function generateInsight(metricA: string, metricB: string, r: number): string {
     somatic_tension: 'tensione somatica',
     rumination: 'ruminazione',
   };
-  
+
   const labelA = labels[metricA] || metricA;
   const labelB = labels[metricB] || metricB;
-  
+
   const absR = Math.abs(r);
   const direction = r > 0 ? 'positiva' : 'negativa';
-  
+
   if (absR >= 0.7) {
     return `Forte correlazione ${direction} tra ${labelA} e ${labelB}. Quando ${labelA} migliora, ${r > 0 ? 'migliora' : 'peggiora'} anche ${labelB}.`;
   } else if (absR >= 0.4) {
@@ -96,39 +90,14 @@ function generateInsight(metricA: string, metricB: string, r: number): string {
   return `Nessuna correlazione significativa tra ${labelA} e ${labelB}.`;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    // FIX 1.4: Verifica autenticazione — OBBLIGATORIA
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    // SICUREZZA: ignora user_id dal body, usa solo JWT
-    const user_id = user.id;
-
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    console.log(`[calculate-correlations] Processing correlations for user: ${user_id}`);
+    console.log(`[calculate-correlations] Processing correlations for user: ${userId}`);
 
     // Get last 60 days of data
     const sixtyDaysAgo = new Date();
@@ -137,49 +106,48 @@ serve(async (req) => {
 
     // Fetch data in parallel
     const [sessionsResult, habitsResult, psychologyResult, lifeAreasResult, healthkitResult, dailyCheckinsResult] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from('sessions')
         .select('start_time, mood_score_detected, anxiety_score_detected, energy_score_detected, sleep_quality')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .eq('status', 'completed')
         .gte('start_time', dateFilter)
         .order('start_time', { ascending: true }),
-      supabase
+      supabaseAdmin
         .from('daily_habits')
         .select('date, habit_type, value')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
-      supabase
+      supabaseAdmin
         .from('daily_psychology')
         .select('date, mental_clarity, burnout_level, loneliness_perceived, somatic_tension, rumination')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
-      supabase
+      supabaseAdmin
         .from('daily_life_areas')
         .select('date, work, social')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
-      supabase
+      supabaseAdmin
         .from('healthkit_data')
         .select('date, sleep_hours, steps, hrv_avg, heart_rate_avg')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
-      supabase
+      supabaseAdmin
         .from('daily_checkins')
         .select('date, mood_value')
-        .eq('user_id', user_id)
+        .eq('user_id', userId)
         .gte('date', dateFilter)
         .order('date', { ascending: true }),
     ]);
 
     // Organize data by date
     const dataByDate: Record<string, Record<string, number>> = {};
-    
-    // Process sessions
+
     for (const session of sessionsResult.data || []) {
       const date = session.start_time?.split('T')[0];
       if (!date) continue;
@@ -189,16 +157,14 @@ serve(async (req) => {
       if (session.energy_score_detected) dataByDate[date].energy = session.energy_score_detected;
       if (session.sleep_quality) dataByDate[date].sleep = session.sleep_quality;
     }
-    
-    // Process habits
+
     for (const habit of habitsResult.data || []) {
       const date = habit.date;
       if (!date) continue;
       if (!dataByDate[date]) dataByDate[date] = {};
       dataByDate[date][habit.habit_type] = habit.value;
     }
-    
-    // Process psychology
+
     for (const psych of psychologyResult.data || []) {
       const date = psych.date;
       if (!date) continue;
@@ -209,8 +175,7 @@ serve(async (req) => {
       if (psych.somatic_tension) dataByDate[date].somatic_tension = psych.somatic_tension;
       if (psych.rumination) dataByDate[date].rumination = psych.rumination;
     }
-    
-    // Process life areas
+
     for (const area of lifeAreasResult.data || []) {
       const date = area.date;
       if (!date) continue;
@@ -219,7 +184,6 @@ serve(async (req) => {
       if (area.social) dataByDate[date].social = area.social;
     }
 
-    // Process HealthKit data
     for (const hk of healthkitResult.data || []) {
       const date = hk.date;
       if (!date) continue;
@@ -230,7 +194,6 @@ serve(async (req) => {
       if (hk.heart_rate_avg) dataByDate[date].hk_heart_rate_avg = hk.heart_rate_avg;
     }
 
-    // Process daily checkins (mood_value for HK correlations)
     for (const checkin of dailyCheckinsResult.data || []) {
       const date = checkin.date;
       if (!date) continue;
@@ -241,31 +204,30 @@ serve(async (req) => {
     const dates = Object.keys(dataByDate).sort();
     console.log(`[calculate-correlations] Processing ${dates.length} days of data`);
 
-    // Calculate correlations
     const correlationsToUpsert = [];
 
     for (const pair of CORRELATION_PAIRS) {
       const xValues: number[] = [];
       const yValues: number[] = [];
-      
+
       for (const date of dates) {
         const dayData = dataByDate[date];
         const xVal = dayData[pair.metric_a];
         const yVal = dayData[pair.metric_b];
-        
+
         if (xVal !== undefined && yVal !== undefined && xVal > 0 && yVal > 0) {
           xValues.push(xVal);
           yValues.push(yVal);
         }
       }
-      
+
       if (xValues.length >= 5) {
         const { r, n } = pearsonCorrelation(xValues, yValues);
         const isSignificant = Math.abs(r) >= 0.3 && n >= 10;
         const insight = generateInsight(pair.metric_a, pair.metric_b, r);
-        
+
         correlationsToUpsert.push({
-          user_id,
+          user_id: userId,
           metric_a: pair.metric_a,
           metric_b: pair.metric_b,
           correlation_type: pair.type,
@@ -280,21 +242,19 @@ serve(async (req) => {
 
     console.log(`[calculate-correlations] Upserting ${correlationsToUpsert.length} correlations`);
 
-    // Upsert correlations
     for (const corr of correlationsToUpsert) {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('user_correlations')
-        .upsert(corr, { 
+        .upsert(corr, {
           onConflict: 'user_id,metric_a,metric_b',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         });
-      
+
       if (error) {
         console.error(`[calculate-correlations] Error upserting correlation:`, error);
       }
     }
 
-    // Get significant correlations for response
     const significantCorrelations = correlationsToUpsert
       .filter(c => c.is_significant)
       .sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength))
@@ -310,9 +270,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error('[calculate-correlations] Error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message 
+    return new Response(JSON.stringify({
+      error: (error as Error).message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

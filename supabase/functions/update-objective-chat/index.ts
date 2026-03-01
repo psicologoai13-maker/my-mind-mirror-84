@@ -1,10 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { authenticateUser, handleCors, corsHeaders, checkRateLimit } from '../_shared/auth.ts';
 
 interface ObjectiveInfo {
   id: string;
@@ -26,40 +20,17 @@ interface ObjectiveUpdate {
   ai_milestones?: any[];
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
+    const { userId, supabaseClient, supabaseAdmin } = await authenticateUser(req);
+
+    // Rate limit: max 20 richieste/ora (chiama Gemini)
+    await checkRateLimit(supabaseAdmin, userId, 'update-objective-chat', 20, 60);
+
     const { messages, activeObjectives } = await req.json();
-    
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Extract the JWT token
-    const token = authHeader.replace('Bearer ', '');
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    // Pass the token directly to getUser
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
     if (!GOOGLE_API_KEY) {
@@ -70,20 +41,19 @@ serve(async (req) => {
     const objectivesContext = activeObjectives.map((obj: ObjectiveInfo) => {
       const hasNumericTarget = obj.target_value !== null;
       let progressInfo = '';
-      
+
       if (hasNumericTarget) {
         const current = obj.current_value ?? obj.starting_value ?? 0;
         const starting = obj.starting_value ?? 0;
         const target = obj.target_value!;
-        const progress = starting !== target 
+        const progress = starting !== target
           ? Math.min(100, Math.max(0, ((current - starting) / (target - starting)) * 100))
           : 0;
         progressInfo = `NUMERICO - Attuale: ${current}${obj.unit ? ' ' + obj.unit : ''} / Target: ${target}${obj.unit ? ' ' + obj.unit : ''} (${Math.round(progress)}%)`;
       } else {
-        // Qualitative/milestone objective
         progressInfo = `QUALITATIVO - Progresso AI stimato: ${obj.ai_progress_estimate ?? 0}%`;
       }
-      
+
       return `📌 OBIETTIVO #${activeObjectives.indexOf(obj) + 1}:
    ID: ${obj.id}
    Titolo: "${obj.title}"
@@ -114,7 +84,7 @@ ${objectivesContext || 'Nessun obiettivo attivo'}
 📊 REGOLE PER OBIETTIVI NUMERICI:
 ═══════════════════════════════════════════════
 - "Ho perso 2kg" con peso attuale 85kg → current_value = 83
-- "Ora peso 83kg" → current_value = 83  
+- "Ora peso 83kg" → current_value = 83
 - "Ho risparmiato 100€" con attuale 200€ → current_value = 300
 - "Sono a 5 sigarette al giorno" → current_value = 5
 
@@ -192,16 +162,16 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenAI API error: ${error}`);
+      throw new Error(`Gemini API error: ${error}`);
     }
 
     const data = await response.json();
     let aiMessage = data.candidates[0].content.parts[0].text;
-    
+
     // Parse any JSON updates from the response
     const updates: ObjectiveUpdate[] = [];
     const jsonMatch = aiMessage.match(/```json\n?([\s\S]*?)\n?```/);
-    
+
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[1]);
@@ -214,17 +184,17 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
                 ai_feedback: update.ai_feedback,
                 updated_at: new Date().toISOString(),
               };
-              
+
               // Update numeric value if provided
               if (update.current_value !== undefined) {
                 updateData.current_value = update.current_value;
               }
-              
+
               // Update AI progress estimate
               if (update.ai_progress_estimate !== undefined) {
                 updateData.ai_progress_estimate = Math.min(100, Math.max(0, update.ai_progress_estimate));
               }
-              
+
               // Add milestone if provided (with dedup check)
               if (update.new_milestone) {
                 const existingMilestones = objective.ai_milestones || [];
@@ -241,14 +211,14 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
                   ];
                 }
               }
-              
-              // Save to database
+
+              // Save to database (uses user-scoped client for RLS)
               const { error: updateError } = await supabaseClient
                 .from('user_objectives')
                 .update(updateData)
                 .eq('id', update.id)
-                .eq('user_id', user.id);
-              
+                .eq('user_id', userId);
+
               if (!updateError) {
                 updates.push({
                   id: update.id,
@@ -261,27 +231,28 @@ TONO: Entusiasta, genuino, supportivo. Max 2-3 frasi di risposta conversazionale
       } catch (e) {
         console.error('Failed to parse JSON updates:', e);
       }
-      
+
       // Remove JSON block from visible message
       aiMessage = aiMessage.replace(/```json\n?[\s\S]*?\n?```/, '').trim();
     }
 
     return new Response(
-      JSON.stringify({ 
-        message: aiMessage, 
-        updates 
+      JSON.stringify({
+        message: aiMessage,
+        updates
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof Response) return error;
     console.error('Error in update-objective-chat:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

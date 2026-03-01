@@ -32,6 +32,19 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
+    // Rate limit: max 3 richieste/ora (chiama Gemini, molto pesante)
+    const { data: rateLimitOk } = await supabase.rpc('check_rate_limit', {
+      p_user_id: user.id,
+      p_function_name: 'generate-clinical-report',
+      p_max_requests: 3,
+      p_window_minutes: 60
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     console.log(`Generating clinical report for user ${user.id}, last ${periodDays} days`);
 
     // Calculate date range
