@@ -2980,6 +2980,20 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       console.log('[process-session] ✅ All DB writes completed successfully');
     }
 
+    // === RIGENERA MESSAGGIO HOME ARIA (V5) ===
+    // Fire-and-forget: invalidate cache so home-context regenerates on next app open
+    try {
+      await supabase
+        .from('user_profiles')
+        .update({
+          aria_home_message: null,
+          aria_home_message_at: null
+        })
+        .eq('user_id', user_id);
+    } catch (err) {
+      console.error('[process-session] Failed to invalidate aria home message cache:', err);
+    }
+
     console.log('[process-session] Session processing complete!');
 
     return new Response(JSON.stringify({

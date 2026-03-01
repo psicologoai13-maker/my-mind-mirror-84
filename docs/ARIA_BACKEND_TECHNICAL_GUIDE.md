@@ -1,7 +1,7 @@
 # ARIA — Guida Tecnica Backend Completa
 
-> Versione: 1.7 | Aggiornato: 1 Marzo 2026
-> V1.7: Backend V2.0 + Post-audit fix. 26 edge functions, 39+ tabelle.
+> Versione: 1.8 | Aggiornato: 1 Marzo 2026
+> V1.8: Backend V2.0 + Post-audit fix + V5.1 (Aria Home Message + Sintesi breve). 26 edge functions, 39+ tabelle.
 >
 > Destinatario: Sviluppatore backend senza accesso al repository GitHub
 > Scope: Database PostgreSQL, Edge Functions (Deno), API, Autenticazione, RLS
@@ -106,6 +106,8 @@ Tabella principale del profilo utente. Creata automaticamente dal trigger `handl
 | therapy_status | text | 'none' | Stato terapia |
 | occupation_context | text | null | student/worker/both |
 | dashboard_config | jsonb | `{theme:"default",...}` | Config dashboard |
+| aria_home_message | text | null | Messaggio Aria cachato per bolla Home |
+| aria_home_message_at | timestamptz | null | Timestamp generazione messaggio |
 | created_at | timestamptz | now() | — |
 
 #### `user_roles`
@@ -727,7 +729,7 @@ const corsHeaders = {
 ### 6.4 Edge Functions Homepage (V1.7)
 
 #### `home-context`
-Aggregatore dati per homepage. NO AI — solo query DB. Legge 9 tabelle, restituisce: saluto, check-in non completati, esercizio suggerito, streak, punti, livello, HealthKit oggi.
+Aggregatore dati per homepage. Genera messaggio Aria personalizzato via Gemini Flash (cache 4h). Legge 10 tabelle (aggiunta user_memories), restituisce: saluto, check-in, esercizio suggerito, streak, punti, livello, HealthKit oggi, aria_message.
 
 ### 6.5 Edge Functions Esercizi (V1.7)
 
@@ -826,6 +828,7 @@ Client → POST /ai-chat
   ↓ SSE → Client
   ↓ Save chat_messages
   ↓ (async) process-session → extract 66 metrics → update daily_* tables
+  ↓ (async) invalidate aria_home_message cache → next app open regenerates
 ```
 
 ### 8.2 Flusso Sessione Vocale
