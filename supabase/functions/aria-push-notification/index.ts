@@ -139,13 +139,14 @@ async function generateProactiveMessage(
     recentTopics: string[];
     timeOfDay: string;
     pendingEvents: string[];
+    timezone: string;
   }
 ): Promise<{ title: string; body: string; triggerType: string } | null> {
   const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
   if (!GOOGLE_API_KEY) return null;
 
   const name = userName?.split(" ")[0] || "amico/a";
-  const hour = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", hour: "numeric" });
+  const hour = new Date().toLocaleString("it-IT", { timeZone: context.timezone, hour: "numeric" });
 
   const prompt = `Sei Aria, la migliore amica dell'utente ${name}. 
 Devi scrivere UN SINGOLO messaggio push notification proattivo.
@@ -283,7 +284,7 @@ serve(async (req) => {
     for (const [uid, deviceTokens] of userTokens) {
       // Fetch user context
       const [profileResult, sessionResult, streakResult, eventsResult, topicsResult] = await Promise.all([
-        supabase.from("user_profiles").select("name, notification_settings").eq("user_id", uid).single(),
+        supabase.from("user_profiles").select("name, notification_settings, timezone").eq("user_id", uid).single(),
         supabase.from("sessions").select("start_time, mood_score_detected").eq("user_id", uid).eq("status", "completed").order("start_time", { ascending: false }).limit(1),
         supabase.from("habit_streaks").select("current_streak").eq("user_id", uid).eq("habit_type", "checkin").single(),
         supabase.from("user_events").select("title").eq("user_id", uid).eq("status", "upcoming").gte("event_date", new Date().toISOString().split("T")[0]).limit(3),
@@ -303,13 +304,15 @@ serve(async (req) => {
         ? Math.floor((Date.now() - new Date(lastSession.start_time).getTime()) / 86400000)
         : 999;
 
+      const userTimezone = (profile as any).timezone || 'Europe/Rome';
       const context = {
         lastSessionDaysAgo,
         currentStreak: streakResult.data?.current_streak || 0,
         lastMood: lastSession?.mood_score_detected || null,
         recentTopics: (topicsResult.data || []).map(t => t.topic),
-        timeOfDay: new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", hour: "numeric" }),
+        timeOfDay: new Date().toLocaleString("it-IT", { timeZone: userTimezone, hour: "numeric" }),
         pendingEvents: (eventsResult.data || []).map(e => e.title),
+        timezone: userTimezone,
       };
 
       // Generate contextual message

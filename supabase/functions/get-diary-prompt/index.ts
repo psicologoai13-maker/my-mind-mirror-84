@@ -102,14 +102,14 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const userId = authenticatedUserId;
 
-    // Load last 3 diary entries for this diary
+    // Load last 5 diary entries for this diary
     const { data: recentEntries } = await adminClient
       .from("diary_entries")
       .select("content_text, entry_date, created_at")
       .eq("diary_id", diary_id)
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(3);
+      .limit(5);
 
     // Load diary name if not provided
     let diaryName = diary_name;
@@ -152,7 +152,16 @@ serve(async (req) => {
       ? `Contesto recente: ${recentContext}.`
       : "Nessun contesto recente disponibile.";
 
-    const geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
+    // Include recent diary entries for personalization
+    let entriesContext = "";
+    if (recentEntries && recentEntries.length > 0) {
+      const entriesSummary = recentEntries
+        .map((e: any) => `- ${e.entry_date}: "${e.content_text?.substring(0, 200)}"`)
+        .join('\n');
+      entriesContext = ` Ultime voci scritte dall'utente in questo diario:\n${entriesSummary}`;
+    }
+
+    const geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine}${entriesContext} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`,

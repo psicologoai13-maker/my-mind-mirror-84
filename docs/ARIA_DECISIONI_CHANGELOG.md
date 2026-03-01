@@ -4,6 +4,18 @@
 
 ---
 
+## 1 Mar 2026 — Fix P3 Batch 1
+
+### Completate
+- **Milestones dedup**: `update-objective-chat` ora controlla duplicati prima di aggiungere milestone
+- **Diary prompt fix**: `get-diary-prompt` ora include le ultime 5 voci nel prompt Gemini
+- **get_daily_metrics consolidata**: versione definitiva unica, con parametro timezone opzionale
+- **Badge ottimizzati**: `check_and_award_badges` ora salta badge già sbloccati (ridotto fino a 8 query inutili)
+- **Validazione input**: aggiunta a 5 edge functions (log-exercise, sync-healthkit, redeem-points, start-challenge, generate-wrapped)
+- **Timezone parametrico**: aggiunta colonna `timezone` a user_profiles (default Europe/Rome), get_daily_metrics accetta timezone
+
+---
+
 ## 1 Mar 2026 — Fix process-session
 
 ### Completate

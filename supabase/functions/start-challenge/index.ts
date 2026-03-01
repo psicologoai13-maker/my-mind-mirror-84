@@ -71,7 +71,7 @@ serve(async (req) => {
       userId?: string;
     };
 
-    if (!challenge_slug) {
+    if (!challenge_slug || typeof challenge_slug !== 'string') {
       return new Response(
         JSON.stringify({ error: "challenge_slug is required" }),
         {

@@ -66,6 +66,12 @@ serve(async (req) => {
       );
     }
 
+    // Validazione input riscatto
+    if (typeof shop_item_slug !== 'string' || shop_item_slug.length > 100) {
+      return new Response(JSON.stringify({ error: 'invalid shop_item_slug' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const shopItem = SHOP_ITEMS[shop_item_slug];
     if (!shopItem) {
       return new Response(

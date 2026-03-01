@@ -76,6 +76,24 @@ serve(async (req) => {
       );
     }
 
+    // Validazione input HealthKit
+    if (steps !== undefined && (steps < 0 || steps > 200000)) {
+      return new Response(JSON.stringify({ error: 'steps must be between 0 and 200000' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (sleep_hours !== undefined && (sleep_hours < 0 || sleep_hours > 24)) {
+      return new Response(JSON.stringify({ error: 'sleep_hours must be between 0 and 24' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (heart_rate_avg !== undefined && (heart_rate_avg < 20 || heart_rate_avg > 250)) {
+      return new Response(JSON.stringify({ error: 'heart_rate_avg must be between 20 and 250' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (weight_kg !== undefined && (weight_kg < 20 || weight_kg > 500)) {
+      return new Response(JSON.stringify({ error: 'weight must be between 20 and 500 kg' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Use admin client for all DB operations
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const synced_fields: string[] = [];
