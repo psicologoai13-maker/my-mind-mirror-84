@@ -1,33 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
+    const { userId, supabaseClient } = await authenticateUser(req);
 
     const { diary_id, entry_text } = await req.json() as {
       diary_id: string;
@@ -42,7 +20,7 @@ serve(async (req) => {
     }
 
     // Fetch the current diary (RLS ensures user can only access their own)
-    const { data: diary, error: fetchError } = await supabase
+    const { data: diary, error: fetchError } = await supabaseClient
       .from('thematic_diaries')
       .select('entries')
       .eq('id', diary_id)
@@ -69,7 +47,7 @@ serve(async (req) => {
     const preview = entry_text.length > 80 ? entry_text.substring(0, 80) : entry_text;
 
     // Update diary with new entry (RLS ensures owner-only access)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseClient
       .from('thematic_diaries')
       .update({
         entries: updatedEntries,
@@ -88,7 +66,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof Response) return error;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in diary-save-entry:', errorMessage);
     return new Response(

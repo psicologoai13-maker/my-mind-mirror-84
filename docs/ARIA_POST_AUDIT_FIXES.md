@@ -26,6 +26,9 @@
 | 15 | get_daily_metrics ridefinita 10+ volte | P3 | Versione definitiva unica con parametro timezone | SQL migration |
 | 16 | check_and_award_badges esegue 8 COUNT ogni volta | P3 | Early-exit + skip badge già sbloccati | SQL migration |
 | 17 | Validazione input mancante in 5 edge functions | P3 | Validazione range/tipo aggiunta dopo parsing body | log-exercise, sync-healthkit, redeem-points, start-challenge, generate-wrapped |
+| 18 | Triple-fallback auth duplicata in 15+ funzioni | P3 | Modulo condiviso `_shared/auth.ts`, refactorate 15 edge functions | _shared/auth.ts + 15 edge functions |
+| 19 | Sfide scadute restano attive (no cron job) | P3 | Nuova edge function `cron-expire-challenges` + cron job giornaliero | cron-expire-challenges |
+| 20 | Nessun rate limiting | P3 | Tabella `rate_limits` + funzione SQL `check_rate_limit()` + applicato a 6 funzioni costose | SQL migration + 6 edge functions |
 
 ## Funzioni Eliminate
 
@@ -49,11 +52,11 @@
 |---|---|:---:|
 | ~~1~~ | ~~process-session scrive 10 tabelle senza transazione~~ | ~~P3~~ ✅ |
 | ~~2~~ | ~~Habits/eventi rilevati ma non salvati nel DB~~ | ~~P3~~ ✅ |
-| 3 | Sfide scadute restano attive (no cron job) | P3 |
+| ~~3~~ | ~~Sfide scadute restano attive (no cron job)~~ | ~~P3~~ ✅ |
 | 4 | System prompt ai-chat ~30-50KB | P3 |
 | ~~5~~ | ~~Timezone hardcoded Europe/Rome~~ | ~~P3~~ ✅ |
 | ~~6~~ | ~~ai_milestones append senza deduplicazione~~ | ~~P3~~ ✅ |
 | ~~7~~ | ~~get-diary-prompt carica diary_entries ma le ignora~~ | ~~P3~~ ✅ |
-| 8 | Triple-fallback auth duplicata in 15+ funzioni | P3 |
+| ~~8~~ | ~~Triple-fallback auth duplicata in 15+ funzioni~~ | ~~P3~~ ✅ |
 | ~~9~~ | ~~get_daily_metrics ridefinita 10+ volte~~ | ~~P3~~ ✅ |
 | ~~10~~ | ~~check_and_award_badges esegue 8 COUNT ogni volta~~ | ~~P3~~ ✅ |

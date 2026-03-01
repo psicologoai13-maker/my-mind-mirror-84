@@ -1,23 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateUser, handleCors, corsHeaders, checkRateLimit } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
+    const { userId, supabaseAdmin } = await authenticateUser(req);
 
+    // Rate limit: max 20 richieste/ora (chiama Gemini)
+    await checkRateLimit(supabaseAdmin, userId, 'get-diary-prompt', 20, 60);
+
+    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
     if (!googleApiKey) {
       throw new Error("GOOGLE_API_KEY is not configured");
     }
@@ -35,75 +28,8 @@ serve(async (req) => {
       );
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const bodyAccessToken = body.accessToken;
-    const bodyUserId = body.userId;
-
-    // --- Triple fallback auth ---
-    let authenticatedUserId: string | null = null;
-    let supabase: ReturnType<typeof createClient> | null = null;
-
-    // AUTH METHOD 1: Authorization header JWT
-    if (authHeader) {
-      const anonKeyPrefix = supabaseKey.substring(0, 30);
-      const headerTokenPrefix = authHeader.replace("Bearer ", "").substring(0, 30);
-      if (headerTokenPrefix !== anonKeyPrefix) {
-        try {
-          supabase = createClient(supabaseUrl, supabaseKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (!userError && user) {
-            authenticatedUserId = user.id;
-            console.log("[get-diary-prompt] Auth Method 1: User", user.id);
-          }
-        } catch (e) {
-          console.log("[get-diary-prompt] Auth Method 1 error:", (e as Error).message);
-        }
-      }
-    }
-
-    // AUTH METHOD 2: accessToken in body
-    if (!authenticatedUserId && bodyAccessToken) {
-      try {
-        const tokenAuthHeader = bodyAccessToken.startsWith("Bearer ")
-          ? bodyAccessToken
-          : `Bearer ${bodyAccessToken}`;
-        supabase = createClient(supabaseUrl, supabaseKey, {
-          global: { headers: { Authorization: tokenAuthHeader } },
-        });
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (!userError && user) {
-          authenticatedUserId = user.id;
-          console.log("[get-diary-prompt] Auth Method 2: User", user.id);
-        }
-      } catch (e) {
-        console.log("[get-diary-prompt] Auth Method 2 error:", (e as Error).message);
-      }
-    }
-
-    // AUTH METHOD 3: userId in body + service role
-    if (!authenticatedUserId && bodyUserId && serviceRoleKey) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(bodyUserId)) {
-        authenticatedUserId = bodyUserId;
-        supabase = createClient(supabaseUrl, serviceRoleKey);
-        console.log("[get-diary-prompt] Auth Method 3: User", bodyUserId);
-      }
-    }
-
-    if (!authenticatedUserId || !supabase) {
-      return new Response(
-        JSON.stringify({ error: "Authentication failed" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const userId = authenticatedUserId;
-
     // Load last 5 diary entries for this diary
-    const { data: recentEntries } = await adminClient
+    const { data: recentEntries } = await supabaseAdmin
       .from("diary_entries")
       .select("content_text, entry_date, created_at")
       .eq("diary_id", diary_id)
@@ -114,7 +40,7 @@ serve(async (req) => {
     // Load diary name if not provided
     let diaryName = diary_name;
     if (!diaryName) {
-      const { data: diaryData } = await adminClient
+      const { data: diaryData } = await supabaseAdmin
         .from("diaries")
         .select("name")
         .eq("id", diary_id)
@@ -123,7 +49,7 @@ serve(async (req) => {
     }
 
     // Load latest session_context_snapshot for the user
-    const { data: snapshotData } = await adminClient
+    const { data: snapshotData } = await supabaseAdmin
       .from("session_context_snapshots")
       .select("key_topics, unresolved_issues")
       .eq("user_id", userId)
@@ -190,6 +116,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    if (error instanceof Response) return error;
     console.error("[get-diary-prompt] Error:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),

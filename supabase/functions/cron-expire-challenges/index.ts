@@ -1,62 +1,74 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Questa funzione è chiamata solo da cron job o service_role
+    const authHeader = req.headers.get('Authorization');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    // Find and delete expired challenges that were never completed
-    const { data: expired, error: deleteError } = await adminClient
-      .from("user_challenges")
-      .delete()
-      .is("completed_at", null)
-      .lt("expires_at", new Date().toISOString())
-      .select("id, user_id, challenge_slug");
-
-    if (deleteError) {
-      console.error("[cron-expire-challenges] Delete error:", deleteError.message);
-      return new Response(
-        JSON.stringify({ error: deleteError.message }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+    // Verifica che sia una chiamata autorizzata (service_role o cron)
+    if (!authHeader || !authHeader.includes(serviceKey)) {
+      return new Response(JSON.stringify({ error: 'Service role required' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    const count = expired?.length ?? 0;
-    console.log(`[cron-expire-challenges] Removed ${count} expired challenges`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        expired_count: count,
-        expired_challenges: expired,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      serviceKey
     );
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[cron-expire-challenges] Error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+    // Marca come scadute tutte le sfide attive con expires_at passato
+    const { data: expired, error } = await supabaseAdmin
+      .from('user_challenges')
+      .update({
+        status: 'expired',
+        updated_at: new Date().toISOString()
+      })
+      .eq('status', 'active')
+      .lt('expires_at', new Date().toISOString())
+      .select('id, user_id');
+
+    if (error) {
+      console.error('[cron-expire-challenges] Error:', error.message);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`[cron-expire-challenges] Expired ${expired?.length || 0} challenges`);
+
+    // Pulizia vecchi record rate_limits (> 24h)
+    try {
+      await supabaseAdmin.rpc('cleanup_rate_limits');
+      console.log('[cron-expire-challenges] Rate limits cleanup done');
+    } catch (e) {
+      console.log('[cron-expire-challenges] Rate limits cleanup skipped:', (e as Error).message);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      expired_count: expired?.length || 0
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('[cron-expire-challenges] Unexpected error:', error);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

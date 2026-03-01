@@ -585,6 +585,19 @@ serve(async (req) => {
 
     const userId = claimsData.user.id;
 
+    // Rate limit: max 20 richieste/ora (chiama Gemini)
+    const { data: rateLimitOk } = await supabaseAdmin.rpc('check_rate_limit', {
+      p_user_id: userId,
+      p_function_name: 'ai-checkins',
+      p_max_requests: 20,
+      p_window_minutes: 60
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("ai_checkins_cache, selected_goals, onboarding_answers, occupation_context, birth_date, timezone")
