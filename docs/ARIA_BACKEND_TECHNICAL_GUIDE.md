@@ -1,7 +1,7 @@
 # ARIA — Guida Tecnica Backend Completa
 
-> Versione: 1.8 | Aggiornato: 1 Marzo 2026
-> V1.8: Backend V2.0 + Post-audit fix + V5.1 (Aria Home Message + Sintesi breve). 26 edge functions, 39+ tabelle.
+> Versione: 2.0 | Aggiornato: 2 Marzo 2026
+> V2.0: Cervello Unificato (aria-brain.ts) + Backend V2.0 + Post-audit fix + V5.1. 27 edge functions (+ ai-chat-legacy), 39+ tabelle.
 >
 > Destinatario: Sviluppatore backend senza accesso al repository GitHub
 > Scope: Database PostgreSQL, Edge Functions (Deno), API, Autenticazione, RLS
@@ -20,6 +20,7 @@
 8. [Flussi di Dati Principali](#8-flussi-di-dati-principali)
 9. [API Esterne Integrate](#9-api-esterne-integrate)
 10. [Configurazione e Deploy](#10-configurazione-e-deploy)
+11. [Architettura Cervello Unificato V2.0](#11-architettura-cervello-unificato-v20)
 
 ---
 
@@ -944,4 +945,93 @@ supabase secrets set OPENAI_API_KEY=xxx           # OpenAI (fallback/legacy)
 
 ---
 
-> **Nota**: Questo documento copre l'intero backend al 27 Febbraio 2026 (V1.6). Per modifiche successive, consultare le migrazioni SQL, i changelog delle Edge Functions e `ARIA_DECISIONI_CHANGELOG.md`.
+## 11. Architettura Cervello Unificato V2.0
+
+> Introdotta il 2 Marzo 2026. Il cervello di Aria è ora un modulo condiviso che alimenta chat e voce con lo stesso prompt clinico.
+
+### 11.1 Struttura File
+
+```
+supabase/functions/
+├── _shared/
+│   ├── aria-brain.ts                    # Cervello condiviso: prompt + loader dati utente
+│   └── aria-knowledge-base-complete.md  # 54 documenti clinici (knowledge base completa)
+├── ai-chat/
+│   └── index.ts                         # Usa aria-brain con channel='chat'
+├── aria-chat-ios/
+│   └── index.ts                         # Usa aria-brain con channel='chat' in modalità no stream
+└── ai-chat-legacy/
+    └── index.ts                         # Backup versione pre-unificazione per test comparativi
+```
+
+| Funzione | Ruolo | Channel | Streaming |
+|----------|-------|---------|-----------|
+| `ai-chat` | Chat web principale | `chat` | Sì (SSE) |
+| `aria-chat-ios` | Chat iOS nativa | `chat` | No (JSON) |
+| `ai-chat-legacy` | Backup pre-migrazione | — (standalone) | Sì (SSE) |
+
+### 11.2 Come funziona `buildAriaBrain()`
+
+La funzione `buildAriaBrain()` in `_shared/aria-brain.ts` è il cuore del sistema. Ecco il flusso:
+
+1. **Carica dati utente da 13+ tabelle**:
+   - `user_profiles` — profilo base, onboarding, preferenze
+   - `user_interests` — hobby, sport, musica, valori, stile comunicativo
+   - `user_memories` — memorie strutturate con priorità e decay temporale
+   - `user_objectives` — obiettivi attivi con milestones AI
+   - `user_habits_config` + `daily_habits` — abitudini e tracking
+   - `sessions` + `chat_messages` — storico conversazionale
+   - `session_context_snapshots` — continuità narrativa tra sessioni
+   - `daily_emotions` + `daily_psychology` + `daily_life_areas` — metriche giornaliere
+   - `conversation_topics` — argomenti ricorrenti e sensibili
+   - `user_events` — eventi futuri e follow-up pendenti
+   - `healthkit_data` — dati Apple Salute (se disponibili)
+
+2. **Compone 48 blocchi prompt in ordine di priorità**:
+   - Identità e personalità di Aria
+   - Regole di sicurezza e crisi
+   - Human Conversation Engine (HCE)
+   - Adattamento per fascia d'età
+   - Memoria e contesto utente
+   - Regole anti-pattern e anti-interrogatorio
+   - Contesto real-time (data, meteo, news)
+   - Contesto clinico e conoscenze specialistiche
+   - Output rules specifiche per canale
+
+3. **Seleziona 2-3 documenti knowledge base per keyword**:
+   - Analizza i messaggi recenti dell'utente
+   - Effettua keyword matching contro i 54 documenti in `aria-knowledge-base-complete.md`
+   - Inietta solo i documenti rilevanti (max 2-3) nel prompt per non superare i limiti di contesto
+
+4. **Inietta regole output diverse per chat vs voce**:
+   - `channel='chat'` → OUTPUT_RULES ottimizzate per testo scritto (formattazione, lunghezza, emoji)
+   - `channel='voice'` → OUTPUT_RULES ottimizzate per parlato (frasi brevi, niente formattazione, ritmo naturale)
+
+5. **Restituisce prompt completo + profilo utente**:
+   - Il prompt assemblato pronto per Gemini
+   - Il profilo utente caricato (per logica aggiuntiva nella edge function chiamante)
+
+### 11.3 Come aggiungere/modificare il prompt
+
+**Regola fondamentale**: tutte le modifiche al comportamento di Aria vanno in `_shared/aria-brain.ts`. Le modifiche valgono automaticamente per chat e voce.
+
+| Tipo di modifica | Dove intervenire |
+|-----------------|-----------------|
+| Comportamento generale Aria | `_shared/aria-brain.ts` — blocchi prompt principali |
+| Modifiche solo-chat | `_shared/aria-brain.ts` — blocco `OUTPUT_RULES` con condizione `channel === 'chat'` |
+| Modifiche solo-voce | `_shared/aria-brain.ts` — blocco `OUTPUT_RULES` con condizione `channel === 'voice'` |
+| Nuova conoscenza clinica | `_shared/aria-knowledge-base-complete.md` + mapping keyword |
+
+**Non** modificare direttamente `ai-chat/index.ts` o `aria-chat-ios/index.ts` per cambiare il prompt — passano sempre dal cervello condiviso.
+
+### 11.4 Come aggiungere conoscenze cliniche
+
+1. **Aggiungere il documento** in `_shared/aria-knowledge-base-complete.md` seguendo il formato esistente (titolo, contenuto, categoria)
+2. **Aggiungere il keyword mapping** nella funzione `selectRelevantKnowledge()` dentro `_shared/aria-brain.ts`:
+   - Definire le keyword che devono triggerare il documento
+   - Associare le keyword all'ID/titolo del documento
+   - La funzione selezionerà automaticamente i documenti più rilevanti (max 2-3) per ogni conversazione
+
+---
+
+> **Nota**: Questo documento copre l'intero backend al 2 Marzo 2026 (V2.0). Per modifiche successive, consultare le migrazioni SQL, i changelog delle Edge Functions e `ARIA_DECISIONI_CHANGELOG.md`.
