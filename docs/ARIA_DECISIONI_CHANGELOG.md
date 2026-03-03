@@ -4,6 +4,41 @@
 
 ---
 
+## 2 Mar 2026 — V2.0: Cervello Unificato
+
+### Architettura
+
+- **Creato `_shared/aria-brain.ts`** come cervello condiviso per chat e voce
+- **Estratti 30+ blocchi prompt e 10+ interfacce** da `ai-chat` in modulo condiviso
+- **Knowledge base clinica** (54 documenti) integrata con selezione per keyword
+- **`ai-chat` riscritto** da ~4900 righe a ~300 righe + import cervello
+- **`ai-chat-legacy`** come backup pre-migrazione per test comparativi
+- **Preparazione per future edge functions voce**: `aria-voice-pipeline` e `aria-voice-live`
+
+### Decisioni
+
+- **Prompt unificato** con unica differenza nel blocco `OUTPUT_RULES` (chat vs voce)
+- **Knowledge base resta come file `.md`** nel repo (`_shared/aria-knowledge-base-complete.md`)
+- **Selezione documenti per keyword matching** (max 2-3 per conversazione)
+- **Agent ElevenLabs NON toccato** — resta come canale legacy indipendente
+
+### Differenze vs versione precedente
+
+- **Chat** ora riceve anche documenti knowledge base rilevanti (prima non li aveva)
+- **Voce futura** avrà accesso a TUTTI i blocchi clinici (prima solo prompt base + 600 char contesto)
+
+### File coinvolti
+
+| File | Azione |
+|------|--------|
+| `_shared/aria-brain.ts` | Nuovo — cervello condiviso |
+| `_shared/aria-knowledge-base-complete.md` | Nuovo — 54 documenti clinici |
+| `ai-chat/index.ts` | Riscritto — ora importa da aria-brain |
+| `aria-chat-ios/index.ts` | Aggiornato — usa aria-brain con no stream |
+| `ai-chat-legacy/index.ts` | Nuovo — backup versione pre-unificazione |
+
+---
+
 ## 1 Mar 2026 — Batch V5.1: Messaggio Aria + Sintesi breve
 
 ### Implementazioni
