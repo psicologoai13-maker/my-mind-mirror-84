@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.cron-expire-challenges]
 verify_jwt = false
+
+[functions.ai-chat-legacy]
+verify_jwt = false
