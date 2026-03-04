@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.ai-chat-legacy]
 verify_jwt = false
+
+[functions.aria-voice-setup]
+verify_jwt = false
