@@ -174,6 +174,8 @@ export interface UserProfile {
   occupation_context: string | null; // 'student' | 'worker' | 'both' | null
   // Raw count of user_memories for first-encounter mode detection
   user_memories_count: number;
+  // Recent chat messages for bidirectional context (chat <-> voice)
+  recent_chat_messages: Array<{ role: string; content: string; created_at: string }>;
 }
 
 
@@ -4396,6 +4398,7 @@ export async function loadUserContext(
     therapy_status: null,
     occupation_context: null,
     user_memories_count: 0,
+    recent_chat_messages: [],
   };
 
   const client = supabaseAdmin || supabaseClient;
@@ -4419,11 +4422,13 @@ export async function loadUserContext(
     
     // Fetch ALL user data in parallel for complete context
     const [
-      profileResult, 
-      interestsResult, 
+      profileResult,
+      interestsResult,
       objectivesResult,
       dailyMetricsResult,
-      recentSessionsResult,
+      completedSessionsResult,
+      activeSessionsResult,
+      recentChatMessagesResult,
       todayHabitsResult,
       bodyMetricsResult,
       userEventsResult,
@@ -4449,7 +4454,7 @@ export async function loadUserContext(
         .eq('status', 'active'),
       // Get daily metrics via RPC for unified data
       client.rpc('get_daily_metrics', { p_user_id: authenticatedUserId, p_date: today }),
-      // Get recent sessions (last 5) - includes transcript for memory continuity
+      // Get recent completed sessions (last 5) - includes transcript for memory continuity
       client
         .from('sessions')
         .select('id, start_time, type, ai_summary, transcript, emotion_tags, mood_score_detected, anxiety_score_detected')
@@ -4457,6 +4462,23 @@ export async function loadUserContext(
         .eq('status', 'completed')
         .order('start_time', { ascending: false })
         .limit(5),
+      // Get active (in_progress) sessions from last 24h for bidirectional context
+      client
+        .from('sessions')
+        .select('id, start_time, type, ai_summary, transcript')
+        .eq('user_id', authenticatedUserId)
+        .eq('status', 'in_progress')
+        .gte('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('start_time', { ascending: false })
+        .limit(1),
+      // Get recent chat messages (last 24h) for bidirectional context (chat <-> voice)
+      client
+        .from('chat_messages')
+        .select('role, content, created_at')
+        .eq('user_id', authenticatedUserId)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(20),
       // Get today's habits
       client
         .from('daily_habits')
@@ -4515,7 +4537,11 @@ export async function loadUserContext(
     const interests = interestsResult.data;
     const allObjectivesData = objectivesResult.data;
     const dailyMetrics = dailyMetricsResult.data as DailyMetricsData | null;
-    const recentSessions = (recentSessionsResult.data || []) as RecentSession[];
+    // Combine completed + active sessions for bidirectional context
+    const completedSessions = (completedSessionsResult.data || []) as RecentSession[];
+    const activeSessions = (activeSessionsResult.data || []) as RecentSession[];
+    const recentSessions = [...completedSessions, ...activeSessions];
+    const recentChatMessages = (recentChatMessagesResult.data || []) as Array<{ role: string; content: string; created_at: string }>;
     const todayHabits = (todayHabitsResult.data || []) as HabitData[];
     const bodyMetrics = bodyMetricsResult.data as BodyMetricsData | null;
     const userEvents = userEventsResult.data || [];
@@ -4701,9 +4727,10 @@ Celebra questi risultati quando appropriato!
       therapy_status: profile?.therapy_status || null,
       occupation_context: profile?.occupation_context || null,
       user_memories_count: userMemories.length,
+      recent_chat_messages: recentChatMessages,
     };
 
-    console.log(`[aria-brain] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, structured_memories=${userMemories.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length}, user_events=${userEvents.length}`);
+    console.log(`[aria-brain] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, structured_memories=${userMemories.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length} (${completedSessions.length} completed + ${activeSessions.length} active), recent_chat_messages=${recentChatMessages.length}, user_events=${userEvents.length}`);
     
     return result;
   } catch (error) {
@@ -4830,13 +4857,48 @@ export async function buildAriaBrain(
     userProfile.user_memories_count
   );
 
-  // 3. Inject knowledge base sections
+  // 3. Inject recent chat messages for bidirectional context (chat <-> voice)
+  if (userProfile.recent_chat_messages.length > 0) {
+    const MAX_CHAT_CHARS = 2000;
+    const formattedMessages = userProfile.recent_chat_messages
+      .slice()
+      .reverse()
+      .map(m => {
+        const role = m.role === 'user' ? 'Utente' : 'Aria';
+        const content = m.content.length > 100 ? m.content.substring(0, 100) + '...' : m.content;
+        return `${role}: ${content}`;
+      });
+
+    let chatContext = formattedMessages.join('\n');
+    if (chatContext.length > MAX_CHAT_CHARS) {
+      const lines = chatContext.split('\n');
+      chatContext = '';
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const newContext = lines[i] + (chatContext ? '\n' + chatContext : '');
+        if (newContext.length > MAX_CHAT_CHARS) break;
+        chatContext = newContext;
+      }
+    }
+
+    systemPrompt += `
+═══════════════════════════════════════════════
+📱 MESSAGGI CHAT RECENTI (ultime 24h)
+═══════════════════════════════════════════════
+Questi sono gli ultimi messaggi scambiati con l'utente in chat testuale.
+USA QUESTO CONTESTO per capire come sta l'utente e cosa ha discusso di recente.
+NON ripetere queste informazioni — usale come contesto di background.
+
+${chatContext}
+`;
+  }
+
+  // 4. Inject knowledge base sections
   const kbContent = await selectRelevantKnowledge(conversationHistory);
   if (kbContent) {
     systemPrompt += '\n' + kbContent;
   }
 
-  // 4. Append channel-specific blocks
+  // 5. Append channel-specific blocks
   if (channel === 'chat') {
     systemPrompt += '\n\n' + EMOJI_GUIDELINES_CHAT +
       '\n\n' + TEXT_MIRRORING +
@@ -4846,7 +4908,7 @@ export async function buildAriaBrain(
     systemPrompt += '\n\n' + VOICE_OUTPUT_RULES;
   }
 
-  // 5. Inject real-time context if provided
+  // 6. Inject real-time context if provided
   if (realTimeContext) {
     const rtContext = realTimeContext;
     let contextBlock = `\n═══════════════════════════════════════════════\n📍 CONTESTO TEMPO REALE\n═══════════════════════════════════════════════\n\nDATA/ORA: ${rtContext.datetime?.day || ''} ${rtContext.datetime?.date || ''}, ore ${rtContext.datetime?.time || ''} (${rtContext.datetime?.period || ''}, ${rtContext.datetime?.season || ''})`;
