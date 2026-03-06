@@ -31,6 +31,7 @@ interface DashboardLayout {
   focus_areas: string[];
   wellness_score: number | null; // null for new users without data
   wellness_message: string;
+  weekly_wellness?: { label: string; value: number }[];
 }
 
 // Build metrics based on user goals - ALWAYS returns 4 metrics
@@ -134,6 +135,66 @@ function buildMetricsFromGoals(goals: string[]): MetricConfig[] {
   return defaultMetrics;
 }
 
+// Calcola weekly_wellness dai dati storici
+function calculateWeeklyWellness(
+    emotions: any[],
+    psychology: any[],
+    sessions: any[]
+): { label: string; value: number }[] {
+    const weeks: { label: string; scores: number[] }[] = [];
+    const now = new Date();
+
+    // Crea 4 bucket settimanali (ultime 4 settimane)
+    for (let w = 3; w >= 0; w--) {
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - (w * 7 + 6));
+        const weekEnd = new Date(now);
+        weekEnd.setDate(weekEnd.getDate() - (w * 7));
+
+        const label = w === 0 ? 'Questa sett.' :
+                      w === 1 ? '1 sett. fa' :
+                      `${w} sett. fa`;
+
+        weeks.push({ label, scores: [] });
+
+        // Raccogli mood scores dalle sessioni in questa settimana
+        for (const s of sessions) {
+            const sDate = new Date(s.start_time);
+            if (sDate >= weekStart && sDate <= weekEnd && s.mood_score_detected) {
+                weeks[3-w].scores.push(s.mood_score_detected);
+            }
+        }
+
+        // Raccogli dati dalle emozioni giornaliere
+        for (const e of emotions) {
+            const eDate = new Date(e.date);
+            if (eDate >= weekStart && eDate <= weekEnd) {
+                // Calcola media delle emozioni positive - negative
+                const positive = [e.joy, e.hope, e.serenity, e.pride, e.excitement, e.affection, e.curiosity]
+                    .filter((v: number | null) => v != null && v > 0);
+                const negative = [e.sadness, e.anger, e.fear, e.frustration, e.apathy, e.shame]
+                    .filter((v: number | null) => v != null && v > 0);
+
+                if (positive.length > 0 || negative.length > 0) {
+                    const posAvg = positive.length > 0 ? positive.reduce((a: number, b: number) => a+b, 0) / positive.length : 5;
+                    const negAvg = negative.length > 0 ? negative.reduce((a: number, b: number) => a+b, 0) / negative.length : 5;
+                    // Score: emozioni positive alte + negative basse = wellness alto
+                    const emotionScore = (posAvg + (10 - negAvg)) / 2;
+                    weeks[3-w].scores.push(emotionScore);
+                }
+            }
+        }
+    }
+
+    // Calcola media per settimana, converti in scala 0-100
+    return weeks
+        .filter(w => w.scores.length > 0)
+        .map(w => ({
+            label: w.label,
+            value: Math.round((w.scores.reduce((a,b) => a+b, 0) / w.scores.length) * 10)
+        }));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -212,6 +273,7 @@ serve(async (req) => {
         focus_areas: userGoals.slice(0, 2),
         wellness_score: null, // NULL for new users - score activates after check-in or Aria conversation
         wellness_message: 'Iniziamo questo percorso insieme: ogni piccolo passo conta per il tuo benessere.',
+        weekly_wellness: [],
       };
       
       return new Response(JSON.stringify(emptyStateLayout), {
@@ -488,6 +550,7 @@ Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'u
         focus_areas: userGoals.slice(0, 2),
         wellness_score: 50, // FIX 2.2: scala 0-100 (era 5 su scala 1-10)
         wellness_message: 'Parla con me per iniziare a monitorare il tuo benessere.',
+        weekly_wellness: [],
       };
     }
 
@@ -496,6 +559,14 @@ Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'u
       const parsedScore = dashboardLayout.wellness_score;
       dashboardLayout.wellness_score = Math.min(100, Math.max(0, (parsedScore || 5) * 10));
     }
+
+    // Calcola trend settimanale
+    const weeklyWellness = calculateWeeklyWellness(
+        emotions || [],
+        psychology || [],
+        sessions || []
+    );
+    dashboardLayout.weekly_wellness = weeklyWellness;
 
     // Add current values to metrics (using most recent, not averages)
     const metricValues: Record<string, number> = {
