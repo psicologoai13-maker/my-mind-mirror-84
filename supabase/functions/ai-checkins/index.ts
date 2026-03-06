@@ -314,6 +314,21 @@ function getDateStringForTimezone(timezone: string = 'Europe/Rome'): string {
 }
 
 // ============================================
+// GOAL → METRIC MAPPING
+// Maps user goals to related metrics for scoring bonus
+// ============================================
+const GOAL_METRIC_MAP: Record<string, string[]> = {
+  'reduce_anxiety': ['anxiety', 'nervousness', 'rumination', 'somatic_tension', 'breathing', 'coping_ability'],
+  'improve_sleep': ['sleep', 'energy', 'sunlight_exposure', 'somatic_tension'],
+  'boost_energy': ['energy', 'motivation', 'burnout_level', 'sunlight_exposure', 'sleep'],
+  'find_love': ['love', 'social', 'self_worth', 'loneliness_perceived'],
+  'express_feelings': ['mood', 'joy', 'sadness', 'anger', 'emotional_regulation', 'shame'],
+  'manage_stress': ['anxiety', 'burnout_level', 'coping_ability', 'somatic_tension', 'rumination'],
+  'build_confidence': ['self_efficacy', 'self_worth', 'motivation', 'pride'],
+  'improve_relationships': ['family', 'social', 'love', 'perceived_social_support', 'loneliness_perceived'],
+};
+
+// ============================================
 // DATA HUNTING: Calculate dynamic scores
 // based on missing data, change rate, and criticality
 // ============================================
@@ -469,7 +484,8 @@ async function getMetricHistory(
 // Calculate dynamic score with frequency-aware logic
 function calculateDynamicScore(
   item: any,
-  history: MetricHistory | undefined
+  history: MetricHistory | undefined,
+  userGoals?: string[]
 ): number {
   let score = item.baseScore || 50;
   const changeRate = METRIC_CHANGE_RATES[item.key] || 'fast';
@@ -480,6 +496,13 @@ function calculateDynamicScore(
   if (isFirstTime) {
     // First time: moderate boost to discover new data
     score += changeRate === 'fast' ? 60 : 40;
+    // Still apply goal bonus for first-time metrics
+    if (userGoals?.length) {
+      const isGoalRelated = userGoals.some(goal =>
+        GOAL_METRIC_MAP[goal]?.includes(item.key)
+      );
+      if (isGoalRelated) score += 25;
+    }
     return score;
   }
 
@@ -504,6 +527,14 @@ function calculateDynamicScore(
   // Safety indicators always included if ever detected
   if (item.safetyCritical && history && history.historicalAvg !== null && history.historicalAvg > 0) {
     score += 80;
+  }
+
+  // Goal-aligned bonus
+  if (userGoals?.length) {
+    const isGoalRelated = userGoals.some(goal =>
+      GOAL_METRIC_MAP[goal]?.includes(item.key)
+    );
+    if (isGoalRelated) score += 25;
   }
 
   return score;
@@ -630,24 +661,106 @@ serve(async (req) => {
     // ============================================
     // FETCH ALL DATA + METRIC HISTORY IN PARALLEL
     // ============================================
+    // Date for 48h lookback
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0];
+
     const [
       activeHabitsRes,
       todayHabitsRes,
       recentSessionsRes,
-      metricHistory
+      metricHistory,
+      recentEmotionsRes,
+      recentPsychRes,
+      recentLifeAreasRes,
     ] = await Promise.all([
       supabase.from("user_habits_config").select("*").eq("user_id", userId).eq("is_active", true),
       supabase.from("daily_habits").select("habit_type, value").eq("user_id", userId).eq("date", today),
       supabase.from("sessions").select("ai_summary, emotion_tags").eq("user_id", userId).eq("status", "completed").order("start_time", { ascending: false }).limit(3),
       getMetricHistory(supabase, userId, today),
+      supabase.from("daily_emotions").select("*").eq("user_id", userId).gte("date", fortyEightHoursAgo).order("date", { ascending: false }),
+      supabase.from("daily_psychology").select("*").eq("user_id", userId).gte("date", fortyEightHoursAgo).order("date", { ascending: false }),
+      supabase.from("daily_life_areas").select("*").eq("user_id", userId).gte("date", fortyEightHoursAgo).order("date", { ascending: false }),
     ]);
 
     const activeHabits = activeHabitsRes.data || [];
     const todayHabits = todayHabitsRes.data || [];
     const recentSessions = recentSessionsRes.data || [];
+    const recentEmotions = recentEmotionsRes.data || [];
+    const recentPsych = recentPsychRes.data || [];
+    const recentLifeAreas = recentLifeAreasRes.data || [];
 
-    // Build completed keys
-    const completedKeys = await getCompletedKeys(supabase, userId, today);
+    // ============================================
+    // MIGLIORAMENTO 1: Build recent metrics context (last 48h)
+    // ============================================
+    let recentMetricsContext = '';
+    if (recentEmotions.length > 0) {
+      const latest = recentEmotions[0];
+      const highEmotions = Object.entries(latest)
+        .filter(([k, v]) => typeof v === 'number' && v >= 6 && !['id', 'user_id'].includes(k))
+        .map(([k, v]) => `${k}:${v}`)
+        .join(', ');
+      const lowEmotions = Object.entries(latest)
+        .filter(([k, v]) => typeof v === 'number' && v >= 1 && v <= 3 && !['id', 'user_id'].includes(k))
+        .map(([k, v]) => `${k}:${v}`)
+        .join(', ');
+      if (highEmotions) recentMetricsContext += `\nEmozioni ALTE (>=6): ${highEmotions}`;
+      if (lowEmotions) recentMetricsContext += `\nEmozioni BASSE (<=3): ${lowEmotions}`;
+    }
+
+    if (recentPsych.length > 0) {
+      const latest = recentPsych[0];
+      const critical = Object.entries(latest)
+        .filter(([k, v]) => typeof v === 'number' && v >= 6 &&
+          ['rumination', 'burnout_level', 'intrusive_thoughts', 'hopelessness', 'suicidal_ideation', 'self_harm_urges', 'dissociation', 'avoidance', 'social_withdrawal'].includes(k))
+        .map(([k, v]) => `${k}:${v}`)
+        .join(', ');
+      const positive = Object.entries(latest)
+        .filter(([k, v]) => typeof v === 'number' && v >= 7 &&
+          ['self_efficacy', 'gratitude', 'resilience', 'coping_ability', 'mindfulness', 'motivation'].includes(k))
+        .map(([k, v]) => `${k}:${v}`)
+        .join(', ');
+      if (critical) recentMetricsContext += `\nMetriche CRITICHE (>=6): ${critical}`;
+      if (positive) recentMetricsContext += `\nRisorse FORTI (>=7): ${positive}`;
+    }
+
+    // ============================================
+    // MIGLIORAMENTO 5: Track already-answered metrics today
+    // ============================================
+    const todayAnswered = new Set<string>();
+    // From daily_checkins
+    const completedKeysData = await getCompletedKeys(supabase, userId, today);
+    completedKeysData.forEach(k => todayAnswered.add(k));
+    // From recent emotions for today
+    const todayEmotionRecord = recentEmotions.find((e: any) => e.date === today);
+    if (todayEmotionRecord) {
+      Object.entries(todayEmotionRecord).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && !['id', 'user_id'].includes(k)) todayAnswered.add(k);
+      });
+    }
+    // From recent psychology for today
+    const todayPsychRecord = recentPsych.find((p: any) => p.date === today);
+    if (todayPsychRecord) {
+      Object.entries(todayPsychRecord).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && !['id', 'user_id', 'date', 'session_id', 'source', 'created_at', 'updated_at'].includes(k)) todayAnswered.add(k);
+      });
+    }
+    // From recent life areas for today
+    const todayLifeAreasRecord = recentLifeAreas.find((la: any) => la.date === today);
+    if (todayLifeAreasRecord) {
+      Object.entries(todayLifeAreasRecord).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && !['id', 'user_id', 'date', 'session_id', 'source', 'created_at', 'updated_at'].includes(k)) todayAnswered.add(k);
+      });
+    }
+
+    const answeredToday = todayAnswered.size > 0
+      ? `Già risposti oggi: ${[...todayAnswered].join(', ')}`
+      : 'Nessun check-in risposto oggi';
+
+    // Extract user goals for scoring
+    const userGoals: string[] = profile?.selected_goals || [];
+
+    // Use already-computed completed keys (avoid duplicate query)
+    const completedKeys = completedKeysData;
     
     todayHabits.forEach((h: any) => {
       const meta = HABIT_METADATA[h.habit_type];
@@ -708,7 +821,7 @@ serve(async (req) => {
       }
       
       const history = metricHistory.get(item.key);
-      const dynamicScore = calculateDynamicScore(item, history);
+      const dynamicScore = calculateDynamicScore(item, history, userGoals);
       const changeRate = METRIC_CHANGE_RATES[item.key] || 'fast';
       const daysSince = history?.daysSinceRecorded ?? 999;
       const isFirstTime = daysSince >= 999 || history?.lastRecordedDate === null;
@@ -736,6 +849,39 @@ serve(async (req) => {
     });
 
     // ============================================
+    // MIGLIORAMENTO 3: Safety baseline for new users
+    // ============================================
+    const allDates = new Set([
+      ...recentEmotions.map((e: any) => e.date),
+      ...recentPsych.map((p: any) => p.date),
+      ...recentLifeAreas.map((la: any) => la.date),
+    ]);
+    // Also count from metricHistory for broader coverage
+    metricHistory.forEach((h) => {
+      if (h.lastRecordedDate) allDates.add(h.lastRecordedDate);
+    });
+    const totalDataDays = allDates.size;
+    const isNewUser = totalDataDays < 7;
+
+    if (isNewUser) {
+      // Check if hopelessness is not already in the list
+      const hasHopelessness = allItems.some(i => i.key === 'hopelessness');
+      if (!hasHopelessness && !completedKeys.has('hopelessness')) {
+        allItems.push({
+          key: 'hopelessness',
+          label: 'Speranza',
+          question: 'Come ti senti rispetto al futuro ultimamente?',
+          type: 'safety',
+          responseType: 'yesno',
+          dynamicScore: 35, // High enough to enter top 15, not overwhelming
+          reason: undefined,
+          changeRate: 'fast',
+          isFirstTime: true,
+        });
+      }
+    }
+
+    // ============================================
     // AI SELECTION WITH FREQUENCY-AWARE CONTEXT
     // ============================================
     const MAX_ITEMS = 8;
@@ -748,7 +894,7 @@ serve(async (req) => {
     let aiGenerated = false;
 
     if (candidateItems.length > 0) {
-      const goals = profile?.selected_goals || [];
+      const goals = userGoals;
       const sessionContext = recentSessions.map((s: any) => s.ai_summary || "").filter(Boolean).join(" ") || "";
       const emotionTags = recentSessions.flatMap((s: any) => s.emotion_tags || []) || [];
 
@@ -759,18 +905,25 @@ serve(async (req) => {
         .slice(0, 5)
         .join(", ");
 
-      const systemPrompt = `Sei uno psicologo che sceglie quali check-in mostrare oggi.
+      const systemPrompt = `Sei uno psicologo clinico che personalizza i check-in giornalieri per un'app di benessere mentale.
 
-REGOLE:
-- Scegli MAX ${MAX_ITEMS} items dalla lista, ORDINATI per importanza
-- PRIORITÀ 1: Vitali giornalieri (mood, anxiety, sleep, energy) se non ancora risposti oggi
-- PRIORITÀ 2: Metriche nuove da scoprire (prima volta)
-- PRIORITÀ 3: Metriche critiche da monitorare
-- PRIORITÀ 4: Bilancia categorie (1-2 life areas, 1-2 psychology)
-- PRIORITÀ 5: Habits attive
-- NON includere troppe life areas insieme (max 2)
-- Rispondi SOLO con JSON array di "key" nell'ordine giusto
+Il tuo compito è scegliere MAX ${MAX_ITEMS} check-in dalla lista fornita, nell'ordine più utile per l'utente OGGI.
 
+REGOLE DI SELEZIONE:
+1. VITALI GIORNALIERI (mood, anxiety, sleep, energy): includi SEMPRE quelli non ancora risposti oggi
+2. METRICHE CRITICHE: se una metrica negativa è alta (>=6) nelle ultime 48h, INCLUDI per monitorarla
+3. OBIETTIVI UTENTE: includi metriche collegate ai suoi obiettivi dichiarati
+4. DISCOVERY: includi 1-2 metriche mai registrate per esplorare nuove aree
+5. BILANCIO: max 2 life areas, max 2 psychology profonda, almeno 1 emozione
+6. HABITS: includi abitudini attive se non tracciate oggi
+7. SICUREZZA: se indicatori di sicurezza sono stati rilevati (>0), INCLUDI SEMPRE
+
+COSA NON FARE:
+- Non includere più di 2 life areas (sovraccarica l'utente)
+- Non includere metriche slow-changing risposte negli ultimi 3 giorni
+- Non mettere troppi check-in negativi di fila (alterna positivi e negativi)
+
+Rispondi SOLO con un JSON array di "key" nell'ordine giusto. Nessuna spiegazione.
 Esempio: ["mood", "anxiety", "family", "motivation", "habit_meditation"]`;
 
       const itemsText = candidateItems.map((i: any) => 
@@ -780,6 +933,8 @@ Esempio: ["mood", "anxiety", "family", "motivation", "habit_meditation"]`;
       const userPrompt = `Obiettivi utente: ${goals.join(", ") || "Non specificati"}
 Contesto sessioni: ${sessionContext || "Nessuna"}
 Emozioni recenti: ${emotionTags.join(", ") || "Non rilevate"}
+Metriche recenti (ultime 48h): ${recentMetricsContext || "Nessun dato recente"}
+${answeredToday}
 Metriche nuove da scoprire: ${firstTimeMetrics || "Nessuna"}
 
 Check-in disponibili (ordinati per urgenza):
