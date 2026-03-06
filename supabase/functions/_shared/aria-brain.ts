@@ -4860,13 +4860,39 @@ export async function buildAriaBrain(
   // 3. Inject recent chat messages for bidirectional context (chat <-> voice)
   if (userProfile.recent_chat_messages.length > 0) {
     const MAX_CHAT_CHARS = 2000;
+
+    const formatMessageTime = (createdAt: string): string => {
+      const msgDate = new Date(createdAt);
+      const now = new Date();
+      const diffMs = now.getTime() - msgDate.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      const hours = msgDate.getHours().toString().padStart(2, '0');
+      const minutes = msgDate.getMinutes().toString().padStart(2, '0');
+      const time = `${hours}:${minutes}`;
+
+      if (diffHours < 1) {
+        const mins = Math.floor(diffMs / (1000 * 60));
+        return `${mins} min fa`;
+      } else if (diffHours < 24 && msgDate.getDate() === now.getDate()) {
+        return `Oggi ${time}`;
+      } else if (diffHours < 48) {
+        return `Ieri ${time}`;
+      } else {
+        const day = msgDate.getDate().toString().padStart(2, '0');
+        const month = (msgDate.getMonth() + 1).toString().padStart(2, '0');
+        return `${day}/${month} ${time}`;
+      }
+    };
+
     const formattedMessages = userProfile.recent_chat_messages
       .slice()
       .reverse()
       .map(m => {
         const role = m.role === 'user' ? 'Utente' : 'Aria';
         const content = m.content.length > 100 ? m.content.substring(0, 100) + '...' : m.content;
-        return `${role}: ${content}`;
+        const timeLabel = formatMessageTime(m.created_at);
+        return `[${timeLabel}] ${role}: ${content}`;
       });
 
     let chatContext = formattedMessages.join('\n');
@@ -4883,6 +4909,7 @@ export async function buildAriaBrain(
     systemPrompt += `
 ═══════════════════════════════════════════════
 📱 MESSAGGI CHAT RECENTI (ultime 24h)
+⏰ Ora attuale: ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
 ═══════════════════════════════════════════════
 Questi sono gli ultimi messaggi scambiati con l'utente in chat testuale.
 USA QUESTO CONTESTO per capire come sta l'utente e cosa ha discusso di recente.
