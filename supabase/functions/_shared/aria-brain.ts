@@ -176,6 +176,12 @@ export interface UserProfile {
   user_memories_count: number;
   // Recent chat messages for bidirectional context (chat <-> voice)
   recent_chat_messages: Array<{ role: string; content: string; created_at: string }>;
+  // Today's check-in responses for Aria context
+  today_checkins: Array<{ mood_value: number | null; mood_emoji: string | null; notes: string | null; created_at: string }>;
+  // Today's daily table values with source info for discrepancy detection
+  today_daily_emotions: any[];
+  today_daily_psychology: any[];
+  today_daily_life_areas: any[];
 }
 
 
@@ -4399,6 +4405,10 @@ export async function loadUserContext(
     occupation_context: null,
     user_memories_count: 0,
     recent_chat_messages: [],
+    today_checkins: [],
+    today_daily_emotions: [],
+    today_daily_psychology: [],
+    today_daily_life_areas: [],
   };
 
   const client = supabaseAdmin || supabaseClient;
@@ -4421,6 +4431,8 @@ export async function loadUserContext(
     const futureDateStr = futureDate.toISOString().split('T')[0];
     
     // Fetch ALL user data in parallel for complete context
+    const todayStart = `${today}T00:00:00`;
+
     const [
       profileResult,
       interestsResult,
@@ -4435,7 +4447,11 @@ export async function loadUserContext(
       userMemoriesResult,
       sessionSnapshotsResult,
       conversationTopicsResult,
-      habitStreaksResult
+      habitStreaksResult,
+      todayCheckinsResult,
+      todayDailyEmotionsResult,
+      todayDailyPsychologyResult,
+      todayDailyLifeAreasResult
     ] = await Promise.all([
       client
         .from('user_profiles')
@@ -4530,7 +4546,33 @@ export async function loadUserContext(
       client
         .from('habit_streaks')
         .select('habit_type, current_streak, longest_streak, last_completion_date')
+        .eq('user_id', authenticatedUserId),
+      // Get today's check-in responses
+      client
+        .from('daily_checkins')
+        .select('mood_value, mood_emoji, notes, created_at')
         .eq('user_id', authenticatedUserId)
+        .gte('created_at', todayStart)
+        .order('created_at', { ascending: false })
+        .limit(5),
+      // Get today's daily emotions (all sources) for discrepancy detection
+      client
+        .from('daily_emotions')
+        .select('*')
+        .eq('user_id', authenticatedUserId)
+        .eq('date', today),
+      // Get today's daily psychology (all sources) for discrepancy detection
+      client
+        .from('daily_psychology')
+        .select('*')
+        .eq('user_id', authenticatedUserId)
+        .eq('date', today),
+      // Get today's daily life areas (all sources) for discrepancy detection
+      client
+        .from('daily_life_areas')
+        .select('*')
+        .eq('user_id', authenticatedUserId)
+        .eq('date', today)
     ]);
     
     const profile = profileResult.data;
@@ -4549,6 +4591,10 @@ export async function loadUserContext(
     const sessionSnapshots = sessionSnapshotsResult.data || [];
     const conversationTopics = conversationTopicsResult.data || [];
     const habitStreaks = habitStreaksResult.data || [];
+    const todayCheckins = todayCheckinsResult.data || [];
+    const todayDailyEmotions = todayDailyEmotionsResult.data || [];
+    const todayDailyPsychology = todayDailyPsychologyResult.data || [];
+    const todayDailyLifeAreas = todayDailyLifeAreasResult.data || [];
     
     // Log events and memories for debugging
     if (userEvents.length > 0) {
@@ -4728,6 +4774,10 @@ Celebra questi risultati quando appropriato!
       occupation_context: profile?.occupation_context || null,
       user_memories_count: userMemories.length,
       recent_chat_messages: recentChatMessages,
+      today_checkins: todayCheckins,
+      today_daily_emotions: todayDailyEmotions,
+      today_daily_psychology: todayDailyPsychology,
+      today_daily_life_areas: todayDailyLifeAreas,
     };
 
     console.log(`[aria-brain] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, structured_memories=${userMemories.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length} (${completedSessions.length} completed + ${activeSessions.length} active), recent_chat_messages=${recentChatMessages.length}, user_events=${userEvents.length}`);
@@ -4919,13 +4969,150 @@ ${chatContext}
 `;
   }
 
-  // 4. Inject knowledge base sections
+  // 4. Inject today's check-in responses for Aria context
+  if (userProfile.today_checkins.length > 0) {
+    const checkinLines: string[] = [];
+    for (const checkin of userProfile.today_checkins) {
+      const time = new Date(checkin.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      const parts: string[] = [];
+      if (checkin.mood_value !== null) parts.push(`Umore: ${checkin.mood_value}/10`);
+      if (checkin.mood_emoji) parts.push(`Emoji: ${checkin.mood_emoji}`);
+      if (checkin.notes) {
+        try {
+          const parsed = JSON.parse(checkin.notes);
+          const metricLabels: Record<string, string> = {
+            anxiety: 'Ansia', energy: 'Energia', sleep: 'Sonno', sadness: 'Tristezza',
+            anger: 'Rabbia', fear: 'Paura', joy: 'Gioia', hope: 'Speranza',
+            motivation: 'Motivazione', rumination: 'Ruminazione', burnout_level: 'Burnout',
+            loneliness_perceived: 'Solitudine', gratitude: 'Gratitudine', mental_clarity: 'Chiarezza',
+            somatic_tension: 'Tensione', self_worth: 'Autostima', concentration: 'Concentrazione',
+            love: 'Amore', social: 'Sociale', health: 'Salute', family: 'Famiglia',
+            work: 'Lavoro', school: 'Scuola', finances: 'Finanze', leisure: 'Svago',
+            overwhelm: 'Sopraffazione', guilt: 'Colpa', shame: 'Vergogna', frustration: 'Frustrazione',
+            irritability: 'Irritabilità', intrusive_thoughts: 'Pensieri intrusivi',
+            avoidance: 'Evitamento', dissociation: 'Dissociazione', growth: 'Crescita',
+          };
+          Object.entries(parsed).forEach(([k, v]) => {
+            const label = metricLabels[k] || k;
+            parts.push(`${label}: ${v}/10`);
+          });
+        } catch {
+          parts.push(`Note: ${checkin.notes}`);
+        }
+      }
+      checkinLines.push(`[${time}] ${parts.join(', ')}`);
+    }
+
+    systemPrompt += `
+═══════════════════════════════════════════════
+📋 CHECK-IN DI OGGI
+═══════════════════════════════════════════════
+L'utente ha risposto ai check-in giornalieri. Usa queste informazioni come contesto.
+Se noti valori critici o molto diversi da quelli rilevati in conversazione, chiedi all'utente come sta riguardo a quel tema.
+${checkinLines.join('\n')}
+`;
+  }
+
+  // 4b. Inject checkin-source daily values for additional context
+  const checkinSourceValues: string[] = [];
+  for (const record of userProfile.today_daily_emotions) {
+    if (record.source === 'checkin' || !record.source) {
+      const emotionLabels: Record<string, string> = { joy: 'Gioia', sadness: 'Tristezza', anger: 'Rabbia', fear: 'Paura', hope: 'Speranza', overwhelm: 'Sopraffazione', guilt: 'Colpa', shame: 'Vergogna', frustration: 'Frustrazione' };
+      Object.entries(record).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && emotionLabels[k]) {
+          checkinSourceValues.push(`${emotionLabels[k]}: ${v}/10 (check-in)`);
+        }
+      });
+    }
+  }
+  for (const record of userProfile.today_daily_psychology) {
+    if (record.source === 'checkin' || !record.source) {
+      const psychLabels: Record<string, string> = { rumination: 'Ruminazione', burnout_level: 'Burnout', motivation: 'Motivazione', concentration: 'Concentrazione', self_worth: 'Autostima', irritability: 'Irritabilità', intrusive_thoughts: 'Pensieri intrusivi', dissociation: 'Dissociazione' };
+      Object.entries(record).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && psychLabels[k]) {
+          checkinSourceValues.push(`${psychLabels[k]}: ${v}/10 (check-in)`);
+        }
+      });
+    }
+  }
+  for (const record of userProfile.today_daily_life_areas) {
+    if (record.source === 'checkin' || !record.source) {
+      const areaLabels: Record<string, string> = { love: 'Amore', work: 'Lavoro', health: 'Salute', social: 'Sociale', family: 'Famiglia', finances: 'Finanze', growth: 'Crescita' };
+      Object.entries(record).forEach(([k, v]) => {
+        if (typeof v === 'number' && v > 0 && areaLabels[k]) {
+          checkinSourceValues.push(`${areaLabels[k]}: ${v}/10 (check-in)`);
+        }
+      });
+    }
+  }
+  if (checkinSourceValues.length > 0) {
+    systemPrompt += `
+Valori dalle tabelle giornaliere (fonte check-in):
+${checkinSourceValues.join(', ')}
+`;
+  }
+
+  // 4c. Discrepancy detection between check-in and session values
+  const discrepancies: string[] = [];
+  const sessionEmotionValues: Record<string, number> = {};
+  const checkinEmotionValues: Record<string, number> = {};
+
+  for (const record of userProfile.today_daily_emotions) {
+    const allKeys = ['joy', 'sadness', 'anger', 'fear', 'hope', 'overwhelm', 'guilt', 'shame', 'frustration'];
+    for (const k of allKeys) {
+      if (typeof record[k] === 'number' && record[k] > 0) {
+        if (record.source === 'session') sessionEmotionValues[k] = record[k];
+        else if (record.source === 'checkin') checkinEmotionValues[k] = record[k];
+      }
+    }
+  }
+  for (const record of userProfile.today_daily_psychology) {
+    const allKeys = ['rumination', 'burnout_level', 'motivation', 'concentration', 'self_worth', 'irritability', 'intrusive_thoughts', 'dissociation', 'anxiety'];
+    for (const k of allKeys) {
+      if (typeof record[k] === 'number' && record[k] > 0) {
+        if (record.source === 'session') sessionEmotionValues[k] = record[k];
+        else if (record.source === 'checkin') checkinEmotionValues[k] = record[k];
+      }
+    }
+  }
+
+  const metricDisplayNames: Record<string, string> = {
+    joy: 'gioia', sadness: 'tristezza', anger: 'rabbia', fear: 'paura', hope: 'speranza',
+    anxiety: 'ansia', rumination: 'ruminazione', burnout_level: 'burnout', motivation: 'motivazione',
+    concentration: 'concentrazione', self_worth: 'autostima', irritability: 'irritabilità',
+    overwhelm: 'sopraffazione', guilt: 'senso di colpa', shame: 'vergogna', frustration: 'frustrazione',
+    intrusive_thoughts: 'pensieri intrusivi', dissociation: 'dissociazione',
+  };
+
+  for (const [key, checkinVal] of Object.entries(checkinEmotionValues)) {
+    const sessionVal = sessionEmotionValues[key];
+    if (sessionVal !== undefined && Math.abs(sessionVal - checkinVal) >= 3) {
+      const name = metricDisplayNames[key] || key;
+      discrepancies.push(`${name}: check-in=${checkinVal}, sessione=${sessionVal} (diff=${Math.abs(sessionVal - checkinVal)})`);
+    }
+  }
+
+  if (discrepancies.length > 0) {
+    systemPrompt += `
+═══════════════════════════════════════════════
+⚠️ RILEVAMENTO DISCREPANZE
+═══════════════════════════════════════════════
+I seguenti parametri hanno valori molto diversi nello stesso giorno tra check-in e sessione vocale/chat:
+${discrepancies.join('\n')}
+
+Se noti queste discrepanze, chiedi all'utente in modo gentile, ad esempio:
+"Ho notato che stamattina nel check-in hai indicato l'ansia bassa, ma prima parlandone sembrava più alta. Come ti senti adesso a riguardo?"
+Non farlo per ogni piccola differenza — solo se la differenza è >= 3 punti sulla scala 1-10.
+`;
+  }
+
+  // 5. Inject knowledge base sections
   const kbContent = await selectRelevantKnowledge(conversationHistory);
   if (kbContent) {
     systemPrompt += '\n' + kbContent;
   }
 
-  // 5. Append channel-specific blocks
+  // 6. Append channel-specific blocks
   if (channel === 'chat') {
     systemPrompt += '\n\n' + EMOJI_GUIDELINES_CHAT +
       '\n\n' + TEXT_MIRRORING +
@@ -4935,7 +5122,7 @@ ${chatContext}
     systemPrompt += '\n\n' + VOICE_OUTPUT_RULES;
   }
 
-  // 6. Inject real-time context if provided
+  // 7. Inject real-time context if provided
   if (realTimeContext) {
     const rtContext = realTimeContext;
     let contextBlock = `\n═══════════════════════════════════════════════\n📍 CONTESTO TEMPO REALE\n═══════════════════════════════════════════════\n\nDATA/ORA: ${rtContext.datetime?.day || ''} ${rtContext.datetime?.date || ''}, ore ${rtContext.datetime?.time || ''} (${rtContext.datetime?.period || ''}, ${rtContext.datetime?.season || ''})`;
