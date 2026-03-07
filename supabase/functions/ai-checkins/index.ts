@@ -26,13 +26,18 @@ const METRIC_CHANGE_RATES: Record<string, ChangeRate> = {
   fear: 'fast',
   hope: 'fast',
   frustration: 'fast',
+  overwhelm: 'fast',
+  guilt: 'fast',
   rumination: 'fast',
   burnout_level: 'fast',
   somatic_tension: 'fast',
   irritability: 'fast',
+  intrusive_thoughts: 'fast',
   gratitude: 'fast',
   sunlight_exposure: 'fast',
-  
+  social_interaction: 'fast',
+  physical_activity: 'fast',
+
   // SLOW-CHANGING (weekly) - life areas and stable traits
   love: 'slow',
   family: 'slow',
@@ -50,7 +55,14 @@ const METRIC_CHANGE_RATES: Record<string, ChangeRate> = {
   mental_clarity: 'slow',
   loneliness_perceived: 'slow',
   procrastination: 'slow',
-  
+  shame: 'slow',
+  avoidance: 'slow',
+  appetite_changes: 'slow',
+  dissociation: 'slow',
+  compulsive_urges: 'slow',
+  self_care: 'slow',
+  goal_progress: 'slow',
+
   // SAFETY (always monitor if detected)
   hopelessness: 'fast',
   suicidal_ideation: 'fast',
@@ -102,6 +114,23 @@ const DISCOVERY_QUESTIONS: Record<string, string> = {
   somatic_tension: "Senti tensione nel corpo?",
   gratitude: "C'è qualcosa per cui sei grato/a oggi?",
   sunlight_exposure: "Sei uscito/a alla luce del sole?",
+
+  // New emotions
+  overwhelm: "Ti senti sopraffatto/a da tutto?",
+  guilt: "C'è qualcosa per cui ti senti in colpa?",
+  shame: "C'è qualcosa che ti fa provare vergogna?",
+
+  // New psychology
+  irritability: "Ti senti più irritabile del solito?",
+  intrusive_thoughts: "Hai pensieri ricorrenti che non riesci a controllare?",
+  avoidance: "Stai evitando qualcosa di importante?",
+  appetite_changes: "Il tuo appetito è cambiato di recente?",
+  dissociation: "Ti senti distaccato/a dalla realtà?",
+  compulsive_urges: "Hai impulsi che fai fatica a gestire?",
+  social_interaction: "Hai avuto contatti sociali significativi oggi?",
+  self_care: "Ti sei preso/a cura di te oggi?",
+  physical_activity: "Hai fatto movimento oggi?",
+  goal_progress: "Hai fatto progressi verso i tuoi obiettivi?",
 };
 
 // ============================================
@@ -112,23 +141,28 @@ const BASE_CHECKIN_ITEMS = [
   { key: "mood", label: "Umore", question: "Come ti senti emotivamente?", type: "vital", responseType: "emoji", baseScore: 60 },
   { key: "anxiety", label: "Ansia", question: "Quanta ansia senti?", type: "vital", responseType: "intensity", baseScore: 55 },
   { key: "energy", label: "Energia", question: "Quanta energia hai?", type: "vital", responseType: "slider", baseScore: 50 },
-  { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "emoji", baseScore: 50 },
-  
-  // LIFE AREAS (9) - slow changing, ask every few days
-  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "emoji", baseScore: 35 },
-  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "emoji", baseScore: 35 },
-  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "emoji", baseScore: 35 },
-  { key: "family", label: "Famiglia", question: "Come vanno i rapporti familiari?", type: "life_area", responseType: "emoji", baseScore: 30 },
-  { key: "leisure", label: "Svago", question: "Hai avuto tempo per te?", type: "life_area", responseType: "emoji", baseScore: 25 },
-  { key: "finances", label: "Finanze", question: "Come ti senti riguardo ai soldi?", type: "life_area", responseType: "emoji", baseScore: 25 },
-  
-  // EMOTIONS (key ones) - fast changing
+  { key: "sleep", label: "Sonno", question: "Come hai dormito?", type: "vital", responseType: "slider", baseScore: 50 },
+
+  // LIFE AREAS - slow changing, ask every few days
+  { key: "love", label: "Amore", question: "Come va la tua vita sentimentale?", type: "life_area", responseType: "intensity", baseScore: 35 },
+  { key: "social", label: "Socialità", question: "Come vanno le relazioni sociali?", type: "life_area", responseType: "intensity", baseScore: 35 },
+  { key: "health", label: "Salute", question: "Come sta il tuo corpo?", type: "life_area", responseType: "intensity", baseScore: 35 },
+  { key: "family", label: "Famiglia", question: "Come vanno i rapporti familiari?", type: "life_area", responseType: "intensity", baseScore: 30 },
+  { key: "leisure", label: "Svago", question: "Hai avuto tempo per te?", type: "life_area", responseType: "yesno", baseScore: 25 },
+  { key: "finances", label: "Finanze", question: "Come ti senti riguardo ai soldi?", type: "life_area", responseType: "intensity", baseScore: 25 },
+  { key: "growth", label: "Crescita", question: "Senti di star crescendo come persona?", type: "life_area", responseType: "intensity", baseScore: 40, changeRate: "slow" as ChangeRate },
+
+  // EMOTIONS - fast changing
   { key: "sadness", label: "Tristezza", question: "Ti senti triste oggi?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "anger", label: "Rabbia", question: "Senti frustrazione o rabbia?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "fear", label: "Paura", question: "Hai paure o preoccupazioni?", type: "emotion", responseType: "yesno", baseScore: 35 },
   { key: "joy", label: "Gioia", question: "Quanta gioia senti?", type: "emotion", responseType: "intensity", baseScore: 30 },
   { key: "hope", label: "Speranza", question: "Ti senti speranzoso/a?", type: "emotion", responseType: "yesno", baseScore: 30 },
-  
+  { key: "overwhelm", label: "Sopraffazione", question: "Ti senti sopraffatto/a?", type: "emotion", responseType: "yesno", baseScore: 55, changeRate: "fast" as ChangeRate },
+  { key: "guilt", label: "Senso di Colpa", question: "Ti senti in colpa per qualcosa?", type: "emotion", responseType: "yesno", baseScore: 50, changeRate: "fast" as ChangeRate },
+  { key: "shame", label: "Vergogna", question: "Provi vergogna per qualcosa?", type: "emotion", responseType: "yesno", baseScore: 45, changeRate: "slow" as ChangeRate },
+  { key: "frustration", label: "Frustrazione", question: "Ti senti frustrato/a?", type: "emotion", responseType: "yesno", baseScore: 50, changeRate: "fast" as ChangeRate },
+
   // PSYCHOLOGY - mixed change rates
   { key: "motivation", label: "Motivazione", question: "Ti senti motivato/a oggi?", type: "psychology", responseType: "yesno", baseScore: 35 },
   { key: "rumination", label: "Rimuginazione", question: "Hai pensieri che tornano in loop?", type: "psychology", responseType: "yesno", baseScore: 45 },
@@ -139,10 +173,19 @@ const BASE_CHECKIN_ITEMS = [
   { key: "somatic_tension", label: "Tensione", question: "Senti tensione nel corpo?", type: "psychology", responseType: "yesno", baseScore: 35 },
   { key: "coping_ability", label: "Resilienza", question: "Ti senti capace di affrontare le sfide?", type: "psychology", responseType: "yesno", baseScore: 30 },
   { key: "sunlight_exposure", label: "Luce solare", question: "Hai preso abbastanza sole?", type: "psychology", responseType: "yesno", baseScore: 25 },
-  { key: "self_worth", label: "Autostima", question: "Come ti senti riguardo a te stesso/a?", type: "psychology", responseType: "emoji", baseScore: 30 },
+  { key: "self_worth", label: "Autostima", question: "Come ti senti riguardo a te stesso/a?", type: "psychology", responseType: "intensity", baseScore: 30 },
   { key: "concentration", label: "Concentrazione", question: "Riesci a concentrarti?", type: "psychology", responseType: "yesno", baseScore: 30 },
   { key: "procrastination", label: "Procrastinazione", question: "Stai rimandando cose importanti?", type: "psychology", responseType: "yesno", baseScore: 30 },
-  
+  { key: "irritability", label: "Irritabilità", question: "Ti senti più irritabile del solito?", type: "psychology", responseType: "yesno", baseScore: 50, changeRate: "fast" as ChangeRate },
+  { key: "intrusive_thoughts", label: "Pensieri intrusivi", question: "Hai pensieri indesiderati che non riesci a fermare?", type: "psychology", responseType: "yesno", baseScore: 55, changeRate: "fast" as ChangeRate },
+  { key: "avoidance", label: "Evitamento", question: "Stai evitando qualcosa che dovresti affrontare?", type: "psychology", responseType: "yesno", baseScore: 50, changeRate: "slow" as ChangeRate },
+  { key: "appetite_changes", label: "Appetito", question: "Il tuo appetito è cambiato ultimamente?", type: "psychology", responseType: "yesno", baseScore: 40, changeRate: "slow" as ChangeRate },
+  { key: "dissociation", label: "Dissociazione", question: "Ti senti distaccato dalla realtà o da te stesso?", type: "psychology", responseType: "intensity", baseScore: 45, changeRate: "slow" as ChangeRate },
+  { key: "compulsive_urges", label: "Impulsi", question: "Senti impulsi difficili da controllare?", type: "psychology", responseType: "yesno", baseScore: 40, changeRate: "slow" as ChangeRate },
+  { key: "social_interaction", label: "Contatto sociale", question: "Hai parlato con qualcuno di persona oggi?", type: "psychology", responseType: "yesno", baseScore: 40, changeRate: "fast" as ChangeRate },
+  { key: "self_care", label: "Cura di sé", question: "Hai fatto qualcosa di bello per te oggi?", type: "psychology", responseType: "yesno", baseScore: 40, changeRate: "slow" as ChangeRate },
+  { key: "physical_activity", label: "Movimento", question: "Hai fatto attività fisica oggi?", type: "psychology", responseType: "yesno", baseScore: 45, changeRate: "fast" as ChangeRate },
+
   // SAFETY (only if detected historically - handled separately)
   { key: "hopelessness", label: "Speranza", question: "Ti senti senza speranza?", type: "safety", responseType: "yesno", baseScore: 0, safetyCritical: true },
 ];
@@ -160,14 +203,25 @@ function calculateAge(birthDate: string | null): number | null {
   return age;
 }
 
-// Build checkin items based on occupation context
-function getStandardCheckinItems(occupationContext: string | null, birthDate: string | null): typeof BASE_CHECKIN_ITEMS {
+// Goal-specific question mapping
+const GOAL_QUESTIONS: Record<string, string> = {
+  reduce_anxiety: "Hai provato una tecnica per gestire l'ansia oggi?",
+  improve_sleep: "Hai seguito la tua routine del sonno ieri sera?",
+  boost_energy: "Hai fatto qualcosa per aumentare la tua energia oggi?",
+  find_love: "Hai fatto un passo avanti nelle tue relazioni oggi?",
+  express_feelings: "Sei riuscito/a a esprimere i tuoi sentimenti oggi?",
+  manage_stress: "Hai usato una strategia per gestire lo stress oggi?",
+  build_confidence: "Hai fatto qualcosa che ti ha fatto sentire capace oggi?",
+};
+
+// Build checkin items based on occupation context and goals
+function getStandardCheckinItems(occupationContext: string | null, birthDate: string | null, selectedGoals?: string[]): typeof BASE_CHECKIN_ITEMS {
   const age = calculateAge(birthDate);
   const items = [...BASE_CHECKIN_ITEMS];
-  
+
   let showWork = false;
   let showSchool = false;
-  
+
   if (occupationContext === 'both') {
     showWork = true;
     showSchool = true;
@@ -189,14 +243,43 @@ function getStandardCheckinItems(occupationContext: string | null, birthDate: st
       showWork = true;
     }
   }
-  
+
   if (showWork) {
-    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "emoji", baseScore: 35 });
+    items.push({ key: "work", label: "Lavoro", question: "Come va il lavoro?", type: "life_area", responseType: "intensity", baseScore: 35 });
   }
   if (showSchool) {
-    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "emoji", baseScore: 35 });
+    items.push({ key: "school", label: "Scuola", question: "Come va lo studio?", type: "life_area", responseType: "intensity", baseScore: 35 });
   }
-  
+
+  // Add goal_progress check-ins — one per user goal
+  const goals = selectedGoals || [];
+  if (goals.length > 0) {
+    goals.forEach((goal, index) => {
+      const question = GOAL_QUESTIONS[goal] || "Hai fatto progressi verso un tuo obiettivo oggi?";
+      const goalLabel = index === 0 ? "Obiettivo" : `Obiettivo ${index + 1}`;
+      items.push({
+        key: `goal_progress${index > 0 ? `_${index + 1}` : ''}`,
+        label: goalLabel,
+        question,
+        type: "objective",
+        responseType: "yesno",
+        baseScore: 45,
+        changeRate: "slow" as ChangeRate,
+      } as any);
+    });
+  } else {
+    // No specific goal — add a generic goal_progress
+    items.push({
+      key: "goal_progress",
+      label: "Obiettivo",
+      question: "Hai fatto progressi verso un tuo obiettivo oggi?",
+      type: "objective",
+      responseType: "yesno",
+      baseScore: 45,
+      changeRate: "slow" as ChangeRate,
+    } as any);
+  }
+
   return items;
 }
 
@@ -730,27 +813,34 @@ serve(async (req) => {
     // From daily_checkins
     const completedKeysData = await getCompletedKeys(supabase, userId, today);
     completedKeysData.forEach(k => todayAnswered.add(k));
-    // From recent emotions for today
-    const todayEmotionRecord = recentEmotions.find((e: any) => e.date === today);
-    if (todayEmotionRecord) {
-      Object.entries(todayEmotionRecord).forEach(([k, v]) => {
+    // From recent emotions for today (only checkin-source counts as "answered")
+    const todayEmotionRecords = recentEmotions.filter((e: any) => e.date === today);
+    todayEmotionRecords.forEach((record: any) => {
+      // Only count as answered if source='checkin' or from daily_checkins
+      if (record.source && record.source !== 'checkin') return;
+      if (!record.source) return;
+      Object.entries(record).forEach(([k, v]) => {
         if (typeof v === 'number' && v > 0 && !['id', 'user_id'].includes(k)) todayAnswered.add(k);
       });
-    }
+    });
     // From recent psychology for today
-    const todayPsychRecord = recentPsych.find((p: any) => p.date === today);
-    if (todayPsychRecord) {
-      Object.entries(todayPsychRecord).forEach(([k, v]) => {
+    const todayPsychRecords = recentPsych.filter((p: any) => p.date === today);
+    todayPsychRecords.forEach((record: any) => {
+      if (record.source && record.source !== 'checkin') return;
+      if (!record.source) return;
+      Object.entries(record).forEach(([k, v]) => {
         if (typeof v === 'number' && v > 0 && !['id', 'user_id', 'date', 'session_id', 'source', 'created_at', 'updated_at'].includes(k)) todayAnswered.add(k);
       });
-    }
+    });
     // From recent life areas for today
-    const todayLifeAreasRecord = recentLifeAreas.find((la: any) => la.date === today);
-    if (todayLifeAreasRecord) {
-      Object.entries(todayLifeAreasRecord).forEach(([k, v]) => {
+    const todayLifeAreasRecords = recentLifeAreas.filter((la: any) => la.date === today);
+    todayLifeAreasRecords.forEach((record: any) => {
+      if (record.source && record.source !== 'checkin') return;
+      if (!record.source) return;
+      Object.entries(record).forEach(([k, v]) => {
         if (typeof v === 'number' && v > 0 && !['id', 'user_id', 'date', 'session_id', 'source', 'created_at', 'updated_at'].includes(k)) todayAnswered.add(k);
       });
-    }
+    });
 
     const answeredToday = todayAnswered.size > 0
       ? `Già risposti oggi: ${[...todayAnswered].join(', ')}`
@@ -808,7 +898,7 @@ serve(async (req) => {
     });
 
     // 2. STANDARD CHECK-INS with SMART FREQUENCY SCORING
-    const standardCheckins = getStandardCheckinItems(occupationContext, birthDate);
+    const standardCheckins = getStandardCheckinItems(occupationContext, birthDate, userGoals);
     standardCheckins.forEach((item) => {
       if (completedKeys.has(item.key)) return;
       
@@ -1036,6 +1126,9 @@ Scegli i ${MAX_ITEMS} più importanti IN ORDINE, privilegiando vitali giornalier
 });
 
 async function getCompletedKeys(supabase: any, userId: string, today: string): Promise<Set<string>> {
+  // Only exclude check-ins already answered MANUALLY by the user today (source='checkin').
+  // Data from chat/voice sessions (source='session') should NOT cause exclusion,
+  // allowing multiple datapoints per day from different sources.
   const [lifeAreasRes, emotionsRes, psychologyRes, checkinRes] = await Promise.all([
     supabase.from("daily_life_areas").select("*").eq("user_id", userId).eq("date", today),
     supabase.from("daily_emotions").select("*").eq("user_id", userId).eq("date", today),
@@ -1045,6 +1138,7 @@ async function getCompletedKeys(supabase: any, userId: string, today: string): P
 
   const completedKeys = new Set<string>();
 
+  // daily_checkins is always manual — always exclude
   if (checkinRes.data && checkinRes.data.length > 0) {
     completedKeys.add("mood");
     const notes = checkinRes.data[0]?.notes;
@@ -1056,19 +1150,27 @@ async function getCompletedKeys(supabase: any, userId: string, today: string): P
     }
   }
 
+  // For daily_life_areas, daily_emotions, daily_psychology:
+  // Only exclude if source='checkin' (manual). If source='session' or no source column, don't exclude.
   lifeAreasRes.data?.forEach((record: any) => {
+    if (record.source && record.source !== 'checkin') return; // session data → don't exclude
+    if (!record.source) return; // no source column → don't exclude (could be from session)
     ["love", "work", "school", "social", "growth", "health", "family", "leisure", "finances"].forEach(k => {
       if (record[k]) completedKeys.add(k);
     });
   });
 
   emotionsRes.data?.forEach((record: any) => {
-    ["joy", "sadness", "anger", "fear", "apathy", "hope", "shame", "jealousy", "frustration", "nostalgia"].forEach(k => {
+    if (record.source && record.source !== 'checkin') return;
+    if (!record.source) return;
+    ["joy", "sadness", "anger", "fear", "apathy", "hope", "shame", "jealousy", "frustration", "nostalgia", "overwhelm", "guilt"].forEach(k => {
       if (record[k]) completedKeys.add(k);
     });
   });
 
   psychologyRes.data?.forEach((record: any) => {
+    if (record.source && record.source !== 'checkin') return;
+    if (!record.source) return;
     Object.keys(record).forEach(k => {
       if (record[k] && !["id", "user_id", "date", "session_id", "source", "created_at", "updated_at"].includes(k)) {
         completedKeys.add(k);
