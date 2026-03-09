@@ -2973,6 +2973,146 @@ Questo è intenzionale: se oggi è cambiato qualcosa, il Dashboard deve riflette
       dbErrors.push({ table: 'user_profiles', error: msg });
     }
 
+    // ═══════════════════════════════════════════════
+    // STEP: GENERAZIONE/AGGIORNAMENTO PROFILO ADATTIVO
+    // -- ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS adaptive_profile jsonb DEFAULT NULL;
+    // ═══════════════════════════════════════════════
+    try {
+      // Carica profilo adattivo attuale (se esiste)
+      const { data: currentProfile } = await supabase
+        .from('user_profiles')
+        .select('adaptive_profile, name, gender, birth_date')
+        .eq('user_id', user_id)
+        .single();
+
+      const existingProfile = currentProfile?.adaptive_profile
+        ? JSON.stringify(currentProfile.adaptive_profile)
+        : 'NESSUN PROFILO PRECEDENTE — Crea da zero basandoti su questa sessione.';
+
+      // Contesto per la generazione del profilo
+      const apSessionSummary = analysis.summary || '';
+      const apEmotionTags = analysis.emotion_tags || [];
+      const apMoodScore = analysis.vitals.mood;
+      const apAnxietyScore = analysis.vitals.anxiety;
+      const apKeyTopics = (analysis.emotion_tags || []).slice(0, 5);
+      const apUnresolvedIssues = (analysis.key_events || []).filter((e: string) =>
+        /problem|difficolt|crisi|stress|ansia|preoccup|paur|triste|male|dolore|non riesco/i.test(e)
+      ).slice(0, 5);
+
+      // Profilo utente di base
+      const apUserAge = currentProfile?.birth_date
+        ? Math.floor((Date.now() - new Date(currentProfile.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        : null;
+      const apUserGender = currentProfile?.gender || 'non specificato';
+      const apUserName = currentProfile?.name || 'utente';
+
+      const adaptivePrompt = `Sei un supervisore clinico che costruisce profili psicologici strutturati.
+
+PROFILO ADATTIVO ATTUALE:
+${existingProfile}
+
+SESSIONE APPENA CONCLUSA:
+- Riassunto: ${apSessionSummary}
+- Emozioni rilevate: ${apEmotionTags.join(', ')}
+- Umore: ${apMoodScore || '?'}/10, Ansia: ${apAnxietyScore || '?'}/10
+- Temi chiave: ${apKeyTopics.join(', ')}
+- Temi irrisolti: ${apUnresolvedIssues.join(', ')}
+- Utente: ${apUserName}, ${apUserGender}, ${apUserAge ? apUserAge + ' anni' : 'età sconosciuta'}
+
+TRANSCRIPT SESSIONE:
+${transcript.substring(0, 3000)}
+
+ISTRUZIONI:
+Genera un profilo adattivo JSON aggiornato. Se esiste già un profilo, AGGIORNA SOLO i campi che questa sessione ha rivelato qualcosa di nuovo. Non cancellare informazioni precedenti a meno che non siano state corrette.
+
+Se è il primo profilo (nessun profilo precedente), crealo da zero con quello che sai.
+
+Il profilo deve avere ESATTAMENTE questa struttura JSON (rispondi SOLO con il JSON, niente altro):
+
+{
+    "communication_style": {
+        "preferred_tone": "descrizione del tono che l'utente preferisce (es: diretto, gentile, informale)",
+        "responds_well_to": ["lista di approcci che funzionano"],
+        "responds_badly_to": ["lista di approcci da evitare"],
+        "message_length_preference": "breve|medio|lungo",
+        "formality_level": "informale|semi-formale|formale"
+    },
+    "psychological_profile": {
+        "defense_mechanisms": ["meccanismi di difesa osservati"],
+        "attachment_hints": "descrizione breve dello stile relazionale osservato",
+        "core_beliefs_observed": ["credenze profonde emerse"],
+        "strengths": ["punti di forza psicologici"],
+        "growth_areas": ["aree di crescita identificate"]
+    },
+    "triggers_and_patterns": {
+        "known_triggers": ["situazioni/temi che provocano reazioni forti"],
+        "mood_boosters": ["cosa migliora l'umore"],
+        "temporal_patterns": ["pattern temporali osservati, es: peggiora la sera"],
+        "recurring_topics": ["argomenti che tornano spesso"]
+    },
+    "therapeutic_context": {
+        "journey_phase": "esplorazione|comprensione|applicazione|mantenimento",
+        "techniques_effective": ["tecniche che hanno funzionato"],
+        "techniques_ineffective": ["tecniche che non hanno funzionato"],
+        "unresolved_themes": ["temi ancora aperti"],
+        "progress_summary": "breve descrizione del progresso generale"
+    },
+    "relationship_with_aria": {
+        "trust_level": "basso|medio|alto",
+        "notable_moments": ["momenti significativi nella relazione con Aria"],
+        "communication_preferences": ["preferenze specifiche emerse"]
+    },
+    "last_updated": "${new Date().toISOString().split('T')[0]}",
+    "sessions_analyzed": 0,
+    "confidence": "basso|medio|alto"
+}
+
+REGOLE:
+- Se è un aggiornamento, incrementa sessions_analyzed di 1
+- confidence sale con più sessioni: 1-3 = basso, 4-10 = medio, 11+ = alto
+- NON inventare informazioni — scrivi solo quello che è EVIDENZIATO dalla sessione
+- Per i campi dove non hai informazioni, usa array vuoti [] o "da determinare"
+- Sii specifico e concreto, non generico (es: "usa umorismo per evitare vulnerabilità" non "ha meccanismi di difesa")`;
+
+      const adaptiveResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${Deno.env.get('GOOGLE_API_KEY')}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: adaptivePrompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 2000 }
+          })
+        }
+      );
+
+      if (adaptiveResponse.ok) {
+        const adaptiveData = await adaptiveResponse.json();
+        const adaptiveText = adaptiveData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        // Parse JSON dal testo
+        const jsonMatch = adaptiveText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const adaptiveProfile = JSON.parse(jsonMatch[0]);
+
+            // Salva nel DB
+            await supabase
+              .from('user_profiles')
+              .update({ adaptive_profile: adaptiveProfile })
+              .eq('user_id', user_id);
+
+            console.log('[process-session] Adaptive profile updated');
+          } catch (parseErr) {
+            console.error('[process-session] Adaptive profile parse error:', parseErr);
+          }
+        }
+      }
+    } catch (adaptiveErr) {
+      console.error('[process-session] Adaptive profile generation error:', adaptiveErr);
+      // Non blocca il flusso principale — il profilo adattivo è un bonus
+    }
+
     // Log summary of all DB write errors (graceful degradation)
     if (dbErrors.length > 0) {
       console.error(`[process-session] ⚠️ ${dbErrors.length} DB write(s) failed for session ${session_id}:`, JSON.stringify(dbErrors));
