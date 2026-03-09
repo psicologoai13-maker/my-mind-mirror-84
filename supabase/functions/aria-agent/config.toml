@@ -1,0 +1,2 @@
+[functions.aria-agent]
+verify_jwt = false
