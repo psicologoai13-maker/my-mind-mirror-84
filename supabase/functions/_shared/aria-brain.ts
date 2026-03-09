@@ -182,6 +182,14 @@ export interface UserProfile {
   today_daily_emotions: any[];
   today_daily_psychology: any[];
   today_daily_life_areas: any[];
+  // Adaptive profile for personalized responses
+  adaptive_profile?: any;
+  // Weekly trends and correlations for context
+  weekly_emotions?: any[];
+  weekly_checkins?: any[];
+  user_correlations?: any[];
+  // Session context snapshots for unresolved themes
+  context_snapshots?: any[];
 }
 
 
@@ -4409,6 +4417,11 @@ export async function loadUserContext(
     today_daily_emotions: [],
     today_daily_psychology: [],
     today_daily_life_areas: [],
+    adaptive_profile: null,
+    weekly_emotions: [],
+    weekly_checkins: [],
+    user_correlations: [],
+    context_snapshots: [],
   };
 
   const client = supabaseAdmin || supabaseClient;
@@ -4451,11 +4464,14 @@ export async function loadUserContext(
       todayCheckinsResult,
       todayDailyEmotionsResult,
       todayDailyPsychologyResult,
-      todayDailyLifeAreasResult
+      todayDailyLifeAreasResult,
+      weeklyEmotionsResult,
+      weeklyCheckinsResult,
+      userCorrelationsResult
     ] = await Promise.all([
       client
         .from('user_profiles')
-        .select('name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context')
+        .select('name, life_areas_scores, selected_goals, onboarding_answers, dashboard_config, gender, birth_date, height, therapy_status, occupation_context, adaptive_profile')
         .eq('user_id', authenticatedUserId)
         .single(),
       client
@@ -4572,7 +4588,29 @@ export async function loadUserContext(
         .from('daily_life_areas')
         .select('*')
         .eq('user_id', authenticatedUserId)
-        .eq('date', today)
+        .eq('date', today),
+      // Get weekly emotions trend (last 7 days)
+      client
+        .from('daily_emotions')
+        .select('date, joy, sadness, anger, fear, hope')
+        .eq('user_id', authenticatedUserId)
+        .gte('date', pastDateStr)
+        .order('date', { ascending: true }),
+      // Get weekly check-ins trend (last 7 days)
+      client
+        .from('daily_checkins')
+        .select('created_at, mood_value, notes')
+        .eq('user_id', authenticatedUserId)
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: true }),
+      // Get user correlations (strongest)
+      client
+        .from('user_correlations')
+        .select('metric_a, metric_b, correlation_value, interpretation')
+        .eq('user_id', authenticatedUserId)
+        .gte('correlation_value', 0.3)
+        .order('correlation_value', { ascending: false })
+        .limit(5)
     ]);
     
     const profile = profileResult.data;
@@ -4595,6 +4633,9 @@ export async function loadUserContext(
     const todayDailyEmotions = todayDailyEmotionsResult.data || [];
     const todayDailyPsychology = todayDailyPsychologyResult.data || [];
     const todayDailyLifeAreas = todayDailyLifeAreasResult.data || [];
+    const weeklyEmotions = weeklyEmotionsResult.data || [];
+    const weeklyCheckins = weeklyCheckinsResult.data || [];
+    const userCorrelations = userCorrelationsResult.data || [];
     
     // Log events and memories for debugging
     if (userEvents.length > 0) {
@@ -4778,6 +4819,11 @@ Celebra questi risultati quando appropriato!
       today_daily_emotions: todayDailyEmotions,
       today_daily_psychology: todayDailyPsychology,
       today_daily_life_areas: todayDailyLifeAreas,
+      adaptive_profile: profile?.adaptive_profile || null,
+      weekly_emotions: weeklyEmotions,
+      weekly_checkins: weeklyCheckins,
+      user_correlations: userCorrelations,
+      context_snapshots: sessionSnapshots,
     };
 
     console.log(`[aria-brain] Profile loaded: name="${result.name}", goals=${result.selected_goals.join(',')}, structured_memories=${userMemories.length}, active_objectives=${allActiveObjectives.length}, has_interests=${!!userInterests}, has_metrics=${!!dailyMetrics}, recent_sessions=${recentSessions.length} (${completedSessions.length} completed + ${activeSessions.length} active), recent_chat_messages=${recentChatMessages.length}, user_events=${userEvents.length}`);
@@ -5105,6 +5151,206 @@ Se noti queste discrepanze, chiedi all'utente in modo gentile, ad esempio:
 Non farlo per ogni piccola differenza — solo se la differenza è >= 3 punti sulla scala 1-10.
 `;
   }
+
+  // === BLOCCO A: PROFILO ADATTIVO ===
+  if (userProfile?.adaptive_profile) {
+    const ap = userProfile.adaptive_profile;
+
+    let adaptiveBlock = `
+═══════════════════════════════════════════════
+🧠 PROFILO ADATTIVO — CHI HAI DAVANTI
+═══════════════════════════════════════════════
+Questo profilo è stato costruito analizzando le sessioni precedenti. USALO per adattare ogni risposta.
+
+`;
+
+    if (ap.communication_style) {
+      const cs = ap.communication_style;
+      adaptiveBlock += `STILE COMUNICATIVO:
+- Tono preferito: ${cs.preferred_tone || 'da determinare'}
+- Funziona bene: ${(cs.responds_well_to || []).join(', ') || 'da determinare'}
+- Da evitare: ${(cs.responds_badly_to || []).join(', ') || 'da determinare'}
+- Lunghezza preferita: ${cs.message_length_preference || 'medio'}
+`;
+    }
+
+    if (ap.psychological_profile) {
+      const pp = ap.psychological_profile;
+      adaptiveBlock += `PROFILO PSICOLOGICO:
+- Meccanismi di difesa: ${(pp.defense_mechanisms || []).join(', ') || 'non ancora rilevati'}
+- Stile relazionale: ${pp.attachment_hints || 'da determinare'}
+- Credenze profonde: ${(pp.core_beliefs_observed || []).join(', ') || 'non ancora rilevate'}
+- Punti di forza: ${(pp.strengths || []).join(', ') || 'da determinare'}
+- Aree di crescita: ${(pp.growth_areas || []).join(', ') || 'da determinare'}
+`;
+    }
+
+    if (ap.triggers_and_patterns) {
+      const tp = ap.triggers_and_patterns;
+      adaptiveBlock += `TRIGGER E PATTERN:
+- Trigger noti: ${(tp.known_triggers || []).join(', ') || 'nessuno ancora rilevato'}
+- Cosa migliora umore: ${(tp.mood_boosters || []).join(', ') || 'da determinare'}
+- Pattern temporali: ${(tp.temporal_patterns || []).join(', ') || 'nessuno ancora rilevato'}
+- Temi ricorrenti: ${(tp.recurring_topics || []).join(', ') || 'nessuno'}
+`;
+    }
+
+    if (ap.therapeutic_context) {
+      const tc = ap.therapeutic_context;
+      adaptiveBlock += `CONTESTO TERAPEUTICO:
+- Fase del percorso: ${tc.journey_phase || 'esplorazione'}
+- Tecniche efficaci: ${(tc.techniques_effective || []).join(', ') || 'nessuna ancora testata'}
+- Tecniche inefficaci: ${(tc.techniques_ineffective || []).join(', ') || 'nessuna'}
+- Temi irrisolti: ${(tc.unresolved_themes || []).join(', ') || 'nessuno'}
+- Progresso: ${tc.progress_summary || 'inizio percorso'}
+`;
+    }
+
+    if (ap.relationship_with_aria) {
+      const ra = ap.relationship_with_aria;
+      adaptiveBlock += `RELAZIONE CON TE (ARIA):
+- Fiducia: ${ra.trust_level || 'da costruire'}
+- Momenti significativi: ${(ra.notable_moments || []).join(', ') || 'nessuno ancora'}
+- Preferenze: ${(ra.communication_preferences || []).join(', ') || 'da scoprire'}
+`;
+    }
+
+    adaptiveBlock += `Confidence profilo: ${ap.confidence || 'basso'} (${ap.sessions_analyzed || 0} sessioni analizzate)\n`;
+
+    systemPrompt += adaptiveBlock;
+  }
+
+  // === BLOCCO B: TREND 7 GIORNI E CORRELAZIONI ===
+  let trendBlock = '';
+
+  const weeklyEmotions = userProfile.weekly_emotions || [];
+  const weeklyCheckins = userProfile.weekly_checkins || [];
+  const userCorrelations = userProfile.user_correlations || [];
+  const contextSnapshots = userProfile.context_snapshots || [];
+
+  if (weeklyEmotions.length >= 2 || weeklyCheckins.length >= 2) {
+    trendBlock += `
+═══════════════════════════════════════════════
+📊 TREND ULTIMI 7 GIORNI
+═══════════════════════════════════════════════
+`;
+
+    if (weeklyCheckins.length >= 2) {
+      const moods = weeklyCheckins
+        .filter((c: any) => c.mood_value)
+        .map((c: any) => c.mood_value);
+      if (moods.length >= 2) {
+        const first = moods.slice(0, Math.ceil(moods.length/2));
+        const last = moods.slice(Math.ceil(moods.length/2));
+        const firstAvg = first.reduce((a: number, b: number) => a+b, 0) / first.length;
+        const lastAvg = last.reduce((a: number, b: number) => a+b, 0) / last.length;
+        const diff = lastAvg - firstAvg;
+        const arrow = diff > 0.5 ? '↑' : diff < -0.5 ? '↓' : '→';
+        trendBlock += `Umore: ${arrow} (da ${firstAvg.toFixed(1)} a ${lastAvg.toFixed(1)})\n`;
+      }
+    }
+
+    if (weeklyCheckins.length >= 2) {
+      const anxietyValues: number[] = [];
+      const energyValues: number[] = [];
+      const sleepValues: number[] = [];
+
+      for (const c of weeklyCheckins) {
+        if (c.notes) {
+          try {
+            const notes = typeof c.notes === 'string' ? JSON.parse(c.notes) : c.notes;
+            if (notes.anxiety) anxietyValues.push(notes.anxiety);
+            if (notes.energy) energyValues.push(notes.energy);
+            if (notes.sleep) sleepValues.push(notes.sleep);
+          } catch {}
+        }
+      }
+
+      for (const [name, values] of [['Ansia', anxietyValues], ['Energia', energyValues], ['Sonno', sleepValues]] as [string, number[]][]) {
+        if (values.length >= 2) {
+          const first = values.slice(0, Math.ceil(values.length/2));
+          const last = values.slice(Math.ceil(values.length/2));
+          const firstAvg = first.reduce((a,b) => a+b, 0) / first.length;
+          const lastAvg = last.reduce((a,b) => a+b, 0) / last.length;
+          const diff = lastAvg - firstAvg;
+          const arrow = diff > 0.5 ? '↑' : diff < -0.5 ? '↓' : '→';
+          trendBlock += `${name}: ${arrow} (da ${firstAvg.toFixed(1)} a ${lastAvg.toFixed(1)})\n`;
+        }
+      }
+    }
+  }
+
+  if (userCorrelations.length > 0) {
+    trendBlock += `\n🔗 SCOPERTE SU QUESTO UTENTE:\n`;
+    for (const corr of userCorrelations) {
+      if (corr.interpretation) {
+        trendBlock += `- ${corr.interpretation}\n`;
+      } else {
+        const sign = corr.correlation_value > 0 ? 'positiva' : 'negativa';
+        trendBlock += `- Correlazione ${sign} tra ${corr.metric_a} e ${corr.metric_b} (r=${corr.correlation_value.toFixed(2)})\n`;
+      }
+    }
+    trendBlock += `Usa queste scoperte nel contesto: se noti un trigger, menziona la correlazione in modo naturale.\n`;
+  }
+
+  const lastSnapshot = contextSnapshots[0];
+  if (lastSnapshot?.unresolved_issues?.length > 0) {
+    trendBlock += `\n⚡ TEMI IRRISOLTI DALLA SESSIONE PRECEDENTE:\n`;
+    for (const issue of lastSnapshot.unresolved_issues) {
+      trendBlock += `- ${issue}\n`;
+    }
+    trendBlock += `Se appropriato, chiedi aggiornamenti su questi temi. Non forzarli — aspetta il momento giusto.\n`;
+  }
+
+  if (trendBlock) {
+    systemPrompt += trendBlock;
+  }
+
+  // === BLOCCO C: STRATEGIA PRE-RISPOSTA ===
+  const strategyBlock = `
+═══════════════════════════════════════════════
+🎯 STRATEGIA — PENSA PRIMA DI RISPONDERE
+═══════════════════════════════════════════════
+PRIMA di ogni risposta, segui questi step INTERNAMENTE (NON mostrare MAI questo ragionamento all'utente):
+
+1. LEGGI LA SITUAZIONE
+   - Che emozione sta provando l'utente ORA in questo messaggio?
+   - È in crisi, sta sfogandosi, cerca consigli pratici, o vuole solo compagnia?
+   - Qual è l'intensità emotiva? (bassa → conversazione leggera, alta → supporto profondo)
+
+2. SCEGLI LA STRATEGIA
+   - Devo validare? Sfidare gentilmente? Approfondire? Distrarre? Contenere?
+   - Guarda il profilo adattivo: quale approccio funziona con QUESTO utente?
+   - C'è un tema dal contesto da menzionare? (calendario, sonno, trend) O è meglio aspettare?
+   - Se ci sono temi irrisolti dalla sessione precedente: è il momento di sollevarli?
+
+3. CALIBRA IL TONO
+   - Guarda communication_style nel profilo: tono preferito, lunghezza, formalità
+   - In QUESTO momento: serve più morbidezza o più schiettezza?
+   - L'utente ha scritto poco (1-2 parole)? Rispondi breve. Ha scritto tanto? Puoi approfondire.
+
+4. EVITA SEMPRE
+   - Non chiedere "come stai?" se hai già i dati dai check-in o HealthKit — sembra finto
+   - Non elencare tecniche CBT se l'utente vuole solo essere ascoltato
+   - Non essere troppo ottimista se l'utente sta davvero male
+   - Non menzionare dati HealthKit come se li stessi spiando
+     ❌ "Ho visto che hai dormito 4 ore"
+     ✅ "Mi sembri stanco oggi, sbaglio?"
+   - Non forzare esercizi o tecniche — proponili solo quando il momento è giusto
+   - Non ripetere le stesse frasi o pattern tra sessioni diverse
+   - Non dire "capisco" come intercalare — usa validazioni specifiche
+
+5. QUANDO PROPORRE TECNICHE
+   - Solo dopo aver validato l'emozione (prima ascolto, poi strumento)
+   - Solo se l'utente sembra ricettivo (non in piena crisi emotiva)
+   - Usa quelle che funzionano con questo utente (vedi profilo: techniques_effective)
+   - Evita quelle che non hanno funzionato (vedi profilo: techniques_ineffective)
+
+Dopo aver ragionato internamente, rispondi in modo naturale.
+Il ragionamento NON deve MAI apparire nella risposta. La risposta deve sembrare spontanea, come se venisse da un'amica intelligente.
+`;
+
+  systemPrompt += strategyBlock;
 
   // 5. Inject knowledge base sections
   const kbContent = await selectRelevantKnowledge(conversationHistory);
