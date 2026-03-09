@@ -3022,6 +3022,24 @@ SESSIONE APPENA CONCLUSA:
 TRANSCRIPT SESSIONE:
 ${transcript.substring(0, 3000)}
 
+VALUTAZIONE SESSIONE — Rispondi a queste domande internamente prima di aggiornare il profilo:
+1. APERTURA: L'utente si è aperto progressivamente durante la sessione? (buon segno = Aria ha usato il tono giusto)
+2. CHIUSURA: L'utente si è chiuso, ha cambiato argomento bruscamente, o ha detto "lascia stare"? (Aria ha sbagliato approccio)
+3. INSIGHT: L'utente ha avuto un momento di realizzazione? ("hai ragione", "non ci avevo pensato", "è vero")
+4. RESISTENZA: L'utente ha resistito a un approccio? ("non è così", "non mi capisci", "non voglio parlarne")
+5. TECNICA: Se Aria ha proposto una tecnica (respirazione, grounding, registro pensieri), l'utente l'ha accettata o rifiutata?
+6. TONO: Il tono di Aria era appropriato? L'utente ha reagito positivamente o negativamente al modo in cui Aria ha comunicato?
+7. DIPENDENZA: L'utente ha mostrato segni di dipendenza da Aria? ("sei l'unica che mi capisce", "non so cosa farei senza di te")
+
+USA QUESTE VALUTAZIONI per aggiornare il profilo:
+- Se l'utente si è aperto → il tono usato funziona → conferma communication_style
+- Se l'utente si è chiuso → qualcosa non ha funzionato → aggiorna responds_badly_to
+- Se una tecnica ha funzionato → aggiungi a techniques_effective
+- Se una tecnica è stata rifiutata → aggiungi a techniques_ineffective
+- Se l'utente ha mostrato un nuovo trigger → aggiungi a known_triggers
+- Se l'utente ha mostrato progresso → aggiorna journey_phase e progress_summary
+- Se ci sono segni di dipendenza → aggiorna relationship_with_aria con nota di monitoraggio
+
 ISTRUZIONI:
 Genera un profilo adattivo JSON aggiornato. Se esiste già un profilo, AGGIORNA SOLO i campi che questa sessione ha rivelato qualcosa di nuovo. Non cancellare informazioni precedenti a meno che non siano state corrette.
 
@@ -3064,7 +3082,16 @@ Il profilo deve avere ESATTAMENTE questa struttura JSON (rispondi SOLO con il JS
     },
     "last_updated": "${new Date().toISOString().split('T')[0]}",
     "sessions_analyzed": 0,
-    "confidence": "basso|medio|alto"
+    "confidence": "basso|medio|alto",
+    "last_session_feedback": {
+        "date": "${new Date().toISOString().split('T')[0]}",
+        "user_opened_up": true/false,
+        "user_resisted": true/false,
+        "technique_used": "nome tecnica o null",
+        "technique_accepted": true/false/null,
+        "tone_appropriate": true/false,
+        "key_learning": "una frase su cosa hai imparato di questo utente in questa sessione"
+    }
 }
 
 REGOLE:
