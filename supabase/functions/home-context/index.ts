@@ -355,42 +355,71 @@ serve(async (req) => {
     // ─────────────────────────────────────────────
     // 5. SUGGESTED EXERCISE
     // ─────────────────────────────────────────────
-    const lastAnxiety = lastSessionResult.data?.[0]?.anxiety_score_detected ?? 0;
-    let suggestedSlug: string;
 
-    if (lastAnxiety > 6) {
-      suggestedSlug = "breathing-478";
-    } else if (timeSlot === "night" || timeSlot === "evening") {
-      suggestedSlug = Math.random() < 0.5 ? "breathing-478" : "muscle-relaxation";
-    } else if (timeSlot === "morning") {
-      suggestedSlug = Math.random() < 0.5 ? "box-breathing" : "mindfulness-1min";
-    } else {
-      // afternoon or fallback: random beginner exercise
-      suggestedSlug = "__random_beginner__";
-    }
+    // === Override esercizio dall'orchestratore ===
+    let suggestedExercise: { slug: string; title: string; reason?: string } | null = null;
 
-    let suggestedExercise: { slug: string; title: string } | null = null;
-
-    if (suggestedSlug === "__random_beginner__") {
-      const { data: beginnerExercises } = await supabase
-        .from("exercises")
-        .select("slug, title")
-        .eq("difficulty", "beginner")
-        .eq("is_active", true);
-
-      if (beginnerExercises && beginnerExercises.length > 0) {
-        const pick = beginnerExercises[Math.floor(Math.random() * beginnerExercises.length)];
-        suggestedExercise = { slug: pick.slug, title: pick.title };
-      }
-    } else {
-      const { data: exerciseRow } = await supabase
-        .from("exercises")
-        .select("slug, title")
-        .eq("slug", suggestedSlug)
+    try {
+      const { data: agentData } = await supabase
+        .from('user_profiles')
+        .select('agent_suggested_exercise')
+        .eq('user_id', authenticatedUserId)
         .single();
 
-      if (exerciseRow) {
-        suggestedExercise = { slug: exerciseRow.slug, title: exerciseRow.title };
+      if (agentData?.agent_suggested_exercise?.slug) {
+        const override = agentData.agent_suggested_exercise;
+        suggestedExercise = {
+          slug: override.slug,
+          title: override.title || override.slug,
+          reason: override.reason || 'Suggerito per te'
+        };
+
+        // Pulisci dopo l'uso
+        await supabase
+          .from('user_profiles')
+          .update({ agent_suggested_exercise: null })
+          .eq('user_id', authenticatedUserId);
+      }
+    } catch (agentErr) {
+      console.error('[home-context] Agent exercise error:', agentErr);
+    }
+
+    if (!suggestedExercise) {
+      const lastAnxiety = lastSessionResult.data?.[0]?.anxiety_score_detected ?? 0;
+      let suggestedSlug: string;
+
+      if (lastAnxiety > 6) {
+        suggestedSlug = "breathing-478";
+      } else if (timeSlot === "night" || timeSlot === "evening") {
+        suggestedSlug = Math.random() < 0.5 ? "breathing-478" : "muscle-relaxation";
+      } else if (timeSlot === "morning") {
+        suggestedSlug = Math.random() < 0.5 ? "box-breathing" : "mindfulness-1min";
+      } else {
+        // afternoon or fallback: random beginner exercise
+        suggestedSlug = "__random_beginner__";
+      }
+
+      if (suggestedSlug === "__random_beginner__") {
+        const { data: beginnerExercises } = await supabase
+          .from("exercises")
+          .select("slug, title")
+          .eq("difficulty", "beginner")
+          .eq("is_active", true);
+
+        if (beginnerExercises && beginnerExercises.length > 0) {
+          const pick = beginnerExercises[Math.floor(Math.random() * beginnerExercises.length)];
+          suggestedExercise = { slug: pick.slug, title: pick.title };
+        }
+      } else {
+        const { data: exerciseRow } = await supabase
+          .from("exercises")
+          .select("slug, title")
+          .eq("slug", suggestedSlug)
+          .single();
+
+        if (exerciseRow) {
+          suggestedExercise = { slug: exerciseRow.slug, title: exerciseRow.title };
+        }
       }
     }
 
