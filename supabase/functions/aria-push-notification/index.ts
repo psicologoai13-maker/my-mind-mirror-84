@@ -14,6 +14,10 @@ const corsHeaders = {
 interface PushPayload {
   userId?: string;       // Send to specific user
   triggerType?: string;  // "scheduled" | "event_based" | "mood_check" | "streak" | "insight"
+  override_message?: {   // Pre-generated message from orchestrator (skips Gemini)
+    title: string;
+    body: string;
+  };
 }
 
 // Build JWT for APNs authentication
@@ -216,7 +220,7 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // FIX 1.2: Verifica autenticazione — OBBLIGATORIA
+    // Verifica autenticazione — OBBLIGATORIA
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -225,34 +229,47 @@ serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    const isServiceRole = token === serviceRoleKey;
+
+    let authenticatedUserId: string | null = null;
+
+    if (isServiceRole) {
+      // Service role: userId MUST be provided in body
+      authenticatedUserId = null; // will use userId from body
+    } else {
+      // Normal user JWT auth
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      authenticatedUserId = user.id;
     }
-    const authenticatedUserId = user.id;
 
     const body = await req.json() as PushPayload;
     const { userId, triggerType = "scheduled" } = body;
 
-    // FIX 1.2: Se userId nel body è diverso dall'utente autenticato, blocca
-    // (a meno che non sia service_role — per cron job futuri)
-    if (userId && userId !== authenticatedUserId) {
-      const isServiceRole = authHeader.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '___');
-      if (!isServiceRole) {
-        return new Response(JSON.stringify({ error: 'Cannot send notifications for other users' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+    // Service role requires userId in body
+    if (isServiceRole && !userId) {
+      return new Response(JSON.stringify({ error: 'userId is required when using service_role' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Se non c'è userId nel body, usa l'userId dall'autenticazione
-    const targetUserId = userId || authenticatedUserId;
+    // Non-service-role: block sending to other users
+    if (!isServiceRole && userId && userId !== authenticatedUserId) {
+      return new Response(JSON.stringify({ error: 'Cannot send notifications for other users' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const targetUserId = userId || authenticatedUserId!;
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -315,15 +332,30 @@ serve(async (req) => {
         timezone: userTimezone,
       };
 
-      // Generate contextual message
-      const message = await generateProactiveMessage(profile.name, context);
-      if (!message) continue;
+      // Use pre-generated message or generate with Gemini
+      let pushTitle: string;
+      let pushBody: string;
+      let pushTriggerType: string;
+
+      if (body.override_message?.title && body.override_message?.body) {
+        // Pre-generated message from orchestrator — skip Gemini
+        pushTitle = body.override_message.title;
+        pushBody = body.override_message.body;
+        pushTriggerType = triggerType;
+      } else {
+        // Generate contextual message with Gemini
+        const message = await generateProactiveMessage(profile.name, context);
+        if (!message) continue;
+        pushTitle = message.title;
+        pushBody = message.body;
+        pushTriggerType = message.triggerType;
+      }
 
       // Send to all user devices
       for (const token of deviceTokens) {
-        const success = await sendApnsPush(token, message.title, message.body, {
+        const success = await sendApnsPush(token, pushTitle, pushBody, {
           action: "open_chat",
-          triggerType: message.triggerType,
+          triggerType: pushTriggerType,
         });
 
         if (success) {
@@ -340,9 +372,9 @@ serve(async (req) => {
       // Log notification in smart_notifications
       await supabase.from("smart_notifications").insert({
         user_id: uid,
-        trigger_type: message.triggerType,
-        content: message.body,
-        title: message.title,
+        trigger_type: pushTriggerType,
+        content: pushBody,
+        title: pushTitle,
         priority: "medium",
         scheduled_for: new Date().toISOString(),
         sent_at: new Date().toISOString(),
