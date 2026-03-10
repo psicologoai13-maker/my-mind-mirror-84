@@ -976,6 +976,35 @@ serve(async (req) => {
     // ============================================
     const MAX_ITEMS = 8;
     
+    // === Priorità dall'orchestratore ===
+    try {
+      const { data: agentData } = await supabaseAdmin
+        .from('user_profiles')
+        .select('agent_checkin_priorities')
+        .eq('user_id', userId)
+        .single();
+
+      if (agentData?.agent_checkin_priorities && Array.isArray(agentData.agent_checkin_priorities)) {
+        for (const p of agentData.agent_checkin_priorities) {
+          const key = typeof p === 'string' ? p : p.key;
+          const boost = typeof p === 'string' ? 30 : (p.boost || 30);
+          const item = allItems.find(i => i.key === key);
+          if (item) {
+            item.dynamicScore = (item.dynamicScore || 0) + boost;
+            console.log(`[ai-checkins] Agent boost: ${key} +${boost}`);
+          }
+        }
+
+        // Pulisci priorità dopo l'uso (one-shot)
+        await supabaseAdmin
+          .from('user_profiles')
+          .update({ agent_checkin_priorities: null })
+          .eq('user_id', userId);
+      }
+    } catch (agentErr) {
+      console.error('[ai-checkins] Agent priorities error:', agentErr);
+    }
+
     // Sort by dynamic score
     const sortedItems = allItems.sort((a, b) => (b.dynamicScore || 0) - (a.dynamicScore || 0));
     const candidateItems = sortedItems.slice(0, 15);
