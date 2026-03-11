@@ -103,6 +103,11 @@ serve(async (req) => {
                         const ctx = action.payload?.context || {};
                         const apiKey = Deno.env.get('GOOGLE_API_KEY');
 
+                        if (!apiKey) {
+                            console.error('[Executor] GOOGLE_API_KEY not set! Cannot generate bubble message.');
+                            break;
+                        }
+
                         const bubblePrompt = `Sei Aria, un'amica empatica. Genera UN messaggio breve (max 2 frasi) \
 per la bolla nella home dell'app. Il messaggio deve essere caldo e personale. \
 Contesto utente: \
@@ -126,20 +131,32 @@ Rispondi SOLO con il messaggio, niente altro.`;
                             }
                         );
 
-                        if (geminiResponse.ok) {
-                            const data = await geminiResponse.json();
-                            const message = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                        if (!geminiResponse.ok) {
+                            const errBody = await geminiResponse.text();
+                            console.error(`[Executor] update_bubble Gemini API error for ${action.user_id}: status=${geminiResponse.status}`, errBody);
+                            break;
+                        }
 
-                            if (message) {
-                                const { error: updateErr } = await supabase
-                                    .from('user_profiles')
-                                    .update({
-                                        aria_home_message: message,
-                                        aria_home_message_at: new Date().toISOString()
-                                    })
-                                    .eq('user_id', action.user_id);
-                                success = !updateErr;
-                            }
+                        const data = await geminiResponse.json();
+                        const message = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                        if (!message) {
+                            console.error(`[Executor] update_bubble empty message from Gemini for ${action.user_id}. Response:`, JSON.stringify(data));
+                            break;
+                        }
+
+                        const { error: bubbleUpdateErr } = await supabase
+                            .from('user_profiles')
+                            .update({
+                                aria_home_message: message,
+                                aria_home_message_at: new Date().toISOString()
+                            })
+                            .eq('user_id', action.user_id);
+
+                        if (bubbleUpdateErr) {
+                            console.error(`[Executor] update_bubble DB update error for ${action.user_id}:`, bubbleUpdateErr.message, bubbleUpdateErr.details);
+                        } else {
+                            success = true;
                         }
                         break;
                     }
@@ -147,6 +164,7 @@ Rispondi SOLO con il messaggio, niente altro.`;
                     case 'trigger_analysis': {
                         // Chiama calculate-correlations o detect-emotion-patterns
                         const functionName = action.payload?.function || 'calculate-correlations';
+                        console.log(`[Executor] trigger_analysis calling ${functionName} for ${action.user_id}`);
                         const analysisResponse = await fetch(
                             `${supabaseUrl}/functions/v1/${functionName}`,
                             {
@@ -158,7 +176,12 @@ Rispondi SOLO con il messaggio, niente altro.`;
                                 body: JSON.stringify({ userId: action.user_id })
                             }
                         );
-                        success = analysisResponse.ok;
+                        if (!analysisResponse.ok) {
+                            const errBody = await analysisResponse.text();
+                            console.error(`[Executor] trigger_analysis ${functionName} failed for ${action.user_id}: status=${analysisResponse.status}`, errBody);
+                        } else {
+                            success = true;
+                        }
                         break;
                     }
 
@@ -190,12 +213,13 @@ Rispondi SOLO con il messaggio, niente altro.`;
                 });
 
             } catch (actionErr) {
-                console.error(`[Executor] Error executing action ${action.id}:`, actionErr);
+                const errMsg = (actionErr as Error).message || String(actionErr);
+                console.error(`[Executor] ${action.action_type} error for ${action.user_id} (action ${action.id}):`, errMsg);
                 results.push({
                     id: action.id,
                     type: action.action_type,
                     success: false,
-                    error: (actionErr as Error).message
+                    error: errMsg
                 });
             }
         }
