@@ -1,3 +1,4 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateUser, handleCors, corsHeaders } from '../_shared/auth.ts';
 
 // Correlation pairs to calculate
@@ -95,7 +96,31 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { userId, supabaseAdmin } = await authenticateUser(req);
+    // Support service_role auth (from aria-agent-executor) + JWT auth
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
+
+    let userId: string;
+    let supabaseAdmin: any;
+
+    if (authHeader === serviceRoleKey) {
+      // Service role call (from orchestrator)
+      const body = await req.json();
+      userId = body.userId;
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'userId required when using service_role' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    } else {
+      // Normal user JWT auth
+      const authResult = await authenticateUser(req);
+      userId = authResult.userId;
+      supabaseAdmin = authResult.supabaseAdmin;
+    }
 
     console.log(`[calculate-correlations] Processing correlations for user: ${userId}`);
 
