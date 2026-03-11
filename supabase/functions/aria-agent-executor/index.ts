@@ -99,64 +99,45 @@ serve(async (req) => {
                     }
 
                     case 'update_bubble': {
-                        // Genera messaggio bolla con Gemini
-                        const ctx = action.payload?.context || {};
-                        const apiKey = Deno.env.get('GOOGLE_API_KEY');
-
-                        if (!apiKey) {
-                            console.error('[Executor] GOOGLE_API_KEY not set! Cannot generate bubble message.');
-                            break;
-                        }
-
-                        const bubblePrompt = `Sei Aria, un'amica empatica. Genera UN messaggio breve (max 2 frasi) \
-per la bolla nella home dell'app. Il messaggio deve essere caldo e personale. \
-Contesto utente: \
-- Nome: ${ctx.name || 'utente'} \
-- Wellness score: ${ctx.wellness || '?'}/100 \
-- Ultimo umore: ${ctx.lastMood || '?'}/5 \
-- Ore dall'ultima sessione: ${Math.round(ctx.hoursSinceSession || 0)} \
-- Progresso: ${ctx.profile || 'inizio percorso'} \
-\
-Rispondi SOLO con il messaggio, niente altro.`;
-
-                        const geminiResponse = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+                        // Chiama ai-dashboard per generare il messaggio con contesto completo
+                        const dashboardResponse = await fetch(
+                            `${supabaseUrl}/functions/v1/ai-dashboard`,
                             {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: bubblePrompt }] }],
-                                    generationConfig: { temperature: 0.7, maxOutputTokens: 100 }
-                                })
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${serviceRoleKey}`
+                                },
+                                body: JSON.stringify({ userId: action.user_id })
                             }
                         );
 
-                        if (!geminiResponse.ok) {
-                            const errBody = await geminiResponse.text();
-                            console.error(`[Executor] update_bubble Gemini API error for ${action.user_id}: status=${geminiResponse.status}`, errBody);
-                            break;
-                        }
+                        if (dashboardResponse.ok) {
+                            const dashData = await dashboardResponse.json();
+                            const aiMessage = dashData.ai_message;
 
-                        const data = await geminiResponse.json();
-                        const message = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                            if (aiMessage && aiMessage.trim().length > 0) {
+                                const { error: updateErr } = await supabase
+                                    .from('user_profiles')
+                                    .update({
+                                        aria_home_message: aiMessage.trim(),
+                                        aria_home_message_at: new Date().toISOString(),
+                                        aria_home_message_read: false
+                                    })
+                                    .eq('user_id', action.user_id);
 
-                        if (!message) {
-                            console.error(`[Executor] update_bubble empty message from Gemini for ${action.user_id}. Response:`, JSON.stringify(data));
-                            break;
-                        }
-
-                        const { error: bubbleUpdateErr } = await supabase
-                            .from('user_profiles')
-                            .update({
-                                aria_home_message: message,
-                                aria_home_message_at: new Date().toISOString()
-                            })
-                            .eq('user_id', action.user_id);
-
-                        if (bubbleUpdateErr) {
-                            console.error(`[Executor] update_bubble DB update error for ${action.user_id}:`, bubbleUpdateErr.message, bubbleUpdateErr.details);
+                                success = !updateErr;
+                                if (updateErr) {
+                                    console.error(`[Executor] update_bubble DB error for ${action.user_id}:`, updateErr.message);
+                                } else {
+                                    console.log(`[Executor] update_bubble success for ${action.user_id}: "${aiMessage.trim().substring(0, 50)}..."`);
+                                }
+                            } else {
+                                console.error(`[Executor] update_bubble: ai-dashboard returned empty ai_message for ${action.user_id}`);
+                            }
                         } else {
-                            success = true;
+                            const errText = await dashboardResponse.text().catch(() => 'unknown');
+                            console.error(`[Executor] update_bubble: ai-dashboard failed for ${action.user_id}: status=${dashboardResponse.status} ${errText.substring(0, 200)}`);
                         }
                         break;
                     }

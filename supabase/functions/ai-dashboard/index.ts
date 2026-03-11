@@ -211,23 +211,43 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Service role auth: if Bearer token is service_role key, read userId from body
+    const token = authHeader.replace('Bearer ', '');
+    let userId: string;
+
+    if (token === serviceRoleKey) {
+      const body = await req.json();
+      if (!body.userId) {
+        return new Response(JSON.stringify({ error: 'Missing userId in body for service_role auth' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = body.userId;
+    } else {
+      const supabaseAuth = createClient(supabaseUrl, supabaseKey, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = user.id;
     }
+
+    // Use service role client for all DB queries (works for both auth paths)
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Fetch user profile with goals AND previous cache for focus stability
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     // Extract previous focus keys for stability (from cached dashboard)
@@ -239,12 +259,12 @@ serve(async (req) => {
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const [emotionsRes, lifeAreasRes, psychologyRes, sessionsRes, totalSessionsRes] = await Promise.all([
-      supabase.from('daily_emotions').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
-      supabase.from('daily_life_areas').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
-      supabase.from('daily_psychology').select('*').eq('user_id', user.id).gte('date', monthAgo).order('date', { ascending: false }),
-      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected').eq('user_id', user.id).gte('start_time', monthAgo).order('start_time', { ascending: false }).limit(10),
+      supabase.from('daily_emotions').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('daily_life_areas').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('daily_psychology').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
+      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected').eq('user_id', userId).gte('start_time', monthAgo).order('start_time', { ascending: false }).limit(10),
       // ALL-TIME check: prevents treating returning users as new
-      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     ]);
 
     const emotions = emotionsRes.data || [];
@@ -602,7 +622,7 @@ Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'u
     const newFocusKeys = dashboardLayout.primary_metrics.map(m => m.key);
     const focusChanges = newFocusKeys.filter(k => !previousFocusKeys.includes(k));
     if (previousFocusKeys.length > 0 && focusChanges.length > 2) {
-      console.log(`[ai-dashboard] ⚠️ SIGNIFICANT FOCUS CHANGE for user ${user.id}:`);
+      console.log(`[ai-dashboard] ⚠️ SIGNIFICANT FOCUS CHANGE for user ${userId}:`);
       console.log(`  Previous: ${previousFocusKeys.join(', ')}`);
       console.log(`  New: ${newFocusKeys.join(', ')}`);
       console.log(`  Changed: ${focusChanges.join(', ')}`);
