@@ -49,7 +49,7 @@ Se una funzione usa `_shared/aria-brain.ts`, deployare TUTTE le funzioni che lo 
 ### Non modificare MAI:
 - La struttura del prompt clinico in `aria-brain.ts` senza conferma esplicita
 - Le tabelle database (solo aggiungere, mai rimuovere colonne)
-- Il modello AI senza conferma (`gemini-2.5-flash-preview-04-17`)
+- Il modello AI senza conferma (`gemini-2.5-flash`)
 
 ### Pattern da seguire:
 - `verify_jwt = false` in config.toml per tutte le funzioni (auth gestita internamente)
