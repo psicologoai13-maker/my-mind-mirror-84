@@ -651,20 +651,45 @@ function analyzeAnalyticsTriggers(data: UserData, actions: AgentAction[]) {
 function analyzeHabits(data: UserData, actions: AgentAction[], now: Date) {
     const todayStr = now.toISOString().split('T')[0];
 
+    const habitNamesIT: Record<string, string> = {
+        meditation: 'meditazione', breathing: 'respirazione',
+        journaling: 'il diario', reading: 'lettura',
+        exercise: 'esercizio', yoga: 'yoga',
+        water: 'abbastanza acqua', vitamins: 'le vitamine',
+        medication: 'i farmaci', alcohol: 'evitare l\'alcol',
+        smoking: 'non fumare', social_interaction: 'contatto sociale',
+        gratitude: 'gratitudine', stretching: 'stretching',
+        walking: 'la camminata', mindfulness: 'mindfulness',
+        no_junk_food: 'evitare il junk food', fruits_veggies: 'frutta e verdura'
+    };
+
+    const abstainHabits = ['alcohol', 'smoking', 'no_junk_food', 'nail_biting', 'no_sugar', 'late_snacking'];
+
     // 7a. Reminder habits non fatte (dopo le 19)
     if (data.currentHour >= 19 && data.canSendPush) {
         const activeHabits = data.habitStreaks.filter(s => s.current_streak > 0);
         for (const habit of activeHabits) {
             const doneToday = data.habits.some(h => h.habit_type === habit.habit_type && h.date === todayStr);
             if (!doneToday && habit.current_streak >= 3) {
+                const isAbstain = abstainHabits.includes(habit.habit_type);
+                const habitName = habitNamesIT[habit.habit_type] || habit.habit_type;
+                const question = isAbstain
+                    ? `Sei riuscito/a a ${habitName} oggi?`
+                    : `Hai fatto ${habitName} oggi?`;
+
                 actions.push({
                     user_id: data.userId,
                     action_type: 'push_notification',
                     priority: 'low',
                     payload: {
                         title: 'Aria',
-                        body: `Non dimenticare: ${habit.habit_type}! Sei a ${habit.current_streak} giorni 🔥`,
-                        reason: 'habit_reminder'
+                        body: question,
+                        reason: 'habit_reminder',
+                        category: habit.habit_type === 'water' ? 'HABIT_COUNTER' : 'HABIT_CHECKIN',
+                        custom_data: {
+                            habit_type: habit.habit_type,
+                            user_id: data.userId
+                        }
                     },
                     created_at: new Date().toISOString(),
                     executed: false
