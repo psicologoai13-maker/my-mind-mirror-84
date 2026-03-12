@@ -18,6 +18,8 @@ interface PushPayload {
     title: string;
     body: string;
   };
+  category?: string;              // iOS notification category (e.g. "HABIT_CHECKIN", "HABIT_COUNTER")
+  custom_data?: Record<string, string>;  // Custom data for interactive notifications
 }
 
 // Build JWT for APNs authentication
@@ -78,27 +80,34 @@ async function sendApnsPush(
   deviceToken: string,
   title: string,
   body: string,
-  data: Record<string, string> = {}
+  data: Record<string, string> = {},
+  category?: string,
+  customData?: Record<string, string>
 ): Promise<boolean> {
   try {
     const jwt = await buildApnsJwt();
     const bundleId = Deno.env.get("APP_BUNDLE_ID") || "com.aria.app";
     const apnsEnv = Deno.env.get("APNS_ENVIRONMENT") || "production"; // "development" or "production"
-    const apnsHost = apnsEnv === "development" 
-      ? "https://api.development.push.apple.com" 
+    const apnsHost = apnsEnv === "development"
+      ? "https://api.development.push.apple.com"
       : "https://api.push.apple.com";
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       aps: {
         alert: { title, body },
         sound: "default",
         badge: 1,
         "mutable-content": 1,
         "thread-id": "aria-messages",
-        "category": "ARIA_MESSAGE"
+        "category": category || "ARIA_MESSAGE"
       },
       ...data
     };
+
+    // Custom data for interactive notifications (e.g. habit_type, user_id)
+    if (customData) {
+      Object.assign(payload, customData);
+    }
 
     const response = await fetch(
       `${apnsHost}/3/device/${deviceToken}`,
@@ -356,7 +365,7 @@ serve(async (req) => {
         const success = await sendApnsPush(token, pushTitle, pushBody, {
           action: "open_chat",
           triggerType: pushTriggerType,
-        });
+        }, body.category, body.custom_data);
 
         if (success) {
           sentCount++;
