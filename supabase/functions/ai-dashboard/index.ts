@@ -246,7 +246,7 @@ serve(async (req) => {
     // Fetch user profile with goals AND previous cache for focus stability
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache')
+      .select('name, selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache')
       .eq('user_id', userId)
       .single();
 
@@ -439,6 +439,32 @@ Per ogni obiettivo:
 - radar_chart: Solo se dati life_areas disponibili
 - emotional_mix: Solo se emozioni rilevanti
 
+═══════════════════════════════════════════════
+💬 AI_MESSAGE (messaggio bolla Home di Aria)
+═══════════════════════════════════════════════
+Scrivi come se fossi Aria, un'amica intima che manda un messaggio WhatsApp.
+REGOLE TONO:
+- Parla come una persona VERA, non come un'app o un sistema
+- MAI dire "dashboard", "monitorando", "personalizzato", "metriche", "priorità", "aree chiave"
+- MAI parlare in terza persona dell'app ("Stiamo monitorando...")
+- Usa il nome dell'utente se disponibile
+- Sii specifica su qualcosa di concreto (un'emozione, una situazione, un trend)
+- Max 2 frasi, tono caldo e diretto
+- Come se stessi mandando un messaggio a un amico che non senti da qualche ora
+
+ESEMPI BUONI:
+- "Ehi Simo, come stai oggi? Mi sembri un po' giù ultimamente"
+- "Simo! Ho notato che dormi poco... tutto ok?"
+- "Come va con il lavoro? L'altra volta eri un po' stressato"
+- "Bella giornata oggi, no? Spero che ne stai approfittando"
+- "Simo, sono contenta che l'ansia stia calando. Continua così!"
+
+ESEMPI CATTIVI (da NON fare MAI):
+- "La tua dashboard è stata personalizzata per riflettere le tue priorità"
+- "Stiamo monitorando il tuo umore, sonno e gestione della rabbia"
+- "Lavoriamo insieme su sonno, relazioni ed emozioni per il tuo benessere"
+- Qualsiasi cosa che suoni come un report o una notifica di sistema
+
 Rispondi SOLO in JSON valido:
 {
   "wellness_score": 7.5,
@@ -454,7 +480,7 @@ Rispondi SOLO in JSON valido:
     {"type": "goals_progress", "visible": true, "priority": 2, "title": "Obiettivi", "description": ""},
     {"type": "radar_chart", "visible": true, "priority": 3, "title": "Aree della Vita", "description": ""}
   ],
-  "ai_message": "",
+  "ai_message": "Ehi, come stai oggi? Ho notato che l'ansia sta calando, continua così!",
   "focus_areas": ["anxiety", "love"],
   "goals_evaluation": [
     {
@@ -477,8 +503,10 @@ Spiega nella "reason" perché mantieni o cambi ogni focus.
 ═══════════════════════════════════════════════\n`
       : '';
 
+    const userName = profile?.name || '';
     const userMessage = `Dati utente (valori PIÙ RECENTI disponibili):
 ${previousFocusSection}
+NOME UTENTE: ${userName || 'Non disponibile'}
 OBIETTIVI SELEZIONATI: ${userGoals.length > 0 ? userGoals.join(', ') : 'Nessuno'}
 
 VITALI (1-10, più recente):
