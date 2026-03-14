@@ -727,7 +727,86 @@ function analyzeDiary(data: UserData, actions: AgentAction[]) {
 }
 
 // =============================================================================
-// AREA 9: HEALTHKIT
+// AREA 9: MEMORIES — "Questo giorno, X tempo fa"
+// =============================================================================
+
+async function analyzeMemories(data: UserData, actions: AgentAction[], now: Date, supabase: any) {
+    if (!data.canSendPush) return;
+
+    const today = now.toISOString().split('T')[0];
+
+    // Cerca voci del diario scritte esattamente 1 mese fa, 3 mesi fa, 6 mesi fa, 1 anno fa
+    const lookbackDays = [30, 90, 180, 365];
+
+    for (const days of lookbackDays) {
+        const pastDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        const pastDateStr = pastDate.toISOString().split('T')[0];
+
+        const { data: entries } = await supabase
+            .from('diary_entries')
+            .select('content_text, created_at')
+            .eq('user_id', data.userId)
+            .gte('created_at', pastDateStr + 'T00:00:00')
+            .lt('created_at', pastDateStr + 'T23:59:59')
+            .limit(1);
+
+        if (entries && entries.length > 0) {
+            const entry = entries[0];
+            const preview = entry.content_text.substring(0, 80);
+            const timeLabel = days <= 31 ? 'Un mese fa' :
+                              days <= 91 ? '3 mesi fa' :
+                              days <= 181 ? '6 mesi fa' : 'Un anno fa';
+
+            actions.push({
+                user_id: data.userId,
+                action_type: 'push_notification',
+                priority: 'low',
+                payload: {
+                    title: 'Aria',
+                    body: `${timeLabel} hai scritto: "${preview}..." Come stai oggi rispetto ad allora?`,
+                    reason: 'memory_recall'
+                },
+                created_at: new Date().toISOString(),
+                executed: false
+            });
+            break; // Solo una push "ricordo" per ciclo
+        }
+    }
+
+    // Cerca anche sessioni significative da 1 mese fa
+    if (!actions.some(a => a.payload?.reason === 'memory_recall')) {
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
+
+        const { data: sessions } = await supabase
+            .from('sessions')
+            .select('ai_summary, start_time')
+            .eq('user_id', data.userId)
+            .eq('status', 'completed')
+            .gte('start_time', oneMonthAgoStr + 'T00:00:00')
+            .lt('start_time', oneMonthAgoStr + 'T23:59:59')
+            .limit(1);
+
+        if (sessions && sessions.length > 0 && sessions[0].ai_summary) {
+            const summary = sessions[0].ai_summary.substring(0, 80);
+            actions.push({
+                user_id: data.userId,
+                action_type: 'push_notification',
+                priority: 'low',
+                payload: {
+                    title: 'Aria',
+                    body: `Un mese fa abbiamo parlato di: "${summary}..." Come va adesso?`,
+                    reason: 'memory_recall'
+                },
+                created_at: new Date().toISOString(),
+                executed: false
+            });
+        }
+    }
+}
+
+// =============================================================================
+// AREA 10: HEALTHKIT
 // =============================================================================
 
 function analyzeHealthKit(data: UserData, actions: AgentAction[]) {
@@ -834,6 +913,9 @@ serve(async (req) => {
                 analyzeHabits(userData, actions, now);
                 analyzeDiary(userData, actions);
                 analyzeHealthKit(userData, actions);
+
+                // "Questo giorno, X tempo fa" — ricordi dal diario/sessioni
+                await analyzeMemories(userData, actions, now, supabaseAdmin);
 
             } catch (userErr) {
                 console.error(`[AriaAgent] Error for user ${user.user_id}:`, userErr);
