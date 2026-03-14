@@ -1,5 +1,41 @@
 import { authenticateUser, handleCors, corsHeaders, checkRateLimit } from '../_shared/auth.ts';
 
+const structuredPrompts: Record<string, string[]> = {
+  'Diario della sera': [
+    'Come è andata la giornata da 1 a 10? Cosa ha influenzato il tuo punteggio?',
+    'Qual è stato il momento migliore della giornata?',
+    'C\'è qualcosa che cambieresti di oggi?',
+    'Cosa hai imparato oggi, anche di piccolo?',
+    'Come ti senti adesso, prima di dormire?',
+    'C\'è qualcosa che ti preoccupa per domani?',
+    'Chi ti ha reso felice oggi?'
+  ],
+  'Routine del mattino': [
+    'Come ti senti stamattina appena sveglio/a?',
+    'Qual è la tua intenzione per oggi?',
+    'Di cosa sei preoccupato/a per oggi?',
+    'Cosa vuoi realizzare entro stasera?',
+    'C\'è qualcosa che ti entusiasma per oggi?',
+    'Come vuoi sentirti alla fine di questa giornata?'
+  ],
+  'Gratitudine': [
+    'Scrivi 3 cose per cui sei grato/a oggi.',
+    'Chi ti ha fatto sentire apprezzato/a ultimamente?',
+    'Qual è un piccolo piacere che dai per scontato?',
+    'Cosa del tuo corpo funziona bene e ne sei grato/a?',
+    'Qual è un ricordo recente che ti scalda il cuore?',
+    'Cosa nella tua vita funziona bene in questo momento?'
+  ],
+  'Percorso terapeutico': [
+    'Come ti senti rispetto al tuo percorso di crescita?',
+    'C\'è qualcosa che hai capito di te di recente?',
+    'Quali emozioni hai provato più spesso questa settimana?',
+    'C\'è un pattern nei tuoi pensieri che hai notato?',
+    'Cosa vorresti dire al tuo terapeuta/ad Aria nella prossima sessione?',
+    'Quali strategie hanno funzionato bene per te ultimamente?'
+  ]
+};
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -87,7 +123,16 @@ Deno.serve(async (req) => {
       entriesContext = ` Ultime voci scritte dall'utente in questo diario:\n${entriesSummary}`;
     }
 
-    const geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine}${entriesContext} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
+    // If diary has structured prompts, pick a random one and ask Gemini to personalize it
+    const diaryPrompts = structuredPrompts[diaryName as string];
+    let geminiPrompt: string;
+
+    if (diaryPrompts) {
+      const randomPrompt = diaryPrompts[Math.floor(Math.random() * diaryPrompts.length)];
+      geminiPrompt = `Sei Aria. Ti viene dato questo spunto base per il diario "${diaryName}": "${randomPrompt}". Personalizzalo in massimo 15 parole basandoti sul contesto dell'utente. ${contextLine}${entriesContext} Riformula lo spunto in modo caldo e personale. Rispondi solo con la domanda, niente altro.`;
+    } else {
+      geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine}${entriesContext} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
+    }
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`,

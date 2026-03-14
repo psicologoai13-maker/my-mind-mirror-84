@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.aria-agent-executor]
 verify_jwt = false
+
+[functions.init-default-diaries]
+verify_jwt = false
