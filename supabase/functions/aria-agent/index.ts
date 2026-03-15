@@ -944,6 +944,311 @@ function limitPushPerUser(actions: AgentAction[]) {
 }
 
 // =============================================================================
+// AREA 11: GENERATE CHECKIN PLAN
+// =============================================================================
+
+function getVitalQuestion(key: string): string {
+    const questions: Record<string, string> = {
+        mood: 'Come ti senti in questo momento?',
+        anxiety: 'Quanto ti senti ansioso/a?',
+        energy: 'Com\'è il tuo livello di energia?',
+        sleep: 'Come hai dormito stanotte?'
+    };
+    return questions[key] || `Come valuti ${key}?`;
+}
+
+function getResponseType(key: string): string {
+    const types: Record<string, string> = {
+        mood: 'slider_1_10',
+        anxiety: 'slider_1_10',
+        energy: 'slider_1_10',
+        sleep: 'slider_1_10'
+    };
+    return types[key] || 'slider_1_10';
+}
+
+async function generateCheckinPlan(data: UserData, supabase: any) {
+    const plan: { key: string; question: string; responseType: string; reason: string }[] = [];
+
+    // 1. VITALI sempre (se non risposti oggi)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const answeredToday = new Set<string>();
+
+    // Popola answeredToday dalle tabelle giornaliere con source='checkin'
+    for (const checkin of data.recentCheckins) {
+        const checkinDate = new Date(checkin.created_at).toISOString().split('T')[0];
+        if (checkinDate === todayStr) {
+            if (checkin.mood_value) answeredToday.add('mood');
+            try {
+                const notes = typeof checkin.notes === 'string' ? JSON.parse(checkin.notes) : checkin.notes;
+                if (notes?.anxiety) answeredToday.add('anxiety');
+                if (notes?.energy) answeredToday.add('energy');
+                if (notes?.sleep) answeredToday.add('sleep');
+            } catch { /* ignore parse errors */ }
+        }
+    }
+
+    const vitals = ['mood', 'anxiety', 'energy', 'sleep'];
+    for (const v of vitals) {
+        if (!answeredToday.has(v)) {
+            plan.push({ key: v, question: getVitalQuestion(v), responseType: getResponseType(v), reason: 'vitale giornaliero' });
+        }
+    }
+
+    // 2. BASATI SU CONTESTO
+    // Se ansia in salita → somatic_tension, coping_ability
+    if (data.recentCheckins.length >= 2) {
+        const anxietyValues: number[] = [];
+        for (const c of data.recentCheckins) {
+            try {
+                const notes = typeof c.notes === 'string' ? JSON.parse(c.notes) : c.notes;
+                if (notes?.anxiety) anxietyValues.push(notes.anxiety);
+            } catch { /* ignore parse errors */ }
+        }
+        if (anxietyValues.length >= 2 && anxietyValues[0] > anxietyValues[anxietyValues.length - 1] + 2) {
+            if (!plan.find(p => p.key === 'somatic_tension')) {
+                plan.push({ key: 'somatic_tension', question: 'Senti tensione fisica nel corpo?', responseType: 'slider_1_10', reason: 'ansia in salita' });
+            }
+            if (!plan.find(p => p.key === 'coping_ability')) {
+                plan.push({ key: 'coping_ability', question: 'Quanto ti senti in grado di gestire la situazione?', responseType: 'slider_1_10', reason: 'ansia in salita' });
+            }
+        }
+    }
+
+    // Se evento domani → area correlata
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const tomorrowEvent = data.events.find(e => e.event_date === tomorrow);
+    if (tomorrowEvent) {
+        if (tomorrowEvent.event_type === 'work' && !plan.find(p => p.key === 'work')) {
+            plan.push({ key: 'work', question: 'Come va il lavoro ultimamente?', responseType: 'slider_1_10', reason: 'evento lavoro domani' });
+        } else if (tomorrowEvent.event_type === 'social' && !plan.find(p => p.key === 'social')) {
+            plan.push({ key: 'social', question: 'Come ti senti riguardo alle relazioni sociali?', responseType: 'slider_1_10', reason: 'evento social domani' });
+        }
+    }
+
+    // Se tema irrisolto dalla sessione → area correlata
+    const adaptiveProfile = data.profile?.adaptive_profile;
+    if (adaptiveProfile?.therapeutic_context?.unresolved_themes?.length > 0) {
+        const theme = adaptiveProfile.therapeutic_context.unresolved_themes[0];
+        if (!plan.find(p => p.key === 'emotional_awareness')) {
+            plan.push({ key: 'emotional_awareness', question: `Come ti senti riguardo a "${theme}"?`, responseType: 'slider_1_10', reason: 'tema irrisolto' });
+        }
+    }
+
+    // Se HealthKit mostra sonno basso → sleep, energy
+    if (data.healthkitData.length > 0 && data.healthkitData[0].sleep_hours && data.healthkitData[0].sleep_hours < 5) {
+        if (!plan.find(p => p.key === 'sleep')) {
+            plan.push({ key: 'sleep', question: 'Come hai dormito stanotte?', responseType: 'slider_1_10', reason: 'sonno basso HealthKit' });
+        }
+        if (!plan.find(p => p.key === 'energy')) {
+            plan.push({ key: 'energy', question: 'Com\'è il tuo livello di energia?', responseType: 'slider_1_10', reason: 'sonno basso HealthKit' });
+        }
+    }
+
+    // 3. DISCOVERY (1-2 metriche mai chieste)
+    const discoveryMetrics = [
+        { key: 'self_worth', question: 'Come valuti la tua autostima oggi?', responseType: 'slider_1_10' },
+        { key: 'gratitude', question: 'Quanto ti senti grato/a oggi?', responseType: 'slider_1_10' },
+        { key: 'focus', question: 'Quanto riesci a concentrarti?', responseType: 'slider_1_10' },
+        { key: 'motivation', question: 'Quanto ti senti motivato/a?', responseType: 'slider_1_10' }
+    ];
+    for (const dm of discoveryMetrics) {
+        if (plan.length >= 7) break;
+        if (!plan.find(p => p.key === dm.key)) {
+            plan.push({ ...dm, reason: 'discovery' });
+            if (plan.filter(p => p.reason === 'discovery').length >= 2) break;
+        }
+    }
+
+    // 4. GOAL-ALIGNED (basato su obiettivi utente)
+    const goalMetricKeys: Record<string, { key: string; question: string }> = {
+        'anxiety': { key: 'anxiety', question: 'Quanto ti senti ansioso/a?' },
+        'mood': { key: 'mood', question: 'Come ti senti in questo momento?' },
+        'sleep': { key: 'sleep', question: 'Come hai dormito stanotte?' },
+        'relationships': { key: 'love', question: 'Come vanno le tue relazioni?' },
+        'work': { key: 'work', question: 'Come va il lavoro ultimamente?' },
+        'health': { key: 'health', question: 'Come ti senti fisicamente?' },
+        'growth': { key: 'growth', question: 'Senti che stai crescendo come persona?' },
+        'expression': { key: 'self_worth', question: 'Come valuti la tua autostima oggi?' }
+    };
+    const goals = data.profile?.selected_goals || [];
+    for (const goal of goals) {
+        if (plan.length >= 8) break;
+        const gm = goalMetricKeys[goal];
+        if (gm && !plan.find(p => p.key === gm.key)) {
+            plan.push({ key: gm.key, question: gm.question, responseType: 'slider_1_10', reason: 'obiettivo utente' });
+        }
+    }
+
+    // Max 8 items
+    const finalPlan = plan.slice(0, 8);
+
+    // Salva in user_profiles
+    await supabase.from('user_profiles').update({
+        agent_checkin_plan: finalPlan
+    }).eq('user_id', data.userId);
+}
+
+// =============================================================================
+// AREA 12: GENERATE PRIMARY METRICS
+// =============================================================================
+
+async function generatePrimaryMetrics(data: UserData, supabase: any) {
+    const metrics: { key: string; label: string; icon: string; reason: string }[] = [];
+
+    // Basato su obiettivi utente
+    const goals = data.profile?.selected_goals || [];
+    const goalMetricMap: Record<string, { key: string; label: string; icon: string }> = {
+        'anxiety': { key: 'anxiety', label: 'Ansia', icon: '😰' },
+        'mood': { key: 'mood', label: 'Umore', icon: '😊' },
+        'sleep': { key: 'sleep', label: 'Sonno', icon: '😴' },
+        'relationships': { key: 'love', label: 'Amore', icon: '❤️' },
+        'work': { key: 'work', label: 'Lavoro', icon: '💼' },
+        'health': { key: 'health', label: 'Salute', icon: '🏃' },
+        'growth': { key: 'growth', label: 'Crescita', icon: '🧠' },
+        'expression': { key: 'self_worth', label: 'Autostima', icon: '💪' }
+    };
+
+    // Prima: metriche dagli obiettivi
+    for (const goal of goals.slice(0, 2)) {
+        const m = goalMetricMap[goal];
+        if (m) metrics.push({ ...m, reason: 'obiettivo utente' });
+    }
+
+    // Poi: metriche critiche (valori estremi recenti)
+    if (data.recentPsychology.length > 0) {
+        const latest = data.recentPsychology[0];
+        if (latest.burnout_level >= 7 && !metrics.find(m => m.key === 'burnout_level')) {
+            metrics.push({ key: 'burnout_level', label: 'Burnout', icon: '🔥', reason: 'valore critico' });
+        }
+        if (latest.rumination >= 7 && !metrics.find(m => m.key === 'rumination')) {
+            metrics.push({ key: 'rumination', label: 'Ruminazione', icon: '🌀', reason: 'valore critico' });
+        }
+        if (latest.somatic_tension >= 7 && !metrics.find(m => m.key === 'somatic_tension')) {
+            metrics.push({ key: 'somatic_tension', label: 'Tensione', icon: '😣', reason: 'valore critico' });
+        }
+    }
+
+    // Riempire fino a 4 con metriche base
+    const defaults = [
+        { key: 'mood', label: 'Umore', icon: '😊' },
+        { key: 'energy', label: 'Energia', icon: '⚡' },
+        { key: 'anxiety', label: 'Ansia', icon: '😰' },
+        { key: 'sleep', label: 'Sonno', icon: '😴' }
+    ];
+    for (const d of defaults) {
+        if (metrics.length >= 4) break;
+        if (!metrics.find(m => m.key === d.key)) {
+            metrics.push({ ...d, reason: 'metrica base' });
+        }
+    }
+
+    await supabase.from('user_profiles').update({
+        agent_primary_metrics: metrics.slice(0, 4)
+    }).eq('user_id', data.userId);
+}
+
+// =============================================================================
+// AREA 13: GENERATE DIARY PROMPT
+// =============================================================================
+
+async function generateDiaryPrompt(data: UserData, supabase: any, now: Date) {
+    const hour = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' })).getHours();
+    const name = data.profile?.name || 'utente';
+    let prompt = '';
+
+    // Basato sull'orario
+    if (hour >= 20 || hour < 6) {
+        // Sera/notte → riflessione sulla giornata
+        prompt = `Come è andata oggi, ${name}? Cosa ti è rimasto di questa giornata?`;
+    } else if (hour >= 6 && hour < 12) {
+        // Mattina → intenzioni
+        prompt = `Buongiorno ${name}! Come vuoi vivere questa giornata?`;
+    } else {
+        // Pomeriggio
+        prompt = `${name}, come sta andando la giornata?`;
+    }
+
+    // Se c'è stato un evento oggi → chiedi come è andato
+    const today = now.toISOString().split('T')[0];
+    const todayEvent = data.events.find(e => e.event_date === today);
+    if (todayEvent) {
+        prompt = `Come è andato "${todayEvent.title}" oggi?`;
+    }
+
+    // Se trend negativo → domanda supportiva
+    if (data.recentCheckins.length >= 2) {
+        const moods = data.recentCheckins.filter(c => c.mood_value).map(c => c.mood_value);
+        const avg = moods.length > 0 ? moods.reduce((a: number, b: number) => a + b, 0) / moods.length : 5;
+        if (avg <= 3) {
+            prompt = `${name}, so che non è facile. Scrivi quello che senti, senza filtri.`;
+        }
+    }
+
+    // Se tema irrisolto
+    const adaptiveProfile = data.profile?.adaptive_profile;
+    if (adaptiveProfile?.therapeutic_context?.unresolved_themes?.length > 0 && !prompt.includes('evento')) {
+        const theme = adaptiveProfile.therapeutic_context.unresolved_themes[0];
+        prompt = `${name}, hai pensato a "${theme}" ultimamente? Come ti senti a riguardo?`;
+    }
+
+    if (prompt) {
+        await supabase.from('user_profiles').update({
+            agent_diary_prompt: { prompt, generated_at: now.toISOString() }
+        }).eq('user_id', data.userId);
+    }
+}
+
+// =============================================================================
+// AREA 14: GENERATE DAILY QUOTE
+// =============================================================================
+
+async function generateDailyQuote(data: UserData, supabase: any) {
+    // Pool di citazioni categorizzate
+    const quotesForLowMood = [
+        { text: "Anche i giorni difficili finiscono.", author: "" },
+        { text: "Non devi vedere l'intera scala. Basta fare il primo passo.", author: "Martin Luther King Jr." },
+        { text: "La tua storia non è ancora finita.", author: "" },
+        { text: "Dopo la tempesta arriva sempre la calma.", author: "" },
+        { text: "Sei più forte di quello che pensi.", author: "" }
+    ];
+
+    const quotesForGrowth = [
+        { text: "La crescita personale non è sempre comoda, ma ne vale sempre la pena.", author: "" },
+        { text: "Ogni respiro è un nuovo inizio.", author: "" },
+        { text: "Il cambiamento inizia con un piccolo passo.", author: "" },
+        { text: "Diventa la persona che avresti voluto avere accanto.", author: "" }
+    ];
+
+    const quotesGeneral = [
+        { text: "Sii gentile con te stesso. Stai facendo del tuo meglio.", author: "" },
+        { text: "La calma è il tuo superpotere.", author: "" },
+        { text: "Meriti la stessa gentilezza che dai agli altri.", author: "" },
+        { text: "Oggi è un buon giorno per stare bene.", author: "" },
+        { text: "Prenditi cura di te come faresti con chi ami.", author: "" },
+        { text: "Non devi avere tutte le risposte. Basta fare un passo alla volta.", author: "" }
+    ];
+
+    // Scegli pool basato sul contesto
+    let pool = quotesGeneral;
+
+    if (data.recentCheckins.length > 0) {
+        const lastMood = data.recentCheckins[0].mood_value;
+        if (lastMood && lastMood <= 3) pool = quotesForLowMood;
+    }
+
+    const goals = data.profile?.selected_goals || [];
+    if (goals.includes('growth')) pool = pool.concat(quotesForGrowth);
+
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    const quote = pool[dayOfYear % pool.length];
+
+    await supabase.from('user_profiles').update({
+        agent_daily_quote: quote
+    }).eq('user_id', data.userId);
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -1010,6 +1315,12 @@ serve(async (req) => {
 
                 // "Questo giorno, X tempo fa" — ricordi dal diario/sessioni
                 await analyzeMemories(userData, actions, now, supabaseAdmin);
+
+                // Genera decisioni
+                await generateCheckinPlan(userData, supabaseAdmin);
+                await generatePrimaryMetrics(userData, supabaseAdmin);
+                await generateDiaryPrompt(userData, supabaseAdmin, now);
+                await generateDailyQuote(userData, supabaseAdmin);
 
             } catch (userErr) {
                 console.error(`[AriaAgent] Error for user ${user.user_id}:`, userErr);
