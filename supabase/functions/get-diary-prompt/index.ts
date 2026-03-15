@@ -51,6 +51,23 @@ Deno.serve(async (req) => {
       throw new Error("GOOGLE_API_KEY is not configured");
     }
 
+    // === OVERRIDE ORCHESTRATORE ===
+    let agentDiaryTheme = '';
+    try {
+      const { data: agentData } = await supabaseAdmin
+        .from('user_profiles')
+        .select('agent_diary_prompt')
+        .eq('user_id', userId)
+        .single();
+
+      if (agentData?.agent_diary_prompt?.prompt) {
+        agentDiaryTheme = agentData.agent_diary_prompt.prompt;
+        console.log(`[diary-prompt] Using orchestrator theme: ${agentDiaryTheme}`);
+      }
+    } catch (agentErr) {
+      console.error('[diary-prompt] Agent prompt check error:', agentErr);
+    }
+
     const body = await req.json();
     const { diary_id, diary_name } = body as {
       diary_id: string;
@@ -126,12 +143,13 @@ Deno.serve(async (req) => {
     // If diary has structured prompts, pick a random one and ask Gemini to personalize it
     const diaryPrompts = structuredPrompts[diaryName as string];
     let geminiPrompt: string;
+    const themeHint = agentDiaryTheme ? ` TEMA SUGGERITO: ${agentDiaryTheme}.` : '';
 
     if (diaryPrompts) {
       const randomPrompt = diaryPrompts[Math.floor(Math.random() * diaryPrompts.length)];
-      geminiPrompt = `Sei Aria. Ti viene dato questo spunto base per il diario "${diaryName}": "${randomPrompt}". Personalizzalo in massimo 15 parole basandoti sul contesto dell'utente. ${contextLine}${entriesContext} Riformula lo spunto in modo caldo e personale. Rispondi solo con la domanda, niente altro.`;
+      geminiPrompt = `Sei Aria. Ti viene dato questo spunto base per il diario "${diaryName}": "${randomPrompt}". Personalizzalo in massimo 15 parole basandoti sul contesto dell'utente. ${contextLine}${entriesContext}${themeHint} Riformula lo spunto in modo caldo e personale. Rispondi solo con la domanda, niente altro.`;
     } else {
-      geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine}${entriesContext} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
+      geminiPrompt = `Sei Aria. Genera UNA domanda aperta di massimo 15 parole come spunto per scrivere nel diario "${diaryName}". ${contextLine}${entriesContext}${themeHint} La domanda deve essere calda, non invasiva, invitare la riflessione. Rispondi solo con la domanda, niente altro.`;
     }
 
     const geminiResponse = await fetch(

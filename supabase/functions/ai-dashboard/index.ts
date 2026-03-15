@@ -246,7 +246,7 @@ serve(async (req) => {
     // Fetch user profile with goals AND previous cache for focus stability
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('name, selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache')
+      .select('name, selected_goals, onboarding_answers, dashboard_config, ai_dashboard_cache, agent_primary_metrics')
       .eq('user_id', userId)
       .single();
 
@@ -557,13 +557,23 @@ CONTESTO TEMPORALE PER AI_MESSAGE:
 
 Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'utente, non sui valori più alti.`;
 
+    // === OVERRIDE ORCHESTRATORE: vincolo metriche ===
+    const agentMetrics = profile?.agent_primary_metrics as any[] | null;
+    let metricsConstraint = '';
+    if (agentMetrics && Array.isArray(agentMetrics) && agentMetrics.length > 0) {
+      const metricKeys = agentMetrics.map((m: any) => `${m.key} (${m.label})`).join(', ');
+      metricsConstraint = `\nVINCOLO METRICHE: Le primary_metrics DEVONO essere esattamente queste 4: ${metricKeys}. Non cambiarle.`;
+    }
+
+    const finalSystemPrompt = systemPrompt + metricsConstraint;
+
     const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
+        systemInstruction: { parts: [{ text: finalSystemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
         generationConfig: { temperature: 0.7 },
       }),
