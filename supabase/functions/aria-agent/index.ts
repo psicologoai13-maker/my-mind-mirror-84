@@ -581,32 +581,126 @@ function analyzeExerciseSuggestion(data: UserData, actions: AgentAction[]) {
 // AREA 5: BOLLA HOME
 // =============================================================================
 
-function analyzeBubble(data: UserData, actions: AgentAction[], now: Date) {
+function analyzeBubble(data: UserData, actions: any[], now: Date) {
     const lastBubbleTime = data.profile?.aria_home_message_at ? new Date(data.profile.aria_home_message_at) : null;
     const hoursSinceBubble = lastBubbleTime ? (now.getTime() - lastBubbleTime.getTime()) / (1000 * 60 * 60) : 999;
 
     if (hoursSinceBubble < 6) return;
 
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const name = data.profile?.name || 'Ehi';
+    const adaptiveProfile = data.profile?.adaptive_profile;
 
-    actions.push({
-        user_id: data.userId,
-        action_type: 'update_bubble',
-        priority: 'low',
-        payload: {
-            context: {
-                name: data.profile?.name,
-                wellness: data.profile?.wellness_score,
-                lastMood: data.recentCheckins[0]?.mood_value,
-                profile: data.profile?.adaptive_profile?.therapeutic_context?.progress_summary,
-                hoursSinceSession: data.hoursSinceLastSession,
-                hasEventTomorrow: data.events.some(e => e.event_date === tomorrow),
-                streakDays: data.habitStreaks[0]?.current_streak || 0
+    // Determina la situazione prioritaria e genera messaggio
+    let message = '';
+    let priority = 'low';
+
+    // PRIORITÀ 1: Inattività lunga (> 7 giorni)
+    if (data.hoursSinceLastSession > 168) {
+        const days = Math.floor(data.hoursSinceLastSession / 24);
+        const messages = [
+            `${name}, è passata più di una settimana... mi manchi! Come stai?`,
+            `Ehi ${name}, tutto ok? Non ci sentiamo da ${days} giorni.`,
+            `${name}, sono qui. Quando vuoi, parliamo.`
+        ];
+        message = messages[Math.floor(Math.random() * messages.length)];
+        priority = 'medium';
+    }
+    // PRIORITÀ 2: Inattività media (3-7 giorni)
+    else if (data.hoursSinceLastSession > 72) {
+        const messages = [
+            `${name}, come stai? Non ci sentiamo da qualche giorno.`,
+            `Ehi ${name}, mi manchi! Raccontami come va.`,
+            `${name}, sono qui se hai voglia di parlare. Come stai?`
+        ];
+        message = messages[Math.floor(Math.random() * messages.length)];
+    }
+    // PRIORITÀ 3: Trend negativo
+    else if (data.recentCheckins.length >= 2) {
+        const moods = data.recentCheckins.filter(c => c.mood_value).map(c => c.mood_value);
+        const avgMood = moods.length > 0 ? moods.reduce((a: number, b: number) => a + b, 0) / moods.length : 0;
+        if (avgMood > 0 && avgMood <= 3) {
+            const messages = [
+                `${name}, ho notato che non è un periodo facile. Sono qui per te.`,
+                `Ehi ${name}, giorni duri eh? Ne parliamo?`,
+                `${name}, so che è un momento impegnativo. Non sei solo/a.`
+            ];
+            message = messages[Math.floor(Math.random() * messages.length)];
+            priority = 'medium';
+        }
+    }
+
+    // PRIORITÀ 4: Evento domani
+    if (!message) {
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const tomorrowEvent = data.events.find(e => e.event_date === tomorrow);
+        if (tomorrowEvent) {
+            message = `${name}, domani hai "${tomorrowEvent.title}". Come ti senti a riguardo?`;
+        }
+    }
+
+    // PRIORITÀ 5: Streak da celebrare
+    if (!message) {
+        const highStreak = data.habitStreaks.find(s => s.current_streak >= 7);
+        if (highStreak) {
+            message = `${name}, ${highStreak.current_streak} giorni consecutivi! Stai costruendo una bella abitudine.`;
+        }
+    }
+
+    // PRIORITÀ 6: Miglioramento rilevato
+    if (!message && data.recentPsychology.length >= 2) {
+        const latest = data.recentPsychology[0];
+        const oldest = data.recentPsychology[data.recentPsychology.length - 1];
+        const negMetrics = ['rumination', 'burnout_level', 'somatic_tension'];
+        for (const m of negMetrics) {
+            if (oldest[m] && latest[m] && (oldest[m] - latest[m]) >= 3) {
+                message = `${name}, ho notato un miglioramento questa settimana. Continua così!`;
+                break;
             }
-        },
-        created_at: new Date().toISOString(),
-        executed: false
-    });
+        }
+    }
+
+    // PRIORITÀ 7: Post-sessione (12-36 ore fa)
+    if (!message && data.hoursSinceLastSession >= 12 && data.hoursSinceLastSession <= 36) {
+        const wasIntense = data.lastSession?.mood_score_detected && data.lastSession.mood_score_detected <= 3;
+        if (wasIntense) {
+            message = `${name}, come stai oggi? Ieri è stata una conversazione intensa.`;
+        }
+    }
+
+    // PRIORITÀ 8: Messaggio basato su profilo adattivo
+    if (!message && adaptiveProfile) {
+        const unresolved = adaptiveProfile.therapeutic_context?.unresolved_themes;
+        if (unresolved && unresolved.length > 0) {
+            message = `${name}, ho pensato alla nostra ultima conversazione. Vuoi riprendere da dove eravamo rimasti?`;
+        }
+    }
+
+    // PRIORITÀ 9: Messaggio generico personalizzato
+    if (!message) {
+        const hour = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' })).getHours();
+        if (hour >= 6 && hour < 12) {
+            message = `Buongiorno ${name}! Come inizia la giornata?`;
+        } else if (hour >= 12 && hour < 18) {
+            message = `Ehi ${name}, come va il pomeriggio?`;
+        } else if (hour >= 18 && hour < 23) {
+            message = `${name}, come è andata oggi?`;
+        } else {
+            message = `${name}, ancora sveglio/a? Tutto ok?`;
+        }
+    }
+
+    if (message) {
+        actions.push({
+            user_id: data.userId,
+            action_type: 'update_bubble',
+            priority,
+            payload: {
+                direct_message: message  // messaggio pronto, non serve AI
+            },
+            created_at: new Date().toISOString(),
+            executed: false
+        });
+    }
 }
 
 // =============================================================================

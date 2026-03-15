@@ -99,45 +99,54 @@ serve(async (req) => {
                     }
 
                     case 'update_bubble': {
-                        // Chiama ai-dashboard per generare il messaggio con contesto completo
-                        const dashboardResponse = await fetch(
-                            `${supabaseUrl}/functions/v1/ai-dashboard`,
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${serviceRoleKey}`
-                                },
-                                body: JSON.stringify({ userId: action.user_id })
-                            }
-                        );
+                        let message = '';
 
-                        if (dashboardResponse.ok) {
-                            const dashData = await dashboardResponse.json();
-                            const aiMessage = dashData.ai_message;
+                        if (action.payload?.direct_message) {
+                            // Messaggio generato direttamente dall'orchestratore
+                            message = action.payload.direct_message;
+                        } else if (action.payload?.context) {
+                            // Fallback: chiama ai-dashboard (vecchio metodo)
+                            const dashboardResponse = await fetch(
+                                `${supabaseUrl}/functions/v1/ai-dashboard`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${serviceRoleKey}`
+                                    },
+                                    body: JSON.stringify({ userId: action.user_id })
+                                }
+                            );
 
-                            if (aiMessage && aiMessage.trim().length > 0) {
-                                const { error: updateErr } = await supabase
-                                    .from('user_profiles')
-                                    .update({
-                                        aria_home_message: aiMessage.trim(),
-                                        aria_home_message_at: new Date().toISOString(),
-                                        aria_home_message_read: false
-                                    })
-                                    .eq('user_id', action.user_id);
-
-                                success = !updateErr;
-                                if (updateErr) {
-                                    console.error(`[Executor] update_bubble DB error for ${action.user_id}:`, updateErr.message);
+                            if (dashboardResponse.ok) {
+                                const dashData = await dashboardResponse.json();
+                                if (dashData.ai_message && dashData.ai_message.trim().length > 0) {
+                                    message = dashData.ai_message.trim();
                                 } else {
-                                    console.log(`[Executor] update_bubble success for ${action.user_id}: "${aiMessage.trim().substring(0, 50)}..."`);
+                                    console.error(`[Executor] update_bubble: ai-dashboard returned empty ai_message for ${action.user_id}`);
                                 }
                             } else {
-                                console.error(`[Executor] update_bubble: ai-dashboard returned empty ai_message for ${action.user_id}`);
+                                const errText = await dashboardResponse.text().catch(() => 'unknown');
+                                console.error(`[Executor] update_bubble: ai-dashboard failed for ${action.user_id}: status=${dashboardResponse.status} ${errText.substring(0, 200)}`);
                             }
-                        } else {
-                            const errText = await dashboardResponse.text().catch(() => 'unknown');
-                            console.error(`[Executor] update_bubble: ai-dashboard failed for ${action.user_id}: status=${dashboardResponse.status} ${errText.substring(0, 200)}`);
+                        }
+
+                        if (message) {
+                            const { error: updateErr } = await supabase
+                                .from('user_profiles')
+                                .update({
+                                    aria_home_message: message,
+                                    aria_home_message_at: new Date().toISOString(),
+                                    aria_home_message_read: false
+                                })
+                                .eq('user_id', action.user_id);
+
+                            success = !updateErr;
+                            if (updateErr) {
+                                console.error(`[Executor] update_bubble DB error for ${action.user_id}:`, updateErr.message);
+                            } else {
+                                console.log(`[Executor] update_bubble success for ${action.user_id}: "${message.substring(0, 50)}..."`);
+                            }
                         }
                         break;
                     }
