@@ -728,7 +728,7 @@ serve(async (req) => {
     // Return cached list if valid
     if (existingCache?.cachedDate === today && existingCache?.fixedDailyList?.length > 0) {
       console.log("[ai-checkins] Returning FIXED daily list (immutable for 24h)");
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         checkins: existingCache.fixedDailyList,
         fixedDailyList: existingCache.fixedDailyList,
         allCompleted: false,
@@ -738,6 +738,47 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // === OVERRIDE ORCHESTRATORE ===
+    // Se l'orchestratore ha generato un piano check-in completo, usalo direttamente
+    try {
+      const { data: agentData } = await supabaseAdmin
+        .from('user_profiles')
+        .select('agent_checkin_plan')
+        .eq('user_id', userId)
+        .single();
+
+      if (agentData?.agent_checkin_plan && Array.isArray(agentData.agent_checkin_plan) && agentData.agent_checkin_plan.length > 0) {
+        const plan = agentData.agent_checkin_plan;
+
+        // Salva in cache
+        const cacheData = {
+          checkins: plan,
+          allCompleted: false,
+          aiGenerated: false,
+          cachedAt: new Date().toISOString(),
+          cachedDate: today,
+          fixedDailyList: plan
+        };
+
+        await supabaseAdmin.from('user_profiles').update({
+          ai_checkins_cache: cacheData,
+          agent_checkin_plan: null
+        }).eq('user_id', userId);
+
+        console.log(`[ai-checkins] Using orchestrator plan: ${plan.length} items`);
+
+        return new Response(JSON.stringify({
+          checkins: plan,
+          allCompleted: false,
+          aiGenerated: false,
+          cachedDate: today
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    } catch (agentErr) {
+      console.error('[ai-checkins] Agent plan check error:', agentErr);
+    }
+    // Se non c'è piano orchestratore → procedi con logica autonoma esistente
 
     console.log("[ai-checkins] v2.1 SMART-FREQUENCY - Generating intelligent list for", today);
 
