@@ -262,7 +262,7 @@ serve(async (req) => {
       supabase.from('daily_emotions').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
       supabase.from('daily_life_areas').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
       supabase.from('daily_psychology').select('*').eq('user_id', userId).gte('date', monthAgo).order('date', { ascending: false }),
-      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected').eq('user_id', userId).gte('start_time', monthAgo).order('start_time', { ascending: false }).limit(10),
+      supabase.from('sessions').select('ai_summary, mood_score_detected, anxiety_score_detected, start_time').eq('user_id', userId).gte('start_time', monthAgo).order('start_time', { ascending: false }).limit(10),
       // ALL-TIME check: prevents treating returning users as new
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     ]);
@@ -347,6 +347,13 @@ serve(async (req) => {
       mental_clarity: getMostRecent(psychology, p => p.mental_clarity),
       gratitude: getMostRecent(psychology, p => p.gratitude),
     };
+
+    // Calculate inactivity period from last session
+    const lastSession = sessions?.[0];
+    const hoursSinceLastSession = lastSession?.start_time
+      ? (Date.now() - new Date(lastSession.start_time).getTime()) / (1000 * 60 * 60)
+      : 999;
+    const daysSinceLastSession = Math.floor(hoursSinceLastSession / 24);
 
     const recentSummaries = sessions.slice(0, 3).map(s => s.ai_summary).filter(Boolean);
 
@@ -539,6 +546,14 @@ RIASSUNTI SESSIONI RECENTI:
 ${recentSummaries.length > 0 ? recentSummaries.join('\n---\n') : 'Nessuna sessione recente'}
 
 GIORNI CON DATI: Emozioni: ${emotions.length}, Aree: ${lifeAreas.length}, Sessioni: ${sessions.length}
+
+CONTESTO TEMPORALE PER AI_MESSAGE:
+- Giorni dall'ultima conversazione: ${daysSinceLastSession}
+- Se > 3 giorni: il messaggio DEVE riconoscere l'assenza ("Non ci sentiamo da un po'", "Mi manchi!", "Come stai? È da qualche giorno che non parliamo")
+- Se > 7 giorni: tono più preoccupato ma gentile ("Ehi, è passata una settimana... tutto ok?")
+- Se 1-3 giorni: messaggio normale basato sui dati
+- Se < 1 giorno: messaggio leggero, l'utente è attivo
+- MAI parlare di metriche specifiche se l'utente è inattivo da giorni — prima riconosci l'assenza, poi eventualmente menziona qualcosa
 
 Genera la configurazione dashboard personalizzata basata sull'IMPORTANZA per l'utente, non sui valori più alti.`;
 
