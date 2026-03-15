@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.init-default-diaries]
 verify_jwt = false
+
+[functions.post-onboarding]
+verify_jwt = false
